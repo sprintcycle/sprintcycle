@@ -24,7 +24,58 @@ SprintCycle is an **AI-driven agile development framework** that automates the e
 Requirements (PRD) → Sprint Planning → Agent Execution → Verification → Knowledge Accumulation → Self-Evolution
 ```
 
-SprintCycle doesn't just execute tasks—it learns from each iteration, continuously improving its capabilities and the quality of its output.
+---
+
+## 🎯 Two Ways to Use SprintCycle
+
+SprintCycle can be triggered in **two flexible ways**:
+
+### Way 1: CLI (Command Line Interface)
+
+Direct command-line usage for local development and automation:
+
+```bash
+# Initialize a project
+sprintcycle init -p /path/to/project
+
+# Execute from PRD
+sprintcycle run -p /path/to/project --prd requirements.yaml
+
+# Run self-evolution cycle
+sprintcycle sprint auto-run -p /path/to/project
+```
+
+**Best for**: Local development, CI/CD pipelines, automation scripts
+
+### Way 2: OpenClaw Skill + MCP (Recommended for AI Agents)
+
+Trigger SprintCycle through OpenClaw skills with MCP (Model Context Protocol) integration:
+
+```python
+# In your AI agent (e.g., Coze/Claude/GPT)
+# Simply describe what you want to build
+
+"Use SprintCycle to develop a tech news website with:
+- Frontend: news list and detail pages
+- Backend: FastAPI with SQLite
+- Features: view history, filter by category"
+
+# SprintCycle MCP tools will be automatically invoked:
+# - sprintcycle_init
+# - sprintcycle_plan_from_prd
+# - sprintcycle_run_sprint
+# - sprintcycle_verify_playwright
+```
+
+**Best for**: AI-powered development, natural language workflows, intelligent automation
+
+| Feature | CLI | OpenClaw + MCP |
+|---------|-----|----------------|
+| Local development | ✅ | ✅ |
+| Natural language input | ❌ | ✅ |
+| AI agent integration | ❌ | ✅ |
+| Automated planning | Manual | ✅ Auto |
+| Best for | Developers | AI Agents |
 
 ---
 
@@ -68,11 +119,6 @@ SprintCycle can evolve itself through a 9-phase closed-loop:
 8. **Integration Testing** - Validate changes
 9. **Self-Iteration** - Update evolution skills
 
-### 🔧 Extensible Architecture
-- Plugin-based agent system
-- Custom verification strategies
-- Configurable tool integrations (Aider, Claude, Cursor)
-
 ---
 
 ## 🚀 Quick Start
@@ -86,7 +132,7 @@ SprintCycle can evolve itself through a 9-phase closed-loop:
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/sprintcycle.git
+git clone https://github.com/sprintcycle/sprintcycle.git
 cd sprintcycle
 
 # Install dependencies
@@ -99,13 +145,11 @@ pip install -r requirements.txt
 # Copy the configuration template
 cp config.yaml.example config.yaml
 
-# Set your API key (required for AI features)
+# Set your LLM API key
 export LLM_API_KEY=your_api_key_here
 ```
 
-### Basic Usage
-
-#### CLI Commands
+### Usage (CLI)
 
 ```bash
 # Initialize a project
@@ -124,40 +168,20 @@ python cli.py run -p /path/to/your/project --prd prd/requirements.yaml
 python cli.py sprint auto-run -p /path/to/your/project
 ```
 
-#### Python API
+### Usage (OpenClaw + MCP)
 
-```python
-from sprintcycle.sprint_chain import SprintChain
+In your AI agent (Coze, Claude, etc.) with OpenClaw skill installed:
 
-# Initialize SprintChain
-chain = SprintChain("/path/to/your/project")
-
-# Generate Sprint plan from PRD
-chain.auto_plan_from_prd("prd/requirements.yaml")
-
-# Execute all Sprints
-results = chain.run_all_sprints()
-
-# Check results
-for result in results:
-    print(f"{result['sprint_name']}: {result['success']}/{result['total']}")
-
-# View knowledge base statistics
-stats = chain.get_kb_stats()
-print(f"Total tasks: {stats['total']}, Success rate: {stats['success_rate']}%")
 ```
+User: "Build a blog system with user authentication and post management"
 
-### Start Dashboard
-
-```bash
-# Start web dashboard
-python cli.py dashboard --port 8088
-
-# Or use uvicorn directly
-uvicorn dashboard.server:app --host 0.0.0.0 --port 8088
+AI Agent: 
+  → Calls sprintcycle_init
+  → Calls sprintcycle_plan_from_prd (auto-generates PRD)
+  → Calls sprintcycle_auto_run
+  → Calls sprintcycle_playwright_verify
+  → Returns completed project
 ```
-
-Visit `http://localhost:8088` to access the dashboard.
 
 ---
 
@@ -172,13 +196,9 @@ Visit `http://localhost:8088` to access the dashboard.
 - [Development Guide](docs/DEVELOPMENT.md) - How to extend SprintCycle
 
 ### API Reference
-- [CLI Commands](docs/CLI_REFERENCE.md) - Complete CLI documentation
-- [REST API](http://localhost:8088/docs) - Interactive API documentation (when dashboard is running)
-
-### Advanced Topics
-- [Creating Custom Agents](docs/CUSTOM_AGENTS.md) - Extend with your own agents
-- [Verification Strategies](docs/VERIFICATION.md) - Implement custom verification
-- [Self-Evolution Guide](docs/SELF_EVOLUTION.md) - Enable continuous improvement
+- [CLI Commands](#cli-reference) - Complete CLI documentation
+- [MCP Tools](#mcp-tools) - All 18 MCP tools
+- [REST API](http://localhost:8088/docs) - Interactive API docs (when dashboard is running)
 
 ---
 
@@ -203,6 +223,54 @@ Visit `http://localhost:8088` to access the dashboard.
 
 ---
 
+## 🔌 MCP Tools
+
+SprintCycle provides **18 MCP tools** for AI agent integration:
+
+### Project Management
+| Tool | Description |
+|------|-------------|
+| `sprintcycle_list_projects` | List all SprintCycle projects |
+| `sprintcycle_list_tools` | List available execution tools |
+| `sprintcycle_status` | Get project status |
+
+### Sprint Management
+| Tool | Description |
+|------|-------------|
+| `sprintcycle_get_sprint_plan` | Get Sprint plan |
+| `sprintcycle_create_sprint` | Create a new Sprint |
+| `sprintcycle_run_sprint` | Execute a Sprint |
+| `sprintcycle_run_sprint_by_name` | Execute Sprint by name |
+| `sprintcycle_auto_run` | Auto-execute all Sprints |
+| `sprintcycle_plan_from_prd` | Generate Sprint from PRD |
+
+### Task Execution
+| Tool | Description |
+|------|-------------|
+| `sprintcycle_run_task` | Execute a single task |
+
+### Verification
+| Tool | Description |
+|------|-------------|
+| `sprintcycle_playwright_verify` | Playwright UI verification |
+| `sprintcycle_verify_frontend` | Frontend verification |
+| `sprintcycle_verify_visual` | Visual regression testing |
+
+### Issue Management
+| Tool | Description |
+|------|-------------|
+| `sprintcycle_scan_issues` | Scan project issues |
+| `sprintcycle_autofix` | Auto-fix issues |
+| `sprintcycle_rollback` | Rollback changes |
+
+### Knowledge Base
+| Tool | Description |
+|------|-------------|
+| `sprintcycle_get_kb_stats` | Knowledge base statistics |
+| `sprintcycle_get_execution_detail` | Execution details |
+
+---
+
 ## 📦 Project Structure
 
 ```
@@ -211,7 +279,6 @@ sprintcycle/
 │   ├── chorus.py          # Agent coordinator
 │   ├── sprint_chain.py    # Sprint execution chain
 │   ├── optimizations.py   # Optimization utilities
-│   ├── cache.py           # API response caching
 │   └── agents/            # Agent implementations
 ├── dashboard/             # Web dashboard
 │   └── server.py          # FastAPI server
@@ -242,15 +309,6 @@ Please read our [Contributing Guide](CONTRIBUTING.md) for details.
 
 This project is licensed under the **Apache License 2.0** - see the [LICENSE](LICENSE) file for details.
 
-### What this means:
-- ✅ Commercial use allowed
-- ✅ Modification allowed
-- ✅ Distribution allowed
-- ✅ Private use allowed
-- ✅ Patent grant included
-- ❗ Must include license and copyright notice
-- ❗ Must state changes made to files
-
 ---
 
 ## 🙏 Acknowledgments
@@ -260,14 +318,6 @@ Built with these amazing tools:
 - [Aider](https://github.com/paul-gauthier/aider) - AI pair programming
 - [Playwright](https://playwright.dev/) - Browser automation
 - [FastAPI](https://fastapi.tiangolo.com/) - Modern web framework
-- [Loguru](https://github.com/Delgan/loguru) - Python logging
-
----
-
-## 📮 Contact & Support
-
-- **Issues**: [GitHub Issues](https://github.com/YOUR_USERNAME/sprintcycle/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/YOUR_USERNAME/sprintcycle/discussions)
 
 ---
 
