@@ -4,7 +4,7 @@
 
 **AI-Powered Agile Development Framework**
 
-**一句话解决开发痛点**：告别手动写代码、测不完的用例、改不完的 Bug —— 用自然语言描述需求，SprintCycle 自动完成开发、测试、部署全流程。
+**One sentence to solve development pain**: Say goodbye to manual coding, endless test cases, and never-ending bugs — describe requirements in natural language, and SprintCycle automatically completes development, testing, and deployment.
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.8+-green.svg)](https://www.python.org/)
@@ -16,108 +16,108 @@ English | [简体中文](README_CN.md)
 
 ---
 
-## 📹 30秒快速了解 SprintCycle
+## 📹 30 Seconds to Understand SprintCycle
 
 <div align="center">
 
 https://github.com/sprintcycle/sprintcycle/raw/main/videos/demo_30s.mp4
 
-**一句话，一个项目 —— 从需求到部署全自动化**
+**One sentence, one project — from requirements to deployment, fully automated**
 
 </div>
 
 ---
 
-## 😫 你是否深陷这些开发泥潭？
+## 😫 Are You Stuck in These Development Traps?
 
-### 🔴 痛点一：需求-编码的无限循环
+### 🔴 Pain Point 1: The Requirements-Coding Infinite Loop
 
 ```
-理解需求 → 写代码 → 发现理解偏差 → 重写代码 → 又有新理解 → 再改代码 → ...
-     ↑                                                              ↓
-     └──────────────────────── 永远在"翻译"需求的路上 ─────────────────┘
+Understand requirements → Write code → Find misunderstanding → Rewrite code → New understanding → Rewrite again → ...
+     ↑                                                                                          ↓
+     └──────────────────────────── Always "translating" requirements ───────────────────────────┘
 ```
 
-> 一个简单的功能，反复修改了 5 次、10 次、甚至更多...
+> A simple feature, modified 5, 10 times, or even more...
 > 
-> 需求文档改一点，代码就要改一堆，改到最后自己都不知道改了什么
+> Requirements change a little, code changes a lot, until you don't even know what you changed
 
-### 🔴 痛点二：Bug 修复的无底洞
+### 🔴 Pain Point 2: The Bug Fixing Black Hole
 
 ```
-修复 Bug1 → 引入 Bug2 → 修复 Bug2 → 出现 Bug3 → 修复 Bug3 → 又出现 Bug4 → ...
-     ↑                                                                    ↓
-     └────────────────────── 按下葫芦浮起瓢，越修越乱 ──────────────────────┘
+Fix Bug1 → Introduce Bug2 → Fix Bug2 → Bug3 appears → Fix Bug3 → Bug4 shows up → ...
+     ↑                                                                                ↓
+     └────────────────────────── Fix one, break another, endless cycle ───────────────┘
 ```
 
-> 每次修复都小心翼翼，生怕引入新问题
+> Every fix is小心翼翼, afraid of introducing new problems
 > 
-> Bug 修不完，加班到深夜，头发越来越少
+> Bugs never end, overtime till midnight, hair getting thinner
 
-### 🔴 痛点三：测试用例写不完
+### 🔴 Pain Point 3: Test Cases Never End
 
 ```
-手写测试 → 覆盖不全 → 上线出问题 → 补测试 → 新功能上线 → 又要写新测试 → ...
-     ↑                                                               ↓
-     └────────────────────── 测试永远追不上需求变化 ───────────────────┘
+Write tests manually → Incomplete coverage → Production issues → Add tests → New features → Write more tests → ...
+     ↑                                                                                                  ↓
+     └────────────────────────── Testing never catches up with requirements ────────────────────────────┘
 ```
 
-> 测试代码比业务代码还多，维护成本越来越高
+> Test code exceeds business code, maintenance costs keep rising
 > 
-> 改一个功能，要改一堆测试，心力交瘁
+> Change one feature, update piles of tests, mentally exhausted
 
 ---
 
-## ✅ SprintCycle 让你告别这些痛苦
+## ✅ SprintCycle Ends These Struggles
 
-| 痛点 | 传统方式 | SprintCycle 方式 |
-|------|----------|------------------|
-| 🔄 需求-编码循环 | 手写代码，反复修改 | **PRD 自动生成代码**，一次到位 |
-| 🐛 Bug 无底洞 | 人工修复，引入新 Bug | **智能诊断 + 自动修复**，根因解决 |
-| 📝 测试写不完 | 手写测试用例 | **自动生成并执行测试**，全覆盖 |
-| 🔍 代码审查 | 人工 Review，耗时耗力 | **AI Agent 自动审查**，24/7 在线 |
-| 📚 文档落后 | 手写文档，总是过时 | **知识库自动沉淀**，永远同步 |
-| 🏗️ 项目混乱 | 越做越乱，难以维护 | **自进化持续优化**，越用越强 |
+| Pain Point | Traditional Way | SprintCycle Way |
+|------------|-----------------|-----------------|
+| 🔄 Requirements-Coding Loop | Manual coding, repeated revisions | **PRD auto-generates code**, done right the first time |
+| 🐛 Bug Black Hole | Manual fixes, introduce new bugs | **Intelligent diagnosis + auto-fix**, root cause resolution |
+| 📝 Endless Testing | Write test cases manually | **Auto-generate and execute tests**, full coverage |
+| 🔍 Code Review | Manual review, time-consuming | **AI Agent auto-review**, 24/7 available |
+| 📚 Outdated Docs | Manual docs, always outdated | **Knowledge base auto-accumulates**, always synced |
+| 🏗️ Chaotic Projects | Gets messier over time | **Self-evolution continuous optimization**, stronger with use |
 
 ---
 
-## 🏗️ 架构图
+## 🏗️ Architecture
 
 <div align="center">
 
 ```mermaid
 graph TB
     subgraph Input
-        PRD[📝 需求文档 PRD]
-        NL[💬 自然语言描述]
+        PRD[📝 Requirements PRD]
+        NL[💬 Natural Language]
     end
     
     subgraph Planning
-        PLAN[🎯 Sprint 规划]
-        TASK[📋 任务拆解]
+        PLAN[🎯 Sprint Planning]
+        TASK[📋 Task Breakdown]
     end
     
     subgraph Agents
-        CODER[👨‍💻 CODER<br/>代码编写]
-        REVIEWER[👀 REVIEWER<br/>代码审查]
-        ARCHITECT[🏗️ ARCHITECT<br/>架构设计]
-        TESTER[🧪 TESTER<br/>测试验证]
-        DIAG[🔍 DIAGNOSTIC<br/>问题诊断]
-        UI[🖼️ UI_VERIFY<br/>UI验证]
+        CODER[👨‍💻 CODER<br/>Code Writing]
+        REVIEWER[👀 REVIEWER<br/>Code Review]
+        ARCHITECT[🏗️ ARCHITECT<br/>Architecture Design]
+        TESTER[🧪 TESTER<br/>Test Verification]
+        DIAG[🔍 DIAGNOSTIC<br/>Issue Diagnosis]
+        UI[🖼️ UI_VERIFY<br/>UI Verification]
     end
     
     subgraph Verification
-        TEST[✅ 测试验证]
-        REVIEW[✅ 代码审查]
-        RUNTIME[✅ 运行时]
-        UI_TEST[✅ UI验证]
-        DIFF[✅ 差异验证]
+        TEST[✅ Test Verification]
+        REVIEW[✅ Code Review]
+        RUNTIME[✅ Runtime]
+        UI_TEST[✅ UI Verification]
+        DIFF[✅ Diff Verification]
     end
     
     subgraph Output
-        CODE[📦 可运行代码]
-        KB[📚 知识库沉淀]
-        DEPLOY[🚀 自动部署]
+        CODE[📦 Runnable Code]
+        KB[📚 Knowledge Base]
+        DEPLOY[🚀 Auto Deploy]
     end
     
     PRD --> PLAN
@@ -159,137 +159,137 @@ graph TB
 
 ---
 
-## 🔄 执行流程图
+## 🔄 Execution Flow
 
 <div align="center">
 
 ```mermaid
 sequenceDiagram
-    participant U as 👤 用户
+    participant U as 👤 User
     participant SC as 🔄 SprintCycle
     participant AG as 🤖 Agents
-    participant KB as 📚 知识库
+    participant KB as 📚 Knowledge Base
     
-    U->>SC: 输入需求描述
-    Note over SC: "开发一个科技新闻网站"
+    U->>SC: Input requirement description
+    Note over SC: "Build a tech news website"
     
-    SC->>SC: 解析需求
-    SC->>KB: 查询历史经验
+    SC->>SC: Parse requirements
+    SC->>KB: Query historical experience
     
-    SC->>SC: 生成 PRD
-    SC->>SC: Sprint 规划
+    SC->>SC: Generate PRD
+    SC->>SC: Sprint planning
     
-    loop 每个迭代
-        SC->>AG: 分配任务
-        AG->>AG: CODER 编写代码
-        AG->>AG: REVIEWER 审查
-        AG->>AG: TESTER 测试
-        AG->>AG: DIAGNOSTIC 诊断
-        AG->>AG: UI_VERIFY 验证
+    loop Each iteration
+        SC->>AG: Assign tasks
+        AG->>AG: CODER writes code
+        AG->>AG: REVIEWER reviews
+        AG->>AG: TESTER tests
+        AG->>AG: DIAGNOSTIC diagnoses
+        AG->>AG: UI_VERIFY verifies
         
-        AG->>SC: 返回结果
-        SC->>KB: 沉淀经验
+        AG->>SC: Return results
+        SC->>KB: Accumulate experience
         
-        alt 发现问题
-            SC->>AG: 修复并重试
-        else 验证通过
-            SC->>SC: 进入下一迭代
+        alt Issues found
+            SC->>AG: Fix and retry
+        else Verification passed
+            SC->>SC: Next iteration
         end
     end
     
-    SC->>U: 返回可运行项目
-    Note over U: ✅ 功能完整<br/>✅ 测试通过<br/>✅ 可直接部署
+    SC->>U: Return runnable project
+    Note over U: ✅ Complete features<br/>✅ Tests passed<br/>✅ Ready to deploy
 ```
 
 </div>
 
 ---
 
-## 🖼️ 验证过程演示
+## 🖼️ Verification Demo
 
 <div align="center">
-<img src="docs/images/sprintcycle_demo.png" alt="SprintCycle 验证演示" width="800">
+<img src="docs/images/sprintcycle_demo.png" alt="SprintCycle Verification Demo" width="800">
 
-**终端操作 → Sprint 规划 → API 测试验证**
+**Terminal Operations → Sprint Planning → API Test Verification**
 </div>
 
 ---
 
-## 🎯 两种使用方式
+## 🎯 Two Usage Methods
 
-### Way 1: CLI（命令行）
+### Way 1: CLI (Command Line)
 
 ```bash
-# 初始化项目
+# Initialize project
 sprintcycle init -p ./myproject
 
-# 从 PRD 执行开发
+# Execute development from PRD
 sprintcycle run -p ./myproject --prd requirements.yaml
 
-# 查看项目状态
+# Check project status
 sprintcycle status -p ./myproject
 ```
 
-### Way 2: OpenClaw + MCP（推荐）
+### Way 2: OpenClaw + MCP (Recommended)
 
 ```
-"开发一个科技新闻网站，支持新闻列表、详情和分类筛选"
+"Build a tech news website with news list, details, and category filtering"
 ```
 
-AI 自动完成：生成 PRD → 编写代码 → 测试验证 → 部署运行
+AI automatically completes: Generate PRD → Write code → Test verification → Deploy
 
-| 特性 | CLI | OpenClaw + MCP |
-|------|-----|----------------|
-| 本地开发 | ✅ | ✅ |
-| 自然语言输入 | ❌ | ✅ |
-| AI Agent 集成 | ❌ | ✅ |
-| 自动规划 | 手动 | ✅ 自动 |
-| 适用对象 | 开发者 | AI Agent |
+| Feature | CLI | OpenClaw + MCP |
+|---------|-----|----------------|
+| Local development | ✅ | ✅ |
+| Natural language input | ❌ | ✅ |
+| AI Agent integration | ❌ | ✅ |
+| Auto planning | Manual | ✅ Auto |
+| Target users | Developers | AI Agents |
 
 ---
 
-## ✨ 核心特性
+## ✨ Core Features
 
-| 特性 | 说明 |
-|------|------|
-| 🔄 **多轮迭代** | Sprint 式开发，自动任务拆解 |
-| 🤖 **6 个 Agent** | CODER、REVIEWER、ARCHITECT、TESTER、DIAGNOSTIC、UI_VERIFY |
-| ✅ **五源验证** | 测试、审查、运行时、UI、差异验证 |
-| 📚 **知识库** | 自动沉淀经验，越用越强 |
-| 🧬 **自进化** | 9 阶段闭环持续优化 |
-| 🔌 **18 个 MCP 工具** | AI Agent 完美集成 |
+| Feature | Description |
+|---------|-------------|
+| 🔄 **Multi-round Iteration** | Sprint-style development, automatic task breakdown |
+| 🤖 **6 Agents** | CODER, REVIEWER, ARCHITECT, TESTER, DIAGNOSTIC, UI_VERIFY |
+| ✅ **Five-source Verification** | Test, review, runtime, UI, diff verification |
+| 📚 **Knowledge Base** | Auto-accumulate experience, stronger with use |
+| 🧬 **Self-evolution** | 9-stage closed-loop continuous optimization |
+| 🔌 **18 MCP Tools** | Perfect AI Agent integration |
 
 ---
 
-## 🚀 快速开始
+## 🚀 Quick Start
 
 ```bash
-# 克隆仓库
+# Clone repository
 git clone https://github.com/sprintcycle/sprintcycle.git
 cd sprintcycle
 
-# 安装依赖
+# Install dependencies
 pip install -r requirements.txt
 
-# 配置
+# Configure
 cp config.yaml.example config.yaml
 export LLM_API_KEY=your_key
 
-# 开始使用
-sprintcycle run -p ./myproject -t "开发用户登录功能"
+# Start using
+sprintcycle run -p ./myproject -t "Implement user authentication"
 ```
 
 ---
 
-## 📚 文档
+## 📚 Documentation
 
-- [快速入门](docs/QUICKSTART.md) - 分步教程
-- [配置指南](docs/CONFIGURATION.md) - 详细配置选项
-- [架构概览](docs/ARCHITECTURE.md) - 系统设计和组件
+- [Quick Start](docs/QUICKSTART.md) - Step-by-step tutorial
+- [Configuration Guide](docs/CONFIGURATION.md) - Detailed configuration options
+- [Architecture Overview](docs/ARCHITECTURE.md) - System design and components
 
 ---
 
-## 📄 许可证
+## 📄 License
 
 [Apache License 2.0](LICENSE)
 
@@ -297,7 +297,7 @@ sprintcycle run -p ./myproject -t "开发用户登录功能"
 
 <div align="center">
 
-**⭐ 如果觉得有用，请给个 Star ⭐**
+**⭐ If useful, please give a Star ⭐**
 
 **Built with ❤️ by SprintCycle Team**
 
