@@ -4,327 +4,136 @@
 
 **AI-Powered Agile Development Framework**
 
+**一句话解决开发痛点**：告别手动写代码、测不完的用例、改不完的 Bug —— 用自然语言描述需求，SprintCycle 自动完成开发、测试、部署全流程。
+
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.8+-green.svg)](https://www.python.org/)
 [![Version](https://img.shields.io/badge/Version-0.2.0-orange.svg)](CHANGELOG.md)
 
-English | [简体中文](README_CN.md)
+**[📹 观看演示视频](https://www.coze.cn/s/BkeOWwYYdO0/)** | English | [简体中文](README_CN.md)
 
 </div>
 
 ---
 
-## 📖 Product Overview
+## 😫 你是否遇到过这些痛点？
 
-SprintCycle is an **AI-driven agile development framework** that automates the entire iteration lifecycle from requirements to deployment. It combines intelligent task planning, multi-agent collaboration, and continuous self-evolution to help developers build better software faster.
+| 痛点 | SprintCycle 解决方案 |
+|------|---------------------|
+| 🔴 需求文档写完还要手写代码 | ✅ PRD 自动生成代码 |
+| 🔴 测试用例写不完、跑不完 | ✅ 自动生成并执行测试 |
+| 🔴 Bug 改了一个又来一个 | ✅ 智能诊断 + 自动修复 |
+| 🔴 代码审查耗时耗力 | ✅ AI Agent 自动审查 |
+| 🔴 文档永远落后于代码 | ✅ 知识库自动沉淀 |
+| 🔴 项目越做越乱 | ✅ 自进化持续优化 |
 
-### Core Concept
+---
+
+## 🏗️ 架构图
 
 ```
-Requirements (PRD) → Sprint Planning → Agent Execution → Verification → Knowledge Accumulation → Self-Evolution
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           SprintCycle 架构                                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐  │
+│  │   用户输入   │ ──▶│  PRD 解析   │ ──▶│ Sprint 规划  │ ──▶│ Agent 调度  │  │
+│  │ (自然语言)   │    │  自动生成   │    │  自动拆分    │    │  智能路由   │  │
+│  └─────────────┘    └─────────────┘    └─────────────┘    └──────┬──────┘  │
+│                                                                   │         │
+│                                                                   ▼         │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                        6 个专业 Agent 协作                           │   │
+│  │  ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ │   │
+│  │  │ CODER  │ │REVIEWER│ │ARCHITECT│ │ TESTER │ │DIAGNOSTIC│UI_VERIFY│ │   │
+│  │  │代码编写│ │代码审查│ │架构设计│ │测试验证│ │问题诊断│ │UI 验证 │ │   │
+│  │  └────────┘ └────────┘ └────────┘ └────────┘ └────────┘ └────────┘ │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                   │                                         │
+│                                   ▼                                         │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐  │
+│  │  五源验证    │ ──▶│  知识沉淀    │ ──▶│  自进化引擎  │ ──▶│  持续优化    │  │
+│  │ 测试/审查/   │    │  经验存储    │    │  9 阶段闭环  │    │  越用越强    │  │
+│  │ 运行时/UI/   │    │  模式学习    │    │             │    │             │  │
+│  │ 差异验证     │    │             │    │             │    │             │  │
+│  └─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘  │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+    输入: "开发一个博客系统，支持用户登录和文章管理"
+                                    │
+                                    ▼
+    输出: ✅ 完整可运行的项目 + 测试 + 文档
 ```
 
 ---
 
-## 🎯 Two Ways to Use SprintCycle
+## 🎯 两种使用方式
 
-SprintCycle can be triggered in **two flexible ways**:
-
-### Way 1: CLI (Command Line Interface)
-
-Direct command-line usage for local development and automation:
+### Way 1: CLI（命令行）
 
 ```bash
-# Initialize a project
-sprintcycle init -p /path/to/project
-
-# Execute from PRD
-sprintcycle run -p /path/to/project --prd requirements.yaml
-
-# Run self-evolution cycle
-sprintcycle sprint auto-run -p /path/to/project
+# 一句话启动开发
+sprintcycle run -p ./myproject --prd requirements.yaml
 ```
 
-**Best for**: Local development, CI/CD pipelines, automation scripts
+### Way 2: OpenClaw + MCP（推荐）
 
-### Way 2: OpenClaw Skill + MCP (Recommended for AI Agents)
+在 AI 助手中用自然语言描述需求：
 
-Trigger SprintCycle through OpenClaw skills with MCP (Model Context Protocol) integration:
-
-```python
-# In your AI agent (e.g., Coze/Claude/GPT)
-# Simply describe what you want to build
-
-"Use SprintCycle to develop a tech news website with:
-- Frontend: news list and detail pages
-- Backend: FastAPI with SQLite
-- Features: view history, filter by category"
-
-# SprintCycle MCP tools will be automatically invoked:
-# - sprintcycle_init
-# - sprintcycle_plan_from_prd
-# - sprintcycle_run_sprint
-# - sprintcycle_verify_playwright
+```
+"开发一个科技新闻网站，支持新闻列表、详情和分类筛选"
 ```
 
-**Best for**: AI-powered development, natural language workflows, intelligent automation
-
-| Feature | CLI | OpenClaw + MCP |
-|---------|-----|----------------|
-| Local development | ✅ | ✅ |
-| Natural language input | ❌ | ✅ |
-| AI agent integration | ❌ | ✅ |
-| Automated planning | Manual | ✅ Auto |
-| Best for | Developers | AI Agents |
+AI 自动完成：生成 PRD → 编写代码 → 测试验证 → 部署运行
 
 ---
 
-## ✨ Key Features
+## ✨ 核心特性
 
-### 🔄 Multi-Round Iteration
-- Sprint-style development with automatic task breakdown
-- Support for iterative refinement and bug fixes
-- Transaction-based rollback mechanism
-
-### 🤖 Multi-Agent Collaboration
-| Agent | Role | Capabilities |
-|-------|------|--------------|
-| CODER | Code Implementation | Features, refactoring, bug fixes |
-| REVIEWER | Code Review | PR review, code quality, best practices |
-| ARCHITECT | Architecture Design | Technical specs, API design, system design |
-| TESTER | Testing | Unit tests, integration tests, test coverage |
-| DIAGNOSTIC | Problem Diagnosis | Root cause analysis, debugging, log analysis |
-| UI_VERIFY | UI Verification | Screenshot comparison, accessibility checks |
-
-### ✅ Intelligent Verification
-- **Five-Source Verification**: Test results, code review, runtime, UI, and diff verification
-- **Playwright Integration**: Automated UI testing and visual regression
-- **Code Quality Checks**: Linting, type checking, complexity analysis
-
-### 📚 Knowledge Base
-- Automatic experience accumulation from each iteration
-- Task success/failure pattern learning
-- Reusable solutions and best practices
-
-### 🧬 Self-Evolution
-SprintCycle can evolve itself through a 9-phase closed-loop:
-
-1. **Roadmap Extraction** - Analyze history, extract evolution patterns
-2. **PRD Generation** - Auto-generate next-phase requirements
-3. **Iteration Execution** - Execute development tasks
-4. **Product Evaluation** - Measure product improvements
-5. **Framework Evaluation** - Assess framework performance
-6. **Bug Fixing** - Discover and fix framework bugs
-7. **Framework Optimization** - Enhance capabilities
-8. **Integration Testing** - Validate changes
-9. **Self-Iteration** - Update evolution skills
+| 特性 | 说明 |
+|------|------|
+| 🔄 **多轮迭代** | Sprint 式开发，自动任务拆解 |
+| 🤖 **6 个 Agent** | CODER、REVIEWER、ARCHITECT、TESTER、DIAGNOSTIC、UI_VERIFY |
+| ✅ **五源验证** | 测试、审查、运行时、UI、差异验证 |
+| 📚 **知识库** | 自动沉淀经验，越用越强 |
+| 🧬 **自进化** | 9 阶段闭环持续优化 |
 
 ---
 
-## 🚀 Quick Start
-
-### Prerequisites
-
-- Python 3.8+
-- Git
-
-### Installation
+## 🚀 快速开始
 
 ```bash
-# Clone the repository
+# 安装
 git clone https://github.com/sprintcycle/sprintcycle.git
-cd sprintcycle
+cd sprintcycle && pip install -r requirements.txt
 
-# Install dependencies
-pip install -r requirements.txt
-```
-
-### Configuration
-
-```bash
-# Copy the configuration template
+# 配置
 cp config.yaml.example config.yaml
+export LLM_API_KEY=your_key
 
-# Set your LLM API key
-export LLM_API_KEY=your_api_key_here
-```
-
-### Usage (CLI)
-
-```bash
-# Initialize a project
-python cli.py init -p /path/to/your/project
-
-# Check project status
-python cli.py status -p /path/to/your/project
-
-# Execute a single task
-python cli.py run -p /path/to/your/project -t "Implement user authentication"
-
-# Execute from PRD
-python cli.py run -p /path/to/your/project --prd prd/requirements.yaml
-
-# Run self-evolution cycle
-python cli.py sprint auto-run -p /path/to/your/project
-```
-
-### Usage (OpenClaw + MCP)
-
-In your AI agent (Coze, Claude, etc.) with OpenClaw skill installed:
-
-```
-User: "Build a blog system with user authentication and post management"
-
-AI Agent: 
-  → Calls sprintcycle_init
-  → Calls sprintcycle_plan_from_prd (auto-generates PRD)
-  → Calls sprintcycle_auto_run
-  → Calls sprintcycle_playwright_verify
-  → Returns completed project
+# 运行
+sprintcycle run -p ./myproject -t "开发用户登录功能"
 ```
 
 ---
 
-## 📚 Documentation
+## 🔌 18 个 MCP 工具
 
-### Getting Started
-- [Quick Start Guide](docs/QUICKSTART.md) - Step-by-step tutorial
-- [Configuration Guide](docs/CONFIGURATION.md) - Detailed configuration options
-
-### Architecture
-- [Architecture Overview](docs/ARCHITECTURE.md) - System design and components
-- [Development Guide](docs/DEVELOPMENT.md) - How to extend SprintCycle
-
-### API Reference
-- [CLI Commands](#cli-reference) - Complete CLI documentation
-- [MCP Tools](#mcp-tools) - All 18 MCP tools
-- [REST API](http://localhost:8088/docs) - Interactive API docs (when dashboard is running)
+为 AI Agent 提供完整开发能力：项目管理、Sprint 管理、任务执行、验证、问题修复、知识库
 
 ---
 
-## 🛠️ CLI Reference
+## 📄 许可证
 
-| Command | Description |
-|---------|-------------|
-| `init` | Initialize SprintCycle in a project |
-| `status` | View project status and statistics |
-| `run` | Execute tasks or PRD iterations |
-| `sprint plan` | View Sprint planning |
-| `sprint create` | Create a new Sprint |
-| `sprint run` | Execute a specific Sprint |
-| `sprint auto-run` | Execute all pending Sprints |
-| `verify playwright` | Run Playwright UI verification |
-| `verify frontend` | Run frontend accessibility check |
-| `scan` | Scan project for issues |
-| `autofix` | Automatically fix detected issues |
-| `rollback` | Rollback recent changes |
-| `knowledge show` | View knowledge base |
-| `dashboard` | Start web dashboard |
-
----
-
-## 🔌 MCP Tools
-
-SprintCycle provides **18 MCP tools** for AI agent integration:
-
-### Project Management
-| Tool | Description |
-|------|-------------|
-| `sprintcycle_list_projects` | List all SprintCycle projects |
-| `sprintcycle_list_tools` | List available execution tools |
-| `sprintcycle_status` | Get project status |
-
-### Sprint Management
-| Tool | Description |
-|------|-------------|
-| `sprintcycle_get_sprint_plan` | Get Sprint plan |
-| `sprintcycle_create_sprint` | Create a new Sprint |
-| `sprintcycle_run_sprint` | Execute a Sprint |
-| `sprintcycle_run_sprint_by_name` | Execute Sprint by name |
-| `sprintcycle_auto_run` | Auto-execute all Sprints |
-| `sprintcycle_plan_from_prd` | Generate Sprint from PRD |
-
-### Task Execution
-| Tool | Description |
-|------|-------------|
-| `sprintcycle_run_task` | Execute a single task |
-
-### Verification
-| Tool | Description |
-|------|-------------|
-| `sprintcycle_playwright_verify` | Playwright UI verification |
-| `sprintcycle_verify_frontend` | Frontend verification |
-| `sprintcycle_verify_visual` | Visual regression testing |
-
-### Issue Management
-| Tool | Description |
-|------|-------------|
-| `sprintcycle_scan_issues` | Scan project issues |
-| `sprintcycle_autofix` | Auto-fix issues |
-| `sprintcycle_rollback` | Rollback changes |
-
-### Knowledge Base
-| Tool | Description |
-|------|-------------|
-| `sprintcycle_get_kb_stats` | Knowledge base statistics |
-| `sprintcycle_get_execution_detail` | Execution details |
-
----
-
-## 📦 Project Structure
-
-```
-sprintcycle/
-├── sprintcycle/           # Core framework
-│   ├── chorus.py          # Agent coordinator
-│   ├── sprint_chain.py    # Sprint execution chain
-│   ├── optimizations.py   # Optimization utilities
-│   └── agents/            # Agent implementations
-├── dashboard/             # Web dashboard
-│   └── server.py          # FastAPI server
-├── tests/                 # Test suite
-├── docs/                  # Documentation
-├── cli.py                 # Command-line interface
-├── config.yaml.example    # Configuration template
-└── requirements.txt       # Dependencies
-```
-
----
-
-## 🤝 Contributing
-
-We welcome contributions! Here's how you can help:
-
-1. **Fork** the repository
-2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
-3. **Commit** your changes (`git commit -m 'Add amazing feature'`)
-4. **Push** to the branch (`git push origin feature/amazing-feature`)
-5. **Open** a Pull Request
-
-Please read our [Contributing Guide](CONTRIBUTING.md) for details.
-
----
-
-## 📄 License
-
-This project is licensed under the **Apache License 2.0** - see the [LICENSE](LICENSE) file for details.
-
----
-
-## 🙏 Acknowledgments
-
-Built with these amazing tools:
-
-- [Aider](https://github.com/paul-gauthier/aider) - AI pair programming
-- [Playwright](https://playwright.dev/) - Browser automation
-- [FastAPI](https://fastapi.tiangolo.com/) - Modern web framework
+[Apache License 2.0](LICENSE)
 
 ---
 
 <div align="center">
 
-**Made with ❤️ by the SprintCycle Team**
+**一句话，一个项目 —— SprintCycle 让开发如此简单**
 
-[⬆ Back to Top](#sprintcycle)
+[⬆ 返回顶部](#sprintcycle)
 
 </div>
