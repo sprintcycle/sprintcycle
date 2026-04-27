@@ -2,27 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.2.0] - 2026-04-27
+
+### Added
+- **OpenClaw Skill Support** - One-sentence development with natural language
+- **18 MCP Tools** - Full AI agent integration capability
+- **Web Dashboard** - Visual project management interface
+- **Playwright Video Recording** - Automated demo generation
+- **5-Source Verification** - Comprehensive quality assurance
+
+### Improved
+- **README Documentation** - Added pain points, architecture diagram, two usage methods
+- **CLI Commands** - Full alignment with MCP tools (18 commands)
+- **Error Handling** - Better error messages and rollback mechanism
+
+### Changed
+- Environment variable renamed: `DEEPSEEK_API_KEY` → `LLM_API_KEY` (more generic)
+
 ## [v0.1.0] - 2026-04-27
 
 ### Added
-- **SprintChain** - Multi-round iteration framework with automatic task breakdown
-- **Chorus Agent Coordinator** - Orchestrates multiple AI agents for complex tasks
-- **RollbackManager** - File backup and transaction-based rollback
-- **TimeoutHandler** - Timeout control with retry/fallback strategies
-- **ErrorHelper** - Error classification and repair suggestions (20+ error types)
-- **FiveSourceVerifier** - Five-source verification system
-- **UI_VERIFY Agent** - Playwright-based UI verification
-- **Knowledge Base** - Automatic iteration experience accumulation
-
-### Agents
-| Agent | Responsibility |
-|-------|---------------|
-| CODER | Code implementation |
-| REVIEWER | Code review |
-| ARCHITECT | Architecture design |
-| TESTER | Testing & verification |
-| DIAGNOSTIC | Problem diagnosis |
-| UI_VERIFY | UI verification |
-
-### License
-- Apache License 2.0
+- **SprintChain** - Multi-round iteration framework
+- **6 Agents** - CODER, REVIEWER, ARCHITECT, TESTER, DIAGNOSTIC, UI_VERIFY
+- **Knowledge Base** - Automatic experience accumulation
+- **Self-Evolution** - 9-phase closed-loop optimization
+- **Apache 2.0 License** - Open source with patent protection

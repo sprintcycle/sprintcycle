@@ -1,6 +1,6 @@
 # SprintCycle 开发指南
 
-**版本**: v0.1  
+**版本**: v0.2  
 **更新日期**: 2026-04-27
 
 ---
@@ -166,4 +166,4 @@ Apache License 2.0
 
 ---
 
-*SprintCycle v0.1*
+*SprintCycle v0.2*
