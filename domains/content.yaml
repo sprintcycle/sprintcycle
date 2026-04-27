@@ -1,0 +1,45 @@
+# SprintCycle 内容创作领域配置
+
+domain: content
+name: "内容创作"
+description: "文章、视频等内容的创作迭代场景"
+
+# 默认 Agent 配置
+agents:
+  - type: creative
+    name: "内容创作"
+    prompt_template: "请创作内容: {task}"
+    tools: ["cursor"]
+    
+  - type: critic
+    name: "内容评审"
+    prompt_template: "请评审内容质量: {task}"
+    tools: ["cursor"]
+    
+  - type: verifier
+    name: "质量验证"
+    prompt_template: "请验证内容: {task}"
+    tools: ["cursor"]
+
+# 验证标准
+verification:
+  quality_score: 0.7
+  engagement_score: 0.6
+  completeness: 0.9
+  check_types:
+    - grammar
+    - structure
+    - engagement
+    - seo
+
+# 迭代配置
+iteration:
+  max_attempts: 3
+  auto_fix: true
+  
+# 产出配置
+outputs:
+  - type: document
+    description: "文章/文档"
+  - type: presentation
+    description: "演示文稿"

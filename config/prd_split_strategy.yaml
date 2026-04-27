@@ -1,0 +1,54 @@
+# SprintCycle PRD 拆分策略配置
+# 用于自动拆分大型 PRD，避免超时
+
+# 默认拆分策略
+default:
+  max_sprints_per_prd: 3        # 每个 PRD 最多 Sprint 数
+  max_tasks_per_sprint: 2       # 每个 Sprint 最多任务数
+  timeout_per_task: 120         # 每个任务超时时间（秒）
+  total_timeout_limit: 600      # 总执行时间限制（秒）
+
+# 拆分模式
+split_mode:
+  # 按功能模块拆分
+  by_module:
+    enabled: true
+    priority_order:
+      - "设计规范"
+      - "核心页面"
+      - "功能模块"
+      - "组件库"
+      - "样式优化"
+      - "测试验证"
+  
+  # 按依赖关系拆分
+  by_dependency:
+    enabled: true
+    independent_first: true
+  
+  # 按执行时间预估拆分
+  by_time_estimate:
+    enabled: true
+    short_task_threshold: 30
+    long_task_threshold: 120
+
+# 项目特定配置
+projects:
+  xuewanpai:
+    max_sprints_per_prd: 3
+    split_naming: "xuewanpai_p{n}_{theme}"
+  sprintcycle:
+    max_sprints_per_prd: 2
+    split_naming: "sprintcycle_p{n}_{theme}"
+
+# 拆分触发条件
+split_triggers:
+  - condition: "sprint_count > 4"
+    action: "auto_split"
+  - condition: "estimated_time > 600"
+    action: "auto_split"
+
+# 输出配置
+output:
+  split_prd_dir: "/root/sprintcycle/prd/split/"
+  naming_pattern: "{original_name}_p{part}_{theme}.yaml"

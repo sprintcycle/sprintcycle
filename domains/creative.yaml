@@ -1,0 +1,50 @@
+# SprintCycle 创意迭代领域配置
+
+domain: creative
+name: "创意迭代"
+description: "创意方案的迭代优化场景，支持头脑风暴、概念发展、方案完善"
+
+# 默认 Agent 配置
+agents:
+  - type: creative
+    name: "创意生成"
+    prompt_template: "请发散思维，生成多个创意方向: {task}"
+    tools: ["cursor"]
+    
+  - type: critic
+    name: "批评评估"
+    prompt_template: "请评估以下创意的优缺点和改进方向: {task}"
+    tools: ["cursor"]
+    
+  - type: curator
+    name: "策展整合"
+    prompt_template: "请整合多个创意，形成完整的方案: {task}"
+    tools: ["cursor"]
+
+# 验证标准
+verification:
+  originality: 0.7
+  feasibility: 0.6
+  value: 0.7
+  check_types:
+    - originality
+    - feasibility
+    - value
+    - completeness
+
+# 迭代配置
+iteration:
+  max_attempts: 5
+  auto_fix: false
+  require_user_feedback: true
+  
+# 产出配置
+outputs:
+  - type: idea
+    description: "创意点子"
+  - type: concept
+    description: "概念设计"
+  - type: blueprint
+    description: "详细蓝图"
+  - type: document
+    description: "方案文档"

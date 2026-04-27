@@ -1,0 +1,55 @@
+# SprintCycle 产品迭代领域配置
+
+domain: product
+name: "产品迭代"
+description: "产品功能的迭代开发场景，支持需求分析、方案设计、开发验证"
+
+# 默认 Agent 配置
+agents:
+  - type: pm
+    name: "产品经理"
+    prompt_template: "请进行需求分析和产品规划: {task}"
+    tools: ["cursor"]
+    
+  - type: designer
+    name: "设计师"
+    prompt_template: "请设计产品方案和原型: {task}"
+    tools: ["cursor"]
+    
+  - type: coder
+    name: "开发工程师"
+    prompt_template: "请实现产品功能: {task}"
+    tools: ["cursor", "aider"]
+    
+  - type: tester
+    name: "测试工程师"
+    prompt_template: "请进行功能测试: {task}"
+    tools: ["aider"]
+
+# 验证标准
+verification:
+  user_satisfaction: 0.8
+  feature_completeness: 0.9
+  delivery_timeline: true
+  check_types:
+    - requirements
+    - design
+    - implementation
+    - testing
+
+# 迭代配置
+iteration:
+  max_attempts: 4
+  auto_fix: true
+  require_stakeholder_approval: true
+
+# 产出配置
+outputs:
+  - type: proposal
+    description: "产品提案"
+  - type: blueprint
+    description: "产品蓝图"
+  - type: code_file
+    description: "代码实现"
+  - type: document
+    description: "产品文档"

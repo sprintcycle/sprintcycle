@@ -1,0 +1,151 @@
+# SprintCycle 配置文件模板
+# 复制此文件为 config.yaml 并填入真实值
+# 命令: cp config.yaml.example config.yaml
+
+# ========================================
+# AI 工具配置
+# ========================================
+tools:
+  aider:
+    # Aider 命令路径
+    command: aider
+    # 使用的模型
+    model: deepseek/deepseek-chat
+    # API Key 环境变量名（推荐方式）
+    api_key_env: LLM_API_KEY
+    # 超时时间（秒）
+    timeout: 180
+    # 最大重试次数
+    max_retries: 1
+  
+  cursor:
+    command: cursor-agent
+    timeout: 180
+  
+  claude:
+    command: claude
+    timeout: 180
+
+# ========================================
+# 调度器配置
+# ========================================
+scheduler:
+  # 最大并发任务数
+  max_concurrent: 5
+  # 重试延迟（秒）
+  retry_delay: 5
+  # 任务队列大小
+  queue_size: 100
+
+# ========================================
+# 任务配置
+# ========================================
+task:
+  # 任务拆分阈值（秒）
+  split_threshold_seconds: 120
+  # 是否建议拆分
+  suggest_split: true
+  # 默认超时时间
+  default_timeout: 300
+
+# ========================================
+# 代码审查配置
+# ========================================
+review:
+  enabled: true
+  # 最大迭代次数
+  max_iterations: 3
+  # 遇到严重问题是否失败
+  fail_on_critical: true
+  # 检查项
+  check_security: true
+  check_performance: true
+  check_style: true
+
+# ========================================
+# Playwright UI 验证配置
+# ========================================
+playwright:
+  enabled: true
+  headless: true
+  timeout: 30000
+  # MCP 命令
+  mcp_command: "npx @playwright/mcp@latest"
+
+# ========================================
+# 五源验证器配置
+# ========================================
+five_source_verifier:
+  enabled: true
+  frontend:
+    timeout: 10
+    check_console: true
+    use_accessibility_tree: true
+  visual:
+    use_screenshot: false
+    screenshot_threshold: 5.0
+    baseline_dir: ".sprintcycle/screenshots"
+
+# ========================================
+# 自动修复配置
+# ========================================
+autofix:
+  enabled: true
+  auto_mode: true
+  # API Key 环境变量名（推荐方式）
+  # 设置方法: export LLM_API_KEY=your_api_key_here
+  api_key_env: LLM_API_KEY
+  max_retries: 1
+  # 修复前备份文件
+  backup_before_fix: true
+  # 是否需要确认
+  require_confirmation: false
+
+# ========================================
+# 健康检查配置
+# ========================================
+health_check:
+  enabled: true
+  auto_check: true
+  check_items:
+    - structure
+    - dependencies
+    - config
+    - files
+    - git
+
+# ========================================
+# 代码扫描配置
+# ========================================
+scanner:
+  enabled: true
+  scan_on_start: false
+  check_missing_files: true
+  check_syntax: true
+  check_imports: true
+  check_config: true
+  exclude_patterns:
+    - "**/__pycache__/**"
+    - "**/venv/**"
+    - "**/.venv/**"
+    - "**/node_modules/**"
+
+# ========================================
+# 缓存配置
+# ========================================
+cache:
+  enabled: true
+  # 缓存策略: LRU, LFU, TTL, FIFO
+  strategy: LRU
+  # 最大缓存条目数
+  max_size: 1000
+  # 默认过期时间（秒）
+  default_ttl: 3600
+
+# ========================================
+# 日志配置
+# ========================================
+logging:
+  level: INFO
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/sprintcycle.log"

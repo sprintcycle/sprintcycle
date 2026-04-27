@@ -1,0 +1,49 @@
+# SprintCycle 决策分析领域配置
+
+domain: decision
+name: "决策分析"
+description: "复杂决策的多轮分析场景"
+
+# 默认 Agent 配置
+agents:
+  - type: planner
+    name: "规划分析"
+    prompt_template: "请进行问题分析和方案规划: {task}"
+    tools: ["cursor"]
+    
+  - type: critic
+    name: "风险评估"
+    prompt_template: "请评估方案风险: {task}"
+    tools: ["cursor"]
+    
+  - type: verifier
+    name: "决策验证"
+    prompt_template: "请验证决策合理性: {task}"
+    tools: ["cursor"]
+
+# 验证标准
+verification:
+  risk_score: 0.3
+  confidence: 0.8
+  stakeholder_approval: 0.7
+  check_types:
+    - analysis
+    - risk
+    - comparison
+    - recommendation
+
+# 迭代配置
+iteration:
+  max_attempts: 4
+  require_stakeholder_approval: true
+  
+# 产出配置
+outputs:
+  - type: analysis
+    description: "分析报告"
+  - type: decision
+    description: "决策结果"
+  - type: roadmap
+    description: "实施路线图"
+  - type: proposal
+    description: "行动提案"

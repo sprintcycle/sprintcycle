@@ -1,0 +1,51 @@
+# SprintCycle 代码迭代领域配置
+
+domain: code
+name: "代码开发"
+description: "代码迭代开发场景，支持代码编写、审查、测试等"
+
+# 默认 Agent 配置
+agents:
+  - type: coder
+    name: "代码编写"
+    prompt_template: "请编写高质量的代码实现以下功能: {task}"
+    tools: ["cursor", "aider"]
+    
+  - type: reviewer
+    name: "代码审查"
+    prompt_template: "请审查以下代码，检查潜在问题: {task}"
+    tools: ["cursor"]
+    
+  - type: architect
+    name: "架构设计"
+    prompt_template: "请设计系统架构方案: {task}"
+    tools: ["cursor"]
+    
+  - type: tester
+    name: "测试验证"
+    prompt_template: "请编写测试用例验证功能: {task}"
+    tools: ["aider"]
+
+# 验证标准
+verification:
+  pass_rate: 0.8
+  coverage: 0.7
+  no_critical_errors: true
+  check_types:
+    - syntax
+    - style
+    - structure
+    - tests
+
+# 迭代配置
+iteration:
+  max_attempts: 3
+  auto_fix: true
+  auto_review: true
+  
+# 产出配置
+outputs:
+  - type: code_file
+    extensions: [".py", ".js", ".ts", ".go", ".java"]
+  - type: test_file
+    extensions: [".test.py", ".spec.js", ".test.ts"]
