@@ -126,3 +126,121 @@ class EvolutionEngine:
         self.gene_pool = []
         self.history = []
         self.metrics = EvolutionMetrics()
+
+    @classmethod
+    def from_prd(cls, prd, config: Optional[EvolutionEngineConfig] = None) -> "EvolutionEngine":
+        """
+        从 PRD 创建进化引擎实例
+        
+        Args:
+            prd: PRD 对象
+            config: 进化引擎配置（可选）
+            
+        Returns:
+            配置好的 EvolutionEngine 实例
+        """
+        engine = cls(config or EvolutionEngineConfig())
+        
+        # 如果 PRD 指定了基因池恢复
+        if hasattr(prd, 'metadata') and 'checkpoint_sprint_id' in prd.metadata:
+            # 异步加载检查点
+            import asyncio
+            loop = asyncio.get_event_loop()
+            loop.run_until_complete(engine.load_checkpoint(prd.metadata['checkpoint_sprint_id']))
+        
+        return engine
+
+    def extract_evolution_targets(self, prd) -> List[Dict[str, Any]]:
+        """
+        从 PRD 提取进化目标
+        
+        Args:
+            prd: PRD 对象
+            
+        Returns:
+            进化目标列表
+        """
+        targets = []
+        
+        if prd.is_evolution_mode and prd.evolution:
+            # 自进化模式：从 evolution 配置提取
+            for target_file in prd.evolution.targets:
+                targets.append({
+                    "target": target_file,
+                    "goals": prd.evolution.goals,
+                    "constraints": prd.evolution.constraints,
+                    "mode": "evolution",
+                })
+        
+        # 从 Sprint 任务中提取 evolver 任务
+        for sprint in prd.sprints:
+            for task in sprint.tasks:
+                if task.agent == "evolver" and task.target:
+                    targets.append({
+                        "target": task.target,
+                        "goals": [task.task] + task.constraints,
+                        "constraints": task.constraints,
+                        "mode": "task_evolution",
+                        "sprint": sprint.name,
+                    })
+        
+        return targets
+
+    async def evolve_from_prd(self, prd, iterations: int = 1) -> List[EvolutionResult]:
+        """
+        根据 PRD 执行进化
+        
+        Args:
+            prd: PRD 对象
+            iterations: 迭代次数
+            
+        Returns:
+            进化结果列表
+        """
+        targets = self.extract_evolution_targets(prd)
+        
+        if not targets:
+            logger.warning("⚠️  PRD 中未找到进化目标")
+            return []
+        
+        logger.info(f"🎯 从 PRD 提取 {len(targets)} 个进化目标")
+        
+        results = []
+        for i, target_info in enumerate(targets):
+            logger.info(f"\n[{i+1}/{len(targets)}] 进化目标: {target_info['target']}")
+            
+            # 构建目标路径
+            target_path = str(Path(prd.project.path) / target_info['target'])
+            
+            # 创建上下文
+            goal_text = "; ".join(target_info['goals']) if target_info['goals'] else "优化代码"
+            context = SprintContext(
+                sprint_id=f"prd-evo-{int(time.time())}-{i}",
+                sprint_number=i + 1,
+                goal=goal_text,
+                constraints={
+                    "dimensions": self.config.pareto_dimensions,
+                    "prd_constraints": target_info.get('constraints', []),
+                }
+            )
+            
+            # 执行多次迭代
+            for iteration in range(iterations):
+                logger.info(f"   迭代 {iteration + 1}/{iterations}")
+                result = await self.evolve_code(
+                    target=target_path,
+                    context=context,
+                    goal=goal_text,
+                    max_variations=prd.evolution.max_variations if prd.evolution else 5,
+                )
+                results.append(result)
+                
+                if not result.success:
+                    logger.warning(f"   ⚠️  进化失败: {result.error}")
+                    break
+                
+                # 短暂暂停
+                if iteration < iterations - 1:
+                    await asyncio.sleep(1)
+        
+        return results

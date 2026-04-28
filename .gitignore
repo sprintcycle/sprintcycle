@@ -82,3 +82,10 @@ pnpm-lock.yaml
 
 # SprintCycle
 .sprintcycle/
+
+# Development docs (not for submission)
+docs-dev/
+
+# PRD output
+prd/*.yaml
+prd/*.yml

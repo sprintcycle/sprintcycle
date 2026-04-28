@@ -1,0 +1,13 @@
+# SprintCycle Demo 项目配置
+# 此文件明确声明项目类型，避免模式误判
+
+mode: normal  # 演示项目，使用普通 Sprint 迭代模式
+
+project:
+  name: weibo-demo
+  description: 微博类产品演示项目
+  
+# 执行配置
+execution:
+  max_sprints: 5
+  parallel_tasks: 3

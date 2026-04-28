@@ -1,0 +1,73 @@
+# SprintCycle 自进化 PRD 模板
+# 适用于：优化 SprintCycle 框架本身
+
+project:
+  name: "sprintcycle"
+  path: "/root/sprintcycle"
+  version: "v0.6.0"
+
+mode: "evolution"  # 自进化模式
+
+evolution:
+  targets:
+    - "sprintcycle/evolution/engine.py"
+    - "sprintcycle/evolution/client.py"
+    - "sprintcycle/scheduler/dispatcher.py"
+  goals:
+    - "优化进化算法效率"
+    - "提升代码可读性"
+    - "减少内存占用"
+  constraints:
+    - "保持 API 兼容"
+    - "测试全部通过"
+    - "不影响现有功能"
+  max_variations: 5
+  iterations: 3
+
+sprints:
+  - name: "Sprint 1: 引擎优化"
+    goals:
+      - "减少进化耗时 30%"
+      - "优化内存使用"
+    tasks:
+      - task: |
+          优化 EvolutionEngine.evolve_code 方法
+          - 减少不必要的文件读写
+          - 优化基因选择算法
+        agent: "evolver"
+        target: "sprintcycle/evolution/engine.py"
+        constraints:
+          - "保持方法签名不变"
+          - "向后兼容"
+
+      - task: |
+          优化 GEPA 客户端请求
+        agent: "evolver"
+        target: "sprintcycle/evolution/client.py"
+
+  - name: "Sprint 2: 调度器优化"
+    goals:
+      - "改进任务分配策略"
+      - "增强错误处理"
+    tasks:
+      - task: |
+          优化任务调度算法
+          - 实现优先级队列
+          - 优化并发控制
+        agent: "evolver"
+        target: "sprintcycle/scheduler/dispatcher.py"
+
+  - name: "Sprint 3: 验收测试"
+    goals:
+      - "确保优化效果"
+      - "验证兼容性"
+    tasks:
+      - task: |
+          运行集成测试套件
+        agent: "tester"
+        target: "tests/"
+
+      - task: |
+          性能基准测试
+        agent: "tester"
+        timeout: 3600
