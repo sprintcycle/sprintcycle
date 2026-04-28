@@ -358,3 +358,114 @@ def reset_error_knowledge_base() -> ErrorKnowledgeBase:
     global _default_knowledge_base
     _default_knowledge_base = ErrorKnowledgeBase()
     return _default_knowledge_base
+
+
+# ============================================================================
+# ErrorParser: 错误信息解析器
+# ============================================================================
+
+@dataclass
+class ParsedError:
+    """解析后的错误信息"""
+    error_type: Optional[str] = None
+    error_message: Optional[str] = None
+    file_path: Optional[str] = None
+    line_number: Optional[int] = None
+    column: Optional[int] = None
+    function_name: Optional[str] = None
+    variable_name: Optional[str] = None
+    module_name: Optional[str] = None
+    traceback: List[Dict[str, Any]] = field(default_factory=list)
+    raw_error: str = ""
+
+
+class ErrorParser:
+    """
+    错误信息解析器
+    
+    从错误日志中提取结构化信息：
+    - 错误类型 (NameError, TypeError, etc.)
+    - 文件路径
+    - 行号、列号
+    - 变量名/函数名/模块名
+    """
+    
+    # 常见错误类型
+    ERROR_TYPES = [
+        "NameError", "TypeError", "ValueError", "KeyError",
+        "AttributeError", "ImportError", "ModuleNotFoundError",
+        "SyntaxError", "IndentationError", "IndexError",
+        "FileNotFoundError", "PermissionError", "RuntimeError",
+        "ZeroDivisionError", "StopIteration", "AssertionError",
+    ]
+    
+    # traceback 行正则
+    TRACEBACK_FILE_PATTERN = re.compile(
+        r'File ["\']([^"\']+)["\'], line (\d+)(?:, column (\d+))?(?:,\s*in\s+(\w+))?'
+    )
+    
+    # 错误类型正则
+    ERROR_TYPE_PATTERN = re.compile(
+        r'^(' + '|'.join(ERROR_TYPES) + r'): (.+)$',
+        re.MULTILINE
+    )
+    
+    # 变量名提取
+    VARIABLE_PATTERN = re.compile(
+        r"name '(\w+)' is not defined|"
+        r"'(\w+)' object has no attribute|"
+        r"'(\w+)' is not (?:callable|subscriptable|iterable)"
+    )
+    
+    def parse(self, error_log: str) -> ParsedError:
+        """解析错误日志"""
+        result = ParsedError(raw_error=error_log)
+        
+        # 提取错误类型和消息
+        error_match = self.ERROR_TYPE_PATTERN.search(error_log)
+        if error_match:
+            result.error_type = error_match.group(1)
+            result.error_message = error_match.group(2)
+        
+        # 提取 traceback
+        for match in self.TRACEBACK_FILE_PATTERN.finditer(error_log):
+            tb_entry = {
+                "file": match.group(1),
+                "line": int(match.group(2)),
+                "column": int(match.group(3)) if match.group(3) else None,
+                "function": match.group(4),
+            }
+            result.traceback.append(tb_entry)
+            
+            # 最后一个 traceback 作为错误位置
+            result.file_path = tb_entry["file"]
+            result.line_number = tb_entry["line"]
+            result.column = tb_entry["column"]
+            result.function_name = tb_entry["function"]
+        
+        # 提取变量名
+        var_match = self.VARIABLE_PATTERN.search(error_log)
+        if var_match:
+            result.variable_name = next(
+                (g for g in var_match.groups() if g), None
+            )
+        
+        return result
+    
+    def parse_and_format(self, error_log: str) -> str:
+        """解析并格式化输出"""
+        parsed = self.parse(error_log)
+        lines = [f"🔍 错误解析结果:"]
+        
+        if parsed.error_type:
+            lines.append(f"   类型: {parsed.error_type}")
+        if parsed.error_message:
+            lines.append(f"   消息: {parsed.error_message[:100]}")
+        if parsed.file_path:
+            lines.append(f"   文件: {parsed.file_path}")
+        if parsed.line_number:
+            lines.append(f"   行号: {parsed.line_number}")
+        if parsed.variable_name:
+            lines.append(f"   变量: {parsed.variable_name}")
+        
+        return "\n".join(lines)

@@ -9,6 +9,7 @@ Sprint 执行器 - 统一的 Sprint 迭代执行
 import asyncio
 import logging
 import time
+import re
 from typing import List, Dict, Any, Optional, Callable, Set
 from dataclasses import dataclass, field
 from enum import Enum
@@ -162,6 +163,80 @@ class SprintExecutor:
         """注册自定义 Agent 执行器"""
         self._agent_executors[agent_type] = executor
     
+    # ========== 任务拆分配置 ==========
+    
+    # 任务长度阈值（字符数）
+    TASK_SPLIT_THRESHOLD = 500
+    # 子任务建议的最大数量
+    MAX_SUBTASKS = 5
+    
+    def _should_split_task(self, task: PRDTask) -> bool:
+        """判断任务是否需要拆分"""
+        if len(task.task) >= self.TASK_SPLIT_THRESHOLD:
+            return True
+        complex_keywords = [
+            "重构", "迁移", "优化", "重写",
+            "implement", "refactor", "migrate", "optimize", "rewrite",
+            "多个", "所有", "全部",
+            "multiple", "all", "entire",
+        ]
+        task_lower = task.task.lower()
+        keyword_count = sum(1 for kw in complex_keywords if kw.lower() in task_lower)
+        return keyword_count >= 2
+    
+    def _split_task(self, task: PRDTask) -> List[PRDTask]:
+        """拆分大型任务为子任务"""
+        task_text = task.task
+        action_patterns = [
+            r'实现[^\s，,。]+', r'添加[^\s，,。]+', r'修改[^\s，,。]+',
+            r'修复[^\s，,。]+', r'优化[^\s，,。]+', r'创建[^\s，,。]+',
+            r'implement\s+[^\s，,。]+', r'add\s+[^\s，,。]+',
+            r'modify\s+[^\s，,。]+', r'fix\s+[^\s，,。]+',
+        ]
+        subtask_parts = []
+        for pattern in action_patterns:
+            matches = re.findall(pattern, task_text, re.IGNORECASE)
+            subtask_parts.extend(matches)
+        
+        if len(subtask_parts) >= 2:
+            subtasks = []
+            for part in subtask_parts[:self.MAX_SUBTASKS]:
+                subtask = PRDTask(
+                    task=part.strip(),
+                    agent=task.agent,
+                    target=task.target,
+                    constraints=task.constraints.copy(),
+                    expected_output=task.expected_output,
+                    timeout=task.timeout,
+                )
+                subtasks.append(subtask)
+        else:
+            subtasks = [PRDTask(
+                task=task_text[:self.TASK_SPLIT_THRESHOLD] + "..." if len(task_text) > self.TASK_SPLIT_THRESHOLD else task_text,
+                agent=task.agent,
+                target=task.target,
+                constraints=task.constraints.copy(),
+                expected_output=task.expected_output,
+                timeout=task.timeout,
+            )]
+        return subtasks
+    
+    def split_sprint_tasks(self, sprint: PRDSprint) -> PRDSprint:
+        """拆分 Sprint 中的大型任务"""
+        new_sprint = PRDSprint(
+            name=sprint.name,
+            goals=sprint.goals.copy(),
+            tasks=[],
+        )
+        for task in sprint.tasks:
+            if self._should_split_task(task):
+                subtasks = self._split_task(task)
+                new_sprint.tasks.extend(subtasks)
+            else:
+                new_sprint.tasks.append(task)
+        return new_sprint
+
+
     async def execute_sprint(self, sprint: PRDSprint, context: Dict[str, Any] = None) -> SprintResult:
         """
         执行单个 Sprint

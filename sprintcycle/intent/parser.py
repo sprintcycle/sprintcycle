@@ -30,6 +30,7 @@ class ParsedIntent:
     constraints: List[str] = field(default_factory=list)
     mode: str = "auto"
     prd_file: Optional[str] = None  # 用于 run 命令
+    intent: str = ""                 # 原始意图文本（用于 Fix 模式获取错误日志）
 
 
 class IntentParser:
@@ -99,6 +100,7 @@ class IntentParser:
             constraints=extracted_constraints,
             mode=action.value,
             prd_file=prd_file,
+            intent=intent,  # 保存原始意图用于 Fix 模式
         )
     
     def _infer_action(self, intent: str) -> ActionType:
