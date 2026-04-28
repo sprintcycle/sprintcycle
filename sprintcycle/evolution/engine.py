@@ -350,3 +350,124 @@ class EvolutionEngine:
         
         # 去重
         return list(set(targets))
+
+    
+    # ===== SprintExecutor 集成方法 =====
+    
+    def set_sprint_executor(self, executor) -> None:
+        """
+        设置 SprintExecutor
+        
+        用于 EvolutionEngine 调用 SprintExecutor 的执行能力。
+        
+        Args:
+            executor: SprintExecutor 实例
+        """
+        self._sprint_executor = executor
+        logger.info("SprintExecutor 已注入到 EvolutionEngine")
+    
+    def get_sprint_executor(self):
+        """
+        获取已注入的 SprintExecutor
+        
+        Returns:
+            SprintExecutor 或 None
+        """
+        return self._sprint_executor
+    
+    async def evolve_sprint_with_executor(
+        self, 
+        target: str, 
+        goal: str, 
+        context: Optional[SprintContext] = None,
+        mode: str = "evolution"
+    ):
+        """
+        使用 SprintExecutor 执行进化任务
+        
+        这是 P1 优化的核心方法：让 EvolutionEngine 复用 SprintExecutor 的执行能力。
+        在进化过程中，如果需要执行代码、测试等操作，可以委托给 SprintExecutor。
+        
+        Args:
+            target: 进化目标文件路径
+            goal: 进化目标描述
+            context: Sprint 上下文
+            mode: 执行模式（evolution/test/validate）
+            
+        Returns:
+            执行结果（由 SprintExecutor 返回）
+        """
+        if not self._sprint_executor:
+            logger.warning("⚠️ SprintExecutor 未注入，使用原有进化流程")
+            return await self.evolve_code(target, context, goal)
+        
+        logger.info(f"🔄 使用 SprintExecutor 执行进化: {target}")
+        
+        # 创建进化 PRD 任务
+        evolution_prd = self._create_evolution_prd(target, goal, mode)
+        
+        # 复用 SprintExecutor 执行
+        return await self._sprint_executor.execute(evolution_prd, mode=mode)
+    
+    def _create_evolution_prd(self, target: str, goal: str, mode: str) -> Dict[str, Any]:
+        """
+        创建进化任务的 PRD 结构
+        
+        Args:
+            target: 目标文件
+            goal: 进化目标
+            mode: 执行模式
+            
+        Returns:
+            Dict: PRD 格式的进化任务
+        """
+        return {
+            "type": "evolution",
+            "target": target,
+            "goal": goal,
+            "mode": mode,
+            "config": {
+                "max_variations": self.config.max_variations_per_gen,
+                "pareto_dimensions": self.config.pareto_dimensions,
+            }
+        }
+    
+    async def evolve_batch_with_executor(
+        self, 
+        targets: List[str], 
+        goal: str, 
+        context: Optional[SprintContext] = None,
+        mode: str = "evolution"
+    ) -> List:
+        """
+        批量使用 SprintExecutor 执行进化任务
+        
+        Args:
+            targets: 目标文件列表
+            goal: 进化目标描述
+            context: Sprint 上下文
+            mode: 执行模式
+            
+        Returns:
+            List: 执行结果列表
+        """
+        if not self._sprint_executor:
+            logger.warning("⚠️ SprintExecutor 未注入，使用原有进化流程")
+            results = []
+            for target in targets:
+                result = await self.evolve_code(target, context, goal)
+                results.append(result)
+            return results
+        
+        logger.info(f"📦 批量进化 {len(targets)} 个目标")
+        
+        results = []
+        for i, target in enumerate(targets):
+            logger.info(f"[{i+1}/{len(targets)}] 进化: {target}")
+            result = await self.evolve_sprint_with_executor(target, goal, context, mode)
+            results.append(result)
+            
+            if i < len(targets) - 1:
+                await asyncio.sleep(0.5)  # 避免并发过高
+        
+        return results

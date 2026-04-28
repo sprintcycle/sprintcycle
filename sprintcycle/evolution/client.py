@@ -57,7 +57,8 @@ class GEPAClient:
             optimizer = GEPAOptimizer(llm_provider=self.config.llm_provider, llm_model=self.config.llm_model, api_key=self.config.llm_api_key)
             result = await optimizer.select(variations=[{"id": v.id, "content": v.modified_content, "fitness": fs} for v, fs in zip(variations, fitness_scores)], method=self.config.selection_strategy)
             return [v for v in variations if v.id in result.get("selected_ids", [])]
-        except:
+        except Exception as e:
+            logger.error(f"GEPA select 失败: {e}")
             return self._select_pareto(variations, fitness_scores)
 
     def _select_pareto(self, variations: List[Variation], fitness_scores: List[Dict[str, float]]) -> List[Variation]:
@@ -90,7 +91,8 @@ class GEPAClient:
             optimizer = GEPAOptimizer(llm_provider=self.config.llm_provider, llm_model=self.config.llm_model, api_key=self.config.llm_api_key)
             result = await optimizer.inherit(genes=[g.to_dict() for g in elite_genes], context=f"Sprint {context.sprint_number}")
             return [Gene(id=rg.get("id", f"gene_{i}"), type=elite_genes[0].type, content=rg.get("content", ""), metadata=rg.get("metadata", {}), fitness_scores=rg.get("fitness_scores", {})) for i, rg in enumerate(result.get("genes", []))]
-        except:
+        except Exception as e:
+            logger.error(f"GEPA inherit 失败: {e}")
             return [Gene(id=f"inh_{context.sprint_id}_{g.id}", type=g.type, content=g.content, metadata=g.metadata.copy(), fitness_scores=g.fitness_scores.copy(), parent_ids=[g.id], version=g.version + 1) for g in elite_genes[:2]]
 
     async def save_checkpoint(self, sprint_id: str, data: Dict[str, Any]) -> None:

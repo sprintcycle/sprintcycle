@@ -98,6 +98,7 @@ class SprintExecutor:
         feedback_loop: Optional[Any] = None,
         prd: Optional[PRD] = None,
         evolution_engine: Optional[Any] = None,
+        error_handler: Optional[Any] = None,
     ):
         """
         初始化执行器
@@ -107,6 +108,7 @@ class SprintExecutor:
             feedback_loop: 反馈循环实例（可选，用于收集执行反馈）
             prd: PRD 实例（可选，用于反馈关联）
             evolution_engine: 进化引擎实例（可选，用于 Evolution 模式）
+            error_handler: 错误处理器实例（可选，用于错误处理）
         """
         self._agent_executors: Dict[str, Callable] = {}
         self._callbacks: Dict[str, Callable] = {}
@@ -116,6 +118,7 @@ class SprintExecutor:
         self._prd = prd
         self._sprint_count = 0  # 跟踪执行的 Sprint 数量
         self._evolution_engine = evolution_engine  # 进化引擎（Evolution 模式用）
+        self._error_handler = error_handler  # 错误处理器
         self._register_default_executors()
     
     def set_feedback_loop(self, feedback_loop) -> None:
@@ -130,6 +133,11 @@ class SprintExecutor:
         """设置进化引擎（用于 Evolution 模式）"""
         self._evolution_engine = evolution_engine
         logger.info("✅ EvolutionEngine 已注入到 SprintExecutor")
+    
+    def set_error_handler(self, error_handler) -> None:
+        """设置错误处理器"""
+        self._error_handler = error_handler
+        logger.info("✅ ErrorHandler 已注入到 SprintExecutor")
     
     def get_feedback_history(self) -> List[Any]:
         """
@@ -510,7 +518,7 @@ class SprintExecutor:
         return result
     
     async def _execute_task(self, task: PRDTask, sprint_name: str, context: Dict[str, Any]) -> TaskResult:
-        """执行单个任务"""
+        """执行单个任务（带错误处理）"""
         start_time = time.time()
         
         # 获取对应的执行器
@@ -537,11 +545,37 @@ class SprintExecutor:
             )
         except Exception as e:
             logger.error(f"任务执行失败: {e}")
+            
+            # 使用 ErrorHandler 处理错误（如果已注入）
+            fix_result = None
+            if self._error_handler:
+                try:
+                    from .error_handler import ErrorContext
+                    error_context = ErrorContext(
+                        error_log=str(e),
+                        project_path=context.get("project_path", "."),
+                        file_paths=context.get("file_paths", []),
+                        prd_id=context.get("prd_id", ""),
+                        sprint_name=sprint_name,
+                        task_name=task.task,
+                        metadata={"agent": task.agent},
+                    )
+                    fix_result = await self._error_handler.handle(error_context)
+                    logger.info(f"ErrorHandler 处理完成: success={fix_result.success}, level={fix_result.level}")
+                except Exception as eh_error:
+                    logger.warning(f"ErrorHandler 处理失败: {eh_error}")
+            
+            # 构建错误信息
+            error_msg = str(e)
+            if fix_result and fix_result.success:
+                error_msg += f"\n\n修复建议: {fix_result.fix_suggestion}"
+                error_msg += f"\n处理层级: {fix_result.level} (置信度: {fix_result.confidence:.0%})"
+            
             return TaskResult(
                 task=task,
                 sprint_name=sprint_name,
                 status=TaskStatus.FAILED,
-                error=str(e),
+                error=error_msg,
                 duration=time.time() - start_time,
             )
     

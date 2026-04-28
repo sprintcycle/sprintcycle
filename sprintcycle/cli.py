@@ -9,6 +9,7 @@ import sys
 import os
 import asyncio
 import logging
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Optional
 
@@ -20,11 +21,58 @@ from sprintcycle.prd.parser import PRDParser, PRDParseError, YAMLError
 from sprintcycle.scheduler.dispatcher import TaskDispatcher, ExecutionStatus
 from sprintcycle.intent.base import IntentResult
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
-logger = logging.getLogger(__name__)
+def setup_logging(
+    log_file: str = ".sprintcycle/logs/sprintcycle.log",
+    level: int = logging.INFO,
+    max_bytes: int = 10 * 1024 * 1024,  # 10MB
+    backup_count: int = 5
+) -> logging.Logger:
+    """
+    配置日志系统，支持文件轮转
+    
+    Args:
+        log_file: 日志文件路径
+        level: 日志级别
+        max_bytes: 单个日志文件最大大小
+        backup_count: 保留的备份文件数量
+        
+    Returns:
+        配置好的 logger 实例
+    """
+    # 确保日志目录存在
+    log_path = Path(log_file)
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    # 创建格式化器
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+    
+    # 配置根 logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(level)
+    
+    # 添加控制台处理器
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(level)
+    console_handler.setFormatter(formatter)
+    root_logger.addHandler(console_handler)
+    
+    # 添加文件轮转处理器
+    file_handler = RotatingFileHandler(
+        log_file,
+        maxBytes=max_bytes,
+        backupCount=backup_count,
+        encoding='utf-8'
+    )
+    file_handler.setLevel(level)
+    file_handler.setFormatter(formatter)
+    root_logger.addHandler(file_handler)
+    
+    return logging.getLogger(__name__)
+
+# 初始化日志系统
+logger = setup_logging()
 
 
 @click.command()

@@ -163,6 +163,7 @@ class AgentExecutor(ABC):
 
 
 __all__ = [
+    "AgentConfig",
     "AgentType",
     "AgentContext",
     "AgentResult",

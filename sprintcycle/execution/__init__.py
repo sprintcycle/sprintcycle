@@ -1,7 +1,5 @@
 """
 Execution 模块 - 统一执行引擎
-
-提供策略模式的执行架构，支持 Normal 和 Evolution 两种模式。
 """
 
 from .engine import ExecutionEngine
@@ -10,66 +8,35 @@ from .sprint_executor import SprintExecutor, TaskStatus, TaskResult, SprintResul
 from .events import EventBus, Event, EventType, get_event_bus
 from .state_store import StateStore, ExecutionState, ExecutionStateStatus, get_state_store
 from .feedback import FeedbackLoop, ExecutionFeedback, FeedbackLevel, FeedbackCategory
+from .cache import ExecutionCache, CacheEntry, get_cache, set_cache
 from .agents import (
-    AgentType,
-    AgentContext,
-    AgentResult,
-    AgentExecutor,
-    CoderAgent,
-    EvolverAgent,
-    TesterAgent,
-    TestCase,
-    TestType,
-    TestResult,
+    AgentType, AgentContext, AgentResult, AgentExecutor, CoderAgent, BatchTask, BatchConfig,
+    EvolverAgent, TesterAgent, TestCase, TestType, TestResult,
 )
+# 错误处理组件 (新增)
+from .error_knowledge import ErrorKnowledgeBase, ErrorPattern, PatternMatch, get_error_knowledge_base, reset_error_knowledge_base
+from .error_router import ErrorRouter, RoutingLevel, RoutingContext, RoutingResult, get_error_router
+from .rollback import RollbackManager, BackupRecord, RollbackResult, get_rollback_manager
+from .error_handler import ErrorHandler, ErrorContext, FixResult, get_error_handler, reset_error_handler
 from ..evolution.engine import EvolutionEngine
 from ..evolution.config import EvolutionEngineConfig
 from ..evolution.types import SprintContext
 
-# 重命名以避免与 agents.EvolutionStrategy 冲突
 EvolutionStrategy = StrategyEvolutionStrategy
 
 __all__ = [
-    # 核心组件
-    "ExecutionEngine",
-    "SprintExecutor",
-    # 策略
-    "NormalStrategy",
-    "EvolutionStrategy",
-    "ExecutionStrategy",
-    "get_strategy",
-    # 任务执行
-    "TaskStatus",
-    "TaskResult",
-    "SprintResult",
-    # 事件系统
-    "EventBus",
-    "Event",
-    "EventType",
-    "get_event_bus",
-    # 状态持久化
-    "StateStore",
-    "ExecutionState",
-    "ExecutionStateStatus",
-    "get_state_store",
-    # 反馈闭环
-    "FeedbackLoop",
-    "ExecutionFeedback",
-    "FeedbackLevel",
-    "FeedbackCategory",
-    # Agent 执行器
-    "AgentType",
-    "AgentContext",
-    "AgentResult",
-    "AgentExecutor",
-    "CoderAgent",
-    "EvolverAgent",
-    "TesterAgent",
-    "TestCase",
-    "TestType",
-    "TestResult",
-    # Evolution 集成
-    "EvolutionEngine",
-    "EvolutionEngineConfig",
-    "SprintContext",
+    "ExecutionEngine", "SprintExecutor", "NormalStrategy", "EvolutionStrategy", "ExecutionStrategy", "get_strategy",
+    "TaskStatus", "TaskResult", "SprintResult",
+    "EventBus", "Event", "EventType", "get_event_bus",
+    "StateStore", "ExecutionState", "ExecutionStateStatus", "get_state_store",
+    "FeedbackLoop", "ExecutionFeedback", "FeedbackLevel", "FeedbackCategory",
+    "ExecutionCache", "CacheEntry", "get_cache", "set_cache",
+    "AgentType", "AgentContext", "AgentResult", "AgentExecutor", "CoderAgent", "BatchTask", "BatchConfig",
+    "EvolverAgent", "TesterAgent", "TestCase", "TestType", "TestResult",
+    # 错误处理
+    "ErrorKnowledgeBase", "ErrorPattern", "PatternMatch", "get_error_knowledge_base", "reset_error_knowledge_base",
+    "ErrorRouter", "RoutingLevel", "RoutingContext", "RoutingResult", "get_error_router",
+    "RollbackManager", "BackupRecord", "RollbackResult", "get_rollback_manager",
+    "ErrorHandler", "ErrorContext", "FixResult", "get_error_handler", "reset_error_handler",
+    "EvolutionEngine", "EvolutionEngineConfig", "SprintContext",
 ]

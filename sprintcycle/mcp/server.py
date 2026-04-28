@@ -6,11 +6,52 @@ FastAPI 实现，提供统一的意图处理接口
 
 import asyncio
 import logging
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
 from typing import Optional, List
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
+
+def setup_mcp_logging(
+    log_file: str = ".sprintcycle/logs/mcp_server.log",
+    level: int = logging.INFO,
+    max_bytes: int = 10 * 1024 * 1024,  # 10MB
+    backup_count: int = 5
+) -> None:
+    """
+    配置 MCP Server 日志系统，支持文件轮转
+    
+    Args:
+        log_file: 日志文件路径
+        level: 日志级别
+        max_bytes: 单个日志文件最大大小
+        backup_count: 保留的备份文件数量
+    """
+    # 确保日志目录存在
+    log_path = Path(log_file)
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    # 创建格式化器
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+    
+    # 配置根 logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(level)
+    
+    # 添加文件轮转处理器
+    file_handler = RotatingFileHandler(
+        log_file,
+        maxBytes=max_bytes,
+        backupCount=backup_count,
+        encoding='utf-8'
+    )
+    file_handler.setLevel(level)
+    file_handler.setFormatter(formatter)
+    root_logger.addHandler(file_handler)
 
 logger = logging.getLogger(__name__)
 

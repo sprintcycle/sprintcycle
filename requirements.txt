@@ -1,0 +1,15 @@
+# SprintCycle 依赖包
+
+# ===== 核心依赖 =====
+httpx>=0.25.0
+pyyaml>=6.0
+
+# ===== 静态分析工具（可选）=====
+# Ruff - 超快的 Python Linter
+ruff>=0.1.0
+# MyPy - 静态类型检查器
+mypy>=1.8.0
+
+# ===== 开发依赖 =====
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
