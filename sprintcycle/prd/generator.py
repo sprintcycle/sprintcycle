@@ -2,10 +2,12 @@
 PRD 生成器
 
 将 ParsedIntent 转换为 PRD 文档
+支持基于历史反馈的优化
 """
 
 import os
-from typing import Optional, List
+import re
+from typing import Optional, List, Dict, Any
 from pathlib import Path
 
 from .models import (
@@ -119,10 +121,12 @@ class PRDGenerator:
     def _from_evolve(parsed: ParsedIntent) -> PRD:
         """从进化意图生成 PRD"""
         project_path = parsed.project or PRDGenerator._get_sprintcycle_root()
+        # 确保 path 是字符串
+        project_path_str = str(project_path)
         
         project = PRDProject(
             name="sprintcycle",
-            path=project_path,
+            path=project_path_str,
             version="v0.6.0",
         )
         
@@ -159,10 +163,12 @@ class PRDGenerator:
         """从构建意图生成 PRD"""
         project_path = parsed.project or os.getcwd()
         project_name = os.path.basename(os.path.abspath(project_path))
+        # 确保 path 是字符串
+        project_path_str = str(project_path)
         
         project = PRDProject(
             name=project_name,
-            path=project_path,
+            path=project_path_str,
             version="v1.0.0",
         )
         
@@ -187,8 +193,88 @@ class PRDGenerator:
     
     @staticmethod
     def _from_fix(parsed: ParsedIntent) -> PRD:
-        """从修复意图生成 PRD"""
-        return PRDGenerator._from_build(parsed)
+        """从修复意图生成 PRD - 使用 GEPA 自进化能力"""
+        # 解析错误信息
+        error_info = PRDGenerator._parse_error_info(parsed.description)
+        
+        # 定位问题文件
+        target_file = parsed.target or error_info.get("file")
+        
+        project_path = parsed.project or os.getcwd()
+        project_name = os.path.basename(os.path.abspath(project_path))
+        project_path_str = str(project_path)
+        
+        project = PRDProject(
+            name=project_name,
+            path=project_path_str,
+            version="v1.0.0",
+        )
+        
+        # 构建修复目标描述
+        fix_goal = f"修复错误: {parsed.description}"
+        if error_info.get("error_type"):
+            fix_goal = f"修复 {error_info['error_type']}: {error_info.get('error_msg', parsed.description)}"
+        
+        # 使用进化配置
+        evolution = EvolutionConfig(
+            targets=[target_file] if target_file else [],
+            goals=[fix_goal],
+            constraints=parsed.constraints,
+            max_variations=5,
+            iterations=3,
+        )
+        
+        sprint = PRDSprint(
+            name="Bug Fix Sprint",
+            goals=[fix_goal],
+            tasks=[
+                PRDTask(
+                    task=fix_goal,
+                    agent="evolver",  # 关键：使用 evolver 而不是 coder
+                    target=target_file,
+                    constraints=parsed.constraints,
+                )
+            ],
+        )
+        
+        return PRD(
+            project=project,
+            mode=ExecutionMode.EVOLUTION,  # 关键：使用 evolution 模式
+            evolution=evolution,
+            sprints=[sprint],
+        )
+    
+    @staticmethod
+    def _parse_error_info(error_text: str) -> dict:
+        """从错误文本中解析关键信息"""
+        info = {}
+        
+        if not error_text:
+            return info
+        
+        # Python 错误模式
+        patterns = {
+            "file": r'File "([^"]+)"',
+            "line": r', line (\d+)',
+            "error_type": r'^(\w+Error|\w+Exception):',
+            "error_msg": r': (.+)$',
+        }
+        
+        for key, pattern in patterns.items():
+            match = re.search(pattern, error_text, re.MULTILINE)
+            if match:
+                info[key] = match.group(1)
+        
+        # 如果没有匹配到标准格式，尝试简单提取
+        if not info.get("error_type"):
+            # 尝试匹配 "NameError: ..." 格式
+            simple_match = re.match(r'(\w+Error|\w+Exception):?\s*(.*)', error_text)
+            if simple_match:
+                info["error_type"] = simple_match.group(1)
+                if simple_match.group(2):
+                    info["error_msg"] = simple_match.group(2)
+        
+        return info
     
     @staticmethod
     def _from_test(parsed: ParsedIntent) -> PRD:
