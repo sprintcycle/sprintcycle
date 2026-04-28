@@ -50,5 +50,5 @@ split_triggers:
 
 # 输出配置
 output:
-  split_prd_dir: "/root/sprintcycle/prd/split/"
+  split_prd_dir: "/root/sprintcycle-projects/sprintcycle/prd/split/"
   naming_pattern: "{original_name}_p{part}_{theme}.yaml"
