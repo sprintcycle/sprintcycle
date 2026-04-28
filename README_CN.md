@@ -8,7 +8,7 @@
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.8+-green.svg)](https://www.python.org/)
-[![Version](https://img.shields.io/badge/Version-0.2.0-orange.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-0.4.0-orange.svg)](CHANGELOG.md)
 
 [English](README.md) | 简体中文
 
@@ -253,13 +253,19 @@ AI 自动完成：生成 PRD → 编写代码 → 测试验证 → 部署运行
 | 特性 | 说明 |
 |------|------|
 | 🔄 **多轮迭代** | Sprint 式开发，自动任务拆解 |
-| 🤖 **6 个 Agent** | CODER、REVIEWER、ARCHITECT、TESTER、DIAGNOSTIC、UI_VERIFY |
+| 🤖 **6 个 Agent** | CODER、REVIEWER、ARCHITECT、 TESTER、DIAGNOSTIC、UI_VERIFY |
 | ✅ **五源验证** | 测试、审查、运行时、UI、差异验证 |
 | 📚 **知识库** | 自动沉淀经验，越用越强 |
 | 🧬 **自进化** | 9 阶段闭环持续优化 |
 | 🔌 **18 个 MCP 工具** | AI Agent 完美集成 |
+| 📊 **统一状态管理** | EventBus 事件总线 (v0.4.0) |
+| ⚡ **并发执行** | 依赖图调度器 (v0.4.0) |
+| 📈 **性能基准测试** | 回归检测机制 (v0.4.0) |
+| 💻 **资源监控** | CPU/内存/磁盘/网络监控 (v0.4.0) |
+| 🛡️ **错误处理** | 16 种异常类型 (v0.3.0) |
+| 📝 **增强日志** | 结构化 JSON 日志 (v0.3.0) |
+| ⚙️ **类型安全配置** | 环境变量覆盖 (v0.3.0) |
 
----
 
 ## 🚀 快速开始
 

@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 from playwright.async_api import async_playwright
 
-OUTPUT_DIR = Path("/root/sprintcycle/videos")
+OUTPUT_DIR = Path("/root/sprintcycle-projects/sprintcycle/videos")
 SCREENSHOT_DIR = OUTPUT_DIR / "screenshots"
 VIDEO_OUTPUT = OUTPUT_DIR / "demo_30s.mp4"
 TEMP_VIDEO = OUTPUT_DIR / "temp.mp4"
@@ -84,7 +84,7 @@ async def main():
         </style></head><body>
         <div class="terminal">
         <div class="header"><div class="btn red"></div><div class="btn yellow"></div><div class="btn green"></div></div>
-        <div id="content"><div><span class="prompt">$</span> <span class="command">cd /root/sprintcycle</span></div><div class="output">/root/sprintcycle</div></div>
+        <div id="content"><div><span class="prompt">$</span> <span class="command">cd /root/sprintcycle-projects/sprintcycle</span></div><div class="output">/root/sprintcycle-projects/sprintcycle</div></div>
         </div>
         <script>
         const steps = [
