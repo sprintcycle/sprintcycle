@@ -244,3 +244,109 @@ class EvolutionEngine:
                     await asyncio.sleep(1)
         
         return results
+    
+    async def evolve_sprint(self, sprint, max_generations: int = 3) -> EvolutionResult:
+        """
+        对一个 Sprint 进行进化优化
+        
+        这是方案 A 的核心方法：将 Evolution 作为 Sprint 的增强能力。
+        通过内部调用 GEPA 进化流程，优化 Sprint 中的目标代码。
+        
+        Args:
+            sprint: PRDSprint 对象
+            max_generations: 最大进化代数
+            
+        Returns:
+            EvolutionResult: 进化后的执行结果
+        """
+        logger.info(f"🚀 开始 Evolution 增强 Sprint: {sprint.name}")
+        
+        start_time = time.time()
+        result = EvolutionResult(stage=EvolutionStage.VARIATION, success=True)
+        
+        # 1. 从 Sprint 中提取目标文件
+        targets = self._extract_targets_from_sprint(sprint)
+        
+        if not targets:
+            logger.warning(f"⚠️ Sprint {sprint.name} 没有可进化的目标文件")
+            result.success = False
+            result.error = "没有可进化的目标文件"
+            return result
+        
+        logger.info(f"📋 提取到 {len(targets)} 个进化目标: {targets}")
+        
+        # 2. 对每个目标进行 GEPA 进化
+        all_variations = []
+        all_selected_genes = []
+        
+        for generation in range(max_generations):
+            logger.info(f"📍 Generation {generation + 1}/{max_generations}")
+            generation_variations = []
+            generation_genes = []
+            
+            for target in targets:
+                try:
+                    # 创建上下文
+                    context = SprintContext(
+                        sprint_id=f"sprint-evo-{hashlib.md5(sprint.name.encode()).hexdigest()[:8]}",
+                        sprint_number=generation + 1,
+                        goal=f"Sprint {sprint.name} 进化优化",
+                    )
+                    
+                    # 调用原有的 evolve_code 方法
+                    evo_result = await self.evolve_code(
+                        target=target,
+                        context=context,
+                        goal=f"Sprint {sprint.name} 目标优化",
+                    )
+                    
+                    generation_variations.extend(evo_result.variations)
+                    generation_genes.extend(evo_result.selected_genes)
+                    
+                    logger.info(f"  ✅ {target} 进化完成")
+                except Exception as e:
+                    logger.warning(f"  ⚠️ {target} 进化失败: {e}")
+            
+            all_variations.extend(generation_variations)
+            all_selected_genes.extend(generation_genes)
+            
+            # 休息一下，避免 API 限制
+            if generation < max_generations - 1:
+                await asyncio.sleep(1)
+        
+        # 3. 构建最终结果
+        result.variations = all_variations
+        result.selected_genes = all_selected_genes
+        result.success = len(all_selected_genes) > 0
+        result.execution_time = time.time() - start_time
+        
+        if result.success:
+            logger.info(f"✅ Sprint {sprint.name} Evolution 完成: {len(all_selected_genes)} 个基因被选中")
+        else:
+            logger.warning(f"⚠️ Sprint {sprint.name} Evolution 未产生有效结果")
+        
+        return result
+    
+    def _extract_targets_from_sprint(self, sprint) -> List[str]:
+        """
+        从 Sprint 中提取需要进化的目标文件
+        
+        Args:
+            sprint: PRDSprint 对象
+            
+        Returns:
+            List[str]: 目标文件路径列表
+        """
+        targets = []
+        
+        # 从任务中提取 target
+        if hasattr(sprint, 'tasks'):
+            for task in sprint.tasks:
+                if hasattr(task, 'target') and task.target:
+                    # 跳过非代码文件
+                    if not task.target.endswith(('.py', '.js', '.ts', '.java', '.go', '.rs')):
+                        continue
+                    targets.append(task.target)
+        
+        # 去重
+        return list(set(targets))
