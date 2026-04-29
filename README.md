@@ -9,6 +9,8 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.8+-green.svg)](https://www.python.org/)
 [![Version](https://img.shields.io/badge/Version-0.7.7-orange.svg)](CHANGELOG.md)
+[![codecov](https://codecov.io/gh/sprintcycle/sprintcycle/branch/main/graph/badge.svg)](https://codecov.io/gh/sprintcycle/sprintcycle)
+[![Coverage Status](https://img.shields.io/badge/coverage-68%25-yellowgreen.svg)](#)
 
 English | [简体中文](README_CN.md)
 
