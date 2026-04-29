@@ -1,10 +1,10 @@
 """
 SprintCycle - AI 驱动的敏捷开发迭代框架
 
-版本: v0.7.4
+版本: v0.8.0
 """
 
-__version__ = "0.7.7"
+__version__ = "0.8.0"
 __author__ = "SprintCycle Team"
 
 # 核心 API (用户常用)
@@ -60,10 +60,6 @@ def get_tooltype():
 def get_knowledge_base():
     from .server import KnowledgeBase
     return KnowledgeBase
-
-def get_scheduler():
-    from .scheduler import SprintScheduler
-    return SprintScheduler
 
 def get_benchmark():
     from .benchmark import BenchmarkSuite
