@@ -8,7 +8,7 @@
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.8+-green.svg)](https://www.python.org/)
-[![Version](https://img.shields.io/badge/Version-0.4.0-orange.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-0.7.7-orange.svg)](CHANGELOG.md)
 
 [English](README.md) | 简体中文
 

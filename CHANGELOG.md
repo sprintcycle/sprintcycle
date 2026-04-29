@@ -7,6 +7,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.7] - 2026-04-29
+
+### 🐛 Bug Fixes
+- **P0/P1 问题修复**
+  - 版本号统一：`__init__.py` 与 `pyproject.toml` 保持一致
+  - 依赖管理统一：移除重复的 `requirements.txt`，统一使用 `pyproject.toml`
+  - README 版本号更新：中英文文档版本号同步至 v0.7.7
+
+### 🧪 Testing
+- **测试覆盖率提升** (47% → 52%)
+  - 新增 `tests/test_states.py` - 状态管理测试
+  - 新增 `tests/test_prd_splitter.py` - PRD 拆分测试
+  - 新增 `tests/test_ui_verifier.py` - UI 验证测试
+  - 新增 `tests/test_verifiers.py` - Playwright 验证器测试
+  - 新增 `tests/test_chorus_extended.py` - Chorus 扩展测试
+  - 新增 `tests/test_sprint_chain_extended.py` - SprintChain 扩展测试
+  - 测试用例：189 → 274 (+85)
+  - 测试通过率：100%
+
+## [0.7.6] - 2026-04-29
+
+### 🔄 Refactoring
+- **架构优化：optimizations.py 拆分** (1400+ 行 → 5 个模块)
+  - `sprintcycle/rollback.py` - 文件回滚管理
+  - `sprintcycle/timeout.py` - 超时处理
+  - `sprintcycle/error_helper.py` - 错误分类与友好提示
+  - `sprintcycle/evolution.py` - 进化引擎
+  - `sprintcycle/five_source.py` - 五源验证
+
+### ✨ Features
+- **五源验证完善**
+  - CLI 验证：检查 cli.py 存在性和可执行性
+  - Backend 验证：检查 API 服务健康状态
+  - Tests 验证：检查测试目录和测试文件
+  - Docs 验证：检查 README 和文档目录
+  - Config 验证：检查配置文件完整性
+
+## [0.7.5] - 2026-04-29
+
+### 🐛 Bug Fixes
+- **P0 问题修复**
+  - MCP 导入冲突修复：使用 `importlib` 动态检测系统 mcp 包
+  - 包名统一：`pyproject.toml` 从 `sprintmind` 改为 `sprintcycle`
+  - 重复代码清理：删除孤立的 `core/` 和 `adapters/` 目录
+  - 裸 except 语句修复：全部替换为 `except Exception:`
+
+### 🧪 Testing
+- 测试通过：207 passed, 1 skipped (100%)
+
+## [0.7.4] - 2026-04-29
+
+### 🔄 Refactoring
+- 代码结构调整和优化
+- 类型注解修复
+
 ## [0.7.3] - 2026-04-29
 
 ### 🔐 Security
