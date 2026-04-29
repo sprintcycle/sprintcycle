@@ -186,17 +186,10 @@ class AgentType(Enum):
     UI_VERIFY = "ui_verify"
     
     @classmethod
-    def from_string(cls, value: str) -> Optional["AgentType"]:
+    def from_string(cls, value: str) -> "AgentType":
         """安全转换，未知类型自动映射到 CODER"""
         if not value:
-            return None
-        try:
-            return cls(value.lower())
-        except ValueError:
-            from loguru import logger
-            logger.info(f"未知 agent 类型 '{value}'，自动映射到 CODER")
-            return None
-
+            return cls.CODER
         try:
             return cls(value.lower())
         except ValueError:

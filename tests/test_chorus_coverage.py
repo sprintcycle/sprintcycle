@@ -334,7 +334,7 @@ class TestAgentTypeFromString:
     
     def test_from_string_empty(self):
         """测试空字符串"""
-        assert AgentType.from_string("") is None
+        assert AgentType.from_string("") == AgentType.CODER
 
 
 class TestChorusAnalyzeExtended:
