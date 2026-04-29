@@ -88,7 +88,7 @@ class PlaywrightVerifier:
     - hover: 悬停
     """
     
-    def __init__(self, project_path: str = None, mcp_command: str = None, timeout: int = 30000):
+    def __init__(self, project_path: Optional[str] = None, mcp_command: Optional[str] = None, timeout: int = 30000):
         """
         初始化 PlaywrightVerifier
         
@@ -129,7 +129,7 @@ class PlaywrightVerifier:
         except Exception:
             return False
     
-    def _run_mcp_command(self, tool: str, args: Dict = None) -> Dict:
+    def _run_mcp_command(self, tool: str, args: Optional[Dict] = None) -> Dict:
         """
         运行 MCP 工具命令
         
@@ -191,7 +191,7 @@ class PlaywrightVerifier:
                 "fallback": True
             }
     
-    def verify_page_load(self, url: str) -> Dict:
+    def verify_page_load(self, url: Optional[str]) -> Dict:
         """
         验证页面能否正常加载
         
@@ -230,7 +230,7 @@ class PlaywrightVerifier:
         
         return result
     
-    def _fallback_page_load(self, url: str) -> Dict:
+    def _fallback_page_load(self, url: Optional[str]) -> Dict:
         """降级的页面加载检查（使用 curl）"""
         try:
             result = subprocess.run(
@@ -259,7 +259,7 @@ class PlaywrightVerifier:
                 "fallback": True
             }
     
-    def get_accessibility_tree(self, url: str = None) -> Dict:
+    def get_accessibility_tree(self, url: Optional[str] = None) -> Dict:
         """
         获取页面的 accessibility tree
         
@@ -309,7 +309,7 @@ class PlaywrightVerifier:
         
         return result
     
-    def verify_element_exists(self, url: str, selector: str) -> Dict:
+    def verify_element_exists(self, url: Optional[str], selector: str) -> Dict:
         """
         验证元素是否存在
         
@@ -377,7 +377,7 @@ class PlaywrightVerifier:
             "element": None
         }
     
-    def verify_interaction(self, url: str, action: str, selector: str, value: str = None) -> Dict:
+    def verify_interaction(self, url: Optional[str], action: str, selector: str, value: Optional[str] = None) -> Dict:
         """
         验证交互操作（点击、输入等）
         
@@ -440,7 +440,7 @@ class PlaywrightVerifier:
                 "note": "Playwright MCP 不可用，无法执行交互验证"
             }
     
-    def verify_form(self, url: str, form_config: Dict) -> Dict:
+    def verify_form(self, url: Optional[str], form_config: Dict) -> Dict:
         """
         验证表单功能
         
@@ -501,7 +501,7 @@ class PlaywrightVerifier:
         
         return result
     
-    def verify_navigation_flow(self, url: str, steps: List[Dict]) -> Dict:
+    def verify_navigation_flow(self, url: Optional[str], steps: List[Dict]) -> Dict:
         """
         验证导航流程
         
@@ -562,7 +562,7 @@ class PlaywrightVerifier:
         
         return result
     
-    def verify_all(self, url: str, checks: List[str] = None) -> Dict:
+    def verify_all(self, url: Optional[str], checks: Optional[List[str]] = None) -> Dict:
         """
         执行所有检查
         
@@ -651,7 +651,7 @@ def integrate_playwright_verifier():
         return _pw_verifier
     
     @classmethod
-    def verify_frontend_enhanced(cls, project_path: str, url: str, timeout: int = 10) -> Dict:
+    def verify_frontend_enhanced(cls, project_path: str, url: Optional[str], timeout: int = 10) -> Dict:
         """
         增强的 Frontend 验证 - 使用 Playwright MCP
         
@@ -672,7 +672,7 @@ def integrate_playwright_verifier():
         }
     
     @classmethod
-    def verify_visual_enhanced(cls, project_path: str, url: str, baseline: str = None) -> Dict:
+    def verify_visual_enhanced(cls, project_path: str, url: Optional[str], baseline: Optional[str] = None) -> Dict:
         """
         增强的 Visual 验证 - 使用 accessibility tree
         

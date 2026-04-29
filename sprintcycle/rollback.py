@@ -73,7 +73,7 @@ class RollbackManager:
         self._cleanup_if_needed()
         return record
     
-    def restore_files(self, backup_id: str, files: List[str] = None) -> Dict:
+    def restore_files(self, backup_id: str, files: Optional[List[str]] = None) -> Dict:
         """从备份恢复文件"""
         backup_subdir = self.backup_dir / backup_id
         if not backup_subdir.exists():

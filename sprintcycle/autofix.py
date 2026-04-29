@@ -37,7 +37,7 @@ class AutoFixEngine:
     def __init__(self, project_path: str, api_key: Optional[str] = None):
         self.project_path = Path(project_path).resolve()
         self.api_key = api_key or os.environ.get("LLM_API_KEY", "YOUR_API_KEY_HERE")
-        self.session = None
+        self.session: Optional[FixSession] = None
     
     def scan_and_fix(self, auto=True) -> FixSession:
         self.session = FixSession(project_path=str(self.project_path), start_time=datetime.now())
