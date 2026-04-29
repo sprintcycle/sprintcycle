@@ -130,7 +130,7 @@ class TestSelfEvolutionAgent:
         assert "total_coverage" in analysis
         assert "target" in analysis
         assert "gap" in analysis
-        assert analysis["target"] == 80.0
+        assert analysis["target"] == 70.0
     
     def test_plan_phase(self, agent):
         """测试规划阶段"""

@@ -174,6 +174,88 @@ class StageExecutor:
         self.results: List[StageResult] = []
         self.metrics = EvolutionMetrics()
         self.project_path.mkdir(parents=True, exist_ok=True)
+        
+        # EvolutionEngine compatibility methods
+        self._execution_history: List[Dict] = []
+        self._failure_records: List[Dict] = []
+        self._execution_stats: Dict = {"total_executions": 0, "successful": 0, "failed": 0}
+        self._success_strategies: List[Dict] = []
+    
+    # ============== EvolutionEngine Compatibility Methods ==============
+    
+    def record_execution(self, task: str, result: Dict) -> None:
+        """记录执行结果（EvolutionEngine兼容方法）"""
+        self._execution_history.append({"task": task, "result": result, "timestamp": datetime.now().isoformat()})
+        self._execution_stats["total_executions"] += 1
+        if result.get("success"):
+            self._execution_stats["successful"] += 1
+        else:
+            self._execution_stats["failed"] += 1
+            # Record failure pattern
+            error = result.get("error", "")
+            if error:
+                self._failure_records.append({
+                    "task": task,
+                    "error": error,
+                    "timestamp": datetime.now().isoformat()
+                })
+    
+    def get_evolution_stats(self) -> Dict:
+        """获取进化统计（EvolutionEngine兼容方法）"""
+        stats = self._execution_stats.copy()
+        stats["strategies_learned"] = len(self._success_strategies)
+        return stats
+    
+    def adapt_timeout(self, task: str) -> int:
+        """自适应超时（EvolutionEngine兼容方法）"""
+        # 基于历史执行时间计算超时
+        task_executions = [e for e in self._execution_history if e["task"] == task]
+        if task_executions:
+            durations = [e["result"].get("duration", 60) for e in task_executions]
+            avg_duration = sum(durations) / len(durations)
+            return int(avg_duration * 2.5)  # 2.5x 平均时间
+        return 120  # 默认超时
+    
+    def get_failure_patterns(self) -> List[Dict]:
+        """获取失败模式（EvolutionEngine兼容方法）"""
+        patterns = []
+        for record in self._failure_records:
+            error = record.get("error", "")
+            patterns.append({
+                "error_type": error.split(":")[0] if ":" in error else error,
+                "count": 1,
+                "task": record.get("task")
+            })
+        return patterns
+    
+    @property
+    def ERROR_PATTERNS(self) -> Dict:
+        """错误模式（EvolutionEngine兼容属性）"""
+        from sprintcycle.utils.error_helper import ErrorCategory
+        return {
+            ErrorCategory.SYNTAX: ["SyntaxError", "IndentationError"],
+            ErrorCategory.IMPORT: ["ImportError", "ModuleNotFoundError"],
+            ErrorCategory.RUNTIME: ["TypeError", "ValueError", "KeyError", "IndexError", "AttributeError"],
+            ErrorCategory.LOGIC: ["RecursionError", "AssertionError"],
+            ErrorCategory.AIDER: ["AiderError", "APIError"],
+            ErrorCategory.EMPTY_OUTPUT: ["EmptyOutputError"],
+            ErrorCategory.NO_CHANGES: ["NoChangesError"],
+        }
+    
+    def classify_error(self, error_message: str) -> "ErrorCategory":
+        """分类错误（EvolutionEngine兼容方法）"""
+        from sprintcycle.utils.error_helper import ErrorHelper, ErrorCategory
+        helper = ErrorHelper()
+        return helper.classify_error(error_message)
+    
+    def learn_from_success(self, task: str, result: Dict) -> None:
+        """从成功中学习（EvolutionEngine兼容方法）"""
+        # Track successful strategies for future reference
+        self._success_strategies.append({
+            "task": task,
+            "result": result,
+            "timestamp": datetime.now().isoformat()
+        })
     
     def execute_all_stages(self, dry_run: bool = True) -> EvolutionReport:
         """执行所有15个阶段"""

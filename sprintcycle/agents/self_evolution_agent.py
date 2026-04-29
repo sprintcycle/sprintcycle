@@ -64,6 +64,21 @@ class EvolutionSnapshot:
     
     def to_dict(self) -> Dict:
         return asdict(self)
+    
+    @classmethod
+    def from_dict(cls, data: Dict) -> "EvolutionSnapshot":
+        """从字典反序列化 EvolutionSnapshot"""
+        return cls(
+            phase=data.get("phase", ""),
+            mode=data.get("mode", ""),
+            status=data.get("status", ""),
+            findings=data.get("findings", []),
+            recommendations=data.get("recommendations", []),
+            changes_made=data.get("changes_made", []),
+            duration_seconds=data.get("duration_seconds", 0.0),
+            timestamp=data.get("timestamp", datetime.now().isoformat()),
+            dry_run=data.get("dry_run", True)
+        )
 
 
 @dataclass
