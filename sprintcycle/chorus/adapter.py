@@ -22,15 +22,10 @@ try:
         VerificationType,
         VerificationResult,
         PageVerificationReport,
-        ConcurrentExecutor,
-        PriorityTask,
-        TaskPriority
     )
 except ImportError:
     logger.warning("agents 模块导入失败，UI_VERIFY Agent 将使用降级模式")
     UIVerifyAgent = None
-    ConcurrentExecutor = None
-    TaskPriority = None
 
 
 class ChorusAdapter:
