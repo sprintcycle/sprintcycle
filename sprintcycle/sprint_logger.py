@@ -5,6 +5,8 @@ SprintCycle Sprint 日志模块 v0.3
 - Sprint/Task 级别日志
 - 性能统计
 - 错误追踪
+
+注意：TaskStatus 和 SprintStatus 已统一到 sprintcycle.chorus.enums
 """
 
 import time
@@ -13,28 +15,12 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field, asdict
-from enum import Enum
 
 from loguru import logger
 from utils.logger import set_log_context, clear_log_context
 
-
-class TaskStatus(Enum):
-    """任务状态"""
-    PENDING = "pending"
-    RUNNING = "running"
-    SUCCESS = "success"
-    FAILED = "failed"
-    SKIPPED = "skipped"
-
-
-class SprintStatus(Enum):
-    """Sprint 状态"""
-    PENDING = "pending"
-    RUNNING = "running"
-    SUCCESS = "success"
-    FAILED = "failed"
-    PARTIAL = "partial"
+# 从统一枚举模块导入（避免重复定义）
+from sprintcycle.chorus.enums import TaskStatus, SprintStatus
 
 
 @dataclass

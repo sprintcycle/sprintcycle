@@ -16,7 +16,7 @@ class TestEnums:
     def test_agent_type_values(self):
         assert AgentType.CODER.value == "coder"
         assert AgentType.REVIEWER.value == "reviewer"
-        assert len(AgentType) == 6
+        assert len(AgentType) == 9
     
     def test_task_status_values(self):
         assert TaskStatus.PENDING.value == "pending"

@@ -1,78 +1,30 @@
 """
 SprintCycle Pydantic 数据模型
+
 提供类型安全的数据定义，替代 dict 传递
+
+注意：枚举类型已统一到 sprintcycle.chorus.enums
+此文件保留枚举的 re-export 以保持向后兼容
 """
 
 from __future__ import annotations
 
 from datetime import datetime
-from enum import Enum
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
-
 # ============================================================
-# 枚举类型
+# 枚举类型 - 从统一位置导入（re-export 保持向后兼容）
 # ============================================================
-
-class AgentType(str, Enum):
-    """Agent 类型枚举"""
-    CODER = "coder"
-    REVIEWER = "reviewer"
-    TESTER = "tester"
-    PLANNER = "planner"
-    EXECUTOR = "executor"
-    ORCHESTRATOR = "orchestrator"
-
-
-class TaskStatus(str, Enum):
-    """任务状态枚举"""
-    PENDING = "pending"
-    RUNNING = "running"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    SKIPPED = "skipped"
-
-
-class SprintStatus(str, Enum):
-    """Sprint 状态枚举"""
-    PLANNED = "planned"
-    IN_PROGRESS = "in_progress"
-    COMPLETED = "completed"
-    CANCELLED = "cancelled"
-
-
-class ReviewSeverity(str, Enum):
-    """审查严重级别"""
-    INFO = "info"
-    WARNING = "warning"
-    ERROR = "error"
-    CRITICAL = "critical"
-
-
-class IssueSeverity(str, Enum):
-    """问题严重级别"""
-    INFO = "info"
-    MINOR = "minor"
-    MAJOR = "major"
-    CRITICAL = "critical"
-
-
-class IssueType(str, Enum):
-    """问题类型"""
-    CODE = "code"
-    STYLE = "style"
-    BUG = "bug"
-    SECURITY = "security"
-    PERFORMANCE = "performance"
-    DOCUMENTATION = "documentation"
-
-
-class HealthStatus(str, Enum):
-    """健康检查状态"""
-    HEALTHY = "healthy"
-    DEGRADED = "degraded"
-    UNHEALTHY = "unhealthy"
+from sprintcycle.chorus.enums import (
+    AgentType,
+    TaskStatus,
+    SprintStatus,
+    ReviewSeverity,
+    IssueSeverity,
+    IssueType,
+    HealthStatus,
+)
 
 
 # ============================================================

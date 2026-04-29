@@ -30,7 +30,7 @@ class TestAgentType:
     
     def test_agent_type_count(self):
         """测试 AgentType 枚举数量"""
-        assert len(AgentType) == 6
+        assert len(AgentType) == 9
 
 
 class TestToolType:

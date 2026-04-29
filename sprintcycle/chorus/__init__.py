@@ -9,8 +9,12 @@ v4.10 改进:
 - Sprint 4: UI_VERIFY Agent 完善 - 增强验证方法
 - Sprint 5: 任务回滚机制 - 完善 RollbackManager
 
+v4.11 改进 (Step 3 - 统一枚举定义):
+- 所有枚举类型统一到 chorus/enums.py，消除重复定义
+- TaskStatus/SprintStatus/AgentType 等枚举合并超集
+
 文件拆分说明 (Phase 2):
-- chorus/enums.py: 枚举定义
+- chorus/enums.py: 枚举定义（统一位置）
 - chorus/progress.py: 进度和结果数据类
 - chorus/config.py: 配置管理
 - chorus/knowledge.py: 知识库
@@ -46,7 +50,17 @@ def _get_optimizations():
 
 
 # 从各子模块导入
-from .enums import ToolType, AgentType, TaskStatus
+from .enums import (
+    ToolType,
+    AgentType,
+    TaskStatus,
+    SprintStatus,
+    ReviewSeverity,
+    IssueSeverity,
+    IssueType,
+    HealthStatus,
+    ErrorCategory,
+)
 from .progress import ExecutionResult, TaskProgress
 from .config import Config, get_credential_manager_wrapper
 from .knowledge import KnowledgeBase
@@ -74,10 +88,16 @@ def get_credential_manager(project_path="."):
 
 # 导出公共接口
 __all__ = [
-    # 枚举
+    # 枚举（统一位置：chorus.enums）
     "ToolType",
     "AgentType",
     "TaskStatus",
+    "SprintStatus",
+    "ReviewSeverity",
+    "IssueSeverity",
+    "IssueType",
+    "HealthStatus",
+    "ErrorCategory",
     # 数据类
     "ExecutionResult",
     "TaskProgress",
