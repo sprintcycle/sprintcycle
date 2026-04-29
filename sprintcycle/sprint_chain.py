@@ -185,69 +185,70 @@ class SprintChain:
             })
         return tasks
 
-    def auto_plan_from_prd(self, prd_path: str) -> Dict:
-        """从 PRD 文档自动生成 Sprint 规划"""
+    def _parse_yaml_prd(self, content: str) -> Optional[List[Dict]]:
+        """解析 YAML 格式的 PRD"""
         import yaml
-        import re
         
-        # 检查文件是否存在
-        if not Path(prd_path).exists():
-            return {
-                "error": f"PRD文件不存在: {prd_path}",
-                "sprints": []
-            }
+        if 'sprints:' not in content and 'project:' not in content:
+            return None
         
         try:
-            with open(prd_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-        except Exception as e:
-            return {
-                "error": f"读取PRD文件失败: {str(e)}",
-                "sprints": []
-            }
-        
-        # 尝试 YAML 格式
-        if 'sprints:' in content or 'project:' in content:
-            try:
-                yaml_content = content
-                if yaml_content.startswith('#'):
-                    lines = yaml_content.split('\n')
-                    yaml_lines = [l for l in lines if not l.strip().startswith('#') or l.strip() == '#']
-                    yaml_content = '\n'.join(yaml_lines)
-                
-                prd_data = yaml.safe_load(yaml_content)
-                if prd_data and 'sprints' in prd_data:
-                    sprints = []
-                    for s in prd_data['sprints']:
-                        tasks = []
-                        for t in s.get('tasks', []):
-                            task_text = t.get('task', '') if isinstance(t, dict) else str(t)
-                            agent = t.get('agent', 'coder') if isinstance(t, dict) else 'coder'
-                            tasks.append({
-                                "task": task_text,
-                                "agent": agent,
-                                "subtasks": [],
-                                "files": []
-                            })
-                        sprints.append({
-                            "name": s.get('name', 'Sprint'),
-                            "goals": s.get('goals', []),
-                            "tasks": tasks,
-                            "status": "pending"
+            yaml_content = content
+            if yaml_content.startswith('#'):
+                lines = yaml_content.split('\n')
+                yaml_lines = [l for l in lines if not l.strip().startswith('#') or l.strip() == '#']
+                yaml_content = '\n'.join(yaml_lines)
+            
+            prd_data = yaml.safe_load(yaml_content)
+            if prd_data and 'sprints' in prd_data:
+                sprints = []
+                for s in prd_data['sprints']:
+                    tasks = []
+                    for t in s.get('tasks', []):
+                        task_text = t.get('task', '') if isinstance(t, dict) else str(t)
+                        agent = t.get('agent', 'coder') if isinstance(t, dict) else 'coder'
+                        tasks.append({
+                            "task": task_text,
+                            "agent": agent,
+                            "subtasks": [],
+                            "files": []
                         })
-                    
-                    for s in sprints:
-                        self.config.setdefault("sprint_chain", []).append(s)
-                    self._save_config()
-                    logger.info(f"从 YAML PRD 解析了 {len(sprints)} 个 Sprint")
-                    return {"sprints": sprints, "error": None}
-            except yaml.YAMLError as e:
-                logger.warning(f"YAML 解析失败: {e}，尝试 Markdown 格式")
+                    sprints.append({
+                        "name": s.get('name', 'Sprint'),
+                        "goals": s.get('goals', []),
+                        "tasks": tasks,
+                        "status": "pending"
+                    })
+                return sprints
+        except yaml.YAMLError as e:
+            logger.warning(f"YAML 解析失败: {e}")
+        return None
+    
+    def _parse_markdown_task(self, line: str) -> Optional[Dict]:
+        """解析单个 Markdown 任务行"""
+        if not line.startswith('- '):
+            return None
+        task_text = line[2:].strip()
+        if task_text.startswith('文件:') or task_text.startswith('File:'):
+            return None
+        agent = 'coder'
+        if '【tester】' in task_text or '[tester]' in task_text.lower():
+            agent = 'tester'
+            task_text = task_text.replace('【tester】', '').replace('[tester]', '').strip()
+        return {
+            "task": task_text,
+            "agent": agent,
+            "subtasks": [],
+            "files": []
+        }
+    
+    def _parse_markdown_prd(self, content: str) -> List[Dict]:
+        """解析 Markdown 格式的 PRD"""
+        import re
         
-        # Markdown 格式解析
         section_match = re.search(r'##?\s*开发优先级\s*\n(.*?)(?=\n##?\s|\Z)', content, re.DOTALL)
         if not section_match:
-            return {"sprints": [], "error": "未找到开发优先级章节"}
+            return []
         
         section = section_match.group(1)
         sprint_pattern = r'###\s+(?:Sprint\s+\d+|P\d+):\s*(.*?)\n(.*?)(?=\n###\s+(?:Sprint\s+\d+|P\d+):|\Z)'
@@ -259,48 +260,129 @@ class SprintChain:
             tasks = []
             
             for line in sprint_body.split('\n'):
-                line = line.strip()
-                if line.startswith('- '):
-                    task_text = line[2:].strip()
-                    if task_text.startswith('文件:') or task_text.startswith('File:'):
-                        continue
-                    agent = 'coder'
-                    if '【tester】' in task_text or '[tester]' in task_text.lower():
-                        agent = 'tester'
-                        task_text = task_text.replace('【tester】', '').replace('[tester]', '').strip()
-                    tasks.append({
-                        "task": task_text,
-                        "agent": agent,
-                        "subtasks": [],
-                        "files": []
-                    })
+                task = self._parse_markdown_task(line.strip())
+                if task:
+                    tasks.append(task)
             
-            sprints.append({
-                "name": sprint_title,
-                "tasks": tasks,
-                "status": "pending"
-            })
+            if tasks:
+                sprints.append({
+                    "name": sprint_title,
+                    "tasks": tasks,
+                    "status": "pending"
+                })
         
-        for s in sprints:
-            self.config.setdefault("sprint_chain", []).append(s)
-        self._save_config()
-        return {"sprints": sprints, "error": None}
+        return sprints
+    
+    def auto_plan_from_prd(self, prd_path: str) -> Dict:
+        """从 PRD 文档自动生成 Sprint 规划"""
+        # 检查文件是否存在
+        if not Path(prd_path).exists():
+            return {"error": f"PRD文件不存在: {prd_path}", "sprints": []}
+        
+        try:
+            with open(prd_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+        except Exception as e:
+            return {"error": f"读取PRD文件失败: {str(e)}", "sprints": []}
+        
+        # 尝试 YAML 格式
+        sprints = self._parse_yaml_prd(content)
+        if sprints is not None:
+            if sprints:
+                for s in sprints:
+                    self.config.setdefault("sprint_chain", []).append(s)
+                self._save_config()
+                logger.info(f"从 YAML PRD 解析了 {len(sprints)} 个 Sprint")
+                return {"sprints": sprints, "error": None}
+        
+        # 尝试 Markdown 格式
+        sprints = self._parse_markdown_prd(content)
+        if sprints:
+            for s in sprints:
+                self.config.setdefault("sprint_chain", []).append(s)
+            self._save_config()
+            return {"sprints": sprints, "error": None}
+        
+        return {"sprints": [], "error": "未找到有效的 Sprint 定义"}
 
     # P1: 分批执行配置
     BATCH_SIZE = 5  # 每批最多 5 个任务
     
+    def _handle_blocked_task(self, task_entry: Dict, dep_result: Dict, results: List) -> bool:
+        """处理被阻塞的任务"""
+        logger.warning(f"任务依赖未满足: {dep_result.get('missing', [])}")
+        task_entry['status'] = 'blocked'
+        results.append(task_entry)
+        return True
+    
+    def _extract_files_list(self, files_changed: Dict) -> List[str]:
+        """从 files_changed 提取文件列表"""
+        if not files_changed:
+            return []
+        files_list = []
+        for file_list in files_changed.values():
+            if isinstance(file_list, list):
+                files_list.extend(file_list)
+        return files_list
+    
+    def _handle_success_result(self, task_entry: Dict, result, completed_task_ids: List[str]) -> None:
+        """处理成功结果"""
+        task_entry["status"] = "completed"
+        completed_task_ids.append(task_entry['task'])
+    
+    def _handle_failure_result(self, task_entry: Dict, result) -> None:
+        """处理失败结果"""
+        task_entry["status"] = "failed"
+        engine = EvolutionEngine()
+        modified_files = result.files_changed.get('modified', []) if isinstance(result.files_changed, dict) else []
+        try:
+            analysis = engine.analyze_failure(task_entry['task'], result.output, list(modified_files) if modified_files else [])
+            task_entry['failure_analysis'] = {
+                'category': analysis.error_category.value,
+                'root_cause': analysis.root_cause,
+                'solution': analysis.solution_hint
+            }
+            knowledge = engine.extract_knowledge(analysis)
+            self.kb.add_entry(knowledge)
+            logger.error(f"失败分析: {analysis.error_category.value} - {analysis.root_cause}")
+        except Exception as e:
+            logger.warning(f"失败分析失败: {e}")
+    
+    def _add_validation_results(self, task_entry: Dict, result) -> None:
+        """添加验证结果"""
+        if ResultValidator:
+            validation = ResultValidator.validate(task_entry['task'], result.files_changed, self.project_path)
+            task_entry['validation'] = validation
+            if not validation.get('valid', True):
+                logger.warning(f"验证失败: {validation.get('issues', [])}")
+            if validation.get('warnings'):
+                logger.warning(f"警告: {validation.get('warnings', [])}")
+            if result.split_suggestion:
+                logger.info(f"拆分建议: {result.split_suggestion}")
+        
+        five_source = FiveSourceVerifier.verify_all(str(self.project_path), task_entry['task'], result.files_changed)
+        task_entry['verification'] = {
+            'passed': five_source.get('passed', True),
+            'cli': five_source.get('cli', {}),
+            'tests': five_source.get('tests', {}),
+            'backend': five_source.get('backend', {}),
+            'files_checked': five_source.get('files_checked', [])
+        }
+        task_entry['five_source_result'] = five_source
+        if not five_source.get('passed', True):
+            logger.warning(f"五源验证失败: {five_source.get('summary', '')}")
+
     def _run_task_batch(self, tasks: List[Dict], completed_task_ids: List[str]) -> List[Dict]:
         """执行一批任务"""
         results = []
         
         for task_entry in tasks:
             # 依赖检查
-            dep_result = DependencyManager.check_dependencies(task_entry, completed_task_ids)
-            if not dep_result['satisfied']:
-                logger.warning(f"任务依赖未满足: {dep_result['missing']}")
-                task_entry['status'] = 'blocked'
-                results.append(task_entry)
-                continue
+            if DependencyManager:
+                dep_result = DependencyManager.check_dependencies(task_entry, completed_task_ids)
+                if not dep_result.get('satisfied', True):
+                    self._handle_blocked_task(task_entry, dep_result, results)
+                    continue
             
             task_entry["status"] = "running"
             task_entry["started_at"] = datetime.now().isoformat()
@@ -314,82 +396,46 @@ class SprintChain:
                 on_progress=None
             )
             
-            task_entry["status"] = "completed" if result.success else "failed"
             task_entry["completed_at"] = datetime.now().isoformat()
             task_entry["duration_seconds"] = round(result.duration, 1)
             task_entry["files_changed"] = result.files_changed
-            
-            if result.files_changed:
-                files_list = []
-                for file_list in result.files_changed.values():
-                    if isinstance(file_list, list):
-                        files_list.extend(file_list)
-                task_entry['files'] = files_list
+            task_entry['files'] = self._extract_files_list(result.files_changed)
             
             # P0-3: 审查结果
             if self.review_enabled and result.success and self.reviewer:
-                review_result = self.reviewer.review_execution(str(self.project_path),
-                    result.files_changed,
-                    result.output if hasattr(result, 'output') else None
-                )
-                task_entry['review'] = {
-                    'passed': review_result.passed,
-                    'issues': review_result.issues if hasattr(review_result, 'issues') else [],
-                    'suggestions': review_result.suggestions if hasattr(review_result, 'suggestions') else [],
-                    'issues_count': len(review_result.issues) if hasattr(review_result, 'issues') else 0,
-                    'summary': review_result.summary
-                }
-                if not review_result.passed:
-                    logger.warning(f"审查失败: {review_result.summary}")
+                try:
+                    review_result = self.reviewer.review_execution(str(self.project_path),
+                        result.files_changed,
+                        result.output if hasattr(result, 'output') else None
+                    )
+                    task_entry['review'] = {
+                        'passed': review_result.passed,
+                        'issues': review_result.issues if hasattr(review_result, 'issues') else [],
+                        'suggestions': review_result.suggestions if hasattr(review_result, 'suggestions') else [],
+                        'issues_count': len(review_result.issues) if hasattr(review_result, 'issues') else 0,
+                        'summary': review_result.summary
+                    }
+                    if not review_result.passed:
+                        logger.warning(f"审查失败: {review_result.summary}")
+                except Exception as e:
+                    logger.warning(f"审查失败: {e}")
             
-            # 结果验证
-            validation = ResultValidator.validate(task_entry['task'], result.files_changed, self.project_path)
-            task_entry['validation'] = validation
-            if not validation['valid']:
-                logger.warning(f"验证失败: {validation['issues']}")
-            if validation['warnings']:
-                logger.warning(f"警告: {validation['warnings']}")
-            if result.split_suggestion:
-                logger.info(f"拆分建议: {result.split_suggestion}")
+            # 验证和五源验证
+            self._add_validation_results(task_entry, result)
             
-            # 五源验证
-            five_source = FiveSourceVerifier.verify_all(str(self.project_path), task_entry['task'], result.files_changed)
-            task_entry['verification'] = {
-                'passed': five_source.get('passed', True),
-                'cli': five_source.get('cli', {}),
-                'tests': five_source.get('tests', {}),
-                'backend': five_source.get('backend', {}),
-                'files_checked': five_source.get('files_checked', [])
-            }
-            task_entry['five_source_result'] = five_source
-            if not five_source['passed']:
-                logger.warning(f"五源验证失败: {five_source['summary']}")
-            
-            # 失败分析
-            if not result.success:
-                engine = EvolutionEngine()
-                modified_files = result.files_changed.get('modified', []) if isinstance(result.files_changed, dict) else result.files_changed
-                analysis = engine.analyze_failure(task_entry['task'], result.output, list(modified_files))
-                task_entry['failure_analysis'] = {
-                    'category': analysis.error_category.value,
-                    'root_cause': analysis.root_cause,
-                    'solution': analysis.solution_hint
-                }
-                knowledge = engine.extract_knowledge(analysis)
-                self.kb.add_entry(knowledge)
-                logger.error(f"失败分析: {analysis.error_category.value} - {analysis.root_cause}")
-            
-            # 记录已完成的任务 ID
+            # 处理成功/失败结果
             if result.success:
-                completed_task_ids.append(task_entry['task'])
+                self._handle_success_result(task_entry, result, completed_task_ids)
+            else:
+                self._handle_failure_result(task_entry, result)
             
-            # 保存完整的 task_entry 到 knowledge.json
+            # 保存任务记录
             self.kb.record_task_entry(task_entry)
-            
             results.append(task_entry)
         
         return results
-    
+
+
     def _save_checkpoint(self, sprint_name: str, tasks: List[Dict]):
         """保存检查点"""
         
