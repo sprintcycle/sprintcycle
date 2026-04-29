@@ -732,8 +732,8 @@ class ChorusAdapter:
         if agent == AgentType.UI_VERIFY:
             return self._execute_ui_verify_task(project_path, task)
         
-        selected = self.route(agent, tool)
-        formatted = self.AGENT_PROMPTS.get(agent, "{task}").format(task=task)
+        selected = self.route(agent, tool) or ToolType.AIDER
+        formatted = self.AGENT_PROMPTS.get(agent or AgentType.CODER, "{task}").format(task=task)
         return self.executor.execute(project_path, formatted, files, selected, on_progress)
     
     def _execute_tester_task(self, project_path: str, task: str) -> ExecutionResult:
@@ -936,8 +936,8 @@ class Chorus:
             return AgentType.UI_VERIFY
         return AgentType.CODER
     
-    def dispatch(self, project_path: str, task: str, files: List[str] = None,
-                 agent: AgentType = None, tool: ToolType = None,
+    def dispatch(self, project_path: str, task: str, files: Optional[List[str]] = None,
+                 agent: Optional[AgentType] = None, tool: Optional[ToolType] = None,
                  on_progress: Optional[Callable[..., None]] = None) -> ExecutionResult:
         
         if agent is None:

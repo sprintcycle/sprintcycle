@@ -448,7 +448,7 @@ class SprintChain:
                 pass  # 如果依赖管理不可用，保持原顺序
             
             # 分批执行
-            completed_task_ids = []
+            completed_task_ids: List[str] = []
             all_task_results = []
             
             for i in range(0, len(tasks), self.BATCH_SIZE):
