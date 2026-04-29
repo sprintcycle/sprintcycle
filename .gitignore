@@ -175,3 +175,6 @@ node_modules/
 package-lock.json
 package.json
 screenshots/
+# SprintCycle 开发中文档过滤
+docs-dev/
+evolution_reports/

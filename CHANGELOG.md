@@ -6,6 +6,43 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.8.0] - 2026-04-29
+
+### ✨ New Features
+- **Self-Evolution Capability** (自进化能力)
+  - 新增 SelfEvolutionAgent 15阶段自进化模块
+  - 新增 EvolutionPhase, EvolutionMode, EvolutionSnapshot, EvolutionResult
+  - GEPA 进化引擎：vary → select → inherit → reflect 四阶段闭环
+
+### 🔄 Refactoring (架构精简6步)
+- **Step 1**: 删除无人调用的 scheduler.py
+- **Step 2**: 删除 states/ 目录和 state_manager.py，改用简单字典
+- **Step 3**: 删除 chorus.py 和 verifiers.py 旧聚合入口
+- **Step 4**: 拆分大文件 chorus.py 和 verifiers.py (Phase 2)
+- **Step 5**: 归拢根目录散落模块到 utils/ 和 features/
+- **Step 6**: 精简 ConcurrentExecutor，明确执行层职责边界
+- **统一枚举定义**: 消除重复定义，统一到 chorus/enums.py
+- **简化 BaseAgent**: 修正假继承，合并 types.py 到 base.py
+
+### 🐛 Bug Fixes
+- **P0/P1 问题修复**
+  - mypy 类型检查修复（chorus.py, sprint_chain.py, server.py）
+  - AgentType.from_string 空字符串处理修复
+  - server.py 测试覆盖率提升至82%
+
+### 📊 Testing
+- 覆盖率提升至68%（mypy检查通过）
+- 覆盖率工具和属性测试集成
+- 测试用例持续完善
+
+### 📝 Documentation
+- 新增 P0 评估报告 (P0_EVALUATION_REPORT.md)
+- 移除 Pain Point 3（测试用例无尽的痛点描述）
+- 开发文档移动到 docs-dev/ 目录
+
+### 🔧 Maintenance
+- 版本号统一至 v0.8.0
+
 
 ## [0.7.7] - 2026-04-29
 
