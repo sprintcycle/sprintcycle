@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sprintmind"
-version = "0.4.4"
+version = "0.7.1"
 description = "自进化敏捷开发团队框架"
 readme = "README.md"
 requires-python = ">=3.10"

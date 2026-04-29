@@ -1,10 +1,10 @@
 """
 SprintCycle - AI 驱动的敏捷开发迭代框架
 
-版本: v0.4.0
+版本: v0.7.1
 """
 
-__version__ = "0.4.0"
+__version__ = "0.7.1"
 __author__ = "SprintCycle Team"
 
 # 核心模块 - 从 server.py 导出
