@@ -255,7 +255,7 @@ def cmd_scan(args):
     project_path = Path(args.project).resolve()
     print(f"🔍 扫描项目问题\n  项目: {project_path}\n")
     try:
-        from sprintcycle.scanner import ProjectScanner
+        from sprintcycle.features.scanner import ProjectScanner
         scanner = ProjectScanner(str(project_path))
         result = scanner.scan()
         print(f"✅ 扫描完成: {result.scanned_files} 文件\n")
@@ -271,7 +271,7 @@ def cmd_autofix(args):
     project_path = Path(args.project).resolve()
     print(f"🔧 自动修复问题\n")
     try:
-        from sprintcycle.autofix import AutoFixEngine
+        from sprintcycle.features.autofix import AutoFixEngine
         fixer = AutoFixEngine(str(project_path))
         session = fixer.scan_and_fix(auto=args.auto)
         print(f"✅ 修复完成: {len(session.fixes)} 问题")
@@ -284,7 +284,7 @@ def cmd_rollback(args):
     project_path = Path(args.project).resolve()
     print(f"⏪ 回滚修复\n")
     try:
-        from sprintcycle.autofix import AutoFixEngine
+        from sprintcycle.features.autofix import AutoFixEngine
         fixer = AutoFixEngine(str(project_path))
         count = fixer.rollback()
         print(f"✅ 已回滚 {count} 个修复")

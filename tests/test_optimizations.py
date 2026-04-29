@@ -9,9 +9,9 @@
 """
 import pytest
 from pathlib import Path
-from sprintcycle.rollback import RollbackManager
-from sprintcycle.timeout import TimeoutHandler
-from sprintcycle.error_helper import ErrorHelper, ErrorCategory, FailureRecord
+from sprintcycle.utils.rollback import RollbackManager
+from sprintcycle.utils.timeout import TimeoutHandler
+from sprintcycle.utils.error_helper import ErrorHelper, ErrorCategory, FailureRecord
 from sprintcycle.evolution import EvolutionEngine
 
 

@@ -3,12 +3,12 @@ import pytest
 import tempfile
 from pathlib import Path
 from datetime import datetime
-from sprintcycle.autofix import (
+from sprintcycle.features.autofix import (
     FixResult,
     FixSession,
     AutoFixEngine,
 )
-from sprintcycle.scanner import Issue, IssueType, IssueSeverity
+from sprintcycle.features.scanner import Issue, IssueType, IssueSeverity
 
 
 class TestFixResult:

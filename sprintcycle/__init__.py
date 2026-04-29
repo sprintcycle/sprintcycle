@@ -26,6 +26,40 @@ from .config import SprintCycleConfig, load_config
 # 工具
 from .exceptions import SprintCycleError
 
+# 工具模块 (utils)
+from .utils import (
+    ErrorCategory,
+    FailureRecord,
+    ErrorHelper,
+    TimeoutResult,
+    TimeoutHandler,
+    RollbackManager,
+    CacheStrategy,
+    CacheEntry,
+    CacheStats,
+    ResponseCache,
+)
+
+# 功能模块 (features)
+from .features import (
+    SplitResult,
+    PRDSplitter,
+    FixResult,
+    FixSession,
+    AutoFixEngine,
+    DiagnosticStatus,
+    ProblemType,
+    DiagnosticIssue,
+    DiagnosticResult,
+    ServiceChecker,
+    DiagnosticEngine,
+    IssueSeverity,
+    IssueType,
+    Issue,
+    ScanResult,
+    ProjectScanner,
+)
+
 __all__ = [
     # 版本
     "__version__",
@@ -50,6 +84,36 @@ __all__ = [
     
     # 工具
     "SprintCycleError",
+    
+    # 工具模块 (utils)
+    "ErrorCategory",
+    "FailureRecord",
+    "ErrorHelper",
+    "TimeoutResult",
+    "TimeoutHandler",
+    "RollbackManager",
+    "CacheStrategy",
+    "CacheEntry",
+    "CacheStats",
+    "ResponseCache",
+    
+    # 功能模块 (features)
+    "SplitResult",
+    "PRDSplitter",
+    "FixResult",
+    "FixSession",
+    "AutoFixEngine",
+    "DiagnosticStatus",
+    "ProblemType",
+    "DiagnosticIssue",
+    "DiagnosticResult",
+    "ServiceChecker",
+    "DiagnosticEngine",
+    "IssueSeverity",
+    "IssueType",
+    "Issue",
+    "ScanResult",
+    "ProjectScanner",
 ]
 
 # 内部模块 (按需导入，不暴露在顶层)

@@ -582,7 +582,7 @@ async def verify_visual(
 async def scan_issues(project_path: str = Query(...)):
     """扫描项目问题"""
     try:
-        from sprintcycle.scanner import ProjectScanner
+        from sprintcycle.features.scanner import ProjectScanner
         scanner = ProjectScanner(project_path)
         result = scanner.scan()
         return {
@@ -611,7 +611,7 @@ async def autofix(
 ):
     """自动修复问题"""
     try:
-        from sprintcycle.autofix import AutoFixEngine
+        from sprintcycle.features.autofix import AutoFixEngine
         fixer = AutoFixEngine(project_path)
         session = fixer.scan_and_fix(auto=auto)
         return {
@@ -628,7 +628,7 @@ async def autofix(
 async def rollback(project_path: str = Query(...)):
     """回滚修复"""
     try:
-        from sprintcycle.autofix import AutoFixEngine
+        from sprintcycle.features.autofix import AutoFixEngine
         fixer = AutoFixEngine(project_path)
         count = fixer.rollback()
         return {"rolled_back": count}
