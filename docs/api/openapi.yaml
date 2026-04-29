@@ -1,0 +1,809 @@
+openapi: 3.0.3
+info:
+  title: SprintCycle MCP API
+  description: |
+    SprintCycle AI-Powered Agile Development Framework MCP API
+    
+    完整的 18 个 MCP 工具定义，用于 AI Agent 交互和自动化开发流程。
+  version: 0.7.7
+  contact:
+    name: SprintCycle Team
+    url: https://github.com/sprintcycle/sprintcycle
+
+servers:
+  - url: http://localhost:8080
+    description: SprintCycle MCP Server
+
+paths:
+  # ============================================================
+  # 项目管理
+  # ============================================================
+  /api/projects:
+    get:
+      summary: 列出所有项目
+      operationId: listProjects
+      description: 获取所有 SprintCycle 管理的项目列表
+      tags:
+        - Project Management
+      responses:
+        '200':
+          description: 项目列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  projects:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Project'
+                  total:
+                    type: integer
+
+  /api/projects/{project_id}/status:
+    get:
+      summary: 获取项目状态
+      operationId: getProjectStatus
+      tags:
+        - Project Management
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 项目状态信息
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectStatus'
+
+  # ============================================================
+  # Sprint 管理
+  # ============================================================
+  /api/sprints:
+    get:
+      summary: 获取 Sprint 列表
+      operationId: listSprints
+      tags:
+        - Sprint Management
+      parameters:
+        - name: project_id
+          in: query
+          schema:
+            type: string
+            default: "."
+      responses:
+        '200':
+          description: Sprint 列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sprints:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Sprint'
+
+    post:
+      summary: 创建 Sprint
+      operationId: createSprint
+      tags:
+        - Sprint Management
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  description: Sprint 名称
+                goals:
+                  type: array
+                  items:
+                    type: string
+                  description: Sprint 目标列表
+                project_id:
+                  type: string
+                  default: "."
+      responses:
+        '201':
+          description: Sprint 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sprint'
+
+  /api/sprints/{sprint_id}:
+    get:
+      summary: 获取 Sprint 详情
+      operationId: getSprint
+      tags:
+        - Sprint Management
+      parameters:
+        - name: sprint_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Sprint 详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SprintDetail'
+
+  /api/sprints/{sprint_id}/run:
+    post:
+      summary: 运行 Sprint
+      operationId: runSprint
+      tags:
+        - Sprint Management
+      parameters:
+        - name: sprint_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Sprint 执行结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SprintResult'
+
+  /api/sprints/{sprint_name}/run-by-name:
+    post:
+      summary: 按名称运行 Sprint
+      operationId: runSprintByName
+      tags:
+        - Sprint Management
+      parameters:
+        - name: sprint_name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Sprint 执行结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SprintResult'
+
+  /api/sprints/auto-run:
+    post:
+      summary: 自动运行 Sprint
+      operationId: autoRunSprint
+      description: 根据 PRD 自动规划并执行 Sprint
+      tags:
+        - Sprint Management
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                project_id:
+                  type: string
+                  default: "."
+                prd_path:
+                  type: string
+                  description: PRD 文件路径
+      responses:
+        '200':
+          description: 自动执行结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutoRunResult'
+
+  # ============================================================
+  # 任务执行
+  # ============================================================
+  /api/tasks:
+    post:
+      summary: 执行任务
+      operationId: runTask
+      tags:
+        - Task Execution
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - task
+              properties:
+                task:
+                  type: string
+                  description: 任务描述
+                files:
+                  type: array
+                  items:
+                    type: string
+                  description: 涉及的文件列表
+                agent:
+                  type: string
+                  enum: [coder, reviewer, architect, tester, diagnostic, ui_verify]
+                  default: coder
+                tool:
+                  type: string
+                  enum: [aider, claude, cursor]
+                project_id:
+                  type: string
+                  default: "."
+      responses:
+        '200':
+          description: 任务执行结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResult'
+
+  /api/tasks/plan-from-prd:
+    post:
+      summary: 从 PRD 规划任务
+      operationId: planFromPRD
+      tags:
+        - Task Execution
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - prd_path
+              properties:
+                prd_path:
+                  type: string
+                  description: PRD 文件路径
+                project_id:
+                  type: string
+                  default: "."
+      responses:
+        '200':
+          description: 规划结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanResult'
+
+  # ============================================================
+  # 验证功能
+  # ============================================================
+  /api/verify/playwright:
+    post:
+      summary: Playwright 验证
+      operationId: playwrightVerify
+      tags:
+        - Verification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - url
+              properties:
+                url:
+                  type: string
+                  description: 页面 URL
+                checks:
+                  type: string
+                  enum: [load, accessibility, interactions, forms]
+                  description: 验证类型
+                project_id:
+                  type: string
+                  default: "."
+      responses:
+        '200':
+          description: 验证结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifyResult'
+
+  /api/verify/frontend:
+    post:
+      summary: 前端验证
+      operationId: verifyFrontend
+      tags:
+        - Verification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - url
+              properties:
+                url:
+                  type: string
+                  description: 前端页面 URL
+                project_id:
+                  type: string
+                  default: "."
+      responses:
+        '200':
+          description: 前端验证结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FrontendVerifyResult'
+
+  /api/verify/visual:
+    post:
+      summary: 视觉验证
+      operationId: verifyVisual
+      tags:
+        - Verification
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                url:
+                  type: string
+                baseline:
+                  type: string
+                  description: 基线图片路径
+                project_id:
+                  type: string
+                  default: "."
+      responses:
+        '200':
+          description: 视觉验证结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VisualVerifyResult'
+
+  # ============================================================
+  # 问题扫描与修复
+  # ============================================================
+  /api/scan:
+    post:
+      summary: 扫描问题
+      operationId: scanIssues
+      tags:
+        - Issue Management
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                project_id:
+                  type: string
+                  default: "."
+      responses:
+        '200':
+          description: 扫描结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScanResult'
+
+  /api/autofix:
+    post:
+      summary: 自动修复
+      operationId: autoFix
+      tags:
+        - Issue Management
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                project_id:
+                  type: string
+                  default: "."
+                auto:
+                  type: boolean
+                  default: true
+      responses:
+        '200':
+          description: 修复结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutoFixResult'
+
+  /api/rollback:
+    post:
+      summary: 回滚修复
+      operationId: rollback
+      tags:
+        - Issue Management
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                project_id:
+                  type: string
+                  default: "."
+      responses:
+        '200':
+          description: 回滚结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RollbackResult'
+
+  # ============================================================
+  # 执行详情
+  # ============================================================
+  /api/execution/detail:
+    get:
+      summary: 获取执行详情
+      operationId: getExecutionDetail
+      tags:
+        - Execution
+      parameters:
+        - name: project_id
+          in: query
+          schema:
+            type: string
+            default: "."
+      responses:
+        '200':
+          description: 执行详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutionDetail'
+
+  # ============================================================
+  # 知识库
+  # ============================================================
+  /api/knowledge:
+    get:
+      summary: 获取知识库统计
+      operationId: getKnowledgeStats
+      tags:
+        - Knowledge Base
+      parameters:
+        - name: project_id
+          in: query
+          schema:
+            type: string
+            default: "."
+      responses:
+        '200':
+          description: 知识库统计
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeStats'
+
+  # ============================================================
+  # 工具管理
+  # ============================================================
+  /api/tools:
+    get:
+      summary: 列出可用工具
+      operationId: listTools
+      tags:
+        - Tools
+      responses:
+        '200':
+          description: 可用工具列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tools:
+                    type: object
+                    additionalProperties:
+                      type: boolean
+                  available:
+                    type: array
+                    items:
+                      type: string
+
+# ============================================================
+# Schema 定义
+# ============================================================
+components:
+  schemas:
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        path:
+          type: string
+        total_tasks:
+          type: integer
+        success_rate:
+          type: number
+
+    ProjectStatus:
+      type: object
+      properties:
+        project:
+          type: string
+        version:
+          type: string
+        initialized:
+          type: boolean
+        sprints_count:
+          type: integer
+        knowledge:
+          $ref: '#/components/schemas/KnowledgeStats'
+
+    Sprint:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        goals:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [pending, running, completed, failed]
+        tasks_count:
+          type: integer
+
+    SprintDetail:
+      allOf:
+        - $ref: '#/components/schemas/Sprint'
+        - type: object
+          properties:
+            tasks:
+              type: array
+              items:
+                $ref: '#/components/schemas/Task'
+
+    SprintResult:
+      type: object
+      properties:
+        sprint_name:
+          type: string
+        total:
+          type: integer
+        success:
+          type: integer
+        failed:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskResult'
+
+    AutoRunResult:
+      type: object
+      properties:
+        sprints:
+          type: array
+          items:
+            $ref: '#/components/schemas/Sprint'
+        error:
+          type: string
+
+    Task:
+      type: object
+      properties:
+        id:
+          type: string
+        task:
+          type: string
+        agent:
+          type: string
+        status:
+          type: string
+        files:
+          type: array
+          items:
+            type: string
+
+    TaskResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        output:
+          type: string
+        duration:
+          type: number
+        tool:
+          type: string
+        files_changed:
+          $ref: '#/components/schemas/FilesChanged'
+        retries:
+          type: integer
+        error:
+          type: string
+        error_reason:
+          type: string
+
+    FilesChanged:
+      type: object
+      properties:
+        added:
+          type: array
+          items:
+            type: string
+        modified:
+          type: array
+          items:
+            type: string
+        deleted:
+          type: array
+          items:
+            type: string
+        screenshots:
+          type: array
+          items:
+            type: string
+
+    PlanResult:
+      type: object
+      properties:
+        sprints:
+          type: array
+          items:
+            $ref: '#/components/schemas/Sprint'
+        error:
+          type: string
+
+    VerifyResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        loaded:
+          type: boolean
+        url:
+          type: string
+        score:
+          type: number
+        issues:
+          type: array
+          items:
+            type: object
+
+    FrontendVerifyResult:
+      type: object
+      properties:
+        url:
+          type: string
+        accessible:
+          type: boolean
+        elements_found:
+          type: integer
+        errors:
+          type: array
+          items:
+            type: string
+
+    VisualVerifyResult:
+      type: object
+      properties:
+        url:
+          type: string
+        match_score:
+          type: number
+        diff_image:
+          type: string
+        passed:
+          type: boolean
+
+    ScanResult:
+      type: object
+      properties:
+        project:
+          type: string
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/Issue'
+        summary:
+          type: object
+
+    Issue:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        severity:
+          type: string
+          enum: [low, medium, high, critical]
+        message:
+          type: string
+        file:
+          type: string
+        line:
+          type: integer
+
+    AutoFixResult:
+      type: object
+      properties:
+        fixed:
+          type: integer
+        failed:
+          type: integer
+        fixes:
+          type: array
+          items:
+            type: object
+
+    RollbackResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        restored_files:
+          type: array
+          items:
+            type: string
+
+    ExecutionDetail:
+      type: object
+      properties:
+        sprints:
+          type: array
+          items:
+            type: object
+        recent_tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/Task'
+
+    KnowledgeStats:
+      type: object
+      properties:
+        total:
+          type: integer
+        success:
+          type: integer
+        success_rate:
+          type: number
+        avg_duration:
+          type: number
+
+  tags:
+    - name: Project Management
+      description: 项目管理相关操作
+    - name: Sprint Management
+      description: Sprint 生命周期管理
+    - name: Task Execution
+      description: 任务执行相关操作
+    - name: Verification
+      description: UI/前端验证功能
+    - name: Issue Management
+      description: 问题扫描与修复
+    - name: Execution
+      description: 执行详情查询
+    - name: Knowledge Base
+      description: 知识库管理
+    - name: Tools
+      description: 工具管理
