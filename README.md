@@ -8,7 +8,7 @@
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.8+-green.svg)](https://www.python.org/)
-[![Version](https://img.shields.io/badge/Version-0.4.0-orange.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-0.7.3-orange.svg)](CHANGELOG.md)
 
 English | [简体中文](README_CN.md)
 
@@ -258,6 +258,8 @@ AI automatically completes: Generate PRD → Write code → Test verification �
 | 📚 **Knowledge Base** | Auto-accumulate experience, stronger with use |
 | 🧬 **Self-evolution** | 9-stage closed-loop continuous optimization |
 | 🔌 **18 MCP Tools** | Perfect AI Agent integration |
+| 🔐 **Secure Credentials** | Multi-layer credential management with .env.local support |
+| ⚡ **AutoFix Engine** | Intelligent bug diagnosis and automatic repair |
 
 ---
 
@@ -272,7 +274,8 @@ cd sprintcycle
 pip install -r requirements.txt
 
 # Configure
-cp config.yaml.example config.yaml
+cp .env.example .env
+# Edit .env with your API keys
 export LLM_API_KEY=your_key
 
 # Start using

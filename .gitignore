@@ -159,3 +159,19 @@ pip-delete-this-directory.txt
 .env.local
 *.env.local
 credentials.yaml
+
+# ========================================
+# SprintCycle 开发中文档过滤
+# ========================================
+*.draft.md
+*.internal.md
+*.notes.md
+docs/drafts/
+docs/internal/
+notes/
+experiments/
+evolution_reports/
+node_modules/
+package-lock.json
+package.json
+screenshots/

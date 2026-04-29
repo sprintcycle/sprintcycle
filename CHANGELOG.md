@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.7.3] - 2026-04-29
+
+### 🔐 Security
+- **凭证管理增强** (`credentials.py`)
+  - 新增 credentials.py 凭证管理模块
+  - 支持 4 层配置优先级：环境变量 > .env.local > .env > 用户级凭证
+  - AgentType.from_string() 支持动态扩展，未知类型自动映射
+  - 新增 .env.example 配置模板
+  - 更新 .gitignore 排除敏感配置文件
+
+### 🛠️ Maintenance
+- 更新版本号至 v0.7.3
+- 完善代码提交流程文档
+
+## [0.7.2] - 2026-04-29
+
+### ✨ Features
+- **自进化验证技能**
+  - 新增 Phase 6 技能自进化验证
+  - 完善进化流程闭环
+
+### 🐛 Bug Fixes
+- 修复验证流程中的边界问题
+
+## [0.7.1] - 2026-04-28
+
+### 🔄 Refactoring
+- **验证技能优化**
+  - 新增 Phase 6 技能自进化验证
+  - 优化 Phase 1-5 验证流程
+
 ## [0.4.0] - 2026-04-28
 
 ### Added
@@ -132,6 +165,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Bug Fixes**: Patch 版本号更新
 
 ## 迁移指南
+
+### v0.4.0 → v0.7.3
+
+1. **新增依赖**
+   ```bash
+   pip install psutil>=5.9.0
+   ```
+
+2. **导入变更**
+   ```python
+   # 可选导入新模块
+   from sprintcycle import get_state_manager, StateScope
+   from sprintcycle import SprintScheduler
+   from sprintcycle import get_resource_monitor
+   from sprintcycle import get_benchmark_suite
+   ```
+
+3. **API 兼容**
+   - 所有 v0.4.0 API 完全兼容
+   - 新增功能可选使用
 
 ### v0.3.0 → v0.4.0
 
