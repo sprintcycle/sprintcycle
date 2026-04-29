@@ -111,8 +111,8 @@ class ResponseCache:
         normalized = json.dumps(request, sort_keys=True, ensure_ascii=False)
         return hashlib.sha256(normalized.encode()).hexdigest()[:32]
     
-    def _get_request_hash(self, url: str, method: str = "GET", params: Dict = None, 
-                          headers: Dict = None) -> str:
+    def _get_request_hash(self, url: str, method: str = "GET", params: Optional[Dict[str, Any]] = None, 
+                          headers: Optional[Dict[str, Any]] = None) -> str:
         """获取请求哈希"""
         request_data = {
             "url": url,
@@ -122,8 +122,8 @@ class ResponseCache:
         }
         return self._generate_key(request_data)
     
-    def get(self, url: str, method: str = "GET", params: Dict = None,
-            headers: Dict = None) -> Optional[Any]:
+    def get(self, url: str, method: str = "GET", params: Optional[Dict[str, Any]] = None,
+            headers: Optional[Dict[str, Any]] = None) -> Optional[Any]:
         """
         获取缓存的响应
         
@@ -159,8 +159,8 @@ class ResponseCache:
             return entry.value
     
     def set(self, url: str, value: Any, method: str = "GET",
-            params: Dict = None, headers: Dict = None,
-            ttl: int = None) -> None:
+            params: Optional[Dict[str, Any]] = None, headers: Optional[Dict[str, Any]] = None,
+            ttl: Optional[int] = None) -> None:
         """
         设置缓存
         
@@ -207,7 +207,7 @@ class ResponseCache:
             if self.enable_disk_persistence:
                 self._save_to_disk(key, entry)
     
-    def invalidate(self, url: str = None, pattern: str = None) -> int:
+    def invalidate(self, url: Optional[str] = None, pattern: Optional[str] = None) -> int:
         """
         使缓存失效
         

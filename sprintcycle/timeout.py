@@ -51,8 +51,8 @@ class TimeoutHandler:
     
     def with_timeout(
         self,
-        timeout: int = None,
-        task_name: str = None
+        timeout: Optional[int] = None,
+        task_name: Optional[str] = None
     ) -> Callable:
         """超时装饰器 v4.10"""
         timeout = timeout or self.default_timeout
@@ -94,7 +94,7 @@ class TimeoutHandler:
     def execute_with_timeout(
         self,
         func: Callable,
-        timeout: int = None,
+        timeout: Optional[int] = None,
         *args,
         **kwargs
     ) -> TimeoutResult:
@@ -131,8 +131,8 @@ class TimeoutHandler:
     def execute_with_retry(
         self,
         func: Callable,
-        max_retries: int = None,
-        backoff: float = None,
+        max_retries: Optional[int] = None,
+        backoff: Optional[float] = None,
         *args,
         **kwargs
     ) -> Dict:
@@ -141,7 +141,7 @@ class TimeoutHandler:
         backoff = backoff if backoff is not None else self.backoff_multiplier
         
         last_result = None
-        current_timeout = self.default_timeout
+        current_timeout = float(self.default_timeout)
         attempts = 0
         
         for attempt in range(max_retries + 1):
@@ -177,7 +177,7 @@ class TimeoutHandler:
         self,
         primary_func: Callable,
         fallback_func: Callable,
-        timeout: int = None,
+        timeout: Optional[int] = None,
         *args,
         **kwargs
     ) -> Dict:
@@ -204,7 +204,7 @@ class TimeoutHandler:
             "used_fallback": True
         }
     
-    def predict_timeout(self, task: str, context: Dict = None) -> int:
+    def predict_timeout(self, task: str, context: Optional[Dict[str, Any]] = None) -> int:
         """预测任务超时时间 v4.10
         
         基于任务描述中的关键字判断超时时间：
@@ -230,7 +230,7 @@ class TimeoutHandler:
         # 默认返回 default_timeout
         return self.default_timeout
     
-    def should_skip(self, task: str, context: Dict = None) -> bool:
+    def should_skip(self, task: str, context: Optional[Dict[str, Any]] = None) -> bool:
         """判断任务是否应该跳过 v4.10"""
         if not task or not task.strip():
             return True
@@ -244,8 +244,8 @@ class TimeoutHandler:
     def execute_subprocess(
         self,
         cmd: list,
-        timeout: int = None,
-        cwd: str = None
+        timeout: Optional[int] = None,
+        cwd: Optional[str] = None
     ) -> TimeoutResult:
         """执行子进程并设置超时 v4.10"""
         timeout = timeout or self.default_timeout

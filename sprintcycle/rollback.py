@@ -148,7 +148,7 @@ class RollbackManager:
         
         return backup_id
     
-    def commit_transaction(self, backup_id: str = None) -> Dict:
+    def commit_transaction(self, backup_id: Optional[str] = None) -> Dict:
         """v4.10: 提交事务 - 返回字典格式"""
         if backup_id is None:
             backup_id = self._current_backup_id
@@ -169,7 +169,7 @@ class RollbackManager:
         
         return {"success": True, "message": "事务已提交，备份已清理"}
     
-    def rollback_transaction(self, backup_id: str = None) -> Dict:
+    def rollback_transaction(self, backup_id: Optional[str] = None) -> Dict:
         """v4.10: 回滚事务 - 返回字典格式"""
         if backup_id is None:
             backup_id = self._current_backup_id
@@ -225,7 +225,7 @@ class RollbackManager:
         except Exception as e:
             return f"生成差异失败: {str(e)}"
     
-    def auto_backup_before_edit(self, files: List[str], task_id: str = None) -> Dict:
+    def auto_backup_before_edit(self, files: List[str], task_id: Optional[str] = None) -> Dict:
         """编辑前自动备份"""
         if not self.auto_backup_enabled:
             return {"success": True, "message": "自动备份已禁用", "backup_id": None}

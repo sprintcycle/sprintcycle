@@ -161,7 +161,7 @@ class ReviewerAgent:
         self.code_reviewer = CodeReviewer()
         self.max_iterations = max_iterations
     
-    def review_execution(self, project_path: str, files_changed: Dict, execution_output: str = None) -> ReviewResult:
+    def review_execution(self, project_path: str, files_changed: Dict, execution_output: Optional[str] = None) -> ReviewResult:
         """审查执行结果"""
         start_time = time.time()
         all_issues = []

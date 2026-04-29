@@ -56,7 +56,7 @@ class BenchmarkSuite:
     history: Dict[str, List[BenchmarkResult]] = field(default_factory=dict)
     
     def add_benchmark(self, name: str, func: Callable, iterations: int = 10, 
-                      warmup: int = 2, metadata: Dict[str, Any] = None) -> BenchmarkResult:
+                      warmup: int = 2, metadata: Optional[Dict[str, Any]] = None) -> BenchmarkResult:
         """添加并运行基准测试"""
         # 预热
         for _ in range(warmup):

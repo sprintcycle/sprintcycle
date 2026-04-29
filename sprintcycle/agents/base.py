@@ -43,7 +43,7 @@ class BaseAgent(ABC):
     description: str = "Base Agent"
     capabilities: List[AgentCapability] = []
     
-    def __init__(self, config: AgentConfig = None):
+    def __init__(self, config: Optional[AgentConfig] = None):
         self.config = config
         self._initialized = False
         self._execution_count = 0
@@ -55,7 +55,7 @@ class BaseAgent(ABC):
         pass
     
     @abstractmethod
-    async def execute(self, task: str, context: Dict[str, Any] = None) -> Dict[str, Any]:
+    async def execute(self, task: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         执行任务
         

@@ -34,7 +34,7 @@ class FixSession:
 class AutoFixEngine:
     API = "https://api.deepseek.com/v1/chat/completions"
     
-    def __init__(self, project_path: str, api_key: str = None):
+    def __init__(self, project_path: str, api_key: Optional[str] = None):
         self.project_path = Path(project_path).resolve()
         self.api_key = api_key or os.environ.get("LLM_API_KEY", "YOUR_API_KEY_HERE")
         self.session = None

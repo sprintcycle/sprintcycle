@@ -174,7 +174,7 @@ class ErrorHelper:
         )
     
     @staticmethod
-    def format_error(error_output: str, context: Dict = None) -> str:
+    def format_error(error_output: str, context: Optional[Dict[str, Any]] = None) -> str:
         """格式化错误输出 - 符合测试期望格式"""
         context = context or {}
         task = context.get("task", "未知任务")
@@ -263,7 +263,7 @@ class ErrorHelper:
             return "查看错误详情进行排查"
     
     @staticmethod
-    def format_error_for_log(error_output: str, context: Dict = None) -> str:
+    def format_error_for_log(error_output: str, context: Optional[Dict[str, Any]] = None) -> str:
         """格式化错误用于日志 - 静态方法"""
         context = context or {}
         task = context.get("task", "未知")
@@ -278,7 +278,7 @@ class ErrorHelper:
         if not errors:
             return {"total": 0, "by_type": {}}
         
-        by_type = Counter()
+        by_type: Counter = Counter()
         for error in errors:
             for error_type in ["SyntaxError", "ImportError", "NameError", 
                              "TypeError", "ValueError", "KeyError"]:

@@ -29,7 +29,7 @@ class FiveSourceVerifier:
         self.project_path = Path(project_path)
         self.sprintcycle_dir = self.project_path / "sprintcycle"
     
-    def verify_all(self) -> Dict:
+    def verify_all(self) -> Dict[str, Any]:
         """执行完整验证"""
         results = {
             "cli": self._verify_cli(),
@@ -38,10 +38,10 @@ class FiveSourceVerifier:
             "docs": self._verify_docs(),
             "config": self._verify_config(),
         }
-        results["all_passed"] = all(r.get("passed", False) for r in results.values())
+        r = dict(results); r["all_passed"] = all(r.get("passed", False) for r in r.values())
         return results
     
-    def _verify_cli(self) -> Dict:
+    def _verify_cli(self) -> Dict[str, Any]:
         """验证 CLI 工具"""
         cli_files = [
             self.project_path / "cli.py",

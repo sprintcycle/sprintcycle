@@ -148,7 +148,7 @@ class StateManager:
         with self._rwlock:
             return self._state.get(scope, {}).get(key, default)
     
-    def set(self, scope: StateScope, key: str, value: Any, metadata: Dict[str, Any] = None) -> None:
+    def set(self, scope: StateScope, key: str, value: Any, metadata: Optional[Dict[str, Any]] = None) -> None:
         with self._rwlock:
             old_value = self._state.get(scope, {}).get(key)
             if scope not in self._state:
@@ -269,5 +269,5 @@ def get_state(scope: StateScope, key: str, default: Any = None) -> Any:
     return get_state_manager().get(scope, key, default)
 
 
-def set_state(scope: StateScope, key: str, value: Any, metadata: Dict[str, Any] = None) -> None:
+def set_state(scope: StateScope, key: str, value: Any, metadata: Optional[Dict[str, Any]] = None) -> None:
     get_state_manager().set(scope, key, value, metadata)

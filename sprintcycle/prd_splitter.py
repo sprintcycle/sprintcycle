@@ -7,7 +7,7 @@ import yaml
 import os
 import re
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 import json
 
@@ -23,7 +23,7 @@ class SplitResult:
 class PRDSplitter:
     """PRD 自动拆分器"""
     
-    def __init__(self, config_path: str = None):
+    def __init__(self, config_path: Optional[str] = None):
         self.config = self._load_config(config_path)
         self.default_config = self.config.get('default', {})
         self.split_mode = self.config.get('split_mode', {})
@@ -31,7 +31,7 @@ class PRDSplitter:
         self.triggers = self.config.get('split_triggers', [])
         self.output_config = self.config.get('output', {})
     
-    def _load_config(self, config_path: str) -> Dict:
+    def _load_config(self, config_path: Optional[str]) -> Dict[str, Any]:
         """加载配置文件"""
         if config_path is None:
             import os as _os
@@ -105,7 +105,7 @@ class PRDSplitter:
         
         return sprint_count > max_sprints
     
-    def split_prd(self, prd_path: str, project_name: str = None) -> SplitResult:
+    def split_prd(self, prd_path: str, project_name: Optional[str] = None) -> SplitResult:
         """拆分 PRD 文件"""
         analysis = self.analyze_prd(prd_path)
         
@@ -161,7 +161,6 @@ class PRDSplitter:
             )
             
             # 保存拆分 PRD
-            from pathlib import Path
             _sprint_root = os.environ.get("SPRINT_ROOT")
             _default_split_dir = str(Path(__file__).parent.parent / "prd" / "split")
             split_dir = self.output_config.get('split_prd_dir', _default_split_dir)
@@ -214,7 +213,7 @@ class PRDSplitter:
         return split_result.split_prds
 
 # 便捷函数
-def split_prd_if_needed(prd_path: str, project_name: str = None) -> List[str]:
+def split_prd_if_needed(prd_path: str, project_name: Optional[str] = None) -> List[str]:
     """如果需要则拆分 PRD，返回 PRD 路径列表"""
     splitter = PRDSplitter()
     result = splitter.split_prd(prd_path, project_name)
