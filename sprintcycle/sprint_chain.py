@@ -19,6 +19,12 @@ from .chorus import (
     KnowledgeBase, ExecutionLayer, ChorusAdapter, Chorus
 )
 
+# 依赖管理
+try:
+    from .optimizations import DependencyManager, ResultValidator
+except ImportError:
+    DependencyManager = None
+
 
 # ============================================================
 # SprintChain - Sprint 执行层
