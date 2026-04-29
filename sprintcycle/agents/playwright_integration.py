@@ -12,7 +12,7 @@ import json
 
 from loguru import logger
 
-from .types import VerificationType, VerificationSeverity, VerificationResult
+from .base import VerificationType, VerificationSeverity, VerificationResult
 
 
 @dataclass

@@ -3,8 +3,8 @@ SprintCycle Agents 包
 包含各种专用 Agent 实现
 """
 
-from .base import BaseAgent, AgentCapability
-from .types import (
+from .base import BaseAgent, AgentCapability, AgentConfig
+from .base import (
     VerificationType,
     VerificationSeverity,
     VerificationResult,
@@ -25,7 +25,8 @@ try:
     )
     _self_evolution_available = True
 except ImportError as e:
-    logger.warning(f"SelfEvolutionAgent import failed: {e}")
+    import logging
+    logging.warning(f"SelfEvolutionAgent import failed: {e}")
     SelfEvolutionAgent = None
     EvolutionPhase = None
     EvolutionMode = None
@@ -33,12 +34,30 @@ except ImportError as e:
     EvolutionResult = None
     _self_evolution_available = False
 
+# Backward compatibility: re-export from types.py location
+# (types.py has been merged into base.py)
+try:
+    from .base import (
+        VerificationType as _VerificationType,
+        VerificationSeverity as _VerificationSeverity,
+        VerificationResult as _VerificationResult,
+        PageVerificationReport as _PageVerificationReport,
+    )
+    # Alias for old import path
+    VerificationType = _VerificationType
+    VerificationSeverity = _VerificationSeverity
+    VerificationResult = _VerificationResult
+    PageVerificationReport = _PageVerificationReport
+except ImportError:
+    pass
+
 __all__ = [
     # Base
     "BaseAgent",
     "AgentCapability",
+    "AgentConfig",
     
-    # Types
+    # Types (verification)
     "VerificationType",
     "VerificationSeverity",
     "VerificationResult",

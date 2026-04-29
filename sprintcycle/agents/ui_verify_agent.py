@@ -3,7 +3,7 @@ UI_VERIFY Agent - 基于 Playwright 的 UI 交互验证 Agent
 """
 
 from .base import BaseAgent, AgentCapability
-from .types import VerificationType, VerificationSeverity, VerificationResult, PageVerificationReport
+from .base import VerificationType, VerificationSeverity, VerificationResult, PageVerificationReport
 from .playwright_integration import PlaywrightClient, AccessibilityNode
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional

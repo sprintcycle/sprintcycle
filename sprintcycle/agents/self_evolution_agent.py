@@ -8,7 +8,7 @@ SprintCycle SelfEvolutionAgent v1.0
 3. 制定进化计划
 4. 执行自我优化
 
-继承自 BaseAgent，实现框架自举(bootstrap)能力
+注意: 此 Agent 是独立的，使用自己的初始化和执行模式，不继承 BaseAgent
 """
 import json
 import time
@@ -20,7 +20,7 @@ from enum import Enum
 
 from loguru import logger
 
-from .base import BaseAgent, AgentCapability
+from .base import AgentCapability
 
 
 class EvolutionPhase(Enum):
