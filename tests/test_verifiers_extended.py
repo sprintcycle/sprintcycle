@@ -226,10 +226,20 @@ class TestPlaywrightVerifierExtended:
         verifier = PlaywrightVerifier()
         verifier._playwright_available = False
         
-        result = verifier.verify_interaction(
-            "http://example.com", "click", "#button", None
-        )
-        assert result["fallback"] == True
+        # Mock 导航成功
+        with patch.object(verifier, 'verify_page_load') as mock_nav:
+            mock_nav.return_value = {"success": True, "loaded": True}
+            
+            # Mock MCP 不可用
+            with patch.object(verifier, '_run_mcp_command') as mock_mcp:
+                mock_mcp.return_value = {"success": False, "fallback": True}
+                
+                result = verifier.verify_interaction(
+                    "http://example.com", "click", "#button", None
+                )
+                # 由于 MCP 不可用，应该返回降级结果
+                assert result["success"] == False
+                assert result["action"] == "click"
     
     def test_verify_interaction_navigation_failure(self):
         """测试交互验证-导航失败"""
