@@ -19,13 +19,8 @@ from .stage_executor import (
     EvolutionMetrics
 )
 
-# 兼容旧版本导入
-try:
-    from sprintcycle.evolution import engine as _engine
-    EvolutionEngine = _engine.EvolutionEngine
-except ImportError:
-    # 如果找不到，使用StageExecutor作为替代
-    EvolutionEngine = StageExecutor
+# 兼容旧版本导入 - 使用 StageExecutor 作为 EvolutionEngine
+EvolutionEngine = StageExecutor
 
 __all__ = [
     "StageExecutor",

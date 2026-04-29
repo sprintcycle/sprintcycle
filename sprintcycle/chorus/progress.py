@@ -22,6 +22,10 @@ class ExecutionResult:
     error_reason: Optional[str] = None  # v4.10 新增: 精确错误原因
     split_suggestion: List[str] = field(default_factory=list)
     validation: Dict = field(default_factory=dict)
+    # v4.10 新增: 审查相关属性
+    review: Optional[Dict] = None
+    needs_fix: bool = False
+    fix_suggestions: List[str] = field(default_factory=list)
     
     def __post_init__(self):
         """v4.10: 自动规范化 files_changed 类型"""
