@@ -4,7 +4,7 @@ SprintCycle - AI 驱动的敏捷开发迭代框架
 版本: v0.7.4
 """
 
-__version__ = "0.7.5"
+__version__ = "0.7.6"
 __author__ = "SprintCycle Team"
 
 # 核心 API (用户常用)
