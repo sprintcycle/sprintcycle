@@ -117,7 +117,7 @@ class SprintChain:
         for i, t in enumerate(tasks, 1):
             logger.info(f"任务 {i}/{len(tasks)}: {t['task'][:50]}...")
             
-            a = AgentType(t["agent"]) if t.get("agent") else None
+            a = AgentType.from_string(t.get("agent")) if t.get("agent") else None
             r = self.run_task(t["task"], t.get("files"), a, tool)
             
             results.append({

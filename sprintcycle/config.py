@@ -324,3 +324,25 @@ __all__ = [
     "load_config",
     "reset_config",
 ]
+
+
+# ============================================================
+# API Key 获取函数（兼容旧代码）
+# ============================================================
+
+def get_api_key(provider: str) -> Optional[str]:
+    """
+    获取指定提供商的 API Key
+    
+    使用 CredentialManager 的分层加载策略：
+    1. 环境变量
+    2. .env.local
+    3. .env
+    4. ~/.sprintcycle/credentials.yaml
+    """
+    from .credentials import get_credential_manager
+    return get_credential_manager().get_api_key(provider)
+
+
+# 添加到 SprintCycleConfig 类
+setattr(SprintCycleConfig, 'get_api_key', staticmethod(lambda provider: get_api_key(provider)))

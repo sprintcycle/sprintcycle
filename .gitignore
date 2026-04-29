@@ -154,3 +154,8 @@ site/
 # ========================================
 pip-log.txt
 pip-delete-this-directory.txt
+
+# 本地环境配置（不提交）
+.env.local
+*.env.local
+credentials.yaml

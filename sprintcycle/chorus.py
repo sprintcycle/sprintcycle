@@ -54,6 +54,15 @@ import time
 # Loguru 日志系统
 from loguru import logger
 
+# 凭证管理
+try:
+    from .credentials import get_credential_manager
+    _credentials_available = True
+except ImportError:
+    _credentials_available = False
+    def get_credential_manager(project_path="."):
+        return None
+
 try:
     from .verifiers import PlaywrightVerifier as _PlaywrightVerifier
 except ImportError:
@@ -175,6 +184,23 @@ class AgentType(Enum):
     TESTER = "tester"
     DIAGNOSTIC = "diagnostic"
     UI_VERIFY = "ui_verify"
+    
+    @classmethod
+    def from_string(cls, value: str) -> "AgentType":
+        """安全转换，未知类型自动映射到 CODER
+        
+        支持动态扩展新的 Agent 类型，自动映射未知类型到 CODER
+        """
+        if not value:
+            return None
+        try:
+            return cls(value.lower())
+        except ValueError:
+            from loguru import logger
+            logger.info(f"未知 agent 类型 '{value}'，自动映射到 CODER")
+            return cls.CODER
+
+
 
 
 class TaskStatus(Enum):
@@ -316,6 +342,19 @@ class Config:
     
     @classmethod
     def get_api_key(cls, tool: str) -> str:
+        """获取 API Key - 优先使用 CredentialManager（支持多层加载）"""
+        if _credentials_available:
+            cm = get_credential_manager()
+            if cm:
+                key = cm.get_api_key(tool)
+                if key:
+                    return key
+        # 回退到环境变量
+        return cls._get_env_api_key(tool)
+    
+    @classmethod
+    def _get_env_api_key(cls, tool: str) -> str:
+        """从环境变量获取 API Key（兼容旧方式）"""
         config = cls.load().get(tool, {})
         env_var = config.get("api_key_env", "")
         return os.environ.get(env_var, "")
