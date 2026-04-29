@@ -8,6 +8,7 @@ SprintCycle MCP Server v2.0 - 优化版
 3. 知识库激活
 4. 配置外部化
 5. 模块化拆分 - chorus.py, sprint_chain.py
+6. call_tool 重构 - 使用 dispatch 模式提升可维护性
 """
 import os
 import sys
@@ -165,30 +166,36 @@ async def list_tools() -> List[Tool]:
     ]
 
 
-@app.call_tool()
-async def call_tool(name: str, arguments: Dict[str, Any]) -> List[TextContent]:
-    
-    if name == "sprintcycle_list_projects":
-        projects = []
-        for p in Path("/root").glob("*"):
-            if (p / ".sprintcycle").exists() and p.is_dir():
-                chain = SprintChain(str(p))
-                stats = chain.get_kb_stats()
-                projects.append(f"- **{p.name}** ({stats['total']} 任务, {stats['success_rate']}% 成功率)")
-        return [TextContent(type="text", text="\n".join(projects) or "未找到项目")]
-    
-    elif name == "sprintcycle_list_tools":
-        executor = ExecutionLayer()
-        available = executor.list_available()
-        return [TextContent(type="text", text="可用工具:\n" + "\n".join(f"- **{t}**: {'可用' if ok else '不可用'}" for t, ok in available.items()))]
-    
-    elif name == "sprintcycle_status":
-        chain = SprintChain(arguments["project_path"])
-        executor = ExecutionLayer()
-        available = executor.list_available()
-        stats = chain.get_kb_stats()
-        text = f"""SprintCycle 状态
-        
+# ============================================================
+# Tool Handlers - Dispatch Pattern
+# ============================================================
+
+async def _handle_list_projects(arguments: Dict[str, Any]) -> List[TextContent]:
+    """列出所有项目"""
+    projects = []
+    for p in Path("/root").glob("*"):
+        if (p / ".sprintcycle").exists() and p.is_dir():
+            chain = SprintChain(str(p))
+            stats = chain.get_kb_stats()
+            projects.append(f"- **{p.name}** ({stats['total']} 任务, {stats['success_rate']}% 成功率)")
+    return [TextContent(type="text", text="\n".join(projects) or "未找到项目")]
+
+
+async def _handle_list_tools(arguments: Dict[str, Any]) -> List[TextContent]:
+    """列出可用工具"""
+    executor = ExecutionLayer()
+    available = executor.list_available()
+    return [TextContent(type="text", text="可用工具:\n" + "\n".join(f"- **{t}**: {'可用' if ok else '不可用'}" for t, ok in available.items()))]
+
+
+async def _handle_status(arguments: Dict[str, Any]) -> List[TextContent]:
+    """检查 SprintCycle 状态"""
+    chain = SprintChain(arguments["project_path"])
+    executor = ExecutionLayer()
+    available = executor.list_available()
+    stats = chain.get_kb_stats()
+    text = f"""SprintCycle 状态
+
 项目: {arguments['project_path']}
 Sprints: {len(chain.get_sprints())}
 
@@ -199,248 +206,314 @@ Sprints: {len(chain.get_sprints())}
 
 工具:
 """ + "\n".join(f"  {'可用' if ok else '不可用'} {t}" for t, ok in available.items())
+    return [TextContent(type="text", text=text)]
+
+
+async def _handle_get_sprint_plan(arguments: Dict[str, Any]) -> List[TextContent]:
+    """获取 Sprint 规划"""
+    chain = SprintChain(arguments["project_path"])
+    sprints = chain.get_sprints()
+    name = chain.config.get("project", {}).get("name", "Project")
+    completed = sum(1 for s in sprints if s.get("status") == "completed")
+    
+    text = f"**{name}** Sprint 规划\n\n"
+    for i, s in enumerate(sprints, 1):
+        st = s.get("status", "pending")
+        icon = {"completed": "完成", "in_progress": "进行中", "pending": "待执行"}.get(st, "?")
+        text += f"Sprint {i}: {s.get('name')}\n- 状态: {st}\n- 目标: {', '.join(s.get('goals', []))}\n\n"
+    text += f"进度: {int(completed/len(sprints)*100) if sprints else 0}%"
+    return [TextContent(type="text", text=text)]
+
+
+async def _handle_get_execution_detail(arguments: Dict[str, Any]) -> List[TextContent]:
+    """获取执行详情"""
+    chain = SprintChain(arguments["project_path"])
+    results = chain.get_results()
+    success = sum(1 for r in results if r.get("success"))
+    duration = sum(r.get("duration", 0) for r in results)
+    retries = sum(r.get("retries", 0) for r in results)
+    
+    text = f"执行详情\n\n任务: {len(results)} | 成功: {success} | 重试: {retries} | 耗时: {duration:.1f}s\n\n"
+    for r in results[-10:]:
+        status = "成功" if r.get("success") else "失败"
+        retry = f" (重试{r['retries']}次)" if r.get("retries", 0) > 0 else ""
+        text += f"{status} [{r.get('tool')}] {r.get('task', '')[:40]}{retry}\n"
+    return [TextContent(type="text", text=text)]
+
+
+async def _handle_get_kb_stats(arguments: Dict[str, Any]) -> List[TextContent]:
+    """获取知识库统计"""
+    chain = SprintChain(arguments["project_path"])
+    stats = chain.get_kb_stats()
+    return [TextContent(type="text", text=f"知识库统计\n\n- 总任务: {stats['total']}\n- 成功: {stats.get('success', 0)}\n- 成功率: {stats['success_rate']}%\n- 平均耗时: {stats['avg_duration']}s")]
+
+
+async def _handle_run_task(arguments: Dict[str, Any]) -> List[TextContent]:
+    """执行任务"""
+    chain = SprintChain(arguments["project_path"])
+    agent = AgentType(arguments["agent"]) if arguments.get("agent") else None
+    tool = ToolType(arguments["tool"]) if arguments.get("tool") else None
+    result = chain.run_task(arguments["task"], arguments.get("files"), agent, tool)
+    
+    retry_info = f" (重试 {result.retries} 次)" if result.retries > 0 else ""
+    text = f"{'成功' if result.success else '失败'}{retry_info}\n\n{result.tool} | {result.duration:.1f}s\n{result.files_changed or '无修改'}\n"
+    if result.error:
+        text += f"错误: {result.error[:200]}"
+    return [TextContent(type="text", text=text)]
+
+
+async def _handle_run_sprint(arguments: Dict[str, Any]) -> List[TextContent]:
+    """运行 Sprint"""
+    chain = SprintChain(arguments["project_path"])
+    tool = ToolType(arguments["tool"]) if arguments.get("tool") else None
+    result = chain.run_sprint(arguments["sprint_name"], arguments["tasks"], tool)
+    
+    text = f"Sprint: {result['sprint_name']}\n\n"
+    for i, r in enumerate(result["results"], 1):
+        status = "成功" if r["success"] else "失败"
+        retry = f" (重试)" if r.get("retries", 0) > 0 else ""
+        text += f"{i}. {status} [{r['tool']}] {r['task'][:40]}{retry}\n"
+    text += f"\n{result['success']}/{result['total']}"
+    return [TextContent(type="text", text=text)]
+
+
+async def _handle_create_sprint(arguments: Dict[str, Any]) -> List[TextContent]:
+    """创建 Sprint"""
+    chain = SprintChain(arguments["project_path"])
+    sprint = chain.create_sprint(arguments["sprint_name"], arguments.get("goals", []))
+    return [TextContent(type="text", text=f"Sprint 已创建: {sprint['name']}\n目标: {', '.join(sprint['goals'])}")]
+
+
+async def _handle_plan_from_prd(arguments: Dict[str, Any]) -> List[TextContent]:
+    """从 PRD 生成 Sprint 规划"""
+    chain = SprintChain(arguments["project_path"])
+    result = chain.auto_plan_from_prd(arguments["prd_path"])
+    if result.get("error"):
+        return [TextContent(type="text", text=f"错误: {result['error']}")]
+    text = f"已从 PRD 生成 {len(result['sprints'])} 个 Sprint:\n"
+    for s in result['sprints']:
+        text += f"- {s['name']} ({len(s['tasks'])} 任务)\n"
+    return [TextContent(type="text", text=text)]
+
+
+async def _handle_auto_run(arguments: Dict[str, Any]) -> List[TextContent]:
+    """自动执行所有待执行 Sprint"""
+    chain = SprintChain(arguments["project_path"])
+    results = chain.run_all_sprints()
+    text = f"已执行 {len(results)} 个 Sprint:\n"
+    for r in results:
+        text += f"- {r['sprint_name']}: {r['success']}/{r['total']}\n"
+    return [TextContent(type="text", text=text)]
+
+
+async def _handle_run_sprint_by_name(arguments: Dict[str, Any]) -> List[TextContent]:
+    """按名称执行 Sprint"""
+    chain = SprintChain(arguments["project_path"])
+    tool = ToolType(arguments["tool"]) if arguments.get("tool") else None
+    result = chain.run_sprint_by_name(arguments["sprint_name"], tool)
+    if result.get("error"):
+        return [TextContent(type="text", text=f"错误: {result['error']}")]
+    text = f"Sprint: {result['sprint_name']}\n\n"
+    for i, r in enumerate(result["results"], 1):
+        status = "成功" if r["success"] else "失败"
+        retry = f" (重试)" if r.get("retries", 0) > 0 else ""
+        text += f"{i}. {status} [{r['tool']}] {r['task'][:40]}{retry}\n"
+    text += f"\n{result['success']}/{result['total']}"
+    return [TextContent(type="text", text=text)]
+
+
+async def _handle_playwright_verify(arguments: Dict[str, Any]) -> List[TextContent]:
+    """使用 Playwright MCP 验证前端页面"""
+    try:
+        from .verifiers import PlaywrightVerifier
+    except ImportError:
+        return [TextContent(type="text", text="PlaywrightVerifier 未安装")]
+    
+    project_path = arguments.get("project_path", ".")
+    url = arguments.get("url", "")
+    checks = arguments.get("checks", ["load", "accessibility"])
+    
+    if not url:
+        return [TextContent(type="text", text="请提供 url 参数")]
+    
+    verifier = PlaywrightVerifier(project_path)
+    result = verifier.verify_all(url, checks=checks)
+    
+    passed = "通过" if result["passed"] else "失败"
+    summary = result.get("summary", {})
+    
+    text = f"{passed} Playwright 验证完成\n\n"
+    text += f"URL: {url}\n"
+    text += f"检查项: {len(result.get('checks', {}))}\n"
+    text += f"通过: {summary.get('passed_checks', 0)}/{summary.get('total_checks', 0)}\n\n"
+    
+    if "accessibility" in result.get("checks", {}):
+        a11y = result["checks"]["accessibility"]
+        text += f"Accessibility Tree:\n{a11y.get('text_preview', 'N/A')[:300]}...\n"
+    
+    return [TextContent(type="text", text=text)]
+
+
+async def _handle_verify_frontend(arguments: Dict[str, Any]) -> List[TextContent]:
+    """验证前端页面"""
+    project_path = arguments.get("project_path", ".")
+    url = arguments.get("url", "")
+    method = arguments.get("method", "a11y")
+    
+    if not url:
+        return [TextContent(type="text", text="请提供 url 参数")]
+    
+    try:
+        from .optimizations import FiveSourceVerifier
+        if method == "a11y" and hasattr(FiveSourceVerifier, "verify_frontend_with_a11y"):
+            result = FiveSourceVerifier.verify_frontend_with_a11y(project_path, url)
+        else:
+            result = FiveSourceVerifier.verify_frontend(project_path, url)
+    except ImportError:
+        return [TextContent(type="text", text="FiveSourceVerifier 未安装")]
+    
+    passed = "通过" if result["passed"] else "失败"
+    text = f"{passed} Frontend 验证完成\n\n"
+    text += f"URL: {url}\n"
+    text += f"方法: {method}\n"
+    
+    if result.get("tree_summary"):
+        text += "\n元素统计:\n"
+        for role, count in result["tree_summary"].items():
+            text += f"  - {role}: {count}\n"
+    
+    return [TextContent(type="text", text=text)]
+
+
+async def _handle_verify_visual(arguments: Dict[str, Any]) -> List[TextContent]:
+    """视觉验证"""
+    project_path = arguments.get("project_path", ".")
+    url = arguments.get("url", "")
+    baseline = arguments.get("baseline")
+    method = arguments.get("method", "a11y")
+    
+    if not url:
+        return [TextContent(type="text", text="请提供 url 参数")]
+    
+    try:
+        from .optimizations import FiveSourceVerifier
+        if method == "a11y" and hasattr(FiveSourceVerifier, "verify_visual_with_a11y"):
+            result = FiveSourceVerifier.verify_visual_with_a11y(project_path, url, baseline)
+        else:
+            result = FiveSourceVerifier.verify_visual(project_path, url, baseline)
+    except ImportError:
+        return [TextContent(type="text", text="FiveSourceVerifier 未安装")]
+    
+    passed = "通过" if result["passed"] else "失败"
+    text = f"{passed} Visual 验证完成\n\n"
+    text += f"URL: {url}\n"
+    text += f"方法: {method}\n"
+    
+    if result.get("diff_from_baseline"):
+        diff = result["diff_from_baseline"]
+        text += f"\nBaseline 对比:\n"
+        text += f"  - 新增: {diff['added_count']}\n"
+        text += f"  - 移除: {diff['removed_count']}\n"
+        text += f"  - 稳定: {diff['stable']}\n"
+    
+    return [TextContent(type="text", text=text)]
+
+
+async def _handle_scan_issues(arguments: Dict[str, Any]) -> List[TextContent]:
+    """扫描项目问题"""
+    project_path = arguments.get("project_path", ".")
+    try:
+        from .scanner import ProjectScanner
+        scanner = ProjectScanner(project_path)
+        result = scanner.scan()
+        
+        text = f"扫描完成: {result.scanned_files} 文件, 耗时 {result.scan_duration:.2f}s\n\n"
+        text += f"问题统计: {result.critical_count} 严重, {result.warning_count} 警告, {result.info_count} 信息\n\n"
+        
+        for issue in result.issues[:20]:
+            icon = {"critical": "严重", "warning": "警告", "info": "信息"}.get(issue.severity.value, "")
+            loc = f" Line {issue.line}" if issue.line else ""
+            text += f"{icon} [{issue.severity.value}] {issue.file_path}{loc}: {issue.message}\n"
+        
         return [TextContent(type="text", text=text)]
+    except ImportError:
+        return [TextContent(type="text", text="ProjectScanner 未安装")]
+
+
+async def _handle_autofix(arguments: Dict[str, Any]) -> List[TextContent]:
+    """自动修复问题"""
+    project_path = arguments.get("project_path", ".")
+    auto = arguments.get("auto", True)
     
-    elif name == "sprintcycle_get_sprint_plan":
-        chain = SprintChain(arguments["project_path"])
-        sprints = chain.get_sprints()
-        name = chain.config.get("project", {}).get("name", "Project")
-        completed = sum(1 for s in sprints if s.get("status") == "completed")
+    try:
+        from .autofix import AutoFixEngine
+        fixer = AutoFixEngine(project_path)
+        session = fixer.scan_and_fix(auto=auto)
         
-        text = f"**{name}** Sprint 规划\n\n"
-        for i, s in enumerate(sprints, 1):
-            st = s.get("status", "pending")
-            icon = {"completed": "完成", "in_progress": "进行中", "pending": "待执行"}.get(st, "?")
-            text += f"Sprint {i}: {s.get('name')}\n- 状态: {st}\n- 目标: {', '.join(s.get('goals', []))}\n\n"
-        text += f"进度: {int(completed/len(sprints)*100) if sprints else 0}%"
-        return [TextContent(type="text", text=text)]
-    
-    elif name == "sprintcycle_get_execution_detail":
-        chain = SprintChain(arguments["project_path"])
-        results = chain.get_results()
-        success = sum(1 for r in results if r.get("success"))
-        duration = sum(r.get("duration", 0) for r in results)
-        retries = sum(r.get("retries", 0) for r in results)
+        text = f"自动修复完成\n\n"
+        text += f"处理: {len(session.fixes)} 问题\n"
+        text += f"成功: {sum(1 for f in session.fixes if f.success)}\n"
+        text += f"失败: {sum(1 for f in session.fixes if not f.success)}\n"
+        text += f"备份: {len(session.rollbacks)} 文件\n\n"
         
-        text = f"执行详情\n\n任务: {len(results)} | 成功: {success} | 重试: {retries} | 耗时: {duration:.1f}s\n\n"
-        for r in results[-10:]:
-            status = "成功" if r.get("success") else "失败"
-            retry = f" (重试{r['retries']}次)" if r.get("retries", 0) > 0 else ""
-            text += f"{status} [{r.get('tool')}] {r.get('task', '')[:40]}{retry}\n"
-        return [TextContent(type="text", text=text)]
-    
-    elif name == "sprintcycle_get_kb_stats":
-        chain = SprintChain(arguments["project_path"])
-        stats = chain.get_kb_stats()
-        return [TextContent(type="text", text=f"知识库统计\n\n- 总任务: {stats['total']}\n- 成功: {stats.get('success', 0)}\n- 成功率: {stats['success_rate']}%\n- 平均耗时: {stats['avg_duration']}s")]
-    
-    elif name == "sprintcycle_run_task":
-        chain = SprintChain(arguments["project_path"])
-        agent = AgentType(arguments["agent"]) if arguments.get("agent") else None
-        tool = ToolType(arguments["tool"]) if arguments.get("tool") else None
-        result = chain.run_task(arguments["task"], arguments.get("files"), agent, tool)
-        
-        retry_info = f" (重试 {result.retries} 次)" if result.retries > 0 else ""
-        text = f"{'成功' if result.success else '失败'}{retry_info}\n\n{result.tool} | {result.duration:.1f}s\n{result.files_changed or '无修改'}\n"
-        if result.error:
-            text += f"错误: {result.error[:200]}"
-        return [TextContent(type="text", text=text)]
-    
-    elif name == "sprintcycle_run_sprint":
-        chain = SprintChain(arguments["project_path"])
-        tool = ToolType(arguments["tool"]) if arguments.get("tool") else None
-        result = chain.run_sprint(arguments["sprint_name"], arguments["tasks"], tool)
-        
-        text = f"Sprint: {result['sprint_name']}\n\n"
-        for i, r in enumerate(result["results"], 1):
-            status = "成功" if r["success"] else "失败"
-            retry = f" (重试)" if r.get("retries", 0) > 0 else ""
-            text += f"{i}. {status} [{r['tool']}] {r['task'][:40]}{retry}\n"
-        text += f"\n{result['success']}/{result['total']}"
-        return [TextContent(type="text", text=text)]
-    
-    elif name == "sprintcycle_create_sprint":
-        chain = SprintChain(arguments["project_path"])
-        sprint = chain.create_sprint(arguments["sprint_name"], arguments.get("goals", []))
-        return [TextContent(type="text", text=f"Sprint 已创建: {sprint['name']}\n目标: {', '.join(sprint['goals'])}")]
-    
-    elif name == "sprintcycle_plan_from_prd":
-        chain = SprintChain(arguments["project_path"])
-        result = chain.auto_plan_from_prd(arguments["prd_path"])
-        if result.get("error"):
-            return [TextContent(type="text", text=f"错误: {result['error']}")]
-        text = f"已从 PRD 生成 {len(result['sprints'])} 个 Sprint:\n"
-        for s in result['sprints']:
-            text += f"- {s['name']} ({len(s['tasks'])} 任务)\n"
-        return [TextContent(type="text", text=text)]
-    
-    elif name == "sprintcycle_auto_run":
-        chain = SprintChain(arguments["project_path"])
-        results = chain.run_all_sprints()
-        text = f"已执行 {len(results)} 个 Sprint:\n"
-        for r in results:
-            text += f"- {r['sprint_name']}: {r['success']}/{r['total']}\n"
-        return [TextContent(type="text", text=text)]
-    
-    elif name == "sprintcycle_run_sprint_by_name":
-        chain = SprintChain(arguments["project_path"])
-        tool = ToolType(arguments["tool"]) if arguments.get("tool") else None
-        result = chain.run_sprint_by_name(arguments["sprint_name"], tool)
-        if result.get("error"):
-            return [TextContent(type="text", text=f"错误: {result['error']}")]
-        text = f"Sprint: {result['sprint_name']}\n\n"
-        for i, r in enumerate(result["results"], 1):
-            status = "成功" if r["success"] else "失败"
-            retry = f" (重试)" if r.get("retries", 0) > 0 else ""
-            text += f"{i}. {status} [{r['tool']}] {r['task'][:40]}{retry}\n"
-        text += f"\n{result['success']}/{result['total']}"
-        return [TextContent(type="text", text=text)]
-    
-    elif name == "sprintcycle_playwright_verify":
-        try:
-            from .verifiers import PlaywrightVerifier
-        except ImportError:
-            return [TextContent(type="text", text="PlaywrightVerifier 未安装")]
-        
-        project_path = arguments.get("project_path", ".")
-        url = arguments.get("url", "")
-        checks = arguments.get("checks", ["load", "accessibility"])
-        
-        if not url:
-            return [TextContent(type="text", text="请提供 url 参数")]
-        
-        verifier = PlaywrightVerifier(project_path)
-        result = verifier.verify_all(url, checks=checks)
-        
-        passed = "通过" if result["passed"] else "失败"
-        summary = result.get("summary", {})
-        
-        text = f"{passed} Playwright 验证完成\n\n"
-        text += f"URL: {url}\n"
-        text += f"检查项: {len(result.get('checks', {}))}\n"
-        text += f"通过: {summary.get('passed_checks', 0)}/{summary.get('total_checks', 0)}\n\n"
-        
-        if "accessibility" in result.get("checks", {}):
-            a11y = result["checks"]["accessibility"]
-            text += f"Accessibility Tree:\n{a11y.get('text_preview', 'N/A')[:300]}...\n"
+        for f in session.fixes:
+            icon = "成功" if f.success else "失败"
+            text += f"{icon} {f.issue.file_path}: {f.issue.message[:50]}\n"
         
         return [TextContent(type="text", text=text)]
+    except ImportError:
+        return [TextContent(type="text", text="AutoFixEngine 未安装")]
+
+
+async def _handle_rollback(arguments: Dict[str, Any]) -> List[TextContent]:
+    """回滚修复"""
+    project_path = arguments.get("project_path", ".")
     
-    elif name == "sprintcycle_verify_frontend":
-        project_path = arguments.get("project_path", ".")
-        url = arguments.get("url", "")
-        method = arguments.get("method", "a11y")
+    try:
+        from .autofix import AutoFixEngine
+        fixer = AutoFixEngine(project_path)
+        count = fixer.rollback()
         
-        if not url:
-            return [TextContent(type="text", text="请提供 url 参数")]
-        
-        try:
-            from .optimizations import FiveSourceVerifier
-            if method == "a11y" and hasattr(FiveSourceVerifier, "verify_frontend_with_a11y"):
-                result = FiveSourceVerifier.verify_frontend_with_a11y(project_path, url)
-            else:
-                result = FiveSourceVerifier.verify_frontend(project_path, url)
-        except ImportError:
-            return [TextContent(type="text", text="FiveSourceVerifier 未安装")]
-        
-        passed = "通过" if result["passed"] else "失败"
-        text = f"{passed} Frontend 验证完成\n\n"
-        text += f"URL: {url}\n"
-        text += f"方法: {method}\n"
-        
-        if result.get("tree_summary"):
-            text += "\n元素统计:\n"
-            for role, count in result["tree_summary"].items():
-                text += f"  - {role}: {count}\n"
-        
-        return [TextContent(type="text", text=text)]
+        return [TextContent(type="text", text=f"已回滚 {count} 个修复")]
+    except ImportError:
+        return [TextContent(type="text", text="AutoFixEngine 未安装")]
+
+
+# Dispatch table - maps tool names to handler functions
+_TOOL_HANDLERS: Dict[str, callable] = {
+    "sprintcycle_list_projects": _handle_list_projects,
+    "sprintcycle_list_tools": _handle_list_tools,
+    "sprintcycle_status": _handle_status,
+    "sprintcycle_get_sprint_plan": _handle_get_sprint_plan,
+    "sprintcycle_get_execution_detail": _handle_get_execution_detail,
+    "sprintcycle_get_kb_stats": _handle_get_kb_stats,
+    "sprintcycle_run_task": _handle_run_task,
+    "sprintcycle_run_sprint": _handle_run_sprint,
+    "sprintcycle_create_sprint": _handle_create_sprint,
+    "sprintcycle_plan_from_prd": _handle_plan_from_prd,
+    "sprintcycle_auto_run": _handle_auto_run,
+    "sprintcycle_run_sprint_by_name": _handle_run_sprint_by_name,
+    "sprintcycle_playwright_verify": _handle_playwright_verify,
+    "sprintcycle_verify_frontend": _handle_verify_frontend,
+    "sprintcycle_verify_visual": _handle_verify_visual,
+    "sprintcycle_scan_issues": _handle_scan_issues,
+    "sprintcycle_autofix": _handle_autofix,
+    "sprintcycle_rollback": _handle_rollback,
+}
+
+
+@app.call_tool()
+async def call_tool(name: str, arguments: Dict[str, Any]) -> List[TextContent]:
+    """
+    Dispatch tool calls to appropriate handlers using the _TOOL_HANDLERS table.
     
-    elif name == "sprintcycle_verify_visual":
-        project_path = arguments.get("project_path", ".")
-        url = arguments.get("url", "")
-        baseline = arguments.get("baseline")
-        method = arguments.get("method", "a11y")
-        
-        if not url:
-            return [TextContent(type="text", text="请提供 url 参数")]
-        
-        try:
-            from .optimizations import FiveSourceVerifier
-            if method == "a11y" and hasattr(FiveSourceVerifier, "verify_visual_with_a11y"):
-                result = FiveSourceVerifier.verify_visual_with_a11y(project_path, url, baseline)
-            else:
-                result = FiveSourceVerifier.verify_visual(project_path, url, baseline)
-        except ImportError:
-            return [TextContent(type="text", text="FiveSourceVerifier 未安装")]
-        
-        passed = "通过" if result["passed"] else "失败"
-        text = f"{passed} Visual 验证完成\n\n"
-        text += f"URL: {url}\n"
-        text += f"方法: {method}\n"
-        
-        if result.get("diff_from_baseline"):
-            diff = result["diff_from_baseline"]
-            text += f"\nBaseline 对比:\n"
-            text += f"  - 新增: {diff['added_count']}\n"
-            text += f"  - 移除: {diff['removed_count']}\n"
-            text += f"  - 稳定: {diff['stable']}\n"
-        
-        return [TextContent(type="text", text=text)]
-    
-    elif name == "sprintcycle_scan_issues":
-        project_path = arguments.get("project_path", ".")
-        try:
-            from .scanner import ProjectScanner
-            scanner = ProjectScanner(project_path)
-            result = scanner.scan()
-            
-            text = f"扫描完成: {result.scanned_files} 文件, 耗时 {result.scan_duration:.2f}s\n\n"
-            text += f"问题统计: {result.critical_count} 严重, {result.warning_count} 警告, {result.info_count} 信息\n\n"
-            
-            for issue in result.issues[:20]:
-                icon = {"critical": "严重", "warning": "警告", "info": "信息"}.get(issue.severity.value, "")
-                loc = f" Line {issue.line}" if issue.line else ""
-                text += f"{icon} [{issue.severity.value}] {issue.file_path}{loc}: {issue.message}\n"
-            
-            return [TextContent(type="text", text=text)]
-        except ImportError:
-            return [TextContent(type="text", text="ProjectScanner 未安装")]
-    
-    elif name == "sprintcycle_autofix":
-        project_path = arguments.get("project_path", ".")
-        auto = arguments.get("auto", True)
-        
-        try:
-            from .autofix import AutoFixEngine
-            fixer = AutoFixEngine(project_path)
-            session = fixer.scan_and_fix(auto=auto)
-            
-            text = f"自动修复完成\n\n"
-            text += f"处理: {len(session.fixes)} 问题\n"
-            text += f"成功: {sum(1 for f in session.fixes if f.success)}\n"
-            text += f"失败: {sum(1 for f in session.fixes if not f.success)}\n"
-            text += f"备份: {len(session.rollbacks)} 文件\n\n"
-            
-            for f in session.fixes:
-                icon = "成功" if f.success else "失败"
-                text += f"{icon} {f.issue.file_path}: {f.issue.message[:50]}\n"
-            
-            return [TextContent(type="text", text=text)]
-        except ImportError:
-            return [TextContent(type="text", text="AutoFixEngine 未安装")]
-    
-    elif name == "sprintcycle_rollback":
-        project_path = arguments.get("project_path", ".")
-        
-        try:
-            from .autofix import AutoFixEngine
-            fixer = AutoFixEngine(project_path)
-            count = fixer.rollback()
-            
-            return [TextContent(type="text", text=f"已回滚 {count} 个修复")]
-        except ImportError:
-            return [TextContent(type="text", text="AutoFixEngine 未安装")]
-    
+    This refactored implementation uses a dispatch dictionary pattern instead of
+    a long if/elif chain, improving maintainability and making it easier to add
+    new tools.
+    """
+    handler = _TOOL_HANDLERS.get(name)
+    if handler:
+        return await handler(arguments)
     return [TextContent(type="text", text=f"未知工具: {name}")]
 
 
