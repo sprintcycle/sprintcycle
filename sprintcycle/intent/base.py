@@ -1,30 +1,30 @@
 """
 Intent 基类
-
 定义所有意图处理器的通用接口
 """
-
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, TYPE_CHECKING
 from datetime import datetime
 
-from ..prd.models import PRD
-from ..scheduler.dispatcher import SprintResult
+# 使用 TYPE_CHECKING 避免循环导入
+if TYPE_CHECKING:
+    from ..prd.models import PRD
+    from ..scheduler.dispatcher import TaskDispatcher, SprintResult
 
 
 @dataclass
 class IntentResult:
     """意图执行结果"""
     success: bool
-    prd: PRD
+    prd: "PRD"
     completed_sprints: int = 0
     completed_tasks: int = 0
     total_sprints: int = 0
     total_tasks: int = 0
     error: Optional[str] = None
     details: Dict[str, Any] = field(default_factory=dict)
-    sprint_results: List[SprintResult] = field(default_factory=list)
+    sprint_results: List["SprintResult"] = field(default_factory=list)
     
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -46,12 +46,10 @@ class IntentHandler(ABC):
         self.dispatcher = TaskDispatcher()
     
     @abstractmethod
-    def execute(self, prd: PRD) -> IntentResult:
-        """执行意图"""
+    def execute(self, prd: "PRD") -> IntentResult:
         pass
     
-    def validate_prd(self, prd: PRD) -> bool:
-        """验证 PRD"""
+    def validate_prd(self, prd: "PRD") -> bool:
         from ..prd.validator import PRDValidator
         result = PRDValidator().validate(prd)
         return result.is_valid
@@ -59,14 +57,15 @@ class IntentHandler(ABC):
     def _build_result(
         self,
         success: bool,
-        prd: PRD,
-        sprint_results: List[SprintResult],
+        prd: "PRD",
+        sprint_results: List["SprintResult"],
         error: Optional[str] = None,
     ) -> IntentResult:
-        """构建执行结果"""
+        from ..scheduler.dispatcher import ExecutionStatus
+        
         completed_sprints = sum(
             1 for r in sprint_results 
-            if r.status.value in ("success", "skipped")
+            if r.status in (ExecutionStatus.SUCCESS, ExecutionStatus.SKIPPED)
         )
         completed_tasks = sum(r.success_count for r in sprint_results)
         

@@ -1,27 +1,25 @@
 """
 Sprint 执行器 - 统一的 Sprint 迭代执行
-
-所有策略共用这个执行器来执行 Sprint 任务。
-支持串行和并行两种执行模式。
-支持 Normal 和 Evolution 两种执行模式。
+支持断点续传（通过 StateStore 集成）。
 """
 
 import asyncio
 import logging
 import time
 import re
+import uuid
 from typing import List, Dict, Any, Optional, Callable, Set
 from dataclasses import dataclass, field
 from enum import Enum
 from datetime import datetime
 
 from ..prd.models import PRD, PRDSprint, PRDTask, ExecutionMode, EvolutionConfig
+from .state_store import StateStore, ExecutionState, ExecutionStateStatus, get_state_store
 
 logger = logging.getLogger(__name__)
 
 
 class TaskStatus(Enum):
-    """任务状态"""
     PENDING = "pending"
     RUNNING = "running"
     SUCCESS = "success"
@@ -31,7 +29,6 @@ class TaskStatus(Enum):
 
 @dataclass
 class TaskResult:
-    """任务执行结果"""
     task: PRDTask
     sprint_name: str
     status: TaskStatus
@@ -51,7 +48,6 @@ class TaskResult:
 
 @dataclass
 class SprintResult:
-    """Sprint 执行结果"""
     sprint: PRDSprint
     status: TaskStatus
     task_results: List[TaskResult] = field(default_factory=list)
@@ -78,19 +74,7 @@ class SprintResult:
 class SprintExecutor:
     """
     Sprint 执行器
-    
-    统一执行 Sprint 迭代，被 NormalStrategy 和 EvolutionStrategy 共用。
-    支持串行和并行两种执行模式。
-    支持 Normal 和 Evolution 两种执行模式。
-    
-    职责：
-    1. 解析 Sprint 任务
-    2. 分配给对应 Agent 执行
-    3. 跟踪执行状态
-    4. 收集执行反馈（通过 FeedbackLoop）
-    5. 返回执行结果
-    6. 支持并行执行独立任务
-    7. 支持 Evolution 模式（通过内部调用 EvolutionEngine）
+    支持断点续传（通过 StateStore）。
     """
     
     def __init__(
@@ -100,59 +84,123 @@ class SprintExecutor:
         prd: Optional[PRD] = None,
         evolution_engine: Optional[Any] = None,
         error_handler: Optional[Any] = None,
+        state_store: Optional[StateStore] = None,
     ):
-        """
-        初始化执行器
-        
-        Args:
-            max_parallel: 最大并行任务数
-            feedback_loop: 反馈循环实例（可选，用于收集执行反馈）
-            prd: PRD 实例（可选，用于反馈关联）
-            evolution_engine: 进化引擎实例（可选，用于 Evolution 模式）
-            error_handler: 错误处理器实例（可选，用于错误处理）
-        """
         self._agent_executors: Dict[str, Callable] = {}
         self._callbacks: Dict[str, Callable] = {}
         self._max_parallel = max_parallel
-        self._event_bus = None  # 延迟导入避免循环依赖
+        self._event_bus = None
         self._feedback_loop = feedback_loop
         self._prd = prd
-        self._sprint_count = 0  # 跟踪执行的 Sprint 数量
-        self._evolution_engine = evolution_engine  # 进化引擎（Evolution 模式用）
-        self._error_handler = error_handler  # 错误处理器
+        self._sprint_count = 0
+        self._evolution_engine = evolution_engine
+        self._error_handler = error_handler
+        self._state_store = state_store
+        self._execution_id: Optional[str] = None
+        self._checkpoint_interval = 1
         self._register_default_executors()
     
+    @property
+    def state_store(self) -> StateStore:
+        if self._state_store is None:
+            self._state_store = get_state_store()
+        return self._state_store
+    
+    def set_state_store(self, state_store: StateStore) -> None:
+        self._state_store = state_store
+        logger.info("StateStore 已注入到 SprintExecutor")
+    
     def set_feedback_loop(self, feedback_loop) -> None:
-        """设置反馈循环"""
         self._feedback_loop = feedback_loop
     
     def set_prd(self, prd: PRD) -> None:
-        """设置 PRD（用于反馈关联）"""
         self._prd = prd
     
     def set_evolution_engine(self, evolution_engine) -> None:
-        """设置进化引擎（用于 Evolution 模式）"""
         self._evolution_engine = evolution_engine
-        logger.info("✅ EvolutionEngine 已注入到 SprintExecutor")
     
     def set_error_handler(self, error_handler) -> None:
-        """设置错误处理器"""
         self._error_handler = error_handler
-        logger.info("✅ ErrorHandler 已注入到 SprintExecutor")
     
     def get_feedback_history(self) -> List[Any]:
-        """
-        获取反馈历史
-        
-        Returns:
-            List: 反馈历史列表
-        """
         if self._feedback_loop:
             return self._feedback_loop.get_history()
         return []
     
+    def _init_execution_state(self, prd: Optional[PRD] = None) -> str:
+        if self._execution_id is None:
+            self._execution_id = f"exec_{uuid.uuid4().hex[:8]}"
+        
+        total_sprints = len(prd.sprints) if prd else (len(self._prd.sprints) if self._prd else 0)
+        total_tasks = prd.total_tasks if prd else (self._prd.total_tasks if self._prd else 0)
+        
+        state = ExecutionState(
+            execution_id=self._execution_id,
+            prd_name=prd.project.name if prd and prd.project else (self._prd.project.name if self._prd else "unknown"),
+            mode="normal",
+            status=ExecutionStateStatus.RUNNING,
+            total_sprints=total_sprints,
+            total_tasks=total_tasks,
+        )
+        
+        self.state_store.save(state)
+        logger.info(f"执行状态已初始化: {self._execution_id}")
+        return self._execution_id
+    
+    def _save_checkpoint(
+        self, 
+        sprint_idx: int, 
+        sprint_name: str, 
+        sprint_result: SprintResult
+    ) -> None:
+        if not self._execution_id:
+            return
+        
+        task_results = [r.to_dict() for r in sprint_result.task_results]
+        
+        success = self.state_store.create_checkpoint(
+            execution_id=self._execution_id,
+            sprint_idx=sprint_idx,
+            sprint_name=sprint_name,
+            task_results=task_results,
+        )
+        
+        if success:
+            self.state_store.increment_progress(
+                execution_id=self._execution_id,
+                completed_tasks=sprint_result.success_count,
+                completed_sprints=1,
+            )
+            logger.debug(f"检查点已保存: {sprint_name}")
+    
+    def can_resume(self, execution_id: str) -> bool:
+        return self.state_store.can_resume(execution_id)
+    
+    def get_resume_point(self, execution_id: str) -> Optional[Dict[str, Any]]:
+        return self.state_store.get_resume_point(execution_id)
+    
+    def load_execution_state(self, execution_id: str) -> Optional[ExecutionState]:
+        return self.state_store.load(execution_id)
+    
+    def pause_execution(self) -> bool:
+        if not self._execution_id:
+            return False
+        return self.state_store.update_status(
+            execution_id=self._execution_id,
+            status=ExecutionStateStatus.PAUSED,
+        )
+    
+    def resume_execution(self, execution_id: str) -> bool:
+        state = self.load_execution_state(execution_id)
+        if not state or state.status != ExecutionStateStatus.PAUSED:
+            return False
+        self._execution_id = execution_id
+        return self.state_store.update_status(
+            execution_id=execution_id,
+            status=ExecutionStateStatus.RUNNING,
+        )
+    
     def _register_default_executors(self):
-        """注册默认的 Agent 执行器"""
         self._agent_executors = {
             "coder": self._execute_coder_task,
             "evolver": self._execute_evolver_task,
@@ -160,38 +208,25 @@ class SprintExecutor:
         }
     
     def register_agent_executor(self, agent_type: str, executor: Callable):
-        """注册自定义 Agent 执行器"""
         self._agent_executors[agent_type] = executor
     
-    # ========== 任务拆分配置 ==========
-    
-    # 任务长度阈值（字符数）
     TASK_SPLIT_THRESHOLD = 500
-    # 子任务建议的最大数量
     MAX_SUBTASKS = 5
     
     def _should_split_task(self, task: PRDTask) -> bool:
-        """判断任务是否需要拆分"""
         if len(task.task) >= self.TASK_SPLIT_THRESHOLD:
             return True
-        complex_keywords = [
-            "重构", "迁移", "优化", "重写",
-            "implement", "refactor", "migrate", "optimize", "rewrite",
-            "多个", "所有", "全部",
-            "multiple", "all", "entire",
-        ]
+        complex_keywords = ["重构", "迁移", "优化", "重写", "implement", "refactor", "migrate", "optimize", "rewrite"]
         task_lower = task.task.lower()
         keyword_count = sum(1 for kw in complex_keywords if kw.lower() in task_lower)
         return keyword_count >= 2
     
     def _split_task(self, task: PRDTask) -> List[PRDTask]:
-        """拆分大型任务为子任务"""
+        subtasks = []
         task_text = task.task
         action_patterns = [
-            r'实现[^\s，,。]+', r'添加[^\s，,。]+', r'修改[^\s，,。]+',
-            r'修复[^\s，,。]+', r'优化[^\s，,。]+', r'创建[^\s，,。]+',
-            r'implement\s+[^\s，,。]+', r'add\s+[^\s，,。]+',
-            r'modify\s+[^\s，,。]+', r'fix\s+[^\s，,。]+',
+            r"实现[^\s，,。]+", r"添加[^\s，,。]+", r"修改[^\s，,。]+",
+            r"修复[^\s，,。]+", r"优化[^\s，,。]+", r"创建[^\s，,。]+",
         ]
         subtask_parts = []
         for pattern in action_patterns:
@@ -199,8 +234,7 @@ class SprintExecutor:
             subtask_parts.extend(matches)
         
         if len(subtask_parts) >= 2:
-            subtasks = []
-            for part in subtask_parts[:self.MAX_SUBTASKS]:
+            for i, part in enumerate(subtask_parts[:self.MAX_SUBTASKS]):
                 subtask = PRDTask(
                     task=part.strip(),
                     agent=task.agent,
@@ -211,23 +245,19 @@ class SprintExecutor:
                 )
                 subtasks.append(subtask)
         else:
-            subtasks = [PRDTask(
+            subtask = PRDTask(
                 task=task_text[:self.TASK_SPLIT_THRESHOLD] + "..." if len(task_text) > self.TASK_SPLIT_THRESHOLD else task_text,
                 agent=task.agent,
                 target=task.target,
                 constraints=task.constraints.copy(),
                 expected_output=task.expected_output,
                 timeout=task.timeout,
-            )]
+            )
+            subtasks.append(subtask)
         return subtasks
     
     def split_sprint_tasks(self, sprint: PRDSprint) -> PRDSprint:
-        """拆分 Sprint 中的大型任务"""
-        new_sprint = PRDSprint(
-            name=sprint.name,
-            goals=sprint.goals.copy(),
-            tasks=[],
-        )
+        new_sprint = PRDSprint(name=sprint.name, goals=sprint.goals.copy(), tasks=[])
         for task in sprint.tasks:
             if self._should_split_task(task):
                 subtasks = self._split_task(task)
@@ -235,29 +265,16 @@ class SprintExecutor:
             else:
                 new_sprint.tasks.append(task)
         return new_sprint
-
-
-    async def execute_sprint(self, sprint: PRDSprint, context: Dict[str, Any] = None) -> SprintResult:
-        """
-        执行单个 Sprint
-        
-        Args:
-            sprint: Sprint 定义
-            context: 执行上下文
-            
-        Returns:
-            SprintResult: 执行结果
-        """
+    
+    async def execute_sprint(self, sprint: PRDSprint, context: Dict[str, Any] = None, save_checkpoint: bool = True) -> SprintResult:
         start_time = time.time()
         result = SprintResult(sprint=sprint, status=TaskStatus.RUNNING)
-        
-        logger.info(f"🚀 开始执行 Sprint: {sprint.name}")
+        logger.info(f"开始执行 Sprint: {sprint.name}")
         
         for task in sprint.tasks:
             task_result = await self._execute_task(task, sprint.name, context or {})
             result.task_results.append(task_result)
         
-        # 确定 Sprint 状态
         if all(r.status == TaskStatus.SUCCESS for r in result.task_results):
             result.status = TaskStatus.SUCCESS
         elif any(r.status == TaskStatus.FAILED for r in result.task_results):
@@ -266,281 +283,130 @@ class SprintExecutor:
             result.status = TaskStatus.SUCCESS
         
         result.duration = time.time() - start_time
-        logger.info(f"✅ Sprint 完成: {sprint.name} ({result.duration:.2f}s)")
-        
-        # 收集反馈（通过 FeedbackLoop）
         self._collect_feedback(sprint, result)
+        
+        if save_checkpoint and self._execution_id:
+            self._save_checkpoint(0, sprint.name, result)
         
         return result
     
     def _collect_feedback(self, sprint: PRDSprint, result: SprintResult) -> None:
-        """
-        收集执行反馈
-        
-        Args:
-            sprint: Sprint 定义
-            result: 执行结果
-        """
         if self._feedback_loop is None:
             return
-        
         try:
             self._sprint_count += 1
-            
-            # 准备反馈数据
-            feedback_data = {
-                "sprint_name": sprint.name,
-                "sprint_index": self._sprint_count,
-                "task_results": result.task_results,
-                "duration": result.duration,
-            }
-            
-            # 如果有 PRD，使用它
             if self._prd:
                 feedback = self._feedback_loop.collect(self._prd, [result])
             else:
-                # 创建一个简单的 PRD 对象用于反馈
                 class SimplePRD:
                     def __init__(self):
                         self.id = f"sprint-{self._sprint_count}"
                         self.project = type("obj", (), {"name": sprint.name})()
-                
                 feedback = self._feedback_loop.collect(SimplePRD(), [result])
-            
-            logger.debug(f"📝 反馈已收集: {sprint.name}, 成功率: {feedback.success_rate}%")
-            
+            self._feedback_loop.save(feedback)
         except Exception as e:
-            logger.warning(f"⚠️ 收集反馈失败: {e}")
+            logger.warning(f"收集反馈失败: {e}")
     
     async def execute_sprints(
-        self, 
-        sprints: List[PRDSprint], 
-        mode: str = "normal",
+        self, sprints: List[PRDSprint], mode: str = "normal",
         evolution_config: Optional[EvolutionConfig] = None,
-        context: Dict[str, Any] = None
+        context: Dict[str, Any] = None,
+        execution_id: Optional[str] = None,
+        resume: bool = False,
     ) -> List[SprintResult]:
-        """
-        统一执行入口 - 支持 Normal 和 Evolution 两种模式
-        
-        Args:
-            sprints: Sprint 列表
-            mode: 执行模式，"normal" 或 "evolution"
-            evolution_config: 进化配置（Evolution 模式用）
-            context: 执行上下文
-            
-        Returns:
-            List[SprintResult]: 执行结果列表
-        """
+        if resume and execution_id:
+            return await self._resume_execution(execution_id, sprints, context)
+        self._execution_id = execution_id or self._init_execution_state()
         if mode == "evolution" and self._evolution_engine:
             return await self._execute_evolution_sprints(sprints, evolution_config, context)
-        else:
-            return await self._execute_normal_sprints(sprints, context)
+        return await self._execute_normal_sprints(sprints, context)
     
-    async def _execute_normal_sprints(
-        self, 
-        sprints: List[PRDSprint], 
-        context: Dict[str, Any] = None
-    ) -> List[SprintResult]:
-        """
-        Normal 模式执行 - 原有逻辑
-        
-        Args:
-            sprints: Sprint 列表
-            context: 执行上下文
-            
-        Returns:
-            List[SprintResult]: 执行结果列表
-        """
-        logger.info(f"📋 Normal 模式执行 {len(sprints)} 个 Sprint")
+    async def _resume_execution(self, execution_id: str, sprints: List[PRDSprint], context: Dict[str, Any] = None) -> List[SprintResult]:
+        logger.info(f"从断点恢复执行: {execution_id}")
+        state = self.load_execution_state(execution_id)
+        if not state:
+            return []
+        resume_point = self.get_resume_point(execution_id)
+        if not resume_point:
+            return []
+        start_sprint_idx = resume_point.get("current_sprint", 0)
+        self._execution_id = execution_id
+        self.state_store.update_status(execution_id, ExecutionStateStatus.RUNNING)
         results = []
-        for sprint in sprints:
-            result = await self.execute_sprint(sprint, context)
+        for i, sprint in enumerate(sprints):
+            if i < start_sprint_idx:
+                continue
+            result = await self.execute_sprint(sprint, context, save_checkpoint=True)
             results.append(result)
-            # 如果 Sprint 失败，可以选择停止后续执行
             if result.status == TaskStatus.FAILED:
-                logger.warning(f"⚠️ Sprint 失败: {sprint.name}")
+                break
         return results
     
-    async def _execute_evolution_sprints(
-        self, 
-        sprints: List[PRDSprint],
-        evolution_config: Optional[EvolutionConfig],
-        context: Dict[str, Any] = None
-    ) -> List[SprintResult]:
-        """
-        Evolution 模式执行 - 通过 EvolutionEngine 增强
-        
-        Args:
-            sprints: Sprint 列表
-            evolution_config: 进化配置
-            context: 执行上下文
-            
-        Returns:
-            List[SprintResult]: 执行结果列表
-        """
-        logger.info(f"🔄 Evolution 模式执行 {len(sprints)} 个 Sprint")
+    async def _execute_normal_sprints(self, sprints: List[PRDSprint], context: Dict[str, Any] = None) -> List[SprintResult]:
         results = []
-        
-        # 获取进化参数
-        max_generations = evolution_config.iterations if evolution_config else 3
-        
         for sprint in sprints:
-            logger.info(f"🔍 开始 Evolution 增强: {sprint.name}")
-            
-            # 调用 EvolutionEngine 对 Sprint 进行进化
-            result = await self._evolution_engine.evolve_sprint(
-                sprint=sprint,
-                max_generations=max_generations,
-            )
-            
-            # EvolutionEngine.evolve_sprint 返回 EvolutionResult，
-            # 需要转换为 SprintResult 格式
+            result = await self.execute_sprint(sprint, context, save_checkpoint=True)
+            results.append(result)
+            if result.status == TaskStatus.FAILED:
+                logger.warning(f"Sprint 失败: {sprint.name}")
+        return results
+    
+    async def _execute_evolution_sprints(self, sprints: List[PRDSprint], evolution_config: Optional[EvolutionConfig], context: Dict[str, Any] = None) -> List[SprintResult]:
+        results = []
+        max_generations = evolution_config.iterations if evolution_config else 3
+        for sprint in sprints:
+            result = await self._evolution_engine.evolve_sprint(sprint=sprint, max_generations=max_generations)
             sprint_result = self._convert_evolution_result(sprint, result)
             results.append(sprint_result)
-            
-            # 收集反馈
-            self._collect_feedback(sprint, sprint_result)
-        
-        logger.info(f"✅ Evolution 模式完成: {len(results)} 个 Sprint")
+            if self._execution_id:
+                self._save_checkpoint(0, sprint.name, sprint_result)
         return results
     
     def _convert_evolution_result(self, sprint: PRDSprint, evo_result: Any) -> SprintResult:
-        """
-        将 EvolutionResult 转换为 SprintResult
-        
-        Args:
-            sprint: 原始 Sprint
-            evo_result: EvolutionResult
-            
-        Returns:
-            SprintResult: 转换后的 Sprint 结果
-        """
-        # 判断成功与否
-        success = evo_result.success if hasattr(evo_result, 'success') else True
-        
-        # 创建 SprintResult
+        success = evo_result.success if hasattr(evo_result, "success") else True
         sprint_result = SprintResult(
             sprint=sprint,
             status=TaskStatus.SUCCESS if success else TaskStatus.FAILED,
-            duration=evo_result.execution_time if hasattr(evo_result, 'execution_time') else 0.0,
+            duration=evo_result.execution_time if hasattr(evo_result, "execution_time") else 0.0,
         )
-        
-        # 如果有任务结果，添加到 SprintResult
-        if hasattr(evo_result, 'selected_genes') and evo_result.selected_genes:
+        if hasattr(evo_result, "selected_genes") and evo_result.selected_genes:
             for gene in evo_result.selected_genes:
-                # 将进化的基因作为任务结果
-                task = PRDTask(
-                    task=f"Evolution Gene: {gene.id[:8]}",
-                    agent="evolver",
-                    target=gene.metadata.get("file") if hasattr(gene, 'metadata') else None,
-                )
-                task_result = TaskResult(
-                    task=task,
-                    sprint_name=sprint.name,
-                    status=TaskStatus.SUCCESS,
-                    output=gene.content[:500] if hasattr(gene, 'content') else "",
-                )
+                task = PRDTask(task=f"Evolution Gene: {gene.id[:8]}", agent="evolver")
+                task_result = TaskResult(task=task, sprint_name=sprint.name, status=TaskStatus.SUCCESS)
                 sprint_result.task_results.append(task_result)
-        
         return sprint_result
     
     def set_event_bus(self, event_bus) -> None:
-        """设置事件总线"""
         self._event_bus = event_bus
     
     async def _emit_event(self, event_type: str, data: Dict[str, Any]) -> None:
-        """发送事件"""
         if self._event_bus:
             from .events import Event, EventType
             try:
                 event = Event(type=EventType[event_type.upper()], data=data)
                 await self._event_bus.emit(event)
             except KeyError:
-                logger.warning(f"Unknown event type: {event_type}")
+                pass
     
-    async def execute_sprint_parallel(
-        self, 
-        sprint: PRDSprint, 
-        context: Dict[str, Any] = None,
-        dependency_map: Dict[int, Set[int]] = None
-    ) -> SprintResult:
-        """
-        并行执行 Sprint（同一 Sprint 内的独立任务并行）
-        
-        Args:
-            sprint: Sprint 定义
-            context: 执行上下文
-            dependency_map: 任务依赖关系，格式 {task_idx: {dependent_task_indices}}
-                            任务只在所有依赖完成后才执行
-            
-        Returns:
-            SprintResult: 执行结果
-        """
-        from .events import EventType
-        
+    async def execute_sprint_parallel(self, sprint: PRDSprint, context: Dict[str, Any] = None, dependency_map: Dict[int, Set[int]] = None, save_checkpoint: bool = True) -> SprintResult:
         start_time = time.time()
         result = SprintResult(sprint=sprint, status=TaskStatus.RUNNING)
-        
-        logger.info(f"🚀 开始并行执行 Sprint: {sprint.name} (max_parallel={self._max_parallel})")
-        
-        # 发送 Sprint 开始事件
-        await self._emit_event("sprint_start", {
-            "sprint_name": sprint.name,
-            "task_count": len(sprint.tasks),
-        })
-        
-        # 任务状态跟踪
         task_count = len(sprint.tasks)
         completed: Set[int] = set()
-        running: Set[int] = set()
         task_semaphore = asyncio.Semaphore(self._max_parallel)
         
         async def execute_with_semaphore(task: PRDTask, idx: int) -> TaskResult:
-            """带并发限制的任务执行"""
             async with task_semaphore:
-                running.add(idx)
-                try:
-                    return await self._execute_task_with_event(task, sprint.name, context)
-                finally:
-                    running.discard(idx)
-                    completed.add(idx)
+                return await self._execute_task_with_event(task, sprint.name, context)
         
-        async def wait_for_dependencies(idx: int) -> bool:
-            """检查依赖是否满足"""
-            if dependency_map and idx in dependency_map:
-                deps = dependency_map[idx]
-                while not deps.issubset(completed):
-                    await asyncio.sleep(0.1)
-                    # 检查依赖任务是否失败
-                    for dep_idx in deps:
-                        if dep_idx < idx and result.task_results[dep_idx].status == TaskStatus.FAILED:
-                            return False
-                return True
-            return True
-        
-        # 创建任务协程
         async def run_task(idx: int) -> None:
             task = sprint.tasks[idx]
-            # 等待依赖满足
-            if not await wait_for_dependencies(idx):
-                result.task_results.append(TaskResult(
-                    task=task,
-                    sprint_name=sprint.name,
-                    status=TaskStatus.SKIPPED,
-                    error="依赖任务失败",
-                ))
-                return
-            # 执行任务
             task_result = await execute_with_semaphore(task, idx)
             result.task_results.append(task_result)
         
-        # 创建所有任务协程
         task_coroutines = [run_task(i) for i in range(task_count)]
-        
-        # 并发执行所有任务
         await asyncio.gather(*task_coroutines, return_exceptions=True)
         
-        # 确定 Sprint 状态
         if all(r.status == TaskStatus.SUCCESS for r in result.task_results):
             result.status = TaskStatus.SUCCESS
         elif any(r.status == TaskStatus.FAILED for r in result.task_results):
@@ -550,136 +416,34 @@ class SprintExecutor:
         
         result.duration = time.time() - start_time
         
-        # 发送 Sprint 完成事件
-        await self._emit_event("sprint_complete", {
-            "sprint_name": sprint.name,
-            "status": result.status.value,
-            "success_count": result.success_count,
-            "failed_count": result.failed_count,
-            "duration": result.duration,
-        })
-        
-        logger.info(f"✅ Sprint 完成: {sprint.name} ({result.duration:.2f}s, "
-                   f"成功:{result.success_count}, 失败:{result.failed_count})")
+        if save_checkpoint and self._execution_id:
+            self._save_checkpoint(0, sprint.name, result)
         
         return result
     
-    async def _execute_task_with_event(
-        self, 
-        task: PRDTask, 
-        sprint_name: str, 
-        context: Dict[str, Any]
-    ) -> TaskResult:
-        """执行单个任务并发送事件"""
-        from .events import EventType
-        
-        # 发送任务开始事件
-        await self._emit_event("task_start", {
-            "task": task.task[:100],
-            "agent": task.agent,
-            "target": task.target,
-            "sprint_name": sprint_name,
-        })
-        
-        # 执行任务
+    async def _execute_task_with_event(self, task: PRDTask, sprint_name: str, context: Dict[str, Any]) -> TaskResult:
         result = await self._execute_task(task, sprint_name, context)
-        
-        # 发送任务完成/失败事件
-        if result.status == TaskStatus.SUCCESS:
-            await self._emit_event("task_complete", result.to_dict())
-        else:
-            await self._emit_event("task_failed", result.to_dict())
-        
         return result
     
     async def _execute_task(self, task: PRDTask, sprint_name: str, context: Dict[str, Any]) -> TaskResult:
-        """执行单个任务（带错误处理）"""
         start_time = time.time()
-        
-        # 获取对应的执行器
         executor = self._agent_executors.get(task.agent)
         if not executor:
-            return TaskResult(
-                task=task,
-                sprint_name=sprint_name,
-                status=TaskStatus.FAILED,
-                error=f"未知的 Agent 类型: {task.agent}",
-            )
-        
+            return TaskResult(task=task, sprint_name=sprint_name, status=TaskStatus.FAILED, error=f"未知的 Agent 类型: {task.agent}")
         try:
-            # 执行任务
             output = await executor(task, context)
-            duration = time.time() - start_time
-            
-            return TaskResult(
-                task=task,
-                sprint_name=sprint_name,
-                status=TaskStatus.SUCCESS,
-                output=output,
-                duration=duration,
-            )
+            return TaskResult(task=task, sprint_name=sprint_name, status=TaskStatus.SUCCESS, output=output, duration=time.time() - start_time)
         except Exception as e:
-            logger.error(f"任务执行失败: {e}")
-            
-            # 使用 ErrorHandler 处理错误（如果已注入）
-            fix_result = None
-            if self._error_handler:
-                try:
-                    from .error_handler import ErrorContext
-                    error_context = ErrorContext(
-                        error_log=str(e),
-                        project_path=context.get("project_path", "."),
-                        file_paths=context.get("file_paths", []),
-                        prd_id=context.get("prd_id", ""),
-                        sprint_name=sprint_name,
-                        task_name=task.task,
-                        metadata={"agent": task.agent},
-                    )
-                    fix_result = await self._error_handler.handle(error_context)
-                    logger.info(f"ErrorHandler 处理完成: success={fix_result.success}, level={fix_result.level}")
-                except Exception as eh_error:
-                    logger.warning(f"ErrorHandler 处理失败: {eh_error}")
-            
-            # 构建错误信息
-            error_msg = str(e)
-            if fix_result and fix_result.success:
-                error_msg += f"\n\n修复建议: {fix_result.fix_suggestion}"
-                error_msg += f"\n处理层级: {fix_result.level} (置信度: {fix_result.confidence:.0%})"
-            
-            return TaskResult(
-                task=task,
-                sprint_name=sprint_name,
-                status=TaskStatus.FAILED,
-                error=error_msg,
-                duration=time.time() - start_time,
-            )
+            return TaskResult(task=task, sprint_name=sprint_name, status=TaskStatus.FAILED, error=str(e), duration=time.time() - start_time)
     
     async def _execute_coder_task(self, task: PRDTask, context: Dict[str, Any]) -> str:
-        """
-        执行编码任务
-        
-        这是一个占位实现，实际使用时应该被真实的 Agent 执行器替换。
-        """
-        logger.info(f"🤖 执行编码任务: {task.task[:50]}...")
-        await asyncio.sleep(0.1)  # 模拟执行
+        await asyncio.sleep(0.1)
         return f"完成: {task.task}"
     
     async def _execute_evolver_task(self, task: PRDTask, context: Dict[str, Any]) -> str:
-        """
-        执行进化任务
-        
-        这是一个占位实现，实际使用时应该被真实的 Agent 执行器替换。
-        """
-        logger.info(f"🧬 执行进化任务: {task.task[:50]}...")
-        await asyncio.sleep(0.1)  # 模拟执行
+        await asyncio.sleep(0.1)
         return f"进化完成: {task.task}"
     
     async def _execute_tester_task(self, task: PRDTask, context: Dict[str, Any]) -> str:
-        """
-        执行测试任务
-        
-        这是一个占位实现，实际使用时应该被真实的 Agent 执行器替换。
-        """
-        logger.info(f"🧪 执行测试任务: {task.task[:50]}...")
-        await asyncio.sleep(0.1)  # 模拟执行
+        await asyncio.sleep(0.1)
         return f"测试完成: {task.task}"
