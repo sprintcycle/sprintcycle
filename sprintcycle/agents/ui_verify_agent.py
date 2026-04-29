@@ -7,6 +7,7 @@ from .types import VerificationType, VerificationSeverity, VerificationResult, P
 from .playwright_integration import PlaywrightClient, AccessibilityNode
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional
+from pathlib import Path
 import asyncio
 import re
 
@@ -39,7 +40,9 @@ class UIVerifyAgent(BaseAgent):
         self.base_url = base_url
         self.headless = headless
         self.client: Optional[PlaywrightClient] = None
-        self.screenshot_dir = "/root/sprintcycle/logs/ui_screenshots"
+        import os as _os
+        _sprint_root = _os.environ.get("SPRINT_ROOT", str(Path(__file__).parent.parent.parent))
+        self.screenshot_dir = str(Path(_sprint_root) / "logs" / "ui_screenshots")
     
     async def initialize(self):
         """初始化 Playwright 客户端"""

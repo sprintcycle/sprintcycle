@@ -34,7 +34,12 @@ class PRDSplitter:
     def _load_config(self, config_path: str) -> Dict:
         """加载配置文件"""
         if config_path is None:
-            config_path = "/root/sprintcycle/config/prd_split_strategy.yaml"
+            import os as _os
+            _sprint_root = _os.environ.get("SPRINT_ROOT")
+            if _sprint_root:
+                config_path = str(Path(_sprint_root)) + "/config/prd_split_strategy.yaml"
+            else:
+                config_path = str(Path(__file__).parent.parent / "config" / "prd_split_strategy.yaml")
         
         if os.path.exists(config_path):
             with open(config_path, 'r', encoding='utf-8') as f:
@@ -54,7 +59,7 @@ class PRDSplitter:
                 {'condition': 'sprint_count > 4', 'action': 'auto_split'}
             ],
             'output': {
-                'split_prd_dir': '/root/sprintcycle/prd/split/',
+                'split_prd_dir': str(Path(__file__).parent.parent / "prd" / "split"),
                 'naming_pattern': '{original_name}_p{part}.yaml'
             }
         }
@@ -156,7 +161,10 @@ class PRDSplitter:
             )
             
             # 保存拆分 PRD
-            split_dir = self.output_config.get('split_prd_dir', '/root/sprintcycle/prd/split/')
+            from pathlib import Path
+            _sprint_root = os.environ.get("SPRINT_ROOT")
+            _default_split_dir = str(Path(__file__).parent.parent / "prd" / "split")
+            split_dir = self.output_config.get('split_prd_dir', _default_split_dir)
             os.makedirs(split_dir, exist_ok=True)
             split_path = os.path.join(split_dir, split_filename)
             

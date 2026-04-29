@@ -91,11 +91,14 @@ class PlaywrightClient:
         self, 
         base_url: str = "http://localhost:3000",
         headless: bool = True,
-        screenshot_dir: str = "/root/sprintcycle/logs/ui_screenshots",
+        screenshot_dir: str = None,
         timeout: int = 30000
     ):
         self.base_url = base_url
         self.headless = headless
+        if screenshot_dir is None:
+            _sprint_root = os.environ.get("SPRINT_ROOT", str(Path(__file__).parent.parent.parent))
+            screenshot_dir = str(Path(_sprint_root) / "logs" / "ui_screenshots")
         self.screenshot_dir = Path(screenshot_dir)
         self.timeout = timeout
         self._browser = None

@@ -3,8 +3,9 @@ import sys
 from pathlib import Path
 
 # 首先添加 sprintcycle 目录到路径
-_sprintcycle_path = Path("/root/sprintcycle/sprintcycle")
-_root_path = Path("/root/sprintcycle")
+import os as _os
+_sprintcycle_path = Path(__file__).parent.parent / "sprintcycle"
+_root_path = Path(__file__).parent.parent
 
 if str(_sprintcycle_path.parent) not in sys.path:
     sys.path.insert(0, str(_sprintcycle_path.parent))

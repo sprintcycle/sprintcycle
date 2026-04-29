@@ -322,7 +322,16 @@ class Config:
     
     @classmethod
     def load(cls) -> Dict:
-        config_path = Path("/root/sprintcycle/config.yaml")
+        import os as _os
+        _sprint_root = _os.environ.get("SPRINT_ROOT")
+        if _sprint_root:
+            config_path = Path(_sprint_root) / "config.yaml"
+        else:
+            # 向上搜索项目根目录
+            config_path = Path(__file__).parent
+            while config_path.name != "sprintcycle" and config_path.parent != config_path:
+                config_path = config_path.parent
+            config_path = config_path / "config.yaml"
         if config_path.exists():
             with open(config_path) as f:
                 user_config = yaml.safe_load(f)

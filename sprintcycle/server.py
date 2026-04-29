@@ -51,7 +51,8 @@ logger.add(
     level=_log_config["level"]
 )
 
-_log_dir = Path("/root/sprintcycle/logs")
+import os as _os
+_log_dir = Path(_os.environ.get("SPRINT_ROOT", str(Path(__file__).parent.parent))) / "logs"
 _log_dir.mkdir(parents=True, exist_ok=True)
 logger.add(
     str(_log_dir / "sprintcycle_{time:YYYY-MM-DD}.log"),

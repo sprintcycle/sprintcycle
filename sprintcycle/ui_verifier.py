@@ -78,7 +78,9 @@ class UIVerifier:
     
     def __init__(self, base_url: str = "http://localhost:3000"):
         self.base_url = base_url
-        self.screenshot_dir = "/root/sprintcycle/logs/ui_screenshots"
+        import os as _os
+        _sprint_root = _os.environ.get("SPRINT_ROOT", str(Path(__file__).parent.parent))
+        self.screenshot_dir = str(Path(_sprint_root) / "logs" / "ui_screenshots")
         os.makedirs(self.screenshot_dir, exist_ok=True)
     
     async def verify_page_interactions(self, page_path: str) -> List[InteractionIssue]:
