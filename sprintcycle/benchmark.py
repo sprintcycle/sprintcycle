@@ -12,8 +12,6 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 from collections import defaultdict
 
-from .state_manager import StateScope, get_state_manager
-
 
 @dataclass
 class BenchmarkResult:
@@ -172,7 +170,8 @@ class PerformanceMonitor:
     def __init__(self):
         self._metrics: Dict[str, List[float]] = defaultdict(list)
         self._timers: Dict[str, float] = {}
-        self._state_manager = get_state_manager()
+        # 使用简单字典替代 StateManager
+        self._perf_state: Dict[str, Dict[str, Any]] = defaultdict(dict)
     
     def start_timer(self, name: str) -> None:
         self._timers[name] = time.perf_counter()
@@ -183,21 +182,21 @@ class PerformanceMonitor:
             self._metrics[name].append(duration)
             del self._timers[name]
             
-            # 更新状态
-            self._state_manager.set(StateScope.RESOURCE, f"perf.{name}", {
+            # 更新状态（使用简单字典）
+            self._perf_state[f"perf.{name}"] = {
                 "duration": duration,
                 "timestamp": datetime.now().isoformat()
-            })
+            }
             
             return duration
         return None
     
     def record(self, name: str, value: float) -> None:
         self._metrics[name].append(value)
-        self._state_manager.set(StateScope.RESOURCE, f"perf.{name}", {
+        self._perf_state[f"perf.{name}"] = {
             "value": value,
             "timestamp": datetime.now().isoformat()
-        })
+        }
     
     def get_stats(self, name: str) -> Dict[str, float]:
         if name not in self._metrics or not self._metrics[name]:

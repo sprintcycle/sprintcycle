@@ -13,8 +13,6 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from .state_manager import StateScope, get_state_manager
-
 
 class AlertLevel(Enum):
     """告警级别"""
@@ -82,7 +80,7 @@ class AlertConfig:
     memory_threshold: float = 80.0   # 内存使用率阈值
     memory_mb_threshold: float = 4096  # 内存绝对值阈值(MB)
     disk_threshold: float = 90.0     # 磁盘使用率阈值
-    
+
 
 class ResourceMonitor:
     """
@@ -111,7 +109,8 @@ class ResourceMonitor:
         self._last_disk_io = self._process.io_counters()
         self._last_net_io = psutil.net_io_counters()
         self._lock = threading.RLock()
-        self._state_manager = get_state_manager()
+        # 使用简单字典替代 StateManager
+        self._resource_state: Dict[str, Any] = {}
     
     def start(self) -> None:
         """启动监控"""
@@ -142,7 +141,7 @@ class ResourceMonitor:
                 # 检查告警
                 self._check_alerts(snapshot)
                 
-                # 更新状态
+                # 更新状态（使用简单字典）
                 self._update_state(snapshot)
                 
             except Exception as e:
@@ -241,11 +240,11 @@ class ResourceMonitor:
                     print(f"Alert callback error: {e}")
     
     def _update_state(self, snapshot: ResourceSnapshot) -> None:
-        """更新状态"""
-        self._state_manager.set(StateScope.RESOURCE, "latest_snapshot", snapshot.to_dict())
-        self._state_manager.set(StateScope.RESOURCE, "cpu_percent", snapshot.cpu_percent)
-        self._state_manager.set(StateScope.RESOURCE, "memory_percent", snapshot.memory_percent)
-        self._state_manager.set(StateScope.RESOURCE, "memory_used_mb", snapshot.memory_used_mb)
+        """更新状态（使用简单字典）"""
+        self._resource_state["latest_snapshot"] = snapshot.to_dict()
+        self._resource_state["cpu_percent"] = snapshot.cpu_percent
+        self._resource_state["memory_percent"] = snapshot.memory_percent
+        self._resource_state["memory_used_mb"] = snapshot.memory_used_mb
     
     def add_alert_callback(self, callback: Callable[[Alert], None]) -> None:
         """添加告警回调"""
