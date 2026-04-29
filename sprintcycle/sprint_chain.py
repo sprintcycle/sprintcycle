@@ -66,7 +66,7 @@ class SprintChain:
         with open(self.config_path, "w") as f:
             yaml.dump(self.config, f, allow_unicode=True)
     
-    def _save_result(self, task: str, result: ExecutionResult, name: str = None):
+    def _save_result(self, task: str, result: ExecutionResult, name: Optional[str] = None):
         self.results_path.mkdir(parents=True, exist_ok=True)
         data = {
             "task": task, "task_name": name or f"task_{datetime.now():%H%M%S}",
@@ -86,10 +86,10 @@ class SprintChain:
         self._save_config()
         return sprint
     
-    def run_task(self, task: str, files: List[str] = None, 
-                 agent: AgentType = None, tool: ToolType = None, 
-                 name: str = None, on_progress: callable = None) -> ExecutionResult:
-        result = self.chorus.dispatch(self.project_path, task, files, agent, tool, on_progress)
+    def run_task(self, task: str, files: Optional[List[str]] = None,
+                 agent: Optional[AgentType] = None, tool: Optional[ToolType] = None,
+                 name: Optional[str] = None, on_complete: Optional[Callable] = None) -> ExecutionResult:
+        result = self.chorus.dispatch(str(self.project_path), task, files or [], agent, tool, on_complete)
         
         # 阶段2: 审查流程
         if self.review_enabled and result.success and self.reviewer:
@@ -114,8 +114,8 @@ class SprintChain:
         self._save_result(task, result, name)
         return result
     
-    def run_sprint(self, sprint_name: str, tasks: List[Dict], tool: ToolType = None,
-                   on_task_complete: callable = None) -> Dict:
+    def run_sprint(self, sprint_name: str, tasks: List[Dict], tool: Optional[ToolType] = None,
+                   on_task_complete: Optional[Callable] = None) -> Dict:
         """运行 Sprint，支持进度回调"""
         results = []
         success = 0
@@ -419,7 +419,7 @@ class SprintChain:
         with open(checkpoint_file, 'w') as f:
             json.dump(checkpoint, f, indent=2)
     
-    def run_all_sprints(self, on_task_complete: callable = None) -> List[Dict]:
+    def run_all_sprints(self, on_task_complete: Optional[Callable] = None) -> List[Dict]:
         """按顺序执行所有待执行的 Sprint（分批执行）"""
         results = []
         
@@ -484,7 +484,7 @@ class SprintChain:
         
         return results
 
-    def run_sprint_by_name(self, sprint_name: str, tool: ToolType = None) -> Dict:
+    def run_sprint_by_name(self, sprint_name: str, tool: Optional[ToolType] = None) -> Dict:
         for sprint in self.get_sprints():
             if sprint.get("name") == sprint_name:
                 tasks = []

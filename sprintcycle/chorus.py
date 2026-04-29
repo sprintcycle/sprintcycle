@@ -40,7 +40,7 @@ def _get_optimizations():
         _imported_optimizations = True
     return globals()
 
-from typing import Any, Dict, List, Optional, Generator, Union
+from typing import Any, Dict, List, Optional, Generator, Union, Callable
 from enum import Enum
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -107,7 +107,7 @@ def normalize_files_changed(files_changed: Any) -> Dict[str, List[str]]:
     Returns:
         Dict[str, List[str]]: 标准格式的 files_changed
     """
-    default = {"added": [], "modified": [], "deleted": [], "screenshots": []}
+    default: Dict[str, List[str]] = {"added": [], "modified": [], "deleted": [], "screenshots": []}
     
     if files_changed is None:
         return default
@@ -186,13 +186,17 @@ class AgentType(Enum):
     UI_VERIFY = "ui_verify"
     
     @classmethod
-    def from_string(cls, value: str) -> "AgentType":
-        """安全转换，未知类型自动映射到 CODER
-        
-        支持动态扩展新的 Agent 类型，自动映射未知类型到 CODER
-        """
+    def from_string(cls, value: str) -> Optional["AgentType"]:
+        """安全转换，未知类型自动映射到 CODER"""
         if not value:
             return None
+        try:
+            return cls(value.lower())
+        except ValueError:
+            from loguru import logger
+            logger.info(f"未知 agent 类型 '{value}'，自动映射到 CODER")
+            return None
+
         try:
             return cls(value.lower())
         except ValueError:
@@ -269,8 +273,8 @@ class TaskProgress:
     status: TaskStatus
     progress: int
     message: str
-    start_time: datetime = None
-    end_time: datetime = None
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
 
 
 # ============================================================
@@ -561,7 +565,7 @@ class ExecutionLayer:
     
     def execute(self, project_path: str, task: str, files: List[str], 
                 tool: ToolType,
-                on_progress: callable = None) -> ExecutionResult:
+                on_progress: Optional[Callable[..., None]] = None) -> ExecutionResult:
         """执行任务，支持重试 - v4.10 增强错误归因"""
         
         config = self.config.get(tool.value, {})
@@ -709,7 +713,7 @@ class ChorusAdapter:
     def __init__(self):
         self.executor = ExecutionLayer()
         self.available = self.executor.list_available()
-        self.default = self._get_default()
+        self.default: ToolType = self._get_default()
     
     def _get_default(self) -> ToolType:
         for t in [ToolType.AIDER, ToolType.CLAUDE, ToolType.CURSOR]:
@@ -717,18 +721,18 @@ class ChorusAdapter:
                 return t
         return ToolType.AIDER
     
-    def route(self, agent: AgentType = None, preferred: ToolType = None) -> ToolType:
+    def route(self, agent: Optional[AgentType] = None, preferred: Optional[ToolType] = None) -> ToolType:
         if preferred and self.available.get(preferred.value):
             return preferred
         if agent:
             t = self.AGENT_TOOL_MAP.get(agent)
             if t and self.available.get(t.value):
                 return t
-        return self.default
+        return self.default  # type: ignore[attr-defined]
     
     def execute(self, project_path: str, task: str, files: List[str],
-                agent: AgentType = None, tool: ToolType = None,
-                on_progress: callable = None) -> ExecutionResult:
+                agent: Optional[AgentType] = None, tool: Optional[ToolType] = None,
+                on_progress: Optional[Callable[..., None]] = None) -> ExecutionResult:
         if agent == AgentType.TESTER:
             return self._execute_tester_task(project_path, task)
         
@@ -922,7 +926,7 @@ class Chorus:
     
     VERSION = "v4.10"  # v4.10: 更新版本号
     
-    def __init__(self, kb: KnowledgeBase = None):
+    def __init__(self, kb: Optional["KnowledgeBase"] = None):
         self.adapter = ChorusAdapter()
         self.kb = kb
         self.history: List[Dict] = []
@@ -941,7 +945,7 @@ class Chorus:
     
     def dispatch(self, project_path: str, task: str, files: List[str] = None,
                  agent: AgentType = None, tool: ToolType = None,
-                 on_progress: callable = None) -> ExecutionResult:
+                 on_progress: Optional[Callable[..., None]] = None) -> ExecutionResult:
         
         if agent is None:
             agent = self.analyze(task)
