@@ -448,7 +448,7 @@ class PlaywrightClient:
                         if el:
                             element = el
                             break
-                    except:
+                    except Exception:
                         continue
                 
                 if element:

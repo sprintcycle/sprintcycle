@@ -626,7 +626,7 @@ class ExecutionLayer:
             try:
                 from .optimizations import FileTracker
                 files_dict = FileTracker.extract_changed_files(result.stdout, [])
-            except:
+            except Exception:
                 files_dict = {"added": [], "modified": [], "deleted": [], "screenshots": []}
             
             files_dict = normalize_files_changed(files_dict)
@@ -636,7 +636,7 @@ class ExecutionLayer:
                 from .optimizations import TaskSplitter, SplitConfig
                 splitter = TaskSplitter(SplitConfig(threshold_seconds=120))
                 split_suggestion = splitter.check_and_suggest(task, duration)
-            except:
+            except Exception:
                 pass
             
             return ExecutionResult(

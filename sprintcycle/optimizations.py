@@ -30,7 +30,7 @@ class InlineConfig:
                 with open(config_path) as f:
                     config = yaml.safe_load(f)
                     return config.get("task", {}).get("exclude_dirs", cls.DEFAULT_EXCLUDE_DIRS)
-            except:
+            except Exception:
                 pass
         return cls.DEFAULT_EXCLUDE_DIRS
 
@@ -949,7 +949,7 @@ class EvolutionEngine:
                     self.failure_history = [
                         FailureRecord(**r) for r in data.get("failures", [])
                     ]
-            except:
+            except Exception:
                 pass
     
     def _save_knowledge(self):

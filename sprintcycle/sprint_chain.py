@@ -444,7 +444,7 @@ class SprintChain:
             # 使用拓扑排序确保任务顺序正确
             try:
                 tasks = DependencyManager.topological_sort(tasks)
-            except:
+            except Exception:
                 pass  # 如果依赖管理不可用，保持原顺序
             
             # 分批执行

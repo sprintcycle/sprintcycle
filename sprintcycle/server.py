@@ -63,9 +63,9 @@ logger.add(
 )
 
 # MCP Server
-from mcp.server import Server
-from mcp.server.stdio import stdio_server
-from mcp.types import Tool, TextContent
+from .mcp.server_impl import Server, stdio_server as stdio_server_func, Tool, TextContent
+
+
 
 app = Server("sprintcycle-mcp")
 
@@ -444,7 +444,7 @@ Sprints: {len(chain.get_sprints())}
 
 
 async def main():
-    async with stdio_server() as (read_stream, write_stream):
+    async with stdio_server_func() as (read_stream, write_stream):
         await app.run(read_stream, write_stream, app.create_initialization_options())
 
 

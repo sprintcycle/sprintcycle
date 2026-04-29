@@ -164,7 +164,7 @@ class ResourceMonitor:
             disk_read_mb = (io_counters.read_bytes - self._last_disk_io.read_bytes) / (1024 * 1024)
             disk_write_mb = (io_counters.write_bytes - self._last_disk_io.write_bytes) / (1024 * 1024)
             self._last_disk_io = io_counters
-        except:
+        except Exception:
             disk_read_mb = 0
             disk_write_mb = 0
         
@@ -174,7 +174,7 @@ class ResourceMonitor:
             net_sent_mb = (net_io.bytes_sent - self._last_net_io.bytes_sent) / (1024 * 1024)
             net_recv_mb = (net_io.bytes_recv - self._last_net_io.bytes_recv) / (1024 * 1024)
             self._last_net_io = net_io
-        except:
+        except Exception:
             net_sent_mb = 0
             net_recv_mb = 0
         

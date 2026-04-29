@@ -178,7 +178,7 @@ class ResponseCache:
         # 估算大小
         try:
             value_size = len(pickle.dumps(value))
-        except:
+        except Exception:
             value_size = len(str(value))
         
         with self._lock:

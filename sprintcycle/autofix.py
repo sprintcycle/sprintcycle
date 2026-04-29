@@ -10,7 +10,7 @@ from datetime import datetime
 try:
     import requests
     HAS_REQUESTS = True
-except:
+except ImportError:
     HAS_REQUESTS = False
 
 from .scanner import Issue, IssueType, IssueSeverity
@@ -112,7 +112,7 @@ class AutoFixEngine:
             resp = requests.post(self.API, headers={"Authorization": f"Bearer {self.api_key}"}, json={"model": "deepseek-chat", "messages": [{"role": "user", "content": prompt}]}, timeout=30)
             if resp.status_code == 200:
                 return resp.json().get("choices", [{}])[0].get("message", {}).get("content", "")
-        except: pass
+        except Exception: pass
         return None
 
     def rollback(self) -> int:
@@ -125,7 +125,7 @@ class AutoFixEngine:
                     shutil.copy2(bak, Path(r["restored"]))
                     bak.unlink()
                     count += 1
-            except: pass
+            except Exception: pass
         return count
 
     def get_summary(self) -> Dict:

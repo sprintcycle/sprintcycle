@@ -131,7 +131,7 @@ class CodeReviewer:
                             file_path=file_path,
                             line_number=line_num
                         ))
-                except:
+                except Exception:
                     pass
         return issues
     
@@ -173,7 +173,7 @@ class ReviewerAgent:
             if full_path.exists():
                 try:
                     files_to_review[file_path] = full_path.read_text()
-                except:
+                except Exception:
                     pass
         
         # 代码审查
