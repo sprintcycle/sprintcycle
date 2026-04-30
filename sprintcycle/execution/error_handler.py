@@ -179,8 +179,8 @@ class ErrorHandler:
     
     async def _route_error(self, context: ErrorContext):
         from .error_router import RoutingContext, RoutingLevel
-        level_map = {"level_1": RoutingLevel.LEVEL_1_STATIC, "level_2": RoutingLevel.LEVEL_2_PATTERN, "level_3": RoutingLevel.LEVEL_3_GEPA}
-        max_level = level_map.get(context.max_level, RoutingLevel.LEVEL_3_GEPA)
+        level_map = {"level_1": RoutingLevel.LEVEL_1_STATIC, "level_2": RoutingLevel.LEVEL_2_PATTERN, "level_3": RoutingLevel.LEVEL_3_LLM}
+        max_level = level_map.get(context.max_level, RoutingLevel.LEVEL_3_LLM)
         routing_context = RoutingContext(
             error_log=context.error_log, file_paths=context.file_paths, project_path=context.project_path,
             language=context.language, use_cache=self.enable_cache, max_level=max_level,

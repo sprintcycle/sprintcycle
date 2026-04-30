@@ -60,7 +60,7 @@ class ExecutionEngine:
         """
         self.config = config or {}
         
-        # v0.9.0: EvolutionPipeline replaces GEPAEngine
+        # v0.9.0: EvolutionPipeline replaces legacy engine
         from ..evolution.pipeline import EvolutionPipeline
         from ..evolution.prd_source import ManualPRDSource
         self._evolution_pipeline = EvolutionPipeline(".", ManualPRDSource(""))

@@ -130,7 +130,7 @@ class EvolutionMetrics:
     active_genes: int = 0
     generations: int = 0
     avg_fitness: float = 0.0
-    pareto_front_size: int = 0
+    # pareto_front_size removed (no longer using pareto optimization)
     evolution_rate: float = 0.0
     variation_count: int = 0
     selection_count: int = 0

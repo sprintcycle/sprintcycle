@@ -120,7 +120,7 @@ class TestEvolutionRunConfig:
         config = EvolutionRunConfig(llm=llm)
         assert config.enabled is True
         assert config.max_iterations == 10
-        assert "correctness" in config.pareto_dimensions
+        assert "correctness" in config.eval_dimensions
 
 
 class TestCodingConfig:

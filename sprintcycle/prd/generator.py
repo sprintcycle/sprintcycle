@@ -193,7 +193,7 @@ class PRDGenerator:
     
     @staticmethod
     def _from_fix(parsed: ParsedIntent) -> PRD:
-        """从修复意图生成 PRD - 使用 GEPA 自进化能力"""
+        """从修复意图生成 PRD - 使用自进化能力"""
         # 解析错误信息
         error_info = PRDGenerator._parse_error_info(parsed.description)
         

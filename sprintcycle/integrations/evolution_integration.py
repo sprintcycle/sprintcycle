@@ -1,7 +1,7 @@
 """
 Sprint Evolution Integration - Sprint 进化集成层
 
-v0.9.0: 使用 EvolutionPipeline 替代 GEPAEngine
+v0.9.0: EvolutionPipeline replaces legacy engine
 """
 
 from typing import List, Dict, Any, Optional

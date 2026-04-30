@@ -282,15 +282,6 @@ Error: DEEPSEEK_API_KEY environment variable not set
 export DEEPSEEK_API_KEY="your-actual-api-key"
 ```
 
-### 问题 2：Hermes 库不可用
-
-```
-Warning: Hermes 库不可用，将使用内置简化逻辑
-```
-
-解决（可选）：
-```bash
-git clone https://github.com/your-org/hermes-agent.git ~/.hermes/hermes-agent
 ```
 
 ### 问题 3：文件不存在

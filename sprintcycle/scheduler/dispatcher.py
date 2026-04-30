@@ -218,7 +218,7 @@ class TaskDispatcher:
             sprint_id=f"evo-{int(time.time())}",
             sprint_number=1,
             goal="; ".join(prd.evolution.goals) if prd.evolution.goals else "优化代码",
-            constraints={"dimensions": getattr(self.config, "pareto_dimensions", ["correctness", "performance"])},
+            constraints={"dimensions": getattr(self.config, "eval_dimensions", ["correctness", "performance"])},
         )
         
         # 对每个目标执行进化

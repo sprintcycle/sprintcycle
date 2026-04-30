@@ -2,7 +2,7 @@
 SprintCycle Evolution Module
 
 v0.9.0: 统一进化管道 — EvolutionPipeline + PRDSource + Diagnostic
-GEPA独立引擎已移除，所有进化通过EvolutionPipeline执行。
+GEPA standalone engine removed, all evolution via EvolutionPipeline。
 """
 
 # ========== Core Types ==========

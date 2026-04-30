@@ -94,7 +94,7 @@ class RuntimeConfig:
     llm_temperature: float = 0.7
     llm_max_tokens: int = 2048
     
-    # GEPA 进化专用配置（原 GEPAConfig 字段，v0.9.0 统一）
+    # Evolution config fields (unified in v0.9.0)
     convergence_threshold: int = 2
     min_improvement: float = 0.01
     quality_gate_enabled: bool = True
@@ -469,7 +469,7 @@ class EvolutionRunConfig:
     crossover_rate: float = 0.8
     mutation_rate: float = 0.1
     selection_pressure: float = 0.5
-    pareto_dimensions: List[str] = field(default_factory=lambda: ["correctness", "efficiency", "clarity"])
+    eval_dimensions: List[str] = field(default_factory=lambda: ["correctness", "efficiency", "clarity"])
     llm: Optional[LLMConfig] = None
 
     def __post_init__(self):

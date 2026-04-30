@@ -41,7 +41,7 @@ sprints:
           - "向后兼容"
 
       - task: |
-          优化 GEPA 客户端请求
+          优化进化客户端请求
         agent: "evolver"
         target: "sprintcycle/evolution/client.py"
 

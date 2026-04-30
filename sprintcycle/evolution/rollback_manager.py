@@ -5,7 +5,7 @@ EvolutionRollbackManager - 进化回滚管理
 1. Git Branch 模式（默认）：每个变体一个 branch，选优后 merge，其他 delete
 2. 文件备份模式（fallback）：复用已有的 RollbackManager
 
-这是 GEPA 自进化引擎的核心组件之一（Phase 4）。
+这是 Evolution rollback manager (Phase 4)。
 
 核心逻辑已移至 sprintcycle.execution.rollback，此文件为 thin wrapper。
 """

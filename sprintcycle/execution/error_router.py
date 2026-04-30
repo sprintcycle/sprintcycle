@@ -4,7 +4,7 @@ ErrorRouter - 分层错误路由
 实现三层错误处理路由：
 - Level 1: StaticAnalyzer (0.1s, 免费)
 - Level 2: PatternMatcher (0.01s, 免费)
-- Level 3: GEPA/BugAnalyzer (10-30s, LLM)
+- Level 3: LLM BugAnalyzer (10-30s, LLM)
 """
 
 import asyncio
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class RoutingLevel(Enum):
     LEVEL_1_STATIC = "level_1_static"
     LEVEL_2_PATTERN = "level_2_pattern"
-    LEVEL_3_GEPA = "level_3_gepa"
+    LEVEL_3_LLM = "level_3_llm"
     UNKNOWN = "unknown"
 
 
@@ -31,7 +31,7 @@ class RoutingContext:
     project_path: str = "."
     language: str = "python"
     use_cache: bool = True
-    max_level: RoutingLevel = RoutingLevel.LEVEL_3_GEPA
+    max_level: RoutingLevel = RoutingLevel.LEVEL_3_LLM
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -49,7 +49,7 @@ class RoutingResult:
     
     @property
     def cost(self) -> float:
-        costs = {RoutingLevel.LEVEL_1_STATIC: 0.0, RoutingLevel.LEVEL_2_PATTERN: 0.0, RoutingLevel.LEVEL_3_GEPA: 0.5}
+        costs = {RoutingLevel.LEVEL_1_STATIC: 0.0, RoutingLevel.LEVEL_2_PATTERN: 0.0, RoutingLevel.LEVEL_3_LLM: 0.5}
         return costs.get(self.level, 0.0)
     
     def to_dict(self) -> Dict[str, Any]:
@@ -100,21 +100,21 @@ class ErrorRouter:
             context.error_log = error_log
         
         # Level 1: Static Analysis
-        if context.max_level.value in ["level_1_static", "level_2_pattern", "level_3_gepa"]:
+        if context.max_level.value in ["level_1_static", "level_2_pattern", "level_3_llm"]:
             result = await self._route_level_1(context)
             if result.success:
                 result.duration = time.time() - start_time
                 return result
         
         # Level 2: Pattern Matching
-        if context.max_level.value in ['level_2_pattern', 'level_3_gepa']:
+        if context.max_level.value in ['level_2_pattern', 'level_3_llm']:
             result = await self._route_level_2(context)
             if result.success:
                 result.duration = time.time() - start_time
                 return result
         
         # Level 3: Deep Analysis
-        if context.max_level.value in ['level_3_gepa']:
+        if context.max_level.value in ['level_3_llm']:
             result = await self._route_level_3(context)
             result.duration = time.time() - start_time
             return result
@@ -163,10 +163,10 @@ class ErrorRouter:
             return RoutingResult(level=RoutingLevel.LEVEL_2_PATTERN, success=False, explanation=f"Matching failed: {e}")
     
     async def _route_level_3(self, context: RoutingContext) -> RoutingResult:
-        logger.info("Level 3: Deep Analysis (GEPA)")
+        logger.info("Level 3: Deep LLM Analysis")
         self._stats["level_3_count"] += 1
         if not self._llm_client:
-            return RoutingResult(level=RoutingLevel.LEVEL_3_GEPA, success=False, explanation="LLM client not available", confidence=0.0)
+            return RoutingResult(level=RoutingLevel.LEVEL_3_LLM, success=False, explanation="LLM client not available", confidence=0.0)
         try:
             from .agents.analyzer import BugAnalyzerAgent, AnalysisRequest
             from .agents.base import AgentContext
@@ -175,16 +175,16 @@ class ErrorRouter:
             request = AnalysisRequest(error_log=context.error_log, file_paths=context.file_paths, use_llm=True)
             result = await analyzer.analyze(request)
             return RoutingResult(
-                level=RoutingLevel.LEVEL_3_GEPA,
+                level=RoutingLevel.LEVEL_3_LLM,
                 success=result.report.confidence >= 0.5,
                 fix_suggestion="\n".join(result.report.suggestions) if result.report.suggestions else None,
                 explanation=result.report.to_summary(),
                 confidence=result.report.confidence,
             )
         except ImportError:
-            return RoutingResult(level=RoutingLevel.LEVEL_3_GEPA, success=False, explanation="Analyzer not available")
+            return RoutingResult(level=RoutingLevel.LEVEL_3_LLM, success=False, explanation="Analyzer not available")
         except Exception as e:
-            return RoutingResult(level=RoutingLevel.LEVEL_3_GEPA, success=False, explanation=f"Analysis failed: {e}")
+            return RoutingResult(level=RoutingLevel.LEVEL_3_LLM, success=False, explanation=f"Analysis failed: {e}")
     
     def get_statistics(self) -> Dict[str, Any]:
         return {**self._stats, "knowledge_base_size": len(self.knowledge_base.patterns)}

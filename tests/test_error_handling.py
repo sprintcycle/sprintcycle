@@ -52,7 +52,7 @@ class TestErrorRouter:
     async def test_route_simple_error(self, router):
         result = await router.route("NameError: name 'x' is not defined")
         assert result is not None
-        assert result.level.value in ["level_2_pattern", "level_1_static", "level_3_gepa"]
+        assert result.level.value in ["level_2_pattern", "level_1_static", "level_3_llm"]
 
 
 class TestRollbackManager:
