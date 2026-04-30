@@ -31,6 +31,17 @@ class DiagnosticConfig:
     timeout: int = 300  # 超时时间（秒）
 
 
+    @classmethod
+    def from_runtime_config(cls, rc) -> "DiagnosticConfig":
+        """Construct from RuntimeConfig."""
+        return cls(
+            test_command=getattr(rc, 'test_command', 'python -m pytest tests/ -v --tb=short'),
+            coverage_command=getattr(rc, 'coverage_command', 'python -m pytest --cov --cov-report=json'),
+            complexity_threshold=getattr(rc, 'complexity_threshold', 10),
+            timeout=getattr(rc, 'diagnostic_timeout', 300),
+        )
+
+
 class ProjectDiagnostic:
     """
     项目诊断提供者
@@ -41,6 +52,7 @@ class ProjectDiagnostic:
     def __init__(
         self,
         config: Optional[DiagnosticConfig] = None,
+        runtime_config=None,
         runner: Optional[Callable[..., Tuple[int, str, str]]] = None,
     ):
         """
@@ -50,6 +62,8 @@ class ProjectDiagnostic:
             config: 诊断配置
             runner: 命令执行器（用于测试mock）
         """
+        if config is None and runtime_config is not None:
+            config = DiagnosticConfig.from_runtime_config(runtime_config)
         self.config = config or DiagnosticConfig()
         self._runner = runner or self._default_runner
     

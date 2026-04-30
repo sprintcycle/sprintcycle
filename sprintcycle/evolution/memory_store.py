@@ -67,16 +67,28 @@ class MemoryConfig:
     enable_compression: bool = False
 
 
+    @classmethod
+    def from_runtime_config(cls, rc) -> "MemoryConfig":
+        """Construct from RuntimeConfig."""
+        cache_dir = getattr(rc, 'evolution_cache_dir', './evolution_cache')
+        return cls(
+            storage_path=f"{cache_dir}/memory",
+        )
+
+
 class MemoryStore:
     def __init__(
         self,
         config: Optional[MemoryConfig] = None,
         storage_path: Optional[str] = None,
+        runtime_config=None,
     ):
         if config:
             self.config = config
         elif storage_path:
             self.config = MemoryConfig(storage_path=storage_path)
+        elif runtime_config is not None:
+            self.config = MemoryConfig.from_runtime_config(runtime_config)
         else:
             self.config = MemoryConfig()
         

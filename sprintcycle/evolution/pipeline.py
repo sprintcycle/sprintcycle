@@ -42,6 +42,19 @@ class PipelineConfig:
     dry_run: bool = False  # 干跑模式
 
 
+    @classmethod
+    def from_runtime_config(cls, rc) -> "PipelineConfig":
+        """Construct from RuntimeConfig."""
+        return cls(
+            memory_dir=getattr(rc, 'evolution_cache_dir', './evolution_cache/memory'),
+            max_cycles=getattr(rc, 'evolution_iterations', 3),
+            max_tasks_per_sprint=getattr(rc, 'max_tasks_per_sprint', 20),
+            task_timeout=getattr(rc, 'diagnostic_timeout', 600),
+            rollback_on_failure=True,
+            dry_run=getattr(rc, 'dry_run', False),
+        )
+
+
 @dataclass
 class SprintExecutionResult:
     """Sprint执行结果"""
@@ -154,6 +167,7 @@ class EvolutionPipeline:
         project_path: str = ".",
         prd_source: Optional[PRDSource] = None,
         config: Optional[PipelineConfig] = None,
+        runtime_config=None,
         # Mock组件（用于测试）
         executor: Optional[Any] = None,
         fitness_func: Optional[Callable[[str], float]] = None,
@@ -172,6 +186,8 @@ class EvolutionPipeline:
         """
         self.project_path = project_path
         self._prd_source = prd_source
+        if config is None and runtime_config is not None:
+            config = PipelineConfig.from_runtime_config(runtime_config)
         self._config = config or PipelineConfig()
         
         # Mock或真实组件

@@ -6,6 +6,10 @@ import logging
 import subprocess
 import time
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..config.manager import RuntimeConfig
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -19,6 +23,17 @@ class MeasurementConfig:
     coverage_threshold: float = 0.0
     quality_gate_enabled: bool = True
     measurement_timeout: int = 300
+
+
+    @classmethod
+    def from_runtime_config(cls, rc: "RuntimeConfig") -> "MeasurementConfig":
+        """Construct from RuntimeConfig."""
+        return cls(
+            repo_path=getattr(rc, 'state_dir', '.'),
+            test_command=getattr(rc, 'test_command', 'python -m pytest tests/ -v --tb=short'),
+            quality_gate_enabled=getattr(rc, 'quality_gate_enabled', True),
+            measurement_timeout=getattr(rc, 'diagnostic_timeout', 300),
+        )
 
 
 @dataclass
