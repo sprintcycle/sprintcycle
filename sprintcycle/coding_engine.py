@@ -162,7 +162,7 @@ class LLMStrategy(CodingStrategy):
                 import openai  # type: ignore[import-not-found]
                 self._client = openai.AsyncOpenAI(
                     api_key=self.config.api_key,
-                    base_url=self.config.api_base or "https://api.deepseek.com",
+                    base_url=self.config.api_base or __import__('os').environ.get("LLM_API_BASE", "https://api.deepseek.com"),
                 )
             except ImportError:
                 raise RuntimeError("请安装 openai 库: pip install openai")

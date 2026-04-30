@@ -688,8 +688,11 @@ async def _llm_analyze_error(self, error_log: str, context: "AgentContext", stat
             "max_tokens": 1500,
         }
         
-        api_base = self._config.api_base or "https://api.openai.com/v1"
-        endpoint = f"{api_base.rstrip('/')}/chat/completions"
+        from sprintcycle.llm_provider import resolve_provider
+        provider_cfg = resolve_provider(
+            api_key=self._config.api_key, api_base=self._config.api_base, model=self._config.model,
+        )
+        endpoint = provider_cfg.chat_endpoint
         
         async with httpx.AsyncClient(timeout=30) as client:
             response = await client.post(endpoint, headers=headers, json=payload)

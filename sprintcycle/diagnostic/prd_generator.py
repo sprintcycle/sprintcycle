@@ -309,19 +309,22 @@ class LLMPRDGenerator:
     调用DeepSeek API生成复杂PRD
     """
     
-    def __init__(self, api_key: Optional[str] = None, model: str = "deepseek-chat", api_base: Optional[str] = None):
+    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None, api_base: Optional[str] = None, provider: Optional[str] = None):
         """
         初始化LLM生成器
         
         Args:
             api_key: API密钥（从环境变量或参数获取）
             model: 模型名称
-            api_base: API基础URL（默认从环境变量LLM_API_BASE读取，fallback到DeepSeek）
+            api_base: API基础URL（默认从环境变量LLM_API_BASE读取）
+            provider: 提供者名称 (deepseek/openai/anthropic)
         """
-        self._api_key = api_key or os.environ.get("LLM_API_KEY", "")
-        self._model = model
-        self._api_base = api_base or os.environ.get("LLM_API_BASE", "https://api.deepseek.com/v1")
-        self._url = f"{self._api_base}/chat/completions"
+        from sprintcycle.llm_provider import resolve_provider
+        cfg = resolve_provider(provider=provider, api_key=api_key, api_base=api_base, model=model)
+        self._api_key = cfg.api_key
+        self._model = cfg.model
+        self._api_base = cfg.api_base
+        self._url = cfg.chat_endpoint
     
     def generate(
         self, report: ProjectHealthReport, project_path: str
