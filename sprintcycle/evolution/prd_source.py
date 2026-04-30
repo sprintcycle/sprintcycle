@@ -245,11 +245,19 @@ class DiagnosticPRDSource(PRDSource):
         
         # 1. 执行诊断
         logger.info(f"开始诊断项目: {project_path}")
-        health_report = self._diagnostic.diagnose(project_path)
+        try:
+            health_report = self._diagnostic.diagnose(project_path)
+        except Exception as e:
+            logger.error(f"项目诊断失败: {e}", exc_info=True)
+            return []
         
         # 2. 生成PRD
         logger.info("生成PRD...")
-        raw_prds = self._generator.generate(health_report, project_path)
+        try:
+            raw_prds = self._generator.generate(health_report, project_path)
+        except Exception as e:
+            logger.error(f"PRD生成失败: {e}", exc_info=True)
+            return []
         
         # 3. 过滤和排序
         filtered_prds = self._filter_prds(raw_prds)

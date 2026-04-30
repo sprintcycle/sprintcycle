@@ -116,7 +116,7 @@ class PRDRuleEngine:
                     if prd:
                         prds.append(prd)
             except Exception as e:
-                logger.warning(f"规则 {rule.name} 执行失败: {e}")
+                logger.warning(f"规则 {rule.name} 执行失败: {e}", exc_info=True)
         
         return prds
     
@@ -309,17 +309,19 @@ class LLMPRDGenerator:
     调用DeepSeek API生成复杂PRD
     """
     
-    def __init__(self, api_key: Optional[str] = None, model: str = "deepseek-chat"):
+    def __init__(self, api_key: Optional[str] = None, model: str = "deepseek-chat", api_base: Optional[str] = None):
         """
         初始化LLM生成器
         
         Args:
-            api_key: DeepSeek API密钥（从环境变量或参数获取）
+            api_key: API密钥（从环境变量或参数获取）
             model: 模型名称
+            api_base: API基础URL（默认从环境变量LLM_API_BASE读取，fallback到DeepSeek）
         """
         self._api_key = api_key or os.environ.get("LLM_API_KEY", "")
         self._model = model
-        self._url = "https://api.deepseek.com/v1/chat/completions"
+        self._api_base = api_base or os.environ.get("LLM_API_BASE", "https://api.deepseek.com/v1")
+        self._url = f"{self._api_base}/chat/completions"
     
     def generate(
         self, report: ProjectHealthReport, project_path: str
@@ -364,7 +366,7 @@ class LLMPRDGenerator:
                 content = result["choices"][0]["message"]["content"]
                 return self._parse_llm_response(content, project_path)
             else:
-                logger.warning(f"LLM API调用失败: {response.status_code}")
+                logger.warning(f"LLM API调用失败: status={response.status_code}, body={response.text[:200]}")
                 return []
                 
         except Exception as e:
@@ -436,7 +438,8 @@ class LLMPRDGenerator:
             
             return prds
             
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as e:
+            logger.warning(f"LLM响应JSON解析失败: {e}")
             return []
 
 

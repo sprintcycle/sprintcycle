@@ -109,53 +109,51 @@ class ProjectDiagnostic:
         - 运行coverage获取覆盖率
         - 运行radon获取复杂度
         - 运行mypy获取类型错误
+        
+        每个子诊断步骤独立 try-except，确保单个工具失败不影响整体诊断。
         """
         # 1. 测试失败诊断
-        returncode, stdout, stderr = self._runner(
-            self.config.test_command, project_path, self.config.timeout
-        )
-        
-        # 解析测试失败数
-        failed_match = re.search(r"(\d+) failed", stdout + stderr)
-        if failed_match:
-            report.test_failures = int(failed_match.group(1))
+        try:
+            returncode, stdout, stderr = self._runner(
+                self.config.test_command, project_path, self.config.timeout
+            )
+            failed_match = re.search(r"(\d+) failed", stdout + stderr)
+            if failed_match:
+                report.test_failures = int(failed_match.group(1))
+        except Exception as e:
+            logger.warning(f"测试失败诊断异常: {e}")
         
         # 2. 覆盖率诊断
-        coverage_file = Path(project_path) / "coverage.json"
-        if coverage_file.exists():
-            try:
+        try:
+            coverage_file = Path(project_path) / "coverage.json"
+            if coverage_file.exists():
                 with open(coverage_file, "r") as f:
                     data = json.load(f)
-                
                 # 总覆盖率
                 totals = data.get("totals", {})
                 report.coverage_total = totals.get("percent_covered", 0.0)
-                
                 # 各模块覆盖率
                 for file_path, info in data.get("files", {}).items():
                     module_name = Path(file_path).stem
                     report.coverage_modules[module_name] = info.get("percent_covered", 0.0)
-                    
-            except Exception as e:
-                logger.warning(f"解析coverage.json失败: {e}")
+        except Exception as e:
+            logger.warning(f"覆盖率诊断异常: {e}")
         
         # 3. 复杂度诊断
-        returncode, stdout, stderr = self._runner(
-            f"cd {project_path} && python -m radon cc -a -j sprintcycle/",
-            project_path, 60
-        )
-        
-        if returncode == 0 and stdout:
-            try:
+        try:
+            returncode, stdout, stderr = self._runner(
+                f"cd {project_path} && python -m radon cc -a -j sprintcycle/",
+                project_path, 60
+            )
+            if returncode == 0 and stdout:
                 data = json.loads(stdout)
                 high_complexity = [
                     item for item in data
                     if item.get("complexity", 0) >= self.config.complexity_threshold
                 ]
                 report.complexity_high = len(high_complexity)
-                
                 # 添加代码问题
-                for item in high_complexity[:10]:  # 最多10个
+                for item in high_complexity[:10]:
                     report.code_issues.append(CodeIssue(
                         file=item.get("file", ""),
                         line=item.get("line", 0),
@@ -164,22 +162,21 @@ class ProjectDiagnostic:
                         rule="high_complexity",
                         tool="radon",
                     ))
-            except json.JSONDecodeError:
-                pass
+        except json.JSONDecodeError:
+            logger.warning("复杂度输出JSON解析失败")
+        except Exception as e:
+            logger.warning(f"复杂度诊断异常: {e}")
         
         # 4. 类型错误诊断
-        returncode, stdout, stderr = self._runner(
-            f"cd {project_path} && python -m mypy sprintcycle/ --no-error-summary --output=json 2>/dev/null || true",
-            project_path, 120
-        )
-        
-        if stdout:
-            try:
-                # 尝试解析mypy JSON输出
+        try:
+            returncode, stdout, stderr = self._runner(
+                f"cd {project_path} && python -m mypy sprintcycle/ --no-error-summary --output=json 2>/dev/null || true",
+                project_path, 120
+            )
+            if stdout:
                 for line in stdout.strip().split("\n"):
                     if line.strip():
                         report.mypy_errors += 1
-                        # 尝试提取文件位置
                         match = re.match(r"(.+?):(\d+):(\d+): (.+)", line)
                         if match:
                             report.code_issues.append(CodeIssue(
@@ -189,10 +186,8 @@ class ProjectDiagnostic:
                                 message=match.group(4),
                                 tool="mypy",
                             ))
-            except Exception as e:
-                logger.warning(f"解析mypy输出失败: {e}")
-                # fallback: 计数
-                report.mypy_errors = len(stdout.strip().split("\n"))
+        except Exception as e:
+            logger.warning(f"类型错误诊断异常: {e}")
     
     def _diagnose_architecture(
         self, project_path: str, report: ProjectHealthReport
@@ -230,8 +225,8 @@ class ProjectDiagnostic:
                 
                 imports[module_name] = module_imports
                 
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"读取模块 {py_file.name} 失败: {e}")
         
         # 检测循环依赖
         circular = self._find_circular_dependencies(imports)
@@ -286,11 +281,11 @@ class ProjectDiagnostic:
         outdated = []
         for doc in doc_files:
             try:
-                content = doc.read_text()
-                if "v0.9" not in content and "v0.8" not in content:
+                doc_content = doc.read_text()
+                if "v0.9" not in doc_content and "v0.8" not in doc_content:
                     outdated.append(str(doc))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"读取文档 {doc.name} 失败: {e}")
         
         report.outdated_docs = outdated[:5]  # 最多5个
     
@@ -320,8 +315,8 @@ class ProjectDiagnostic:
                         history_records.extend(data)
                     else:
                         history_records.append(data)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"读取历史记录 {json_file.name} 失败: {e}")
         
         # 分析有效模式
         effective = set()
