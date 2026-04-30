@@ -8,7 +8,7 @@ import time
 from typing import List, Optional, Dict, Any
 from pathlib import Path
 
-from .base import AgentExecutor, AgentContext, AgentResult, AgentType
+from .base import AgentExecutor, AgentContext, AgentResult, AgentType, AgentConfig
 from .bug_models import (
     BugReport,
     BugSeverity,
@@ -117,7 +117,7 @@ class BugAnalyzerAgent(AgentExecutor):
     def __init__(self, config=None, llm_client=None):
         super().__init__()
         self._llm_client = llm_client
-        self._config = config or {}
+        self._config = config if config is not None else AgentConfig()
 
     @property
     def agent_type(self) -> AgentType:
