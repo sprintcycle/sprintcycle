@@ -46,7 +46,7 @@ from .rollback_manager import (
 )
 
 # ========== Config (backward compat) ==========
-from .config import EvolutionEngineConfig  # deprecated: use RuntimeConfig
+# EvolutionEngineConfig removed - use RuntimeConfig instead
 
 __version__ = "0.9.0"
 
@@ -64,5 +64,5 @@ __all__ = [
     "MemoryStore", "EvolutionMemory", "MemoryConfig",
     "EvolutionRollbackManager", "VariantBranch", "RollbackError",
     # Config
-    "EvolutionEngineConfig",
+    # "EvolutionEngineConfig" removed - use RuntimeConfig
 ]

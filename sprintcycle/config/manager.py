@@ -103,6 +103,12 @@ class RuntimeConfig:
     auto_commit: bool = True
     evolution_cache_dir: str = "./evolution_cache"
 
+    # 诊断配置（原 DiagnosticConfig 字段，v0.9.0 统一）
+    test_command: str = "python -m pytest tests/ -v --tb=short"
+    coverage_command: str = "python -m pytest --cov --cov-report=json"
+    complexity_threshold: int = 10
+    diagnostic_timeout: int = 300
+
     # 执行选项
     dry_run: bool = False
     verbose: bool = False

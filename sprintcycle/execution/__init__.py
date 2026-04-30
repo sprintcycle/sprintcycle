@@ -18,7 +18,6 @@ from .error_knowledge import ErrorKnowledgeBase, ErrorPattern, PatternMatch, get
 from .error_router import ErrorRouter, RoutingLevel, RoutingContext, RoutingResult, get_error_router
 from .rollback import RollbackManager, BackupRecord, RollbackResult, get_rollback_manager
 from .error_handler import ErrorHandler, ErrorContext, FixResult, get_error_handler, reset_error_handler
-# EvolutionEngine & EvolutionEngineConfig: lazy import to avoid circular dependency
 # Use execution.engine.ExecutionEngine._get_evolution_engine() instead
 from ..evolution.types import SprintContext
 
@@ -45,5 +44,5 @@ __all__ = [
     "ErrorRouter", "RoutingLevel", "RoutingContext", "RoutingResult", "get_error_router",
     "RollbackManager", "BackupRecord", "RollbackResult", "get_rollback_manager",
     "ErrorHandler", "ErrorContext", "FixResult", "get_error_handler", "reset_error_handler",
-    "EvolutionEngine", "EvolutionEngineConfig", "SprintContext",
+    "EvolutionEngine", "SprintContext",
 ]
