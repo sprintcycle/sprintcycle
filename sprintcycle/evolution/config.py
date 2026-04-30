@@ -1,18 +1,24 @@
 """
 SprintCycle Evolution Configuration
 
-Centralized configuration for GEPA evolution engine.
-EvolutionEngineConfig is DEPRECATED, use GEPAConfig instead.
+v0.9.0: EvolutionEngineConfig 已废弃，统一使用 RuntimeConfig。
+本模块保留仅为向后兼容，所有逻辑委托给 config.manager.RuntimeConfig。
 """
 
 import os
+import warnings
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import Optional, List
+
+from sprintcycle.config.manager import RuntimeConfig
 
 
 @dataclass
 class EvolutionEngineConfig:
-    """进化引擎配置 — DEPRECATED: use GEPAConfig instead"""
+    """进化引擎配置 — DEPRECATED: use RuntimeConfig instead
+    
+    v0.9.0: 此类仅为向后兼容保留，所有字段从 RuntimeConfig 读取。
+    """
     llm_provider: str = "deepseek"
     llm_model: str = "deepseek-chat"
     llm_api_key: str = ""
@@ -30,10 +36,10 @@ class EvolutionEngineConfig:
     elite_ratio: float = 0.1
 
     def __post_init__(self):
-        import warnings
         warnings.warn(
-            "EvolutionEngineConfig is deprecated, use GEPAConfig instead",
-            DeprecationWarning, stacklevel=2,
+            "EvolutionEngineConfig is deprecated, use RuntimeConfig instead",
+            DeprecationWarning,
+            stacklevel=2,
         )
         if not self.llm_api_key:
             self.llm_api_key = os.getenv("LLM_API_KEY", os.getenv("DEEPSEEK_API_KEY", ""))
@@ -41,24 +47,31 @@ class EvolutionEngineConfig:
         self.cache_dir = os.path.expanduser(self.cache_dir)
 
     @classmethod
-    def from_sprintcycle_config(cls, config) -> "EvolutionEngineConfig":
+    def from_runtime_config(cls, config: RuntimeConfig) -> "EvolutionEngineConfig":
+        """从 RuntimeConfig 创建（推荐方式）"""
         return cls(
-            llm_provider=config.evolution.llm.provider,
-            llm_model=config.evolution.llm.model,
-            llm_api_key=config.evolution.llm.api_key,
-            llm_api_base=config.evolution.llm.api_base,
-            hermes_repo=config.evolution.hermes_repo,
-            cache_dir=config.evolution.cache_dir,
-            max_iterations=config.evolution.max_iterations,
-            pareto_dimensions=config.evolution.pareto_dimensions,
+            llm_provider=config.llm_provider,
+            llm_model=config.llm_model,
+            llm_api_key=config.api_key or "",
+            llm_api_base=config.api_base,
+            llm_temperature=config.llm_temperature,
+            llm_max_tokens=config.llm_max_tokens,
+            cache_dir=config.evolution_cache_dir,
+            max_iterations=config.evolution_iterations,
+            max_variations_per_gen=config.max_variations,
         )
 
-    def to_gepa_config(self, repo_path: str = ".") -> "GEPAConfig":
-        """Convert to GEPAConfig"""
-        from sprintcycle.evolution.gepa_engine import GEPAConfig
-        return GEPAConfig(
-            repo_path=repo_path,
+    def to_gepa_config(self, repo_path: str = "."):
+        """Convert to GEPAConfig — 委托给 RuntimeConfig.to_gepa_config()"""
+        runtime = RuntimeConfig(
+            llm_provider=self.llm_provider,
+            llm_model=self.llm_model,
+            api_key=self.llm_api_key or None,
+            api_base=self.llm_api_base,
+            llm_temperature=self.llm_temperature,
+            llm_max_tokens=self.llm_max_tokens,
             evolution_cache_dir=self.cache_dir,
-            max_cycles=self.max_iterations,
-            max_variations_per_cycle=self.max_variations_per_gen,
+            evolution_iterations=self.max_iterations,
+            max_variations=self.max_variations_per_gen,
         )
+        return runtime.to_gepa_config(repo_path)
