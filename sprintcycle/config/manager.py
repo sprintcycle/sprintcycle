@@ -7,12 +7,13 @@
 - CLI 参数
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from typing import Optional, Dict, Any, List, Union
 from pathlib import Path
 import os
 import copy
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +41,23 @@ _DEFAULT_CONFIG = {
     "verbose": False,
     "quiet": False,
 }
+
+
+def _resolve_env_var(value: str) -> str:
+    """解析环境变量引用 ${VAR_NAME}"""
+    if value and isinstance(value, str) and value.startswith("${") and value.endswith("}"):
+        var_name = value[2:-1]
+        return os.getenv(var_name, value)
+    return value
+
+
+def _mask_sensitive(value: str) -> str:
+    """遮蔽敏感信息"""
+    if not value:
+        return value
+    if len(value) <= 6:
+        return "***"
+    return "***"
 
 
 @dataclass
@@ -358,3 +376,228 @@ def reset_config_manager() -> ConfigManager:
     global _default_manager
     _default_manager = ConfigManager()
     return _default_manager
+
+
+# ============ 编码引擎配置类 ============
+
+@dataclass
+class CodingConfig:
+    """编码引擎基础配置"""
+    engine: str = "cursor"
+    llm: Optional["CodingLLMConfig"] = None
+    claude: Optional["CodingClaudeConfig"] = None
+
+    def __post_init__(self):
+        # Validation is done in CodingEngine.from_config()
+        pass
+
+
+@dataclass
+class CodingLLMConfig:
+    """LLM 编码引擎配置"""
+    provider: str = "deepseek"
+    model: str = "deepseek-chat"
+    api_base: Optional[str] = None
+    api_key: Optional[str] = None
+    temperature: float = 0.7
+    max_tokens: int = 4096
+
+    def __post_init__(self):
+        # 支持环境变量
+        self.api_key = _resolve_env_var(self.api_key) if self.api_key else None
+        if self.api_key is None:
+            self.api_key = os.getenv("DEEPSEEK_API_KEY")
+        if self.api_base is None:
+            self.api_base = os.getenv("LLM_API_URL")
+
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典"""
+        return {
+            "provider": self.provider,
+            "model": self.model,
+            "api_base": self.api_base,
+            "api_key": _mask_sensitive(self.api_key) if self.api_key else None,
+            "temperature": self.temperature,
+            "max_tokens": self.max_tokens,
+        }
+
+
+@dataclass
+class CodingClaudeConfig:
+    """Claude 编码引擎配置"""
+    provider: str = "claude"
+    model: str = "claude-3-5-sonnet"
+    api_key: Optional[str] = None
+    temperature: float = 0.7
+    max_tokens: int = 4096
+
+    def __post_init__(self):
+        self.api_key = _resolve_env_var(self.api_key) if self.api_key else None
+        if self.api_key is None:
+            self.api_key = os.getenv("ANTHROPIC_API_KEY")
+
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典"""
+        return {
+            "provider": self.provider,
+            "model": self.model,
+            "api_key": _mask_sensitive(self.api_key) if self.api_key else None,
+            "temperature": self.temperature,
+            "max_tokens": self.max_tokens,
+        }
+
+
+# ============ 进化配置类 ============
+
+@dataclass
+class EvolutionLLMConfig:
+    """进化引擎 LLM 配置"""
+    provider: str = "deepseek"
+    model: str = "deepseek-reasoner"
+    api_key: Optional[str] = None
+    temperature: float = 0.7
+    max_tokens: int = 2048
+
+    def __post_init__(self):
+        self.api_key = _resolve_env_var(self.api_key) if self.api_key else None
+
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典"""
+        return {
+            "provider": self.provider,
+            "model": self.model,
+            "api_key": _mask_sensitive(self.api_key) if self.api_key else None,
+            "temperature": self.temperature,
+            "max_tokens": self.max_tokens,
+        }
+
+
+@dataclass
+class EvolutionConfig:
+    """进化引擎配置"""
+    enabled: bool = True
+    max_iterations: int = 10
+    max_variations: int = 5
+    crossover_rate: float = 0.8
+    mutation_rate: float = 0.1
+    selection_pressure: float = 0.5
+    pareto_dimensions: List[str] = field(default_factory=lambda: ["correctness", "efficiency", "clarity"])
+    llm: Optional[EvolutionLLMConfig] = None
+
+    def __post_init__(self):
+        if self.llm is None:
+            raise ValueError("evolution.llm 是必填配置")
+        if not self.llm.api_key:
+            raise ValueError("evolution.llm.api_key 未配置")
+
+
+@dataclass
+class SprintCycleConfig:
+    """SprintCycle 完整配置"""
+    max_sprints: int = 10
+    max_tasks_per_sprint: int = 5
+    parallel_tasks: int = 3
+    continue_on_error: bool = False
+    evolution_enabled: bool = True
+    log_level: str = "INFO"
+    evolution: Optional[EvolutionConfig] = None
+    coding: Optional[CodingConfig] = None
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "SprintCycleConfig":
+        """从字典加载配置"""
+        evolution = None
+        coding = None
+        
+        if "evolution" in data and data["evolution"]:
+            evo_data = data["evolution"]
+            llm = None
+            if "llm" in evo_data and evo_data["llm"]:
+                llm = EvolutionLLMConfig(**evo_data["llm"])
+            if llm:
+                evolution = EvolutionConfig(llm=llm)
+        
+        if "coding" in data and data["coding"]:
+            coding_data = data["coding"]
+            llm_cfg = None
+            claude_cfg = None
+            
+            if "llm" in coding_data and coding_data["llm"]:
+                llm_cfg = CodingLLMConfig(**coding_data["llm"])
+            if "claude" in coding_data and coding_data["claude"]:
+                claude_cfg = CodingClaudeConfig(**coding_data["claude"])
+            
+            coding = CodingConfig(
+                engine=coding_data.get("engine", "cursor"),
+                llm=llm_cfg,
+                claude=claude_cfg,
+            )
+        
+        return cls(
+            max_sprints=data.get("max_sprints", 10),
+            max_tasks_per_sprint=data.get("max_tasks_per_sprint", 5),
+            parallel_tasks=data.get("parallel_tasks", 3),
+            continue_on_error=data.get("continue_on_error", False),
+            evolution_enabled=data.get("evolution_enabled", True),
+            log_level=data.get("log_level", "INFO"),
+            evolution=evolution,
+            coding=coding,
+        )
+
+
+def load_config_from_env() -> SprintCycleConfig:
+    """从环境变量加载配置"""
+    api_key = os.getenv("DEEPSEEK_API_KEY") or os.getenv("LLM_API_KEY")
+    
+    evolution_llm = EvolutionLLMConfig(
+        provider=os.getenv("EVOLUTION_LLM_PROVIDER", "deepseek"),
+        model=os.getenv("EVOLUTION_LLM_MODEL", "deepseek-reasoner"),
+        api_key=api_key,
+    )
+    
+    evolution = EvolutionConfig(llm=evolution_llm)
+    
+    coding_engine = os.getenv("CODING_ENGINE", "cursor")
+    coding = None
+    if coding_engine == "llm":
+        coding = CodingConfig(
+            engine="llm",
+            llm=CodingLLMConfig(
+                provider="deepseek",
+                api_key=api_key,
+            )
+        )
+    elif coding_engine == "claude":
+        coding = CodingConfig(
+            engine="claude",
+            claude=CodingClaudeConfig(
+                api_key=os.getenv("ANTHROPIC_API_KEY"),
+            )
+        )
+    
+    return SprintCycleConfig(
+        evolution=evolution,
+        coding=coding,
+    )
+
+
+def validate_config(config: SprintCycleConfig) -> List[str]:
+    """验证配置是否有效，返回错误列表"""
+    errors = []
+    
+    if config.evolution is None:
+        errors.append("evolution.llm 是必填配置")
+        return errors
+    
+    if config.evolution.llm is None:
+        errors.append("evolution.llm 是必填配置")
+    elif not config.evolution.llm.api_key:
+        errors.append("evolution.llm.api_key 未配置")
+    
+    if config.coding is not None:
+        if config.coding.engine == "llm" and config.coding.llm is None:
+            errors.append("coding.llm 未配置")
+        if config.coding.engine == "claude" and config.coding.claude is None:
+            errors.append("coding.claude 未配置")
+    
+    return errors

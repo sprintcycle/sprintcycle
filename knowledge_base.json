@@ -1,0 +1,300 @@
+[
+  {
+    "pattern": "name '(.+)' is not defined",
+    "error_type": "NameError",
+    "root_cause": "变量未定义或拼写错误",
+    "suggested_fix": "确保变量在使用前已定义",
+    "severity": "medium",
+    "success_count": 0,
+    "failure_count": 0,
+    "success_rate": 0.0,
+    "confidence": 0.0,
+    "pattern_id": "6f6eb4749509",
+    "last_seen": "2026-04-29T08:57:42.489684",
+    "first_seen": "2026-04-29T08:57:42.489690",
+    "tags": [
+      "variable",
+      "undefined"
+    ],
+    "metadata": {}
+  },
+  {
+    "pattern": "unsupported operand type\\(s\\) for (.+): '(.+)' and '(.+)'",
+    "error_type": "TypeError",
+    "root_cause": "类型不匹配的操作",
+    "suggested_fix": "添加类型检查或类型转换",
+    "severity": "medium",
+    "success_count": 0,
+    "failure_count": 0,
+    "success_rate": 0.0,
+    "confidence": 0.0,
+    "pattern_id": "637c6e004372",
+    "last_seen": "2026-04-29T08:57:42.489716",
+    "first_seen": "2026-04-29T08:57:42.489717",
+    "tags": [
+      "type",
+      "operation"
+    ],
+    "metadata": {}
+  },
+  {
+    "pattern": "'NoneType' object (has no attribute|is not iterable)",
+    "error_type": "TypeError",
+    "root_cause": "空值未检查",
+    "suggested_fix": "使用 if value is not None 检查",
+    "severity": "medium",
+    "success_count": 0,
+    "failure_count": 0,
+    "success_rate": 0.0,
+    "confidence": 0.0,
+    "pattern_id": "b92cca1f1bd0",
+    "last_seen": "2026-04-29T08:57:42.489721",
+    "first_seen": "2026-04-29T08:57:42.489722",
+    "tags": [
+      "NoneType",
+      "null-check"
+    ],
+    "metadata": {}
+  },
+  {
+    "pattern": "No module named '(.+)'",
+    "error_type": "ImportError",
+    "root_cause": "依赖包未安装",
+    "suggested_fix": "pip install \\1",
+    "severity": "high",
+    "success_count": 0,
+    "failure_count": 0,
+    "success_rate": 0.0,
+    "confidence": 0.0,
+    "pattern_id": "83e5da61f4d8",
+    "last_seen": "2026-04-29T08:57:42.489724",
+    "first_seen": "2026-04-29T08:57:42.489725",
+    "tags": [
+      "import",
+      "dependency"
+    ],
+    "metadata": {}
+  },
+  {
+    "pattern": "cannot import name '(.+)' from '(.+)'",
+    "error_type": "ImportError",
+    "root_cause": "模块路径错误或版本不兼容",
+    "suggested_fix": "检查 import 路径或版本",
+    "severity": "high",
+    "success_count": 0,
+    "failure_count": 0,
+    "success_rate": 0.0,
+    "confidence": 0.0,
+    "pattern_id": "cbd26a74f903",
+    "last_seen": "2026-04-29T08:57:42.489727",
+    "first_seen": "2026-04-29T08:57:42.489727",
+    "tags": [
+      "import",
+      "compatibility"
+    ],
+    "metadata": {}
+  },
+  {
+    "pattern": "'(.+)' object has no attribute '(.+)'",
+    "error_type": "AttributeError",
+    "root_cause": "对象没有该属性",
+    "suggested_fix": "检查对象类型和属性名",
+    "severity": "medium",
+    "success_count": 0,
+    "failure_count": 0,
+    "success_rate": 0.0,
+    "confidence": 0.0,
+    "pattern_id": "607a3e0a4836",
+    "last_seen": "2026-04-29T08:57:42.489729",
+    "first_seen": "2026-04-29T08:57:42.489730",
+    "tags": [
+      "attribute",
+      "typo"
+    ],
+    "metadata": {}
+  },
+  {
+    "pattern": "list index out of range",
+    "error_type": "IndexError",
+    "root_cause": "索引超出列表长度",
+    "suggested_fix": "检查索引范围",
+    "severity": "medium",
+    "success_count": 0,
+    "failure_count": 0,
+    "success_rate": 0.0,
+    "confidence": 0.0,
+    "pattern_id": "373f4230da19",
+    "last_seen": "2026-04-29T08:57:42.489732",
+    "first_seen": "2026-04-29T08:57:42.489732",
+    "tags": [
+      "index",
+      "list"
+    ],
+    "metadata": {}
+  },
+  {
+    "pattern": "KeyError: '?(.+?)'?\\s*$",
+    "error_type": "KeyError",
+    "root_cause": "字典键不存在",
+    "suggested_fix": "使用 dict.get(key, default)",
+    "severity": "low",
+    "success_count": 0,
+    "failure_count": 0,
+    "success_rate": 0.0,
+    "confidence": 0.0,
+    "pattern_id": "94369f8d02eb",
+    "last_seen": "2026-04-29T08:57:42.489734",
+    "first_seen": "2026-04-29T08:57:42.489735",
+    "tags": [
+      "dictionary",
+      "key"
+    ],
+    "metadata": {}
+  },
+  {
+    "pattern": "\\[Errno 2\\] No such file or directory: '(.+)'",
+    "error_type": "FileNotFoundError",
+    "root_cause": "文件路径错误",
+    "suggested_fix": "检查文件路径",
+    "severity": "high",
+    "success_count": 0,
+    "failure_count": 0,
+    "success_rate": 0.0,
+    "confidence": 0.0,
+    "pattern_id": "983c3964dbbe",
+    "last_seen": "2026-04-29T08:57:42.489736",
+    "first_seen": "2026-04-29T08:57:42.489737",
+    "tags": [
+      "file",
+      "path"
+    ],
+    "metadata": {}
+  },
+  {
+    "pattern": "SyntaxError: (.+)",
+    "error_type": "SyntaxError",
+    "root_cause": "语法错误",
+    "suggested_fix": "检查语法",
+    "severity": "critical",
+    "success_count": 0,
+    "failure_count": 0,
+    "success_rate": 0.0,
+    "confidence": 0.0,
+    "pattern_id": "ce30885d3756",
+    "last_seen": "2026-04-29T08:57:42.489738",
+    "first_seen": "2026-04-29T08:57:42.489739",
+    "tags": [
+      "syntax"
+    ],
+    "metadata": {}
+  },
+  {
+    "pattern": "IndentationError: (.+)",
+    "error_type": "IndentationError",
+    "root_cause": "缩进不一致",
+    "suggested_fix": "统一使用空格缩进",
+    "severity": "critical",
+    "success_count": 0,
+    "failure_count": 0,
+    "success_rate": 0.0,
+    "confidence": 0.0,
+    "pattern_id": "f02ca90633ee",
+    "last_seen": "2026-04-29T08:57:42.489740",
+    "first_seen": "2026-04-29T08:57:42.489741",
+    "tags": [
+      "indentation"
+    ],
+    "metadata": {}
+  },
+  {
+    "pattern": "invalid literal for int\\(\\) with base 10: '(.+)'",
+    "error_type": "ValueError",
+    "root_cause": "字符串转数字失败",
+    "suggested_fix": "验证字符串格式",
+    "severity": "medium",
+    "success_count": 0,
+    "failure_count": 0,
+    "success_rate": 0.0,
+    "confidence": 0.0,
+    "pattern_id": "07dfc7b17769",
+    "last_seen": "2026-04-29T08:57:42.489743",
+    "first_seen": "2026-04-29T08:57:42.489743",
+    "tags": [
+      "conversion",
+      "validation"
+    ],
+    "metadata": {}
+  },
+  {
+    "pattern": "(division|float division) by zero",
+    "error_type": "ZeroDivisionError",
+    "root_cause": "除数为零",
+    "suggested_fix": "检查除数是否为零",
+    "severity": "medium",
+    "success_count": 0,
+    "failure_count": 0,
+    "success_rate": 0.0,
+    "confidence": 0.0,
+    "pattern_id": "ddb25836242d",
+    "last_seen": "2026-04-29T08:57:42.489745",
+    "first_seen": "2026-04-29T08:57:42.489746",
+    "tags": [
+      "arithmetic"
+    ],
+    "metadata": {}
+  },
+  {
+    "pattern": "Permission denied: '(.+)'",
+    "error_type": "PermissionError",
+    "root_cause": "权限不足",
+    "suggested_fix": "检查文件权限或使用 sudo",
+    "severity": "high",
+    "success_count": 0,
+    "failure_count": 0,
+    "success_rate": 0.0,
+    "confidence": 0.0,
+    "pattern_id": "bd28fc68b2a0",
+    "last_seen": "2026-04-29T08:57:42.489747",
+    "first_seen": "2026-04-29T08:57:42.489748",
+    "tags": [
+      "permission"
+    ],
+    "metadata": {}
+  },
+  {
+    "pattern": "(out of memory|MemoryError)",
+    "error_type": "MemoryError",
+    "root_cause": "内存不足",
+    "suggested_fix": "优化内存使用",
+    "severity": "critical",
+    "success_count": 0,
+    "failure_count": 0,
+    "success_rate": 0.0,
+    "confidence": 0.0,
+    "pattern_id": "13243f49ac5d",
+    "last_seen": "2026-04-29T08:57:42.489749",
+    "first_seen": "2026-04-29T08:57:42.489750",
+    "tags": [
+      "memory"
+    ],
+    "metadata": {}
+  },
+  {
+    "pattern": "maximum recursion depth exceeded",
+    "error_type": "RecursionError",
+    "root_cause": "递归无终止条件",
+    "suggested_fix": "检查递归终止条件",
+    "severity": "high",
+    "success_count": 0,
+    "failure_count": 0,
+    "success_rate": 0.0,
+    "confidence": 0.0,
+    "pattern_id": "36f61ae572b7",
+    "last_seen": "2026-04-29T08:57:42.489751",
+    "first_seen": "2026-04-29T08:57:42.489752",
+    "tags": [
+      "recursion"
+    ],
+    "metadata": {}
+  }
+]

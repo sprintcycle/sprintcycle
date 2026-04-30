@@ -19,6 +19,7 @@ class VariationType(Enum):
     POINT = "point"
     BLOCK = "block"
     STRUCTURAL = "structural"
+    SEMANTIC = "semantic"
 
 
 class EvolutionStage(Enum):
@@ -134,3 +135,53 @@ class EvolutionMetrics:
     variation_count: int = 0
     selection_count: int = 0
     inheritance_count: int = 0
+
+
+@dataclass
+class FitnessScore:
+    """统一适应度评分 - 唯一定义源"""
+    correctness: float = 0.5
+    performance: float = 0.5
+    stability: float = 0.5
+    code_quality: float = 0.5
+    overall: float = 0.5
+
+    def avg(self) -> float:
+        scores = [self.correctness, self.performance, self.stability, self.code_quality]
+        return sum(scores) / len(scores)
+
+    def to_dict(self) -> Dict[str, float]:
+        return {
+            "correctness": self.correctness,
+            "performance": self.performance,
+            "stability": self.stability,
+            "code_quality": self.code_quality,
+            "overall": self.overall,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, float]) -> "FitnessScore":
+        return cls(
+            correctness=data.get("correctness", 0.5),
+            performance=data.get("performance", 0.5),
+            stability=data.get("stability", 0.5),
+            code_quality=data.get("code_quality", 0.5),
+            overall=data.get("overall", 0.5),
+        )
+
+    def __lt__(self, other: "FitnessScore") -> bool:
+        return self.overall < other.overall
+
+    def __gt__(self, other: "FitnessScore") -> bool:
+        return self.overall > other.overall
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, FitnessScore):
+            return NotImplemented
+        return self.overall == other.overall
+
+    def __le__(self, other: "FitnessScore") -> bool:
+        return self.overall <= other.overall
+
+    def __ge__(self, other: "FitnessScore") -> bool:
+        return self.overall >= other.overall

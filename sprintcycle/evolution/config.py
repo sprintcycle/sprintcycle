@@ -1,17 +1,20 @@
 """
-Evolution Engine Configuration
+SprintCycle Evolution Configuration
+
+Centralized configuration for GEPA evolution engine.
+EvolutionEngineConfig is DEPRECATED, use GEPAConfig instead.
 """
 
+import os
 from dataclasses import dataclass, field
 from typing import List, Optional
-import os
 
 
 @dataclass
 class EvolutionEngineConfig:
-    """进化引擎配置"""
+    """进化引擎配置 — DEPRECATED: use GEPAConfig instead"""
     llm_provider: str = "deepseek"
-    llm_model: str = "deepseek-reasoner"
+    llm_model: str = "deepseek-chat"
     llm_api_key: str = ""
     llm_api_base: Optional[str] = None
     llm_temperature: float = 0.7
@@ -27,8 +30,13 @@ class EvolutionEngineConfig:
     elite_ratio: float = 0.1
 
     def __post_init__(self):
+        import warnings
+        warnings.warn(
+            "EvolutionEngineConfig is deprecated, use GEPAConfig instead",
+            DeprecationWarning, stacklevel=2,
+        )
         if not self.llm_api_key:
-            self.llm_api_key = os.getenv("DEEPSEEK_API_KEY", "")
+            self.llm_api_key = os.getenv("LLM_API_KEY", os.getenv("DEEPSEEK_API_KEY", ""))
         self.hermes_repo = os.path.expanduser(self.hermes_repo)
         self.cache_dir = os.path.expanduser(self.cache_dir)
 
@@ -43,4 +51,14 @@ class EvolutionEngineConfig:
             cache_dir=config.evolution.cache_dir,
             max_iterations=config.evolution.max_iterations,
             pareto_dimensions=config.evolution.pareto_dimensions,
+        )
+
+    def to_gepa_config(self, repo_path: str = ".") -> "GEPAConfig":
+        """Convert to GEPAConfig"""
+        from sprintcycle.evolution.gepa_engine import GEPAConfig
+        return GEPAConfig(
+            repo_path=repo_path,
+            evolution_cache_dir=self.cache_dir,
+            max_cycles=self.max_iterations,
+            max_variations_per_cycle=self.max_variations_per_gen,
         )

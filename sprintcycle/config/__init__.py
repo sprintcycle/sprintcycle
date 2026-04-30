@@ -9,6 +9,16 @@ from .manager import (
     ConfigManager,
     get_config_manager,
     reset_config_manager,
+    # 编码引擎配置
+    CodingConfig,
+    CodingLLMConfig,
+    CodingClaudeConfig,
+    # 进化配置
+    EvolutionLLMConfig,
+    EvolutionConfig,
+    SprintCycleConfig,
+    load_config_from_env,
+    validate_config,
 )
 
 __all__ = [
@@ -16,4 +26,12 @@ __all__ = [
     "ConfigManager",
     "get_config_manager",
     "reset_config_manager",
+    "CodingConfig",
+    "CodingLLMConfig",
+    "CodingClaudeConfig",
+    "EvolutionLLMConfig",
+    "EvolutionConfig",
+    "SprintCycleConfig",
+    "load_config_from_env",
+    "validate_config",
 ]

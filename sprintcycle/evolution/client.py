@@ -1,3 +1,8 @@
+"""GEPA Client - DEPRECATED: use GEPAEngine instead"""
+
+import warnings
+warnings.warn("GEPAClient is deprecated, use sprintcycle.evolution.GEPAEngine instead", DeprecationWarning, stacklevel=2)
+
 """
 GEPA Client - Hermes Agent Self-Evolution (GEPA) 客户端封装
 提供重试机制和智能 fallback 策略

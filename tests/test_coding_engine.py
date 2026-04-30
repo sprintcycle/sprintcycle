@@ -197,13 +197,13 @@ class TestCodingEngineFactory:
     def test_llm_engine_missing_config(self):
         """测试 LLM 引擎缺少配置"""
         config = CodingConfig(engine="llm")
-        with pytest.raises(ValueError, match="coding.llm"):
+        with pytest.raises(ValueError, match="CodingLLMConfig"):
             CodingEngine.from_config(config)
 
     def test_claude_engine_missing_config(self):
         """测试 Claude 引擎缺少配置"""
         config = CodingConfig(engine="claude")
-        with pytest.raises(ValueError, match="coding.claude"):
+        with pytest.raises(ValueError, match="CodingClaudeConfig"):
             CodingEngine.from_config(config)
 
     def test_create_quick(self):

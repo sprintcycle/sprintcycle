@@ -447,3 +447,147 @@ class SprintExecutor:
     async def _execute_tester_task(self, task: PRDTask, context: Dict[str, Any]) -> str:
         await asyncio.sleep(0.1)
         return f"测试完成: {task.task}"
+
+    def _analyze_dependencies(
+        self, 
+        tasks: List[PRDTask],
+        context: Dict[str, Any] = None
+    ) -> Dict[int, Set[int]]:
+        """
+        分析任务间的依赖关系
+        
+        Args:
+            tasks: 任务列表
+            context: 执行上下文
+            
+        Returns:
+            Dict[int, Set[int]]: 任务索引到其依赖任务索引集合的映射
+            例如: {2: {0, 1}} 表示任务2依赖于任务0和任务1
+        """
+        import re
+        
+        dependency_map: Dict[int, Set[int]] = {i: set() for i in range(len(tasks))}
+        
+        # 任务关键词依赖模式
+        dependency_keywords = [
+            ("测试", "实现"),      # 测试依赖实现
+            ("test", "implement"),
+            ("verify", "build"),
+            ("build", "compile"),
+            ("集成", "单元"),     # 集成测试依赖单元测试
+            ("integration", "unit"),
+            ("端到端", "模块"),   # E2E测试依赖模块
+            ("e2e", "module"),
+            ("部署", "构建"),    # 部署依赖构建
+            ("deploy", "build"),
+        ]
+        
+        # 分析每个任务
+        for i, task in enumerate(tasks):
+            task_text = task.task.lower()
+            target = (task.target or "").lower()
+            
+            # 1. 基于关键词的隐式依赖
+            for dep_kw, src_kw in dependency_keywords:
+                if dep_kw in task_text and src_kw in task_text:
+                    # 向前查找可能提供依赖的任务
+                    for j in range(i):
+                        prev_task_text = tasks[j].task.lower()
+                        prev_target = (tasks[j].target or "").lower()
+                        if src_kw in prev_task_text or src_kw in prev_target:
+                            dependency_map[i].add(j)
+            
+            # 2. 基于 target 文件路径的依赖
+            if task.target:
+                task_target_lower = task.target.lower()
+                for j in range(i):
+                    prev_task = tasks[j]
+                    if prev_task.target:
+                        prev_target_lower = prev_task.target.lower()
+                        # 检查是否有文件扩展名匹配
+                        prev_ext = prev_target_lower.split('.')[-1] if '.' in prev_target_lower else ''
+                        task_ext = task_target_lower.split('.')[-1] if '.' in task_target_lower else ''
+                        
+                        # 同类型文件可能有依赖（如 .py 引用 .py）
+                        if prev_ext == task_ext and prev_ext in ['py', 'ts', 'js', 'go', 'java']:
+                            dependency_map[i].add(j)
+            
+            # 3. 基于任务类型的顺序依赖
+            # 测试任务通常依赖实现任务
+            if task.agent == "tester":
+                for j in range(i):
+                    if tasks[j].agent in ["coder", "implement"]:
+                        dependency_map[i].add(j)
+            
+            # 构建任务依赖编译任务
+            if "build" in task_text or "编译" in task_text:
+                for j in range(i):
+                    if "compile" in tasks[j].task.lower() or "编译" in tasks[j].task:
+                        dependency_map[i].add(j)
+            
+            # 部署任务依赖构建任务
+            if "deploy" in task_text or "部署" in task_text:
+                for j in range(i):
+                    if "build" in tasks[j].task.lower() or "构建" in tasks[j].task:
+                        dependency_map[i].add(j)
+        
+        # 移除自引用
+        for i in dependency_map:
+            dependency_map[i].discard(i)
+        
+        return dependency_map
+    
+    def _extract_file_paths(self, text: str) -> List[str]:
+        """从文本中提取文件路径"""
+        import re
+        patterns = [
+            r'(?:from|import|include|require)\s+["\']([^"\']+)["\']',
+            r'[\'"][\./]*([\w/]+\.[\w]+)[\'"]',
+            r'path:\s*["\']?([^"\'\s]+)["\']?',
+            r'file:\s*["\']?([^"\'\s]+)["\']?',
+        ]
+        
+        paths = []
+        for pattern in patterns:
+            matches = re.findall(pattern, text)
+            paths.extend(matches)
+        
+        return list(set(paths))
+    
+    def get_execution_order(self, tasks: List[PRDTask]) -> List[List[int]]:
+        """
+        获取任务的拓扑排序执行顺序
+        
+        Args:
+            tasks: 任务列表
+            
+        Returns:
+            List[List[int]]: 分批执行的任务索引列表
+            例如: [[0, 1], [2], [3, 4]] 表示任务分三批执行
+        """
+        dependency_map = self._analyze_dependencies(tasks)
+        
+        # 计算每个任务的入度
+        in_degree = {i: len(deps) for i, deps in dependency_map.items()}
+        remaining = set(range(len(tasks)))
+        
+        batches: List[List[int]] = []
+        
+        while remaining:
+            # 找到入度为0的任务
+            ready = [i for i in remaining if in_degree.get(i, 0) == 0]
+            
+            if not ready:
+                # 存在循环依赖，随机选择一个
+                ready = [min(remaining)]
+            
+            batches.append(ready)
+            
+            # 更新入度
+            for task_idx in ready:
+                remaining.discard(task_idx)
+                for other_idx, deps in dependency_map.items():
+                    if task_idx in deps:
+                        in_degree[other_idx] -= 1
+        
+        return batches

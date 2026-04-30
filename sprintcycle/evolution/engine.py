@@ -1,3 +1,8 @@
+"""Evolution Engine - DEPRECATED: use GEPAEngine instead"""
+
+import warnings
+warnings.warn("EvolutionEngine is deprecated, use sprintcycle.evolution.GEPAEngine instead", DeprecationWarning, stacklevel=2)
+
 """
 Evolution Engine - SprintCycle 自我进化引擎
 

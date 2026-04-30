@@ -116,7 +116,13 @@ class ErrorPattern:
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "ErrorPattern":
-        data = data.copy()
+        # 过滤掉非字段参数（计算属性、额外字段）
+        valid_fields = {
+            'pattern', 'error_type', 'root_cause', 'suggested_fix',
+            'severity', 'success_count', 'failure_count', 
+            'last_seen', 'first_seen', 'tags', 'metadata'
+        }
+        data = {k: v for k, v in data.items() if k in valid_fields}
         if "last_seen" in data and isinstance(data["last_seen"], str):
             data["last_seen"] = datetime.fromisoformat(data["last_seen"])
         if "first_seen" in data and isinstance(data["first_seen"], str):
