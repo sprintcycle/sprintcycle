@@ -279,7 +279,7 @@ class TaskDispatcher:
                     error=str(result),
                 ))
             else:
-                processed_results.append(result)  # type: ignore[arg-type]
+                processed_results.append(result)  # type: ignore[arg-type]  # else branch guarantees TaskResult
         
         end_time = datetime.now()
         duration = (end_time - start_time).total_seconds()
@@ -338,14 +338,15 @@ class TaskDispatcher:
                 raise FileNotFoundError(f"目标文件不存在: {target_path}")
             
             # 执行进化
-            result = self.evolution_pipeline.run(  # type: ignore[union-attr]
+            assert self.evolution_pipeline is not None
+            result = self.evolution_pipeline.run(
                 max_cycles=self.config.evolution_iterations,
             )
             
             if result.success:
                 task_result.status = ExecutionStatus.SUCCESS
-                variations = getattr(result, "variations", [])  # type: ignore[attr-defined]
-                selected = getattr(result, "selected_genes", [])  # type: ignore[attr-defined]
+                variations: list = getattr(result, "variations", [])
+                selected: list = getattr(result, "selected_genes", [])
                 task_result.output = f"生成 {len(variations)} 个变异，选择 {len(selected)} 个基因"
             else:
                 task_result.status = ExecutionStatus.FAILED
@@ -460,7 +461,7 @@ class TaskDispatcher:
             evo_result = self.evolution_pipeline.run(max_cycles=self.config.evolution_iterations if hasattr(self.config, "evolution_iterations") else 3)
             if evo_result.success:
                 result.status = ExecutionStatus.SUCCESS
-                evo_variations = getattr(result, "variations", [])  # type: ignore[attr-defined]
+                evo_variations: list = getattr(result, "variations", [])
                 result.output = f"进化成功: {len(evo_variations)} 个变异"
             else:
                 result.status = ExecutionStatus.FAILED

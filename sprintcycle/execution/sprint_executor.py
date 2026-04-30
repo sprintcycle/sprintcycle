@@ -355,7 +355,8 @@ class SprintExecutor:
         results = []
         max_generations = evolution_config.iterations if evolution_config else 3
         for sprint in sprints:
-            result = await self._evolution_engine.evolve_sprint(sprint=sprint, max_generations=max_generations)  # type: ignore[union-attr]
+            assert self._evolution_engine is not None
+            result = await self._evolution_engine.evolve_sprint(sprint=sprint, max_generations=max_generations)
             sprint_result = self._convert_evolution_result(sprint, result)
             results.append(sprint_result)
             if self._execution_id:

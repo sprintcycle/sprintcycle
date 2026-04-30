@@ -159,7 +159,7 @@ class LLMStrategy(CodingStrategy):
         """延迟初始化客户端"""
         if self._client is None:
             try:
-                import openai  # type: ignore[import-not-found]
+                import openai
                 self._client = openai.AsyncOpenAI(
                     api_key=self.config.api_key,
                     base_url=self.config.api_base or __import__('os').environ.get("LLM_API_BASE", "https://api.deepseek.com"),
@@ -280,7 +280,7 @@ class ClaudeStrategy(CodingStrategy):
         """延迟初始化客户端"""
         if self._client is None:
             try:
-                from anthropic import AsyncAnthropic  # type: ignore[import-not-found]
+                from anthropic import AsyncAnthropic
                 self._client = AsyncAnthropic(api_key=self.config.api_key)
             except ImportError:
                 raise RuntimeError("请安装 anthropic 库: pip install anthropic")
@@ -467,7 +467,7 @@ class CodingEngine:
 
         # 根据引擎类型创建策略
         if engine_name == "cursor":
-            strategy = strategy_class(config)  # type: ignore[call-arg]
+            strategy = strategy_class(config)  # type: ignore[call-arg]  # strategy_class types vary
         elif engine_name == "llm":
             if config.llm is None:
                 raise ValueError("engine='llm' 时必须提供 CodingLLMConfig")
