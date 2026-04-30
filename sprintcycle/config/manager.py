@@ -427,6 +427,12 @@ class LLMConfig:
         if self.api_base is None:
             self.api_base = os.getenv("LLM_API_BASE")
 
+    @property
+    def chat_endpoint(self) -> str:
+        """Get chat completions endpoint"""
+        base = self.api_base or ""
+        return f"{base.rstrip('/')}/chat/completions"
+
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""
         return {

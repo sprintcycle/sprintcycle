@@ -11,14 +11,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from sprintcycle.evolution.rollback_manager import (
-    EvolutionRollbackManager,
-    EvolutionConfig,
+from sprintcycle.execution.rollback import (
+    RollbackConfig,
     VariantBranch,
     RollbackError,
     _run_git,
     _is_git_repo,
 )
+from sprintcycle.evolution.rollback_manager import EvolutionRollbackManager
 
 
 # =============================================================================
@@ -47,16 +47,16 @@ def make_mock_runner(responses=None):
 # Config Tests
 # =============================================================================
 
-class TestEvolutionConfig:
+class TestRollbackConfig:
     def test_default_values(self):
-        config = EvolutionConfig()
+        config = RollbackConfig()
         assert config.git_branch_mode is True
         assert config.branch_prefix == "evo/variant-"
         assert config.max_branches == 20
         assert config.auto_cleanup is True
 
     def test_custom_values(self):
-        config = EvolutionConfig(git_branch_mode=False, backup_dir="/tmp/backups")
+        config = RollbackConfig(git_branch_mode=False, backup_dir="/tmp/backups")
         assert config.git_branch_mode is False
         assert config.backup_dir == "/tmp/backups"
 
@@ -105,7 +105,7 @@ class TestGitHelpers:
 
 class TestGitBranchMode:
     def test_prepare_variant_creates_branch(self, temp_dir):
-        config = EvolutionConfig(git_branch_mode=True, repo_path=temp_dir)
+        config = RollbackConfig(git_branch_mode=True, repo_path=temp_dir)
         responses = {
             "rev-parse --git-dir": (0, "/git/dir", ""),
             "rev-parse HEAD": (0, "abc123def", ""),
@@ -122,7 +122,7 @@ class TestGitBranchMode:
         assert "variant-test-001" in branch_name
 
     def test_prepare_variant_creates_record(self, temp_dir):
-        config = EvolutionConfig(git_branch_mode=True, repo_path=temp_dir)
+        config = RollbackConfig(git_branch_mode=True, repo_path=temp_dir)
         responses = {
             "rev-parse --git-dir": (0, "/git/dir", ""),
             "rev-parse HEAD": (0, "abc123", ""),
@@ -138,7 +138,7 @@ class TestGitBranchMode:
         assert record.variant_id == "var_rec_test"
 
     def test_commit_git_branch(self, temp_dir):
-        config = EvolutionConfig(git_branch_mode=True, repo_path=temp_dir)
+        config = RollbackConfig(git_branch_mode=True, repo_path=temp_dir)
         mock_runner = make_mock_runner()
         manager = EvolutionRollbackManager(config=config, git_runner=mock_runner)
         manager._git_available = True
@@ -151,7 +151,7 @@ class TestGitBranchMode:
         assert record.committed is True
 
     def test_rollback_git_branch(self, temp_dir):
-        config = EvolutionConfig(git_branch_mode=True, repo_path=temp_dir)
+        config = RollbackConfig(git_branch_mode=True, repo_path=temp_dir)
         mock_runner = make_mock_runner()
         manager = EvolutionRollbackManager(config=config, git_runner=mock_runner)
         manager._git_available = True
@@ -164,7 +164,7 @@ class TestGitBranchMode:
         assert "rb_test" not in manager._branches
 
     def test_rollback_already_merged_fails(self, temp_dir):
-        config = EvolutionConfig(git_branch_mode=True, repo_path=temp_dir)
+        config = RollbackConfig(git_branch_mode=True, repo_path=temp_dir)
         mock_runner = make_mock_runner()
         manager = EvolutionRollbackManager(config=config, git_runner=mock_runner)
         manager._git_available = True
@@ -182,24 +182,24 @@ class TestGitBranchMode:
 
 class TestFileBackupMode:
     def test_init_file_backup_mode(self, temp_dir):
-        config = EvolutionConfig(git_branch_mode=False, backup_dir=temp_dir + "/backups")
+        config = RollbackConfig(git_branch_mode=False, backup_dir=temp_dir + "/backups")
         manager = EvolutionRollbackManager(config=config)
         assert manager.mode == "file_backup"
 
     def test_prepare_file_backup_returns_string(self, temp_dir):
-        config = EvolutionConfig(git_branch_mode=False, repo_path=temp_dir, backup_dir=temp_dir + "/backups")
+        config = RollbackConfig(git_branch_mode=False, repo_path=temp_dir, backup_dir=temp_dir + "/backups")
         manager = EvolutionRollbackManager(config=config)
         backup_id = manager._prepare_file_backup("fb_test_var")
         assert isinstance(backup_id, str)
 
     def test_commit_file_backup(self, temp_dir):
-        config = EvolutionConfig(git_branch_mode=False, repo_path=temp_dir)
+        config = RollbackConfig(git_branch_mode=False, repo_path=temp_dir)
         manager = EvolutionRollbackManager(config=config)
         success = manager._commit_file_backup("any_var")
         assert success is True
 
     def test_rollback_file_backup(self, temp_dir):
-        config = EvolutionConfig(git_branch_mode=False, repo_path=temp_dir, backup_dir=temp_dir + "/backups")
+        config = RollbackConfig(git_branch_mode=False, repo_path=temp_dir, backup_dir=temp_dir + "/backups")
         manager = EvolutionRollbackManager(config=config)
         manager._prepare_file_backup("rollback_fb_test")
         success = manager._rollback_file_backup("rollback_fb_test")
@@ -212,7 +212,7 @@ class TestFileBackupMode:
 
 class TestModeSwitching:
     def test_git_mode_when_git_available(self, temp_dir):
-        config = EvolutionConfig(git_branch_mode=True, repo_path=temp_dir)
+        config = RollbackConfig(git_branch_mode=True, repo_path=temp_dir)
         with patch('sprintcycle.evolution.rollback_manager._is_git_repo', return_value=True):
             responses = {"rev-parse --git-dir": (0, "/git/dir")}
             mock_runner = make_mock_runner(responses)
@@ -220,13 +220,13 @@ class TestModeSwitching:
             assert manager.mode == "git_branch"
 
     def test_fallback_to_file_when_no_git(self, temp_dir):
-        config = EvolutionConfig(git_branch_mode=True, repo_path=temp_dir, backup_dir=temp_dir + "/bk")
+        config = RollbackConfig(git_branch_mode=True, repo_path=temp_dir, backup_dir=temp_dir + "/bk")
         with patch('sprintcycle.evolution.rollback_manager._is_git_repo', return_value=False):
             manager = EvolutionRollbackManager(config=config)
             assert manager.mode == "file_backup"
 
     def test_explicit_file_backup_mode(self, temp_dir):
-        config = EvolutionConfig(git_branch_mode=False, repo_path=temp_dir, backup_dir=temp_dir + "/bk")
+        config = RollbackConfig(git_branch_mode=False, repo_path=temp_dir, backup_dir=temp_dir + "/bk")
         manager = EvolutionRollbackManager(config=config)
         assert manager.mode == "file_backup"
 
@@ -237,7 +237,7 @@ class TestModeSwitching:
 
 class TestPublicAPI:
     def test_prepare_variant_routes_correctly(self, temp_dir):
-        config = EvolutionConfig(git_branch_mode=False, repo_path=temp_dir, backup_dir=temp_dir + "/bk")
+        config = RollbackConfig(git_branch_mode=False, repo_path=temp_dir, backup_dir=temp_dir + "/bk")
         mock_runner = make_mock_runner()
         manager = EvolutionRollbackManager(config=config, git_runner=mock_runner)
 
@@ -246,7 +246,7 @@ class TestPublicAPI:
             mock_prep.assert_called_once_with("test_var")
 
     def test_commit_variant_routes_correctly(self, temp_dir):
-        config = EvolutionConfig(git_branch_mode=False, repo_path=temp_dir)
+        config = RollbackConfig(git_branch_mode=False, repo_path=temp_dir)
         manager = EvolutionRollbackManager(config=config)
 
         with patch.object(manager, '_commit_file_backup', return_value=True) as mock_commit:
@@ -255,7 +255,7 @@ class TestPublicAPI:
             assert result is True
 
     def test_rollback_variant_routes_correctly(self, temp_dir):
-        config = EvolutionConfig(git_branch_mode=False, repo_path=temp_dir)
+        config = RollbackConfig(git_branch_mode=False, repo_path=temp_dir)
         manager = EvolutionRollbackManager(config=config)
 
         with patch.object(manager, '_rollback_file_backup', return_value=True) as mock_rb:
@@ -264,7 +264,7 @@ class TestPublicAPI:
             assert result is True
 
     def test_merge_winner_git_mode(self, temp_dir):
-        config = EvolutionConfig(git_branch_mode=True, repo_path=temp_dir, auto_cleanup=True)
+        config = RollbackConfig(git_branch_mode=True, repo_path=temp_dir, auto_cleanup=True)
         mock_runner = make_mock_runner()
         manager = EvolutionRollbackManager(config=config, git_runner=mock_runner)
         manager._git_available = True
@@ -277,13 +277,13 @@ class TestPublicAPI:
         assert record.merged is True
 
     def test_merge_winner_file_mode(self, temp_dir):
-        config = EvolutionConfig(git_branch_mode=False, repo_path=temp_dir)
+        config = RollbackConfig(git_branch_mode=False, repo_path=temp_dir)
         manager = EvolutionRollbackManager(config=config)
         success = manager.merge_winner("any_var", "main")
         assert success is True
 
     def test_list_active_branches(self, temp_dir):
-        config = EvolutionConfig(git_branch_mode=True, repo_path=temp_dir)
+        config = RollbackConfig(git_branch_mode=True, repo_path=temp_dir)
         mock_runner = make_mock_runner()
         manager = EvolutionRollbackManager(config=config, git_runner=mock_runner)
         manager._git_available = True
@@ -298,7 +298,7 @@ class TestPublicAPI:
         assert active[0].variant_id == "v1"
 
     def test_get_stats(self, temp_dir):
-        config = EvolutionConfig(git_branch_mode=False, repo_path=temp_dir)
+        config = RollbackConfig(git_branch_mode=False, repo_path=temp_dir)
         manager = EvolutionRollbackManager(config=config)
         stats = manager.get_stats()
         assert "mode" in stats
@@ -306,7 +306,7 @@ class TestPublicAPI:
         assert "total_variants" in stats
 
     def test_get_branch_record(self, temp_dir):
-        config = EvolutionConfig(git_branch_mode=True, repo_path=temp_dir)
+        config = RollbackConfig(git_branch_mode=True, repo_path=temp_dir)
         mock_runner = make_mock_runner()
         manager = EvolutionRollbackManager(config=config, git_runner=mock_runner)
         manager._git_available = True
@@ -331,7 +331,7 @@ class TestExceptions:
         assert isinstance(error, Exception)
 
     def test_prepare_git_raises_on_failure(self, temp_dir):
-        config = EvolutionConfig(git_branch_mode=True, repo_path=temp_dir)
+        config = RollbackConfig(git_branch_mode=True, repo_path=temp_dir)
         responses = {
             "rev-parse --git-dir": (0, "/git/dir", ""),
             "rev-parse HEAD": (0, "abc", ""),
@@ -356,7 +356,7 @@ class TestExceptions:
 
 class TestBoundaryConditions:
     def test_prepare_variant_max_branches(self, temp_dir):
-        config = EvolutionConfig(git_branch_mode=True, repo_path=temp_dir, max_branches=3)
+        config = RollbackConfig(git_branch_mode=True, repo_path=temp_dir, max_branches=3)
         mock_runner = make_mock_runner()
         manager = EvolutionRollbackManager(config=config, git_runner=mock_runner)
         manager._git_available = True
@@ -371,7 +371,7 @@ class TestBoundaryConditions:
             mock_cleanup.assert_called()
 
     def test_rollback_nonexistent_variant(self, temp_dir):
-        config = EvolutionConfig(git_branch_mode=True, repo_path=temp_dir)
+        config = RollbackConfig(git_branch_mode=True, repo_path=temp_dir)
         mock_runner = make_mock_runner()
         manager = EvolutionRollbackManager(config=config, git_runner=mock_runner)
         manager._git_available = True
@@ -380,7 +380,7 @@ class TestBoundaryConditions:
         assert success is False
 
     def test_commit_nonexistent_variant(self, temp_dir):
-        config = EvolutionConfig(git_branch_mode=True, repo_path=temp_dir)
+        config = RollbackConfig(git_branch_mode=True, repo_path=temp_dir)
         mock_runner = make_mock_runner()
         manager = EvolutionRollbackManager(config=config, git_runner=mock_runner)
         manager._git_available = True
@@ -389,7 +389,7 @@ class TestBoundaryConditions:
         assert success is False
 
     def test_cleanup_old_branches(self, temp_dir):
-        config = EvolutionConfig(git_branch_mode=True, repo_path=temp_dir)
+        config = RollbackConfig(git_branch_mode=True, repo_path=temp_dir)
         responses = {
             "branch --format": (0, "evo/v1-0101 2024-01-01\nevo/v2-0102 2024-01-02\nmain 2024-01-03", ""),
         }
@@ -401,7 +401,7 @@ class TestBoundaryConditions:
         assert isinstance(cleaned, int)
 
     def test_merge_winner_no_record(self, temp_dir):
-        config = EvolutionConfig(git_branch_mode=True, repo_path=temp_dir)
+        config = RollbackConfig(git_branch_mode=True, repo_path=temp_dir)
         mock_runner = make_mock_runner()
         manager = EvolutionRollbackManager(config=config, git_runner=mock_runner)
         manager._git_available = True

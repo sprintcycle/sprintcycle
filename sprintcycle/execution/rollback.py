@@ -68,7 +68,7 @@ class RollbackError(Exception):
 
 
 @dataclass
-class EvolutionConfig:
+class RollbackConfig:
     """进化回滚配置"""
     git_branch_mode: bool = True
     repo_path: str = "."
@@ -134,12 +134,12 @@ class GitRollbackMixin:
 
     def __init__(
         self,
-        config: Optional[EvolutionConfig] = None,
+        config: Optional[RollbackConfig] = None,
         git_runner: Optional[Callable[..., Tuple[int, str, str]]] = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.config = config or EvolutionConfig()
+        self.config = config or RollbackConfig()
         self._git_runner = git_runner or _run_git
         self._branches: Dict[str, VariantBranch] = {}
         self._lock = asyncio.Lock()

@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Optional
 # Re-export all shared types from execution/rollback for backward compatibility
 from sprintcycle.execution.rollback import (
     BackupRecord,
-    EvolutionConfig,
+    RollbackConfig,
     GitRollbackMixin,
     get_rollback_manager,
     RollbackError,
@@ -44,7 +44,7 @@ class EvolutionRollbackManager(GitRollbackMixin):
 
     def __init__(
         self,
-        config: Optional[EvolutionConfig] = None,
+        config: Optional[RollbackConfig] = None,
         rollback_manager: Optional[Any] = None,
         git_runner: Optional[Any] = None,
     ):
@@ -56,7 +56,7 @@ class EvolutionRollbackManager(GitRollbackMixin):
             rollback_manager: 已有 RollbackManager 实例（用于 fallback 模式）
             git_runner: git 命令运行器（用于测试 mock）
         """
-        self.config = config or EvolutionConfig()
+        self.config = config or RollbackConfig()
         self._git_runner = git_runner or _run_git
         self._rollback_manager = rollback_manager
 

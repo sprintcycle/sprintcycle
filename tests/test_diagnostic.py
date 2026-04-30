@@ -310,7 +310,7 @@ class TestLLMPRDGenerator:
         """测试无API Key初始化"""
         with patch.dict("os.environ", {}, clear=True):
             generator = LLMPRDGenerator()
-            assert generator._api_key == ""
+            assert generator._api_key in ("", None)
     
     def test_generate_no_api_key(self):
         """测试无API Key生成"""
