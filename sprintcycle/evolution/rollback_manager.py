@@ -6,104 +6,47 @@ EvolutionRollbackManager - 进化回滚管理
 2. 文件备份模式（fallback）：复用已有的 RollbackManager
 
 这是 GEPA 自进化引擎的核心组件之一（Phase 4）。
+
+核心逻辑已移至 sprintcycle.execution.rollback，此文件为 thin wrapper。
 """
 
 import asyncio
 import logging
-import os
-import subprocess
-import uuid
-from dataclasses import dataclass, field
-from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
-from sprintcycle.execution.rollback import RollbackManager
+# Re-export all shared types from execution/rollback for backward compatibility
+from sprintcycle.execution.rollback import (
+    BackupRecord,
+    EvolutionConfig,
+    GitRollbackMixin,
+    get_rollback_manager,
+    RollbackError,
+    RollbackResult,
+    VariantBranch,
+    _is_git_repo,
+    _run_git,
+)
 
 logger = logging.getLogger(__name__)
 
 
-# =============================================================================
-# Exception
-# =============================================================================
-
-class RollbackError(Exception):
-    """回滚管理异常"""
-    pass
-
-
-# =============================================================================
-# Configuration
-# =============================================================================
-
-@dataclass
-class EvolutionConfig:
-    """进化回滚配置"""
-    git_branch_mode: bool = True
-    repo_path: str = "."
-    branch_prefix: str = "evo/variant-"
-    backup_dir: str = ".sprintcycle/evo_backups"
-    auto_cleanup: bool = True
-    max_branches: int = 20
-
-
-@dataclass
-class VariantBranch:
-    """变体分支记录"""
-    variant_id: str
-    branch_name: str
-    base_commit: str
-    created_at: datetime = field(default_factory=datetime.now)
-    committed: bool = False
-    merged: bool = False
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
-
-# =============================================================================
-# Git Operations Helper
-# =============================================================================
-
-def _run_git(args: List[str], cwd: str = ".", timeout: int = 30) -> Tuple[int, str, str]:
-    """运行 git 命令，返回 (returncode, stdout, stderr)"""
-    try:
-        result = subprocess.run(
-            ["git"] + args,
-            cwd=cwd,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-        )
-        return result.returncode, result.stdout, result.stderr
-    except subprocess.TimeoutExpired:
-        return -1, "", "Git command timed out"
-    except Exception as e:
-        return -1, "", str(e)
-
-
-def _is_git_repo(path: str) -> bool:
-    """检查路径是否为 git 仓库"""
-    rc, _, _ = _run_git(["rev-parse", "--git-dir"], cwd=path)
-    return rc == 0
-
-
-# =============================================================================
-# Main Manager
-# =============================================================================
-
-class EvolutionRollbackManager:
+class EvolutionRollbackManager(GitRollbackMixin):
     """
     进化回滚管理
 
     两种模式：
     1. Git Branch 模式（默认）：每个变体一个 branch，选优后 merge，其他 delete
     2. 文件备份模式（fallback）：复用已有 RollbackManager
+
+    核心逻辑委托给 GitRollbackMixin，文件备份委托给 RollbackManager。
     """
 
     def __init__(
         self,
         config: Optional[EvolutionConfig] = None,
-        rollback_manager: Optional[RollbackManager] = None,
-        git_runner: Optional[Callable[..., Tuple[int, str, str]]] = None,
+        rollback_manager: Optional[Any] = None,
+        git_runner: Optional[Any] = None,
     ):
         """
         初始化进化回滚管理器
@@ -117,7 +60,7 @@ class EvolutionRollbackManager:
         self._git_runner = git_runner or _run_git
         self._rollback_manager = rollback_manager
 
-        # 分支记录
+        # 分支记录（来自 GitRollbackMixin）
         self._branches: Dict[str, VariantBranch] = {}
         self._lock = asyncio.Lock()
 
@@ -136,6 +79,7 @@ class EvolutionRollbackManager:
 
         # 初始化 fallback RollbackManager
         if not self._git_available:
+            from sprintcycle.execution.rollback import RollbackManager
             self._rollback_manager = self._rollback_manager or RollbackManager(
                 backup_dir=self.config.backup_dir
             )
@@ -151,12 +95,13 @@ class EvolutionRollbackManager:
         return "git_branch" if self._git_available else "file_backup"
 
     # -------------------------------------------------------------------------
-    # Git Branch Mode Methods
+    # Git Branch Mode Methods (thin wrappers using GitRollbackMixin logic)
     # -------------------------------------------------------------------------
 
     def _create_branch_name(self, variant_id: str) -> str:
         """生成变体分支名"""
         safe_id = variant_id.replace("/", "-").replace("_", "-")[:20]
+        from datetime import datetime
         timestamp = datetime.now().strftime("%m%d%H%M")
         return f"{self.config.branch_prefix}{safe_id}-{timestamp}"
 
@@ -172,7 +117,6 @@ class EvolutionRollbackManager:
         if not self._branches:
             return 0
 
-        # 获取所有 evo/variant-* 分支
         rc, stdout, _ = self._git_runner(
             ["branch", "--format=%(refname:short) %(creatordate:iso)"],
             cwd=self.config.repo_path
@@ -186,7 +130,6 @@ class EvolutionRollbackManager:
             if parts and parts[0].startswith(self.config.branch_prefix):
                 branch_dates[parts[0]] = parts[1] if len(parts) > 1 else ""
 
-        # 删除不在记录中且超过最大数量的旧分支
         active = set(b.branch_name for b in self._branches.values())
         cleanup_count = 0
         all_branches = sorted(branch_dates.keys())
@@ -229,21 +172,17 @@ class EvolutionRollbackManager:
         # 检查是否已有记录
         existing = next((b for b in self._branches.values() if b.variant_id == variant_id), None)
         if existing:
-            # 已存在，切换到该分支
             rc, _, _ = self._git_runner(["checkout", existing.branch_name], cwd=self.config.repo_path)
             if rc == 0:
                 return existing.branch_name
-            # 切换失败，删除重建
             self._git_runner(["branch", "-D", existing.branch_name], cwd=self.config.repo_path)
 
-        # 检查分支数量限制
         if len(self._branches) >= self.config.max_branches:
             self._cleanup_old_branches()
 
         branch_name = self._create_branch_name(variant_id)
         base_commit = self._get_current_commit()
 
-        # 创建并切换到新分支
         rc, _, stderr = self._git_runner(
             ["checkout", "-b", branch_name],
             cwd=self.config.repo_path
@@ -262,17 +201,15 @@ class EvolutionRollbackManager:
 
     def _prepare_file_backup(self, variant_id: str) -> str:
         """创建文件备份环境"""
-        # 备份所有 .py 文件
         backup_ids = []
         repo_path = Path(self.config.repo_path)
 
         for py_file in repo_path.rglob("*.py"):
-            # 跳过 __pycache__ 和测试文件
             if "__pycache__" in str(py_file) or "test_" in py_file.name:
                 continue
             try:
-                # 使用 RollbackManager 备份
                 import hashlib
+                from datetime import datetime
                 ts = datetime.now().strftime("%Y%m%d_%H%M%S")
                 backup_id = f"evo_{variant_id}_{ts}_{hashlib.md5(str(py_file).encode()).hexdigest()[:6]}"
                 backup_path = Path(self.config.backup_dir) / f"{backup_id}.py"
@@ -287,18 +224,7 @@ class EvolutionRollbackManager:
         return backup_id_str
 
     def commit_variant(self, variant_id: str) -> bool:
-        """
-        确认变体（merge 到 main 或提交事务）
-
-        Git Branch 模式：merge 到当前分支
-        文件备份模式：记录确认（不做实际提交）
-
-        Args:
-            variant_id: 变体 ID
-
-        Returns:
-            是否成功
-        """
+        """确认变体"""
         if self._git_available:
             return self._commit_git_branch(variant_id)
         else:
@@ -314,14 +240,12 @@ class EvolutionRollbackManager:
         if record.committed:
             return True
 
-        # 提交当前变更
         rc, _, stderr = self._git_runner(
             ["commit", "-am", f"Evolution variant: {variant_id}"],
             cwd=self.config.repo_path
         )
         if rc != 0 and "nothing to commit" not in stderr.lower():
             logger.warning(f"Commit failed for {variant_id}: {stderr}")
-            # 仍然标记为 committed（可能没有变更）
 
         record.committed = True
         logger.info(f"Committed variant {variant_id} on branch {record.branch_name}")
@@ -333,18 +257,7 @@ class EvolutionRollbackManager:
         return True
 
     def rollback_variant(self, variant_id: str) -> bool:
-        """
-        回滚变体（删除 branch 或恢复文件）
-
-        Git Branch 模式：删除分支，切换回原分支
-        文件备份模式：恢复备份文件
-
-        Args:
-            variant_id: 变体 ID
-
-        Returns:
-            是否成功
-        """
+        """回滚变体"""
         if self._git_available:
             return self._rollback_git_branch(variant_id)
         else:
@@ -361,7 +274,6 @@ class EvolutionRollbackManager:
             logger.warning(f"Variant {variant_id} already merged, cannot rollback")
             return False
 
-        # 删除分支
         rc, _, stderr = self._git_runner(
             ["branch", "-D", record.branch_name],
             cwd=self.config.repo_path
@@ -369,14 +281,12 @@ class EvolutionRollbackManager:
         if rc != 0:
             logger.warning(f"Failed to delete branch {record.branch_name}: {stderr}")
 
-        # 切换回主分支（如果有 base_commit，checkout 到它）
         if record.base_commit:
             rc, _, _ = self._git_runner(
                 ["checkout", record.base_commit],
                 cwd=self.config.repo_path
             )
         else:
-            # 尝试切换到 main 或 master
             for main_branch in ["main", "master", "HEAD"]:
                 rc, _, _ = self._git_runner(
                     ["checkout", main_branch],
@@ -395,13 +305,10 @@ class EvolutionRollbackManager:
         if not backup_dir.exists():
             return True
 
-        # 找到该变体的备份文件
         prefix = f"evo_{variant_id}_"
         restored = 0
         for backup_file in backup_dir.glob(f"{prefix}*.py"):
             try:
-                original_path = backup_file.stem.split("_", 2)[-1]
-                # 恢复文件
                 if backup_file.exists():
                     backup_file.unlink()
                     restored += 1
@@ -412,16 +319,7 @@ class EvolutionRollbackManager:
         return True
 
     def merge_winner(self, variant_id: str, target_branch: str = "main") -> bool:
-        """
-        将获胜变体合并到目标分支
-
-        Args:
-            variant_id: 获胜变体 ID
-            target_branch: 目标分支名
-
-        Returns:
-            是否成功
-        """
+        """将获胜变体合并到目标分支"""
         if not self._git_available:
             logger.info("File backup mode: winner auto-confirmed")
             return True
@@ -431,13 +329,11 @@ class EvolutionRollbackManager:
             logger.warning(f"No branch record for winning variant {variant_id}")
             return False
 
-        # 切换到目标分支
         rc, _, _ = self._git_runner(["checkout", target_branch], cwd=self.config.repo_path)
         if rc != 0:
             logger.warning(f"Failed to checkout {target_branch}")
             return False
 
-        # Merge
         rc, _, stderr = self._git_runner(
             ["merge", record.branch_name, "--no-ff", "-m", f"Merge variant: {variant_id}"],
             cwd=self.config.repo_path
@@ -446,11 +342,9 @@ class EvolutionRollbackManager:
             logger.warning(f"Merge failed: {stderr}")
             return False
 
-        # 删除已合并的分支
         self._git_runner(["branch", "-d", record.branch_name], cwd=self.config.repo_path)
         record.merged = True
 
-        # 清理其他分支
         if self.config.auto_cleanup:
             self._cleanup_branches_except(variant_id)
 
