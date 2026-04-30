@@ -400,22 +400,14 @@ def reset_config_manager() -> ConfigManager:
 # ============ 编码引擎配置类 ============
 
 @dataclass
-class CodingConfig:
-    """编码引擎基础配置"""
-    engine: str = "cursor"
-    llm: Optional["CodingLLMConfig"] = None
-    claude: Optional["CodingClaudeConfig"] = None
 
-    def __post_init__(self):
-        # Validation is done in CodingEngine.from_config()
-        pass
-
+# ============ 统一 LLM 配置 ============
 
 @dataclass
-class CodingLLMConfig:
-    """LLM 编码引擎配置"""
-    provider: str = "deepseek"
-    model: str = "deepseek-chat"
+class LLMConfig:
+    """统一 LLM 配置（替代 CodingLLMConfig/CodingClaudeConfig/EvolutionLLMConfig）"""
+    provider: str = "openai"
+    model: str = "gpt-4"
     api_base: Optional[str] = None
     api_key: Optional[str] = None
     temperature: float = 0.7
@@ -424,10 +416,10 @@ class CodingLLMConfig:
     def __post_init__(self):
         # 支持环境变量
         self.api_key = _resolve_env_var(self.api_key) if self.api_key else None
-        if self.api_key is None:
-            self.api_key = os.getenv("DEEPSEEK_API_KEY")
+        if not self.api_key:
+            self.api_key = os.getenv("LLM_API_KEY") or os.getenv("DEEPSEEK_API_KEY") or os.getenv("OPENAI_API_KEY")
         if self.api_base is None:
-            self.api_base = os.getenv("LLM_API_URL")
+            self.api_base = os.getenv("LLM_API_BASE")
 
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""
@@ -441,59 +433,30 @@ class CodingLLMConfig:
         }
 
 
+# 兼容别名（将在 v1.0 移除）
+CodingLLMConfig = LLMConfig
+CodingClaudeConfig = LLMConfig
+EvolutionLLMConfig = LLMConfig
+
+
+# ============ 编码引擎配置类 ============
+
 @dataclass
-class CodingClaudeConfig:
-    """Claude 编码引擎配置"""
-    provider: str = "claude"
-    model: str = "claude-3-5-sonnet"
-    api_key: Optional[str] = None
-    temperature: float = 0.7
-    max_tokens: int = 4096
+class CodingConfig:
+    """编码引擎基础配置"""
+    engine: str = "cursor"
+    llm: Optional[LLMConfig] = None
+    claude: Optional[LLMConfig] = None
 
     def __post_init__(self):
-        self.api_key = _resolve_env_var(self.api_key) if self.api_key else None
-        if self.api_key is None:
-            self.api_key = os.getenv("ANTHROPIC_API_KEY")
-
-    def to_dict(self) -> Dict[str, Any]:
-        """转换为字典"""
-        return {
-            "provider": self.provider,
-            "model": self.model,
-            "api_key": _mask_sensitive(self.api_key) if self.api_key else None,
-            "temperature": self.temperature,
-            "max_tokens": self.max_tokens,
-        }
+        pass
 
 
 # ============ 进化配置类 ============
 
 @dataclass
-class EvolutionLLMConfig:
-    """进化引擎 LLM 配置"""
-    provider: str = "deepseek"
-    model: str = "deepseek-reasoner"
-    api_key: Optional[str] = None
-    temperature: float = 0.7
-    max_tokens: int = 2048
-
-    def __post_init__(self):
-        self.api_key = _resolve_env_var(self.api_key) if self.api_key else None
-
-    def to_dict(self) -> Dict[str, Any]:
-        """转换为字典"""
-        return {
-            "provider": self.provider,
-            "model": self.model,
-            "api_key": _mask_sensitive(self.api_key) if self.api_key else None,
-            "temperature": self.temperature,
-            "max_tokens": self.max_tokens,
-        }
-
-
-@dataclass
-class EvolutionConfig:
-    """进化引擎配置"""
+class EvolutionRunConfig:
+    """进化运行配置（与 prd/models.py 的 EvolutionConfig 不同）"""
     enabled: bool = True
     max_iterations: int = 10
     max_variations: int = 5
@@ -501,7 +464,7 @@ class EvolutionConfig:
     mutation_rate: float = 0.1
     selection_pressure: float = 0.5
     pareto_dimensions: List[str] = field(default_factory=lambda: ["correctness", "efficiency", "clarity"])
-    llm: Optional[EvolutionLLMConfig] = None
+    llm: Optional[LLMConfig] = None
 
     def __post_init__(self):
         if self.llm is None:
@@ -519,7 +482,7 @@ class SprintCycleConfig:
     continue_on_error: bool = False
     evolution_enabled: bool = True
     log_level: str = "INFO"
-    evolution: Optional[EvolutionConfig] = None
+    evolution: Optional[EvolutionRunConfig] = None
     coding: Optional[CodingConfig] = None
 
     @classmethod
@@ -532,9 +495,9 @@ class SprintCycleConfig:
             evo_data = data["evolution"]
             llm = None
             if "llm" in evo_data and evo_data["llm"]:
-                llm = EvolutionLLMConfig(**evo_data["llm"])
+                llm = LLMConfig(**evo_data["llm"])
             if llm:
-                evolution = EvolutionConfig(llm=llm)
+                evolution = EvolutionRunConfig(llm=llm)
         
         if "coding" in data and data["coding"]:
             coding_data = data["coding"]
@@ -542,9 +505,9 @@ class SprintCycleConfig:
             claude_cfg = None
             
             if "llm" in coding_data and coding_data["llm"]:
-                llm_cfg = CodingLLMConfig(**coding_data["llm"])
+                llm_cfg = LLMConfig(**coding_data["llm"])
             if "claude" in coding_data and coding_data["claude"]:
-                claude_cfg = CodingClaudeConfig(**coding_data["claude"])
+                claude_cfg = LLMConfig(**coding_data["claude"])
             
             coding = CodingConfig(
                 engine=coding_data.get("engine", "cursor"),
@@ -568,20 +531,20 @@ def load_config_from_env() -> SprintCycleConfig:
     """从环境变量加载配置"""
     api_key = os.getenv("DEEPSEEK_API_KEY") or os.getenv("LLM_API_KEY")
     
-    evolution_llm = EvolutionLLMConfig(
+    evolution_llm = LLMConfig(
         provider=os.getenv("EVOLUTION_LLM_PROVIDER", "deepseek"),
         model=os.getenv("EVOLUTION_LLM_MODEL", "deepseek-reasoner"),
         api_key=api_key,
     )
     
-    evolution = EvolutionConfig(llm=evolution_llm)
+    evolution = EvolutionRunConfig(llm=evolution_llm)
     
     coding_engine = os.getenv("CODING_ENGINE", "cursor")
     coding = None
     if coding_engine == "llm":
         coding = CodingConfig(
             engine="llm",
-            llm=CodingLLMConfig(
+            llm=LLMConfig(
                 provider="deepseek",
                 api_key=api_key,
             )
@@ -589,7 +552,7 @@ def load_config_from_env() -> SprintCycleConfig:
     elif coding_engine == "claude":
         coding = CodingConfig(
             engine="claude",
-            claude=CodingClaudeConfig(
+            claude=LLMConfig(
                 api_key=os.getenv("ANTHROPIC_API_KEY"),
             )
         )

@@ -9,17 +9,19 @@ from .manager import (
     ConfigManager,
     get_config_manager,
     reset_config_manager,
-    # 编码引擎配置
     CodingConfig,
-    CodingLLMConfig,
-    CodingClaudeConfig,
-    # 进化配置
-    EvolutionLLMConfig,
-    EvolutionConfig,
+    LLMConfig,
+    CodingLLMConfig,  # compat alias
+    CodingClaudeConfig,  # compat alias
+    EvolutionLLMConfig,  # compat alias
+    EvolutionRunConfig,
     SprintCycleConfig,
     load_config_from_env,
     validate_config,
 )
+
+# EvolutionConfig in manager.py is now EvolutionRunConfig
+# EvolutionConfig in prd/models.py is the PRD evolution config (different class)
 
 __all__ = [
     "RuntimeConfig",
@@ -27,10 +29,11 @@ __all__ = [
     "get_config_manager",
     "reset_config_manager",
     "CodingConfig",
+    "LLMConfig",
     "CodingLLMConfig",
     "CodingClaudeConfig",
     "EvolutionLLMConfig",
-    "EvolutionConfig",
+    "EvolutionRunConfig",
     "SprintCycleConfig",
     "load_config_from_env",
     "validate_config",

@@ -5,10 +5,11 @@ SprintCycle 配置模块测试
 import pytest
 import os
 from sprintcycle.config import (
+    EvolutionRunConfig,
     EvolutionLLMConfig,
     CodingLLMConfig,
     CodingClaudeConfig,
-    EvolutionConfig,
+
     CodingConfig,
     SprintCycleConfig,
     load_config_from_env,
@@ -30,7 +31,7 @@ class TestEvolutionLLMConfig:
         assert config.model == "deepseek-reasoner"
         assert config.api_key == "sk-test123"
         assert config.temperature == 0.7
-        assert config.max_tokens == 2048
+        assert config.max_tokens == 4096  # LLMConfig unified default
 
     def test_env_var_loading(self):
         """测试环境变量加载"""
@@ -86,7 +87,7 @@ class TestCodingClaudeConfig:
     def test_init_with_defaults(self):
         """测试默认值初始化"""
         config = CodingClaudeConfig()
-        assert config.model == "claude-3-5-sonnet"
+        assert config.model == "gpt-4"  # LLMConfig unified default
 
     def test_env_var_fallback(self):
         """测试环境变量回退"""
@@ -95,19 +96,19 @@ class TestCodingClaudeConfig:
         assert config.api_key == "anthropic-key"
 
 
-class TestEvolutionConfig:
-    """EvolutionConfig 测试"""
+class TestEvolutionRunConfig:
+    """EvolutionRunConfig 测试"""
 
     def test_init_requires_llm(self):
         """测试需要 LLM 配置"""
         with pytest.raises(ValueError, match="evolution.llm 是必填配置"):
-            EvolutionConfig()
+            EvolutionRunConfig()
 
     def test_init_requires_api_key(self):
         """测试需要 API Key"""
         llm = EvolutionLLMConfig(provider="deepseek", model="test", api_key="")
         with pytest.raises(ValueError, match="evolution.llm.api_key 未配置"):
-            EvolutionConfig(llm=llm)
+            EvolutionRunConfig(llm=llm)
 
     def test_init_with_valid_config(self):
         """测试有效配置初始化"""
@@ -116,7 +117,7 @@ class TestEvolutionConfig:
             model="deepseek-reasoner",
             api_key="sk-test",
         )
-        config = EvolutionConfig(llm=llm)
+        config = EvolutionRunConfig(llm=llm)
         assert config.enabled is True
         assert config.max_iterations == 10
         assert "correctness" in config.pareto_dimensions
@@ -243,13 +244,13 @@ class TestValidateConfig:
     def test_valid_config(self):
         """测试有效配置验证"""
         llm = EvolutionLLMConfig(provider="deepseek", model="test", api_key="key")
-        config = SprintCycleConfig(evolution=EvolutionConfig(llm=llm))
+        config = SprintCycleConfig(evolution=EvolutionRunConfig(llm=llm))
         errors = validate_config(config)
         assert len(errors) == 0
 
     def test_missing_evolution_llm(self):
         """测试缺少进化 LLM"""
-        # EvolutionConfig 构造时需要 llm 参数
+        # EvolutionRunConfig 构造时需要 llm 参数
         config = SprintCycleConfig()
         errors = validate_config(config)
         assert len(errors) > 0
@@ -258,7 +259,7 @@ class TestValidateConfig:
     def test_coding_engine_validation(self):
         """测试编码引擎验证"""
         llm = EvolutionLLMConfig(provider="deepseek", model="test", api_key="key")
-        evolution = EvolutionConfig(llm=llm)
+        evolution = EvolutionRunConfig(llm=llm)
 
         # LLM 引擎无配置
         coding_llm = CodingLLMConfig(provider="deepseek", model="test", api_key="key")
