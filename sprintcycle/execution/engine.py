@@ -51,7 +51,7 @@ class ExecutionEngine:
     ```
     """
     
-    def __init__(self, config: Dict[str, Any] = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
         """
         初始化执行引擎
         
@@ -67,7 +67,7 @@ class ExecutionEngine:
         
         # 创建共享的 SprintExecutor（注入 EvolutionEngine）
         self.sprint_executor = SprintExecutor(
-            evolution_pipeline=self._evolution_pipeline,
+            evolution_engine=self._evolution_pipeline,
         )
         
         # 策略缓存

@@ -159,7 +159,7 @@ class LLMStrategy(CodingStrategy):
         """延迟初始化客户端"""
         if self._client is None:
             try:
-                import openai
+                import openai  # type: ignore[import-not-found]
                 self._client = openai.AsyncOpenAI(
                     api_key=self.config.api_key,
                     base_url=self.config.api_base or "https://api.deepseek.com",
@@ -280,7 +280,7 @@ class ClaudeStrategy(CodingStrategy):
         """延迟初始化客户端"""
         if self._client is None:
             try:
-                from anthropic import AsyncAnthropic
+                from anthropic import AsyncAnthropic  # type: ignore[import-not-found]
                 self._client = AsyncAnthropic(api_key=self.config.api_key)
             except ImportError:
                 raise RuntimeError("请安装 anthropic 库: pip install anthropic")
@@ -403,7 +403,7 @@ class CodingEngineResult:
     success: bool
     content: Any = None
     error: Optional[str] = None
-    metadata: Dict[str, Any] = None
+    metadata: Optional[Dict[str, Any]] = None
 
     def __post_init__(self):
         if self.metadata is None:
@@ -467,15 +467,15 @@ class CodingEngine:
 
         # 根据引擎类型创建策略
         if engine_name == "cursor":
-            strategy = strategy_class(config)
+            strategy = strategy_class(config)  # type: ignore[call-arg]
         elif engine_name == "llm":
             if config.llm is None:
                 raise ValueError("engine='llm' 时必须提供 CodingLLMConfig")
-            strategy = strategy_class(config.llm)
+            strategy = strategy_class(config.llm)  # type: ignore[call-arg]
         elif engine_name == "claude":
             if config.claude is None:
                 raise ValueError("engine='claude' 时必须提供 CodingClaudeConfig")
-            strategy = strategy_class(config.claude)
+            strategy = strategy_class(config.claude)  # type: ignore[call-arg]
         else:
             raise ValueError(f"不支持的引擎类型: {engine_name}")
 

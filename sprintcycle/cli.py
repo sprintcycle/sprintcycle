@@ -11,7 +11,7 @@ import asyncio
 import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import click
 
@@ -88,6 +88,66 @@ logger = setup_logging()
 @click.option('--verbose', '-v', is_flag=True, help='详细输出')
 @click.argument('args', nargs=-1)  # 捕获所有剩余参数作为意图
 @click.version_option(version='0.6.0', prog_name='sprintcycle')
+def _resolve_intent(intent: Optional[str], args: tuple) -> str:
+    """解析意图来源：--intent 参数或位置参数"""
+    if not intent and args:
+        intent = ' '.join(args)
+    if not intent:
+        click.echo("请提供意图描述，使用 --help 查看帮助")
+        sys.exit(1)
+    return intent
+
+
+def _parse_and_show(intent: str, project: Optional[str], target: Optional[str],
+                    mode: str, constraints: tuple) -> Any:
+    """解析意图并显示结果"""
+    parser = IntentParser()
+    parsed = parser.parse(
+        intent,
+        project=project,
+        target=target,
+        mode=mode,
+        constraints=list(constraints),
+    )
+    click.echo(f"📋 解析意图: {parsed.action.value}")
+    if parsed.target:
+        click.echo(f"   目标: {parsed.target}")
+    if parsed.project:
+        click.echo(f"   项目: {parsed.project}")
+    return parsed
+
+
+def _handle_run_action(parsed, dry_run: bool, verbose: bool):
+    """处理 RUN action：直接执行 PRD 文件"""
+    prd_file = parsed.prd_file or parsed.target
+    if not prd_file:
+        click.echo("❌ 未指定 PRD 文件")
+        sys.exit(1)
+    _run_prd_file(prd_file, dry_run, verbose)
+
+
+def _generate_and_execute(parsed, dry_run: bool):
+    """生成 PRD 并执行（非 RUN action）"""
+    generator = PRDGenerator()
+    prd = generator.generate(parsed)
+    
+    if dry_run:
+        click.echo("\n📄 生成的 PRD:")
+        click.echo(prd.to_yaml())
+        return
+    
+    click.echo(f"\n🚀 开始执行...")
+    result = _execute_prd(prd)
+    
+    if result.success:
+        click.echo(f"\n✅ 执行成功")
+        click.echo(f"   完成 Sprint: {result.completed_sprints}/{result.total_sprints}")
+        click.echo(f"   完成任务: {result.completed_tasks}/{result.total_tasks}")
+    else:
+        click.echo(f"\n❌ 执行失败: {result.error}")
+        sys.exit(1)
+
+
 def cli(
     intent: Optional[str],
     project: Optional[str],
@@ -115,7 +175,6 @@ def cli(
     if verbose:
         logging.getLogger().setLevel(logging.DEBUG)
     
-    # 处理特殊命令
     if status:
         _show_status()
         return
@@ -124,61 +183,15 @@ def cli(
         _init_project(init_path)
         return
     
-    # 优先使用 --intent 参数，否则使用位置参数
-    if not intent and args:
-        intent = ' '.join(args)
-    
-    if not intent:
-        click.echo("请提供意图描述，使用 --help 查看帮助")
-        sys.exit(1)
+    intent = _resolve_intent(intent, args)
     
     try:
-        # 解析意图
-        parser = IntentParser()
-        parsed = parser.parse(
-            intent,
-            project=project,
-            target=target,
-            mode=mode,
-            constraints=list(constraints),
-        )
+        parsed = _parse_and_show(intent, project, target, mode, constraints)
         
-        # 显示解析结果
-        click.echo(f"📋 解析意图: {parsed.action.value}")
-        if parsed.target:
-            click.echo(f"   目标: {parsed.target}")
-        if parsed.project:
-            click.echo(f"   项目: {parsed.project}")
-        
-        # 检查是否是 run 命令
         if parsed.action == ActionType.RUN:
-            prd_file = parsed.prd_file or parsed.target
-            if not prd_file:
-                click.echo("❌ 未指定 PRD 文件")
-                sys.exit(1)
-            _run_prd_file(prd_file, dry_run, verbose)
-            return
-        
-        # 生成 PRD
-        generator = PRDGenerator()
-        prd = generator.generate(parsed)
-        
-        if dry_run:
-            click.echo("\n📄 生成的 PRD:")
-            click.echo(prd.to_yaml())
-            return
-        
-        # 执行
-        click.echo(f"\n🚀 开始执行...")
-        result = _execute_prd(prd)
-        
-        if result.success:
-            click.echo(f"\n✅ 执行成功")
-            click.echo(f"   完成 Sprint: {result.completed_sprints}/{result.total_sprints}")
-            click.echo(f"   完成任务: {result.completed_tasks}/{result.total_tasks}")
+            _handle_run_action(parsed, dry_run, verbose)
         else:
-            click.echo(f"\n❌ 执行失败: {result.error}")
-            sys.exit(1)
+            _generate_and_execute(parsed, dry_run)
             
     except YAMLError as e:
         click.echo(f"❌ YAML 解析错误: {e}")
@@ -214,7 +227,8 @@ def _init_project(path: str):
     sprintcycle_dir.mkdir(exist_ok=True)
     
     sample_prd_path = sprintcycle_dir / "sample.yaml"
-    sample_prd_content = PRDGenerator.sample_prd()
+    sample_prd_obj = PRDGenerator.sample_prd()
+    sample_prd_content = sample_prd_obj.to_yaml()
     sample_prd_path.write_text(sample_prd_content, encoding="utf-8")
     
     click.echo(f"✅ 项目初始化完成: {path}")
@@ -278,4 +292,4 @@ def _execute_prd(prd) -> IntentResult:
 
 
 if __name__ == '__main__':
-    cli()
+    cli(None, None, None, "normal", (), False, False, None, False, ())

@@ -128,7 +128,7 @@ class PRD:
         import yaml
         from io import StringIO
         
-        data = {
+        data: Dict[str, Any] = {
             "project": self.project.to_dict(),
             "mode": self.mode.value,
         }

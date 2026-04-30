@@ -25,7 +25,7 @@ class TestTaskDispatcher:
     def test_dispatcher_initialization(self):
         """测试调度器初始化"""
         assert self.dispatcher is not None
-        assert self.dispatcher.evolution_engine is None
+        assert self.dispatcher.evolution_pipeline is None
     
     def test_execute_normal_prd(self):
         """测试执行普通 PRD"""
@@ -111,7 +111,7 @@ class TestTaskDispatcher:
         """测试获取摘要"""
         summary = self.dispatcher.get_summary()
         
-        assert "evolution_engine" in summary
+        assert "evolution_pipeline" in summary
         assert "callbacks" in summary
         assert isinstance(summary["callbacks"], list)
 

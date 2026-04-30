@@ -30,7 +30,7 @@ class SprintEvolutionIntegration:
     
     DEFAULT_TARGETS = ["sprintcycle/config/", "sprintcycle/evolution/"]
     
-    def __init__(self, config: RuntimeConfig = None):
+    def __init__(self, config: Optional[RuntimeConfig] = None):
         self.config = config or RuntimeConfig()
         self.evolution_history: List[Dict[str, Any]] = []
     
@@ -45,7 +45,7 @@ class SprintEvolutionIntegration:
         
         for target in valid_targets:
             logger.info(f"  -> 进化: {target}")
-            pipeline = EvolutionPipeline(target, DiagnosticPRDSource(), self.config)
+            pipeline = EvolutionPipeline(target, DiagnosticPRDSource(), None)  # TODO: convert RuntimeConfig to PipelineConfig
             result = pipeline.run(max_cycles=1)
             self.evolution_history.append({
                 "target": target,

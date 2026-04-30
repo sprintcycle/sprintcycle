@@ -266,7 +266,7 @@ class SprintExecutor:
                 new_sprint.tasks.append(task)
         return new_sprint
     
-    async def execute_sprint(self, sprint: PRDSprint, context: Dict[str, Any] = None, save_checkpoint: bool = True) -> SprintResult:
+    async def execute_sprint(self, sprint: PRDSprint, context: Optional[Dict[str, Any]] = None, save_checkpoint: bool = True) -> SprintResult:
         start_time = time.time()
         result = SprintResult(sprint=sprint, status=TaskStatus.RUNNING)
         logger.info(f"开始执行 Sprint: {sprint.name}")
@@ -310,7 +310,7 @@ class SprintExecutor:
     async def execute_sprints(
         self, sprints: List[PRDSprint], mode: str = "normal",
         evolution_config: Optional[EvolutionConfig] = None,
-        context: Dict[str, Any] = None,
+        context: Optional[Dict[str, Any]] = None,
         execution_id: Optional[str] = None,
         resume: bool = False,
     ) -> List[SprintResult]:
@@ -318,10 +318,10 @@ class SprintExecutor:
             return await self._resume_execution(execution_id, sprints, context)
         self._execution_id = execution_id or self._init_execution_state()
         if mode == "evolution" and self._evolution_engine:
-            return await self._execute_evolution_sprints(sprints, evolution_config, context)
-        return await self._execute_normal_sprints(sprints, context)
+            return await self._execute_evolution_sprints(sprints, evolution_config, context or {})
+        return await self._execute_normal_sprints(sprints, context or {})
     
-    async def _resume_execution(self, execution_id: str, sprints: List[PRDSprint], context: Dict[str, Any] = None) -> List[SprintResult]:
+    async def _resume_execution(self, execution_id: str, sprints: List[PRDSprint], context: Optional[Dict[str, Any]] = None) -> List[SprintResult]:
         logger.info(f"从断点恢复执行: {execution_id}")
         state = self.load_execution_state(execution_id)
         if not state:
@@ -342,7 +342,7 @@ class SprintExecutor:
                 break
         return results
     
-    async def _execute_normal_sprints(self, sprints: List[PRDSprint], context: Dict[str, Any] = None) -> List[SprintResult]:
+    async def _execute_normal_sprints(self, sprints: List[PRDSprint], context: Optional[Dict[str, Any]] = None) -> List[SprintResult]:
         results = []
         for sprint in sprints:
             result = await self.execute_sprint(sprint, context, save_checkpoint=True)
@@ -351,11 +351,11 @@ class SprintExecutor:
                 logger.warning(f"Sprint 失败: {sprint.name}")
         return results
     
-    async def _execute_evolution_sprints(self, sprints: List[PRDSprint], evolution_config: Optional[EvolutionConfig], context: Dict[str, Any] = None) -> List[SprintResult]:
+    async def _execute_evolution_sprints(self, sprints: List[PRDSprint], evolution_config: Optional[EvolutionConfig], context: Optional[Dict[str, Any]] = None) -> List[SprintResult]:
         results = []
         max_generations = evolution_config.iterations if evolution_config else 3
         for sprint in sprints:
-            result = await self._evolution_engine.evolve_sprint(sprint=sprint, max_generations=max_generations)
+            result = await self._evolution_engine.evolve_sprint(sprint=sprint, max_generations=max_generations)  # type: ignore[union-attr]
             sprint_result = self._convert_evolution_result(sprint, result)
             results.append(sprint_result)
             if self._execution_id:
@@ -388,7 +388,7 @@ class SprintExecutor:
             except KeyError:
                 pass
     
-    async def execute_sprint_parallel(self, sprint: PRDSprint, context: Dict[str, Any] = None, dependency_map: Dict[int, Set[int]] = None, save_checkpoint: bool = True) -> SprintResult:
+    async def execute_sprint_parallel(self, sprint: PRDSprint, context: Optional[Dict[str, Any]] = None, dependency_map: Optional[Dict[int, Set[int]]] = None, save_checkpoint: bool = True) -> SprintResult:
         start_time = time.time()
         result = SprintResult(sprint=sprint, status=TaskStatus.RUNNING)
         task_count = len(sprint.tasks)
@@ -397,7 +397,7 @@ class SprintExecutor:
         
         async def execute_with_semaphore(task: PRDTask, idx: int) -> TaskResult:
             async with task_semaphore:
-                return await self._execute_task_with_event(task, sprint.name, context)
+                return await self._execute_task_with_event(task, sprint.name, context or {})
         
         async def run_task(idx: int) -> None:
             task = sprint.tasks[idx]
@@ -452,7 +452,7 @@ class SprintExecutor:
     def _analyze_dependencies(
         self, 
         tasks: List[PRDTask],
-        context: Dict[str, Any] = None
+        context: Optional[Dict[str, Any]] = None
     ) -> Dict[int, Set[int]]:
         """
         分析任务间的依赖关系

@@ -245,9 +245,9 @@ class PRDGenerator:
         )
     
     @staticmethod
-    def _parse_error_info(error_text: str) -> dict:
+    def _parse_error_info(error_text: str) -> dict[str, Any]:
         """从错误文本中解析关键信息"""
-        info = {}
+        info: dict[str, Any] = {}
         
         if not error_text:
             return info

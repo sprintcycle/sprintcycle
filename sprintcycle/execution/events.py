@@ -45,7 +45,8 @@ class Event:
             self.timestamp = datetime.now()
     
     def __str__(self) -> str:
-        return f"Event({self.type.value}, {self.timestamp.isoformat()})"
+        ts = self.timestamp.isoformat() if self.timestamp else "none"
+        return f"Event({self.type.value}, {ts})"
 
 
 class EventBus:

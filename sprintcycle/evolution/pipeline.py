@@ -445,10 +445,11 @@ class EvolutionPipeline:
     
     def _save_gene(self, result: PRDExecutionResult) -> None:
         """保存基因到基因池"""
+        import json
         gene = Gene(
             id=f"gene_{len(self._genes) + 1}",
             type=GeneType.CODE,
-            content=result.prd.to_dict(),
+            content=json.dumps(result.prd.to_dict()),
             metadata={
                 "prd_name": result.prd.name,
                 "improvement": result.improvement,

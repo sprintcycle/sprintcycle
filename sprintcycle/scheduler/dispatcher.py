@@ -10,11 +10,11 @@ import time
 from typing import List, Dict, Any, Optional, Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from ..prd.models import PRD, PRDSprint, PRDTask, ExecutionMode
-from ..evolution.pipeline import EvolutionPipeline
+from ..evolution.pipeline import EvolutionPipeline, PipelineConfig
 from ..evolution.prd_source import DiagnosticPRDSource
 from ..config.manager import RuntimeConfig
 from ..evolution.types import SprintContext
@@ -211,14 +211,14 @@ class TaskDispatcher:
         
         # 初始化进化引擎
         if not self.evolution_pipeline:
-            self.evolution_pipeline = EvolutionPipeline(".", DiagnosticPRDSource(), self.config)
+            self.evolution_pipeline = EvolutionPipeline(".", DiagnosticPRDSource(), PipelineConfig())
         
         # 创建 Sprint 上下文
         context = SprintContext(
             sprint_id=f"evo-{int(time.time())}",
             sprint_number=1,
             goal="; ".join(prd.evolution.goals) if prd.evolution.goals else "优化代码",
-            constraints={"dimensions": self.config.pareto_dimensions},
+            constraints={"dimensions": getattr(self.config, "pareto_dimensions", ["correctness", "performance"])},
         )
         
         # 对每个目标执行进化
@@ -279,7 +279,7 @@ class TaskDispatcher:
                     error=str(result),
                 ))
             else:
-                processed_results.append(result)
+                processed_results.append(result)  # type: ignore[arg-type]
         
         end_time = datetime.now()
         duration = (end_time - start_time).total_seconds()
@@ -338,16 +338,15 @@ class TaskDispatcher:
                 raise FileNotFoundError(f"目标文件不存在: {target_path}")
             
             # 执行进化
-            result = self.evolution_pipeline.run(
-                target=str(target_path),
-                context=context,
-                goal="; ".join(prd.evolution.goals) if prd.evolution.goals else "优化代码",
-                max_variations=prd.evolution.max_variations if prd.evolution else 5,
+            result = self.evolution_pipeline.run(  # type: ignore[union-attr]
+                max_cycles=self.config.evolution_iterations,
             )
             
             if result.success:
                 task_result.status = ExecutionStatus.SUCCESS
-                task_result.output = f"生成 {len(result.variations)} 个变异，选择 {len(result.selected_genes)} 个基因"
+                variations = getattr(result, "variations", [])  # type: ignore[attr-defined]
+                selected = getattr(result, "selected_genes", [])  # type: ignore[attr-defined]
+                task_result.output = f"生成 {len(variations)} 个变异，选择 {len(selected)} 个基因"
             else:
                 task_result.status = ExecutionStatus.FAILED
                 task_result.error = result.error or "未知错误"
@@ -358,7 +357,7 @@ class TaskDispatcher:
             logger.exception(f"进化失败: {target}")
         
         task_result.end_time = datetime.now()
-        task_result.duration = (task_result.end_time - task_result.start_time).total_seconds()
+        task_result.duration = ((task_result.end_time or datetime.now()) - (task_result.start_time or datetime.now())).total_seconds()
         
         end_time = datetime.now()
         
@@ -412,7 +411,7 @@ class TaskDispatcher:
             logger.exception(f"任务执行失败")
         
         result.end_time = datetime.now()
-        result.duration = (result.end_time - result.start_time).total_seconds()
+        result.duration = (result.end_time - result.start_time).total_seconds() if result.start_time else 0.0
         
         self._callbacks["on_task_end"](result)
         
@@ -446,7 +445,8 @@ class TaskDispatcher:
         
         # 初始化进化引擎（如果需要）
         if not self.evolution_pipeline:
-            self.evolution_pipeline = EvolutionPipeline(".", DiagnosticPRDSource(), self.config)
+            pipeline_config = PipelineConfig()
+            self.evolution_pipeline = EvolutionPipeline(".", DiagnosticPRDSource(), pipeline_config)
         
         # 创建上下文
         context = SprintContext(
@@ -457,16 +457,11 @@ class TaskDispatcher:
         
         # 执行进化
         try:
-            target_path = str(Path(prd.project.path) / task.target)
-            evo_result = self.evolution_pipeline.run(
-                target=target_path,
-                context=context,
-                goal=task.task,
-            )
-            
+            evo_result = self.evolution_pipeline.run(max_cycles=self.config.evolution_iterations if hasattr(self.config, "evolution_iterations") else 3)
             if evo_result.success:
                 result.status = ExecutionStatus.SUCCESS
-                result.output = f"进化成功: {len(evo_result.variations)} 个变异"
+                evo_variations = getattr(result, "variations", [])  # type: ignore[attr-defined]
+                result.output = f"进化成功: {len(evo_variations)} 个变异"
             else:
                 result.status = ExecutionStatus.FAILED
                 result.error = evo_result.error

@@ -173,6 +173,9 @@ class AgentExecutor(ABC):
                 result.task_name = task
                 result.retry_count = retry_count
         
+        if result is None:
+            result = AgentResult(success=False, error="No result from strategy")
+        
         if not result.success:
             await self._on_error(result, context)
         

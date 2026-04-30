@@ -62,17 +62,17 @@ class IntentRequest(BaseModel):
     project: Optional[str] = Field(None, description="项目路径")
     target: Optional[str] = Field(None, description="目标文件")
     mode: str = Field("auto", description="执行模式: auto|evolution|normal|fix|test")
-    constraints: List[str] = Field(default_factory=[], description="约束条件")
+    constraints: List[str] = Field(default_factory=list, description="约束条件")
     dry_run: bool = Field(False, description="仅生成 PRD，不执行")
 
 
 class IntentResponse(BaseModel):
     """意图响应"""
-    success: bool = Field(..., description="是否成功")
-    action: Optional[str] = Field(None, description="识别的动作类型")
-    prd_yaml: Optional[str] = Field(None, description="生成的 PRD (YAML)")
-    result: Optional[dict] = Field(None, description="执行结果")
-    error: Optional[str] = Field(None, description="错误信息")
+    success: bool | None = None
+    action: str | None = None
+    prd_yaml: str | None = None
+    result: dict | None = None
+    error: str | None = None
 
 
 class StatusResponse(BaseModel):

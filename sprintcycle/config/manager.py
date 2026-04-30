@@ -262,6 +262,8 @@ class ConfigManager:
         import yaml
         import json
         
+        if not self.config_file:
+            return
         path = Path(self.config_file)
         try:
             if path.suffix in (".yaml", ".yml"):
@@ -269,7 +271,8 @@ class ConfigManager:
                     self._file_config = yaml.safe_load(f) or {}
             elif path.suffix == ".json":
                 with open(path, encoding="utf-8") as f:
-                    self._file_config = json.load(f) or {}
+                    data = json.load(f)
+                    self._file_config = data if isinstance(data, dict) else {}
             else:
                 logger.warning(f"Unknown config file format: {path.suffix}")
         except Exception as e:
@@ -329,7 +332,7 @@ class ConfigManager:
         
         # 再检查文件配置
         keys = key.split(".")
-        value = self._file_config
+        value: Any = self._file_config
         for k in keys:
             if isinstance(value, dict):
                 value = value.get(k)
@@ -379,7 +382,7 @@ class ConfigManager:
 _default_manager: Optional[ConfigManager] = None
 
 
-def get_config_manager(config_file: str = None) -> ConfigManager:
+def get_config_manager(config_file: Optional[str] = None) -> ConfigManager:
     """获取默认配置管理器"""
     global _default_manager
     if _default_manager is None:

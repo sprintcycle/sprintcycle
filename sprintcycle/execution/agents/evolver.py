@@ -143,7 +143,7 @@ class EvolverAgent(AgentExecutor):
                     improvements.append({"type": "extract_constants", "priority": 3, "description": "提取魔法数字"})
             improvements.append({"type": "add_documentation", "priority": 4, "description": "添加文档字符串"})
         
-        improvements.sort(key=lambda x: x["priority"])
+        improvements.sort(key=lambda x: x["priority"])  # type: ignore[arg-type,return-value]
         return improvements
     
     def _apply_improvements(self, code: str, improvements: List[Dict[str, Any]], context: AgentContext) -> tuple[str, int]:

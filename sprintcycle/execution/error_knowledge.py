@@ -444,10 +444,10 @@ class ErrorParser:
             result.traceback.append(tb_entry)
             
             # 最后一个 traceback 作为错误位置
-            result.file_path = tb_entry["file"]
-            result.line_number = tb_entry["line"]
-            result.column = tb_entry["column"]
-            result.function_name = tb_entry["function"]
+            result.file_path = str(tb_entry["file"]) if tb_entry.get("file") else None
+            result.line_number = int(tb_entry["line"]) if isinstance(tb_entry.get("line"), (int, str)) else None  # type: ignore[arg-type]
+            result.column = int(tb_entry["column"]) if isinstance(tb_entry.get("column"), (int, str)) else None  # type: ignore[arg-type]
+            result.function_name = str(tb_entry["function"]) if tb_entry.get("function") else None
         
         # 提取变量名
         var_match = self.VARIABLE_PATTERN.search(error_log)

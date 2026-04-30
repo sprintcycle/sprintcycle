@@ -283,7 +283,7 @@ class MetricsCollector:
 
     def _calc_agent_stats(self) -> Dict[str, Any]:
         """计算Agent类型统计"""
-        agent_stats = defaultdict(lambda: {"success": 0, "failed": 0, "total_duration": 0.0, "count": 0})
+        agent_stats: Dict[str, Dict[str, Any]] = defaultdict(lambda: {"success": 0, "failed": 0, "total_duration": 0.0, "count": 0})
         
         for record in self._executions.values():
             if not record.is_complete:

@@ -38,6 +38,8 @@ import json
 import logging
 import re
 from pathlib import Path
+import logging
+logger = logging.getLogger(__name__)
 
 
 class FeedbackLevel(Enum):
@@ -270,7 +272,7 @@ class ExecutionFeedback:
     def from_results(cls, prd_id: str, prd_name: str, sprint_name: str,
                      iteration: int, task_results: List[Any]) -> "ExecutionFeedback":
         feedback = cls(
-            prd_id=prd_id, prd_name=prd_name, sprint_name=sprint_name,
+            prd_id=prd_id, prd_name=str(prd_name), sprint_name=sprint_name,
             iteration=iteration, total_tasks=len(task_results),
         )
         
@@ -458,7 +460,7 @@ class FeedbackLoop:
             sprint_name = results[0].sprint.name
         
         feedback = ExecutionFeedback.from_results(
-            prd_id=prd_id, prd_name=prd_name, sprint_name=sprint_name,
+            prd_id=prd_id, prd_name=str(prd_name), sprint_name=sprint_name,
             iteration=1, task_results=task_results,
         )
         

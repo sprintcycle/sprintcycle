@@ -61,9 +61,9 @@ class EvolutionEngineConfig:
             max_variations_per_gen=config.max_variations,
         )
 
-    def to_gepa_config(self, repo_path: str = "."):
-        """Convert to GEPAConfig — 委托给 RuntimeConfig.to_gepa_config()"""
-        runtime = RuntimeConfig(
+    def to_runtime_config(self) -> RuntimeConfig:
+        """转换为 RuntimeConfig"""
+        return RuntimeConfig(
             llm_provider=self.llm_provider,
             llm_model=self.llm_model,
             api_key=self.llm_api_key or None,
@@ -74,4 +74,3 @@ class EvolutionEngineConfig:
             evolution_iterations=self.max_iterations,
             max_variations=self.max_variations_per_gen,
         )
-        return runtime.to_gepa_config(repo_path)

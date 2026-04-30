@@ -247,7 +247,7 @@ class PRDParser:
         )
     
     @classmethod
-    def from_prd(cls, prd: PRD) -> "PRDParser":
+    def from_prd(cls, prd: PRD) -> dict[str, Any]:
         """
         从 PRD 对象创建调度信息（用于后续调度）
         

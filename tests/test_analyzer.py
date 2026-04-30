@@ -277,7 +277,7 @@ class TestFixSuggestion(TestBugAnalyzerAgent):
         suggestions = await analyzer.suggest_fix(report)
         
         assert len(suggestions) > 0
-        assert any("type" in s.explanation.lower() for s in suggestions)
+        assert any("类型" in s.explanation or "type" in s.explanation.lower() for s in suggestions)
     
     @pytest.mark.asyncio
     async def test_suggest_import_error_fix(self, analyzer):

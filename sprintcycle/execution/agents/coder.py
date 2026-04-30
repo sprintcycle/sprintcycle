@@ -34,7 +34,7 @@ import logging
 import re
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Dict, Any, List, Optional
+from typing import Optional, Dict, Any, List, Optional
 
 from .base import AgentExecutor, AgentContext, AgentResult, AgentType
 
@@ -81,7 +81,7 @@ class CoderAgent(AgentExecutor):
     └─────────────────────────────────────────────────────────────┘
     """
     
-    def __init__(self, config=None, batch_config: BatchConfig = None):
+    def __init__(self, config=None, batch_config: Optional[BatchConfig] = None):
         """初始化 Coder Agent
         
         Args:
@@ -89,7 +89,7 @@ class CoderAgent(AgentExecutor):
             batch_config: 批量处理配置（可选）
         """
         super().__init__()
-        self._config = config or {}
+        self._config = config or {}  # type: ignore[assignment]
         self._retry_count = 0
         self._batch_config = batch_config or BatchConfig()
         self._cache_enabled = False
@@ -605,7 +605,7 @@ async def _run_static_analysis(self, context: "AgentContext") -> list:
     try:
         from ..static_analyzer import StaticAnalyzer, AnalysisConfig
         
-        project_path = context.project_path or "."
+        project_path = getattr(context, "project_path", ".") or "."
         config = AnalysisConfig(
             ruff_enabled=True,
             ruff_rules=["E", "F", "W", "I", "UP"],
@@ -644,7 +644,7 @@ def _summarize_static_results(self, results: list) -> str:
     
     return ", ".join(summary_parts) if summary_parts else "未发现问题"
 
-async def _llm_analyze_error(self, error_log: str, context: "AgentContext", static_results: list = None) -> dict:
+async def _llm_analyze_error(self, error_log: str, context: "AgentContext", static_results: Optional[list] = None) -> dict:
     """使用 LLM 分析错误"""
     try:
         import httpx

@@ -39,11 +39,12 @@ class ErrorCategory(str, Enum):
 
 class Location(BaseModel):
     """问题位置"""
-    file_path: Optional[str] = Field(None, description="文件路径")
-    line_number: Optional[int] = Field(None, description="行号")
-    column_number: Optional[int] = Field(None, description="列号")
-    function_name: Optional[str] = Field(None, description="函数名")
-    class_name: Optional[str] = Field(None, description="类名")
+    file_path: str | None = None
+    line_number: int | None = None
+    column_number: int | None = None
+    function_name: str | None = None
+    class_name: str | None = None
+    code_snippet: str | None = None
 
     def __str__(self) -> str:
         """格式化位置信息"""
@@ -67,7 +68,7 @@ class BugReport(BaseModel):
     category: ErrorCategory = Field(ErrorCategory.UNKNOWN, description="错误分类")
     
     # 位置信息
-    location: Location = Field(default_factory=Location, description="问题位置")
+    location: Location | None = Field(default_factory=Location, description="问题位置")
     
     # 分析结果
     severity: BugSeverity = Field(BugSeverity.MEDIUM, description="严重程度")
@@ -75,8 +76,8 @@ class BugReport(BaseModel):
     suggestions: List[str] = Field(default_factory=list, description="修复建议列表")
     
     # 上下文
-    stack_trace: Optional[str] = Field(None, description="完整堆栈跟踪")
-    code_snippet: Optional[str] = Field(None, description="问题代码片段")
+    stack_trace: str | None = None
+    code_snippet: str | None = None
     related_files: List[str] = Field(default_factory=list, description="相关文件")
     
     # 元数据
@@ -102,8 +103,8 @@ class FixSuggestion(BaseModel):
     confidence: float = Field(0.8, ge=0.0, le=1.0, description="修复置信度 (0-1)")
     
     # 修复位置
-    line_start: Optional[int] = Field(None, description="起始行号")
-    line_end: Optional[int] = Field(None, description="结束行号")
+    line_start: int | None = None
+    line_end: int | None = None
     
     # 额外信息
     is_automated: bool = Field(False, description="是否可自动修复")
@@ -126,15 +127,15 @@ class FixResult(BaseModel):
     file_path: str = Field(..., description="修改的文件路径")
     
     # 变更信息
-    diff: Optional[str] = Field(None, description="代码变更 diff")
-    lines_changed: int = Field(0, description="变更行数")
+    diff: str | None = None
+    lines_changed: int = 0
     
     # 错误信息（如有）
-    error: Optional[str] = Field(None, description="错误信息")
+    error: str | None = None
     
     # 验证信息
     verified: bool = Field(False, description="是否已验证")
-    backup_path: Optional[str] = Field(None, description="备份文件路径")
+    backup_path: str | None = None
 
     def to_summary(self) -> str:
         """生成结果摘要"""
@@ -147,15 +148,15 @@ class FixResult(BaseModel):
 class AnalysisRequest(BaseModel):
     """分析请求"""
     error_log: str = Field(..., description="错误日志或 traceback")
-    code_context: Optional[Dict[str, str]] = Field(None, description="代码上下文，key为文件路径")
+    code_context: Dict[str, str] | None = None
     file_paths: List[str] = Field(default_factory=list, description="相关文件路径列表")
     
     # 分析选项
     use_llm: bool = Field(True, description="是否使用 LLM 进行深度分析")
-    max_depth: int = Field(3, description="分析最大深度")
+    max_depth: int | None = 3
     
     # 语言
-    language: str = Field("python", description="编程语言")
+    language: str | None = "python"
 
 
 class AnalysisResult(BaseModel):
