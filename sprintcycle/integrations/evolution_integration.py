@@ -1,17 +1,19 @@
 """
 Sprint Evolution Integration - Sprint 进化集成层
+
+v0.9.0: 使用 EvolutionPipeline 替代 GEPAEngine
 """
 
-import asyncio
-from typing import List, Dict, Any, Optional, Callable
+from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 from pathlib import Path
 from datetime import datetime
 import logging
 
-from ..evolution.config import EvolutionEngineConfig
-from ..evolution.gepa_engine import GEPAEngine as EvolutionEngine
-from ..evolution.types import SprintContext, EvolutionResult
+from ..evolution.pipeline import EvolutionPipeline
+from ..evolution.prd_source import DiagnosticPRDSource
+from ..evolution.types import EvolutionResult
+from ..config.manager import RuntimeConfig
 
 logger = logging.getLogger(__name__)
 
@@ -24,44 +26,36 @@ class EvolutionTrigger:
 
 
 class SprintEvolutionIntegration:
-    """Sprint 进化集成器"""
+    """Sprint 进化集成器 — v0.9.0 统一管道版"""
     
-    DEFAULT_TARGETS = ["sprintcycle/config.py", "sprintcycle/server.py", "sprintcycle/evolution/engine.py"]
+    DEFAULT_TARGETS = ["sprintcycle/config/", "sprintcycle/evolution/"]
     
-    def __init__(self, config: EvolutionEngineConfig):
-        self.config = config
-        self.engine = EvolutionEngine(config)
-        self.evolution_history: List[EvolutionResult] = []
+    def __init__(self, config: RuntimeConfig = None):
+        self.config = config or RuntimeConfig()
+        self.evolution_history: List[Dict[str, Any]] = []
     
-    async def trigger_after_sprint(self, sprint_metrics: Dict[str, Any], targets: Optional[List[str]] = None) -> List[EvolutionResult]:
+    def trigger_after_sprint(self, sprint_metrics: Dict[str, Any], targets: Optional[List[str]] = None) -> Dict[str, Any]:
         sprint_number = sprint_metrics.get("sprint_number", 1)
-        logger.info(f"🏃 Sprint {sprint_number} 结束，开始自我进化...")
-        
-        if not self.engine.should_evolve(sprint_metrics):
-            logger.info("📊 指标正常，跳过")
-            return []
-        
-        context = SprintContext(sprint_id=f"sc-{sprint_number}-{datetime.now().strftime('%H%M%S')}", sprint_number=sprint_number, goal=f"Sprint {sprint_number} 优化", current_metrics=sprint_metrics)
+        logger.info(f"Sprint {sprint_number} 结束，启动诊断进化...")
         
         if targets is None:
             targets = self.DEFAULT_TARGETS
         
-        valid_targets = [t for t in targets if (Path(__file__).parent.parent / t).exists()]
+        valid_targets = [t for t in targets if (Path(".") / t).exists()]
         
-        results = []
         for target in valid_targets:
-            logger.info(f"  → 进化: {target}")
-            result = await self.engine.evolve_code(target=target, context=context, goal=f"优化 {target}")
-            results.append(result)
-            logger.info(f"    {'✅' if result.success else '⚠️'} {target}")
+            logger.info(f"  -> 进化: {target}")
+            pipeline = EvolutionPipeline(target, DiagnosticPRDSource(), self.config)
+            result = pipeline.run(max_cycles=1)
+            self.evolution_history.append({
+                "target": target,
+                "success": result.success,
+                "sprint_number": sprint_number,
+                "timestamp": datetime.now().isoformat(),
+            })
+            logger.info(f"    {'OK' if result.success else 'WARN'} {target}")
         
-        self.evolution_history.extend(results)
-        return results
-    
-    async def evolve_modules(self, modules: List[str], goal: Optional[str] = None) -> List[EvolutionResult]:
-        logger.info(f"👐 手动触发进化: {modules}")
-        context = SprintContext(sprint_id=f"manual-{datetime.now().strftime('%H%M%S')}", sprint_number=0, goal=goal or "手动优化")
-        return [await self.engine.evolve_code(target=m, context=context, goal=goal) for m in modules]
+        return {"evolved": len(valid_targets), "history_count": len(self.evolution_history)}
     
     def get_evolution_status(self) -> Dict[str, Any]:
-        return {"engine_summary": self.engine.get_summary(), "history_count": len(self.evolution_history)}
+        return {"history_count": len(self.evolution_history)}

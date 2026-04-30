@@ -25,11 +25,11 @@ from ..evolution.types import SprintContext
 EvolutionStrategy = StrategyEvolutionStrategy
 
 
-def _get_evolution_engine():
+def _get_evolution_pipeline():
     """Lazy import to avoid circular dependency with evolution module"""
-    from ..evolution.gepa_engine import GEPAEngine as EvolutionEngine
-    from ..evolution.config import EvolutionEngineConfig
-    return EvolutionEngine, EvolutionEngineConfig
+    from ..evolution.pipeline import EvolutionPipeline
+    from ..evolution.prd_source import ManualPRDSource, DiagnosticPRDSource
+    return EvolutionPipeline, ManualPRDSource, DiagnosticPRDSource
 
 __all__ = [
     "ExecutionEngine", "SprintExecutor", "NormalStrategy", "EvolutionStrategy", "ExecutionStrategy", "get_strategy",

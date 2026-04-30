@@ -174,22 +174,6 @@ class RuntimeConfig:
             "quiet": self.quiet,
         }
     
-
-    def to_gepa_config(self, repo_path: str = ".") -> "GEPAConfig":
-        """从 RuntimeConfig 生成 GEPAConfig（v0.9.0 统一入口）"""
-        from sprintcycle.evolution.gepa_engine import GEPAConfig
-        return GEPAConfig(
-            repo_path=repo_path,
-            evolution_cache_dir=self.evolution_cache_dir,
-            max_cycles=self.evolution_iterations,
-            max_variations_per_cycle=self.max_variations,
-            convergence_threshold=self.convergence_threshold,
-            min_improvement=self.min_improvement,
-            quality_gate_enabled=self.quality_gate_enabled,
-            min_correctness=self.min_correctness,
-            min_overall=self.min_overall,
-            auto_commit=self.auto_commit,
-        )
     def to_dict_non_default(self) -> Dict[str, Any]:
         """转换为字典，只包含非默认值"""
         result = {}

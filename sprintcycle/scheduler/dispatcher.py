@@ -14,8 +14,9 @@ from datetime import datetime
 from pathlib import Path
 
 from ..prd.models import PRD, PRDSprint, PRDTask, ExecutionMode
-from ..evolution.gepa_engine import GEPAEngine as EvolutionEngine
-from ..evolution.config import EvolutionEngineConfig
+from ..evolution.pipeline import EvolutionPipeline
+from ..evolution.prd_source import DiagnosticPRDSource
+from ..config.manager import RuntimeConfig
 from ..evolution.types import SprintContext
 
 logger = logging.getLogger(__name__)
@@ -105,8 +106,8 @@ class TaskDispatcher:
     
     def __init__(
         self,
-        config: Optional[EvolutionEngineConfig] = None,
-        evolution_engine: Optional[EvolutionEngine] = None,
+        config: Optional[RuntimeConfig] = None,
+        evolution_pipeline: Optional[EvolutionPipeline] = None,
     ):
         """
         初始化调度器
@@ -115,8 +116,8 @@ class TaskDispatcher:
             config: 进化引擎配置
             evolution_engine: 进化引擎实例（可选）
         """
-        self.config = config or EvolutionEngineConfig()
-        self.evolution_engine = evolution_engine
+        self.config = config or RuntimeConfig()
+        self.evolution_pipeline = evolution_pipeline
         self._callbacks: Dict[str, Callable] = {}
         
         # 注册默认回调
@@ -209,8 +210,8 @@ class TaskDispatcher:
             return results
         
         # 初始化进化引擎
-        if not self.evolution_engine:
-            self.evolution_engine = EvolutionEngine(self.config)
+        if not self.evolution_pipeline:
+            self.evolution_pipeline = EvolutionPipeline(".", DiagnosticPRDSource(), self.config)
         
         # 创建 Sprint 上下文
         context = SprintContext(
@@ -337,7 +338,7 @@ class TaskDispatcher:
                 raise FileNotFoundError(f"目标文件不存在: {target_path}")
             
             # 执行进化
-            result = await self.evolution_engine.evolve_code(
+            result = self.evolution_pipeline.run(
                 target=str(target_path),
                 context=context,
                 goal="; ".join(prd.evolution.goals) if prd.evolution.goals else "优化代码",
@@ -444,8 +445,8 @@ class TaskDispatcher:
             return result
         
         # 初始化进化引擎（如果需要）
-        if not self.evolution_engine:
-            self.evolution_engine = EvolutionEngine(self.config)
+        if not self.evolution_pipeline:
+            self.evolution_pipeline = EvolutionPipeline(".", DiagnosticPRDSource(), self.config)
         
         # 创建上下文
         context = SprintContext(
@@ -457,7 +458,7 @@ class TaskDispatcher:
         # 执行进化
         try:
             target_path = str(Path(prd.project.path) / task.target)
-            evo_result = await self.evolution_engine.evolve_code(
+            evo_result = self.evolution_pipeline.run(
                 target=target_path,
                 context=context,
                 goal=task.task,
@@ -510,6 +511,6 @@ class TaskDispatcher:
     def get_summary(self) -> Dict[str, Any]:
         """获取调度器状态摘要"""
         return {
-            "evolution_engine": self.evolution_engine is not None,
+            "evolution_pipeline": self.evolution_pipeline is not None,
             "callbacks": list(self._callbacks.keys()),
         }

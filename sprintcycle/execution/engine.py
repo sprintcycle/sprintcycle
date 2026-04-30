@@ -60,15 +60,14 @@ class ExecutionEngine:
         """
         self.config = config or {}
         
-        # 创建 EvolutionEngine
-        from ..evolution.gepa_engine import GEPAEngine as EvolutionEngine
-        from ..evolution.config import EvolutionEngineConfig
-        evolution_config = EvolutionEngineConfig()
-        self._evolution_engine = EvolutionEngine(evolution_config)
+        # v0.9.0: EvolutionPipeline replaces GEPAEngine
+        from ..evolution.pipeline import EvolutionPipeline
+        from ..evolution.prd_source import ManualPRDSource
+        self._evolution_pipeline = EvolutionPipeline(".", ManualPRDSource(""))
         
         # 创建共享的 SprintExecutor（注入 EvolutionEngine）
         self.sprint_executor = SprintExecutor(
-            evolution_engine=self._evolution_engine,
+            evolution_pipeline=self._evolution_pipeline,
         )
         
         # 策略缓存

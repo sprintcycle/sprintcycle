@@ -2,6 +2,7 @@
 SprintCycle Evolution Module
 
 v0.9.0: 统一进化管道 — EvolutionPipeline + PRDSource + Diagnostic
+GEPA独立引擎已移除，所有进化通过EvolutionPipeline执行。
 """
 
 # ========== Core Types ==========
@@ -10,17 +11,6 @@ from .types import (
     SprintContext, EvolutionResult, EvolutionStage,
     EvolutionMetrics, FitnessDimension,
     FitnessScore,
-)
-
-# ========== GEPA Engine (Active) ==========
-from .gepa_engine import (
-    GEPAEngine,
-    GEPAConfig,
-    EvolutionStatus,
-    EvolutionError,
-    ConvergenceError,
-    QualityGateError,
-    VariationError,
 )
 
 # ========== Unified Pipeline (v0.9.0) ==========
@@ -36,7 +26,7 @@ from .prd_source import (
     EvolutionPRD,
 )
 
-# ========== Components ==========
+# ========== Components (retained) ==========
 from .measurement import (
     MeasurementProvider,
     MeasurementResult,
@@ -47,28 +37,6 @@ from .memory_store import (
     MemoryStore,
     EvolutionMemory,
     MemoryConfig,
-)
-
-from .variation_engine_new import (
-    VariationEngine,
-    VariationConfig,
-    GeneratedVariant,
-    VariationStrategy,
-)
-
-from .selection_engine import (
-    SelectionEngine,
-    SelectionConfig,
-    EvaluatedVariant,
-)
-
-from .inheritance_engine import (
-    InheritanceEngine,
-    InheritanceGene,
-    EvolutionCycle,
-    CodeVariant,
-    GeneMemoryStore,
-    InheritanceError,
 )
 
 from .rollback_manager import (
@@ -88,19 +56,12 @@ __all__ = [
     "SprintContext", "EvolutionResult", "EvolutionStage",
     "EvolutionMetrics", "FitnessDimension",
     "FitnessScore",
-    # GEPA Engine
-    "GEPAEngine", "GEPAConfig", "EvolutionStatus",
-    "EvolutionError", "ConvergenceError", "QualityGateError", "VariationError",
     # Unified Pipeline
     "EvolutionPipeline", "PipelineConfig", "PipelineResult",
     "PRDSource", "ManualPRDSource", "DiagnosticPRDSource", "EvolutionPRD",
     # Components
     "MeasurementProvider", "MeasurementResult", "MeasurementConfig",
     "MemoryStore", "EvolutionMemory", "MemoryConfig",
-    "VariationEngine", "VariationConfig", "GeneratedVariant", "VariationStrategy",
-    "SelectionEngine", "SelectionConfig", "EvaluatedVariant",
-    "InheritanceEngine", "InheritanceGene", "EvolutionCycle", "CodeVariant",
-    "GeneMemoryStore", "InheritanceError",
     "EvolutionRollbackManager", "VariantBranch", "RollbackError",
     # Config
     "EvolutionEngineConfig",
