@@ -133,9 +133,27 @@ class SelectionEngine:
         return ""
     
     def _compute_pareto_frontier(self, variants: List[EvaluatedVariant]) -> None:
+        """计算Pareto前沿，使用简化的非支配排序"""
         if not variants:
             return
         
+        # 归一化fitness值
+        self._normalize_fitness_scores(variants)
+        
+        # 计算支配关系
+        n = len(variants)
+        domination_count, dominated_set = self._calculate_domination_relations(variants)
+        
+        # 非支配排序
+        ranks = self._assign_ranks(n, domination_count, dominated_set)
+        
+        # 更新variants属性
+        for i, v in enumerate(variants):
+            v.pareto_rank = ranks[i]
+            v.dominated = ranks[i] > 0
+
+    def _normalize_fitness_scores(self, variants: List[EvaluatedVariant]) -> None:
+        """归一化fitness分数"""
         max_values = {
             "correctness": max(v.fitness.correctness for v in variants) or 1.0,
             "performance": max(v.fitness.performance for v in variants) or 1.0,
@@ -144,14 +162,17 @@ class SelectionEngine:
         }
         
         for v in variants:
-            norm = FitnessScore(
+            v.fitness = FitnessScore(
                 correctness=v.fitness.correctness / max_values["correctness"],
                 performance=v.fitness.performance / max_values["performance"],
                 stability=v.fitness.stability / max_values["stability"],
                 code_quality=v.fitness.code_quality / max_values["code_quality"],
             )
-            v.fitness = norm
-        
+
+    def _calculate_domination_relations(
+        self, variants: List[EvaluatedVariant]
+    ) -> tuple:
+        """计算所有变体的支配关系"""
         n = len(variants)
         domination_count = [0] * n
         dominated_set: List[List[int]] = [[] for _ in range(n)]
@@ -164,23 +185,33 @@ class SelectionEngine:
                     elif self._dominates(variants[j], variants[i]):
                         domination_count[i] += 1
         
+        return domination_count, dominated_set
+
+    def _assign_ranks(
+        self, n: int, domination_count: List[int], dominated_set: List[List[int]]
+    ) -> List[int]:
+        """分配Pareto秩"""
         ranks = [0] * n
         current_rank = 0
+        dom_count_copy = domination_count.copy()
+        
         while True:
-            front = [i for i in range(n) if domination_count[i] == 0]
+            front = [i for i in range(n) if dom_count_copy[i] == 0]
             if not front:
                 break
             
             for i in front:
                 ranks[i] = current_rank
-                domination_count[i] = -1  # mark as processed
+                dom_count_copy[i] = -1  # mark as processed
                 for j in dominated_set[i]:
-                    domination_count[j] -= 1
+                    dom_count_copy[j] -= 1
+            
+            current_rank += 1
         
-        for i, v in enumerate(variants):
-            v.pareto_rank = ranks[i]
-            v.dominated = ranks[i] > 0
-    
+        return ranks
+
+
+
     def _dominates(self, a: EvaluatedVariant, b: EvaluatedVariant) -> bool:
         f_a = a.fitness
         f_b = b.fitness

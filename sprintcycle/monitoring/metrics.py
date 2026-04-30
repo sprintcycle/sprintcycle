@@ -231,49 +231,67 @@ class MetricsCollector:
     
     def get_stats(self) -> Dict[str, Any]:
         """获取统计数据"""
-        # 执行统计
-        total_executions = len(self._executions)
-        success_count = sum(
-            1 for r in self._executions.values()
-            if r.status == ExecutionStatus.SUCCESS
-        )
-        failed_count = sum(
-            1 for r in self._executions.values()
-            if r.status == ExecutionStatus.FAILED
-        )
-        running_count = sum(
-            1 for r in self._executions.values()
-            if r.status == ExecutionStatus.RUNNING
-        )
+        exec_status = self._calc_execution_status()
+        duration_stats = self._calc_duration_stats()
+        agent_stats = self._calc_agent_stats()
         
+        return {
+            "timestamp": datetime.now().isoformat(),
+            "executions": exec_status,
+            "duration": duration_stats,
+            "counters": dict(self._counters),
+            "agent_stats": agent_stats,
+            "recent_executions": self._get_recent_executions(),
+        }
+
+    def _calc_execution_status(self) -> Dict[str, Any]:
+        """计算执行状态统计"""
+        records = list(self._executions.values())
+        total = len(records)
+        
+        status_counts = {
+            status: sum(1 for r in records if r.status == status)
+            for status in ExecutionStatus
+        }
+        
+        non_running = total - status_counts.get(ExecutionStatus.RUNNING, 0)
         success_rate = (
-            success_count / (total_executions - running_count) * 100
-            if total_executions - running_count > 0 else 100.0
+            status_counts.get(ExecutionStatus.SUCCESS, 0) / non_running * 100
+            if non_running > 0 else 100.0
         )
         
-        # 耗时统计
-        completed_executions = [
-            r for r in self._executions.values()
-            if r.is_complete
-        ]
+        return {
+            "total": total,
+            "success": status_counts.get(ExecutionStatus.SUCCESS, 0),
+            "failed": status_counts.get(ExecutionStatus.FAILED, 0),
+            "running": status_counts.get(ExecutionStatus.RUNNING, 0),
+            "success_rate": round(success_rate, 2),
+        }
+
+    def _calc_duration_stats(self) -> Dict[str, float]:
+        """计算耗时统计"""
+        durations = [r.duration for r in self._executions.values() if r.is_complete]
         
-        durations = [r.duration for r in completed_executions]
-        avg_duration = sum(durations) / len(durations) if durations else 0
-        min_duration = min(durations) if durations else 0
-        max_duration = max(durations) if durations else 0
+        if not durations:
+            return {"avg": 0, "min": 0, "max": 0}
         
-        # 最近执行
-        recent_executions = [
-            self._executions[eid].to_dict()
-            for eid in self._execution_order[-10:][::-1]
-            if eid in self._executions
-        ]
-        
-        # Agent 类型统计
+        return {
+            "avg": round(sum(durations) / len(durations), 3),
+            "min": round(min(durations), 3),
+            "max": round(max(durations), 3),
+        }
+
+    def _calc_agent_stats(self) -> Dict[str, Any]:
+        """计算Agent类型统计"""
         agent_stats = defaultdict(lambda: {"success": 0, "failed": 0, "total_duration": 0.0, "count": 0})
-        for record in completed_executions:
+        
+        for record in self._executions.values():
+            if not record.is_complete:
+                continue
+            
             agent_type = record.agent_type or "unknown"
             stats = agent_stats[agent_type]
+            
             if record.status == ExecutionStatus.SUCCESS:
                 stats["success"] += 1
             else:
@@ -281,31 +299,26 @@ class MetricsCollector:
             stats["total_duration"] += record.duration
             stats["count"] += 1
         
+        result = {}
         for agent_type, stats in agent_stats.items():
             if stats["count"] > 0:
-                stats["avg_duration"] = round(stats["total_duration"] / stats["count"], 3)
-                stats["success_rate"] = round(stats["success"] / stats["count"] * 100, 2)
-            del stats["total_duration"]
+                result[agent_type] = {
+                    "avg_duration": round(stats["total_duration"] / stats["count"], 3),
+                    "success_rate": round(stats["success"] / stats["count"] * 100, 2),
+                }
         
-        return {
-            "timestamp": datetime.now().isoformat(),
-            "executions": {
-                "total": total_executions,
-                "success": success_count,
-                "failed": failed_count,
-                "running": running_count,
-                "success_rate": round(success_rate, 2),
-            },
-            "duration": {
-                "avg": round(avg_duration, 3),
-                "min": round(min_duration, 3),
-                "max": round(max_duration, 3),
-            },
-            "counters": dict(self._counters),
-            "agent_stats": dict(agent_stats),
-            "recent_executions": recent_executions,
-        }
-    
+        return result
+
+    def _get_recent_executions(self) -> List[Dict[str, Any]]:
+        """获取最近执行记录"""
+        return [
+            self._executions[eid].to_dict()
+            for eid in self._execution_order[-10:][::-1]
+            if eid in self._executions
+        ]
+
+
+
     def get_executions(
         self,
         status: Optional[ExecutionStatus] = None,

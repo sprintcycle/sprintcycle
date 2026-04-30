@@ -448,6 +448,7 @@ class SprintExecutor:
         await asyncio.sleep(0.1)
         return f"测试完成: {task.task}"
 
+
     def _analyze_dependencies(
         self, 
         tasks: List[PRDTask],
@@ -462,81 +463,103 @@ class SprintExecutor:
             
         Returns:
             Dict[int, Set[int]]: 任务索引到其依赖任务索引集合的映射
-            例如: {2: {0, 1}} 表示任务2依赖于任务0和任务1
         """
-        import re
-        
         dependency_map: Dict[int, Set[int]] = {i: set() for i in range(len(tasks))}
         
-        # 任务关键词依赖模式
-        dependency_keywords = [
-            ("测试", "实现"),      # 测试依赖实现
-            ("test", "implement"),
-            ("verify", "build"),
-            ("build", "compile"),
-            ("集成", "单元"),     # 集成测试依赖单元测试
-            ("integration", "unit"),
-            ("端到端", "模块"),   # E2E测试依赖模块
-            ("e2e", "module"),
-            ("部署", "构建"),    # 部署依赖构建
-            ("deploy", "build"),
-        ]
-        
-        # 分析每个任务
+        # 对每个任务分析依赖
         for i, task in enumerate(tasks):
-            task_text = task.task.lower()
-            target = (task.target or "").lower()
-            
-            # 1. 基于关键词的隐式依赖
-            for dep_kw, src_kw in dependency_keywords:
-                if dep_kw in task_text and src_kw in task_text:
-                    # 向前查找可能提供依赖的任务
-                    for j in range(i):
-                        prev_task_text = tasks[j].task.lower()
-                        prev_target = (tasks[j].target or "").lower()
-                        if src_kw in prev_task_text or src_kw in prev_target:
-                            dependency_map[i].add(j)
-            
-            # 2. 基于 target 文件路径的依赖
-            if task.target:
-                task_target_lower = task.target.lower()
-                for j in range(i):
-                    prev_task = tasks[j]
-                    if prev_task.target:
-                        prev_target_lower = prev_task.target.lower()
-                        # 检查是否有文件扩展名匹配
-                        prev_ext = prev_target_lower.split('.')[-1] if '.' in prev_target_lower else ''
-                        task_ext = task_target_lower.split('.')[-1] if '.' in task_target_lower else ''
-                        
-                        # 同类型文件可能有依赖（如 .py 引用 .py）
-                        if prev_ext == task_ext and prev_ext in ['py', 'ts', 'js', 'go', 'java']:
-                            dependency_map[i].add(j)
-            
-            # 3. 基于任务类型的顺序依赖
-            # 测试任务通常依赖实现任务
-            if task.agent == "tester":
-                for j in range(i):
-                    if tasks[j].agent in ["coder", "implement"]:
-                        dependency_map[i].add(j)
-            
-            # 构建任务依赖编译任务
-            if "build" in task_text or "编译" in task_text:
-                for j in range(i):
-                    if "compile" in tasks[j].task.lower() or "编译" in tasks[j].task:
-                        dependency_map[i].add(j)
-            
-            # 部署任务依赖构建任务
-            if "deploy" in task_text or "部署" in task_text:
-                for j in range(i):
-                    if "build" in tasks[j].task.lower() or "构建" in tasks[j].task:
-                        dependency_map[i].add(j)
+            self._add_keyword_based_dependencies(tasks, i, task, dependency_map)
+            self._add_target_path_dependencies(tasks, i, task, dependency_map)
+            self._add_agent_type_dependencies(tasks, i, task, dependency_map)
         
         # 移除自引用
-        for i in dependency_map:
-            dependency_map[i].discard(i)
+        for idx in dependency_map:
+            dependency_map[idx].discard(idx)
         
         return dependency_map
-    
+
+    def _add_keyword_based_dependencies(
+        self,
+        tasks: List[PRDTask],
+        task_idx: int,
+        task: PRDTask,
+        dep_map: Dict[int, Set[int]]
+    ) -> None:
+        """基于关键词分析依赖关系"""
+        dependency_keywords = [
+            ("测试", "实现"), ("test", "implement"),
+            ("verify", "build"), ("build", "compile"),
+            ("集成", "单元"), ("integration", "unit"),
+            ("端到端", "模块"), ("e2e", "module"),
+            ("部署", "构建"), ("deploy", "build"),
+        ]
+        
+        task_text = task.task.lower()
+        
+        for dep_kw, src_kw in dependency_keywords:
+            if dep_kw in task_text:
+                for j in range(task_idx):
+                    prev_text = tasks[j].task.lower()
+                    prev_target = (tasks[j].target or "").lower()
+                    if src_kw in prev_text or src_kw in prev_target:
+                        dep_map[task_idx].add(j)
+
+    def _add_target_path_dependencies(
+        self,
+        tasks: List[PRDTask],
+        task_idx: int,
+        task: PRDTask,
+        dep_map: Dict[int, Set[int]]
+    ) -> None:
+        """基于target文件路径分析依赖关系"""
+        if not task.target:
+            return
+        
+        task_ext = task.target.lower().split('.')[-1] if '.' in task.target.lower() else ''
+        code_extensions = {'py', 'ts', 'js', 'go', 'java'}
+        
+        if task_ext not in code_extensions:
+            return
+        
+        for j in range(task_idx):
+            prev_task = tasks[j]
+            if not prev_task.target:
+                continue
+            
+            prev_ext = prev_task.target.lower().split('.')[-1] if '.' in prev_task.target.lower() else ''
+            if prev_ext == task_ext:
+                dep_map[task_idx].add(j)
+
+    def _add_agent_type_dependencies(
+        self,
+        tasks: List[PRDTask],
+        task_idx: int,
+        task: PRDTask,
+        dep_map: Dict[int, Set[int]]
+    ) -> None:
+        """基于任务类型/agent分析依赖关系"""
+        task_text = task.task.lower()
+        
+        # Agent类型依赖: 测试任务依赖实现任务
+        if task.agent == "tester":
+            for j in range(task_idx):
+                if tasks[j].agent in ["coder", "implement"]:
+                    dep_map[task_idx].add(j)
+        
+        # 任务文本依赖规则
+        dep_rules = [
+            (["build", "编译"], ["compile", "编译"]),
+            (["deploy", "部署"], ["build", "构建"]),
+        ]
+        
+        for target_kws, source_kws in dep_rules:
+            if any(kw in task_text for kw in target_kws):
+                for j in range(task_idx):
+                    prev_text = tasks[j].task.lower()
+                    if any(kw in prev_text for kw in source_kws):
+                        dep_map[task_idx].add(j)
+
+
     def _extract_file_paths(self, text: str) -> List[str]:
         """从文本中提取文件路径"""
         import re
