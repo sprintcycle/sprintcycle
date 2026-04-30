@@ -10,7 +10,7 @@ from datetime import datetime
 import logging
 
 from ..evolution.config import EvolutionEngineConfig
-from ..evolution.engine import EvolutionEngine
+from ..evolution.gepa_engine import GEPAEngine as EvolutionEngine
 from ..evolution.types import SprintContext, EvolutionResult
 
 logger = logging.getLogger(__name__)

@@ -1,7 +1,7 @@
 """
 SprintCycle Evolution Module
 
-GEPA 自进化引擎 — 统一入口
+v0.9.0: 统一进化管道 — EvolutionPipeline + PRDSource + Diagnostic
 """
 
 # ========== Core Types ==========
@@ -21,6 +21,19 @@ from .gepa_engine import (
     ConvergenceError,
     QualityGateError,
     VariationError,
+)
+
+# ========== Unified Pipeline (v0.9.0) ==========
+from .pipeline import (
+    EvolutionPipeline,
+    PipelineConfig,
+    PipelineResult,
+)
+from .prd_source import (
+    PRDSource,
+    ManualPRDSource,
+    DiagnosticPRDSource,
+    EvolutionPRD,
 )
 
 # ========== Components ==========
@@ -64,12 +77,10 @@ from .rollback_manager import (
     RollbackError,
 )
 
-# ========== Deprecated (kept for backward compatibility) ==========
-from .config import EvolutionEngineConfig  # deprecated: use GEPAConfig
-from .client import GEPAClient  # deprecated: use GEPAEngine
-from .engine import EvolutionEngine  # deprecated: use GEPAEngine
+# ========== Config (backward compat) ==========
+from .config import EvolutionEngineConfig  # deprecated: use RuntimeConfig
 
-__version__ = "0.8.1"
+__version__ = "0.9.0"
 
 __all__ = [
     # Core Types
@@ -80,6 +91,9 @@ __all__ = [
     # GEPA Engine
     "GEPAEngine", "GEPAConfig", "EvolutionStatus",
     "EvolutionError", "ConvergenceError", "QualityGateError", "VariationError",
+    # Unified Pipeline
+    "EvolutionPipeline", "PipelineConfig", "PipelineResult",
+    "PRDSource", "ManualPRDSource", "DiagnosticPRDSource", "EvolutionPRD",
     # Components
     "MeasurementProvider", "MeasurementResult", "MeasurementConfig",
     "MemoryStore", "EvolutionMemory", "MemoryConfig",
@@ -88,6 +102,6 @@ __all__ = [
     "InheritanceEngine", "InheritanceGene", "EvolutionCycle", "CodeVariant",
     "GeneMemoryStore", "InheritanceError",
     "EvolutionRollbackManager", "VariantBranch", "RollbackError",
-    # Deprecated
-    "EvolutionEngineConfig", "GEPAClient", "EvolutionEngine",
+    # Config
+    "EvolutionEngineConfig",
 ]

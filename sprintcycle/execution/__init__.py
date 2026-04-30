@@ -18,11 +18,18 @@ from .error_knowledge import ErrorKnowledgeBase, ErrorPattern, PatternMatch, get
 from .error_router import ErrorRouter, RoutingLevel, RoutingContext, RoutingResult, get_error_router
 from .rollback import RollbackManager, BackupRecord, RollbackResult, get_rollback_manager
 from .error_handler import ErrorHandler, ErrorContext, FixResult, get_error_handler, reset_error_handler
-from ..evolution.engine import EvolutionEngine
-from ..evolution.config import EvolutionEngineConfig
+# EvolutionEngine & EvolutionEngineConfig: lazy import to avoid circular dependency
+# Use execution.engine.ExecutionEngine._get_evolution_engine() instead
 from ..evolution.types import SprintContext
 
 EvolutionStrategy = StrategyEvolutionStrategy
+
+
+def _get_evolution_engine():
+    """Lazy import to avoid circular dependency with evolution module"""
+    from ..evolution.gepa_engine import GEPAEngine as EvolutionEngine
+    from ..evolution.config import EvolutionEngineConfig
+    return EvolutionEngine, EvolutionEngineConfig
 
 __all__ = [
     "ExecutionEngine", "SprintExecutor", "NormalStrategy", "EvolutionStrategy", "ExecutionStrategy", "get_strategy",

@@ -14,7 +14,7 @@ from datetime import datetime
 from pathlib import Path
 
 from ..prd.models import PRD, PRDSprint, PRDTask, ExecutionMode
-from ..evolution.engine import EvolutionEngine
+from ..evolution.gepa_engine import GEPAEngine as EvolutionEngine
 from ..evolution.config import EvolutionEngineConfig
 from ..evolution.types import SprintContext
 

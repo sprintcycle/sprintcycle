@@ -61,7 +61,7 @@ class ExecutionEngine:
         self.config = config or {}
         
         # 创建 EvolutionEngine
-        from ..evolution.engine import EvolutionEngine
+        from ..evolution.gepa_engine import GEPAEngine as EvolutionEngine
         from ..evolution.config import EvolutionEngineConfig
         evolution_config = EvolutionEngineConfig()
         self._evolution_engine = EvolutionEngine(evolution_config)
