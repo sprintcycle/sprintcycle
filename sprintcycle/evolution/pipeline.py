@@ -15,6 +15,7 @@ from datetime import datetime
 
 from .prd_source import PRDSource, EvolutionPRD, ManualPRDSource
 from .types import Gene, GeneType
+from .memory_store import MemoryStore, EvolutionMemory, MemoryConfig
 from ..prd.models import PRD, PRDSprint, PRDTask
 
 logger = logging.getLogger(__name__)
@@ -31,6 +32,7 @@ class PipelineStatus(Enum):
 
 @dataclass
 class PipelineConfig:
+    memory_dir: str = "./evolution_cache/memory"
     """管道配置"""
     max_cycles: int = 1  # 最大循环次数
     max_tasks_per_sprint: int = 20  # 每个sprint最大任务数
