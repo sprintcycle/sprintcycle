@@ -34,7 +34,7 @@ import logging
 import re
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Optional, Dict, Any, List, Optional
+from typing import Any, Optional, Dict, Any, List, Optional
 
 from .base import AgentExecutor, AgentContext, AgentResult, AgentType
 
@@ -89,7 +89,7 @@ class CoderAgent(AgentExecutor):
             batch_config: 批量处理配置（可选）
         """
         super().__init__()
-        self._config = config or {}  # type: ignore[assignment]
+        self._config: Any = config or {}
         self._retry_count = 0
         self._batch_config = batch_config or BatchConfig()
         self._cache_enabled = False

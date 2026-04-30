@@ -9,7 +9,7 @@ Bug 分析数据模型
 - Location: 问题位置
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing import List, Optional, Dict, Any
 from enum import Enum
 
@@ -39,6 +39,7 @@ class ErrorCategory(str, Enum):
 
 class Location(BaseModel):
     """问题位置"""
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     file_path: str | None = None
     line_number: int | None = None
     column_number: int | None = None
@@ -96,6 +97,7 @@ class BugReport(BaseModel):
 
 class FixSuggestion(BaseModel):
     """修复建议"""
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     file_path: str = Field(..., description="需要修改的文件路径")
     old_code: str = Field(..., description="原始代码")
     new_code: str = Field(..., description="修复后的代码")
@@ -123,6 +125,7 @@ class FixSuggestion(BaseModel):
 
 class FixResult(BaseModel):
     """修复结果"""
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     success: bool = Field(..., description="修复是否成功")
     file_path: str = Field(..., description="修改的文件路径")
     

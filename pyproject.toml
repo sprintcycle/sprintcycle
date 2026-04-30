@@ -1,0 +1,23 @@
+[project]
+name = "sprintcycle"
+version = "0.9.0"
+description = "PRD驱动的自我进化敏捷开发框架"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+
+[tool.mypy]
+ignore_missing_imports = true
+python_version = "3.13"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "strict"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]
