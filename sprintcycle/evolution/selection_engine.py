@@ -154,7 +154,7 @@ class SelectionEngine:
         
         n = len(variants)
         domination_count = [0] * n
-        dominated_set = [[] for _ in range(n)]
+        dominated_set: List[List[int]] = [[] for _ in range(n)]
         
         for i in range(n):
             for j in range(n):
@@ -204,7 +204,7 @@ class SelectionEngine:
     def _compute_crowding_distance(self, variants: List[EvaluatedVariant]) -> None:
         if len(variants) <= 2:
             for v in variants:
-                v.crow_distance = float("inf")
+                v.crowd_distance = float("inf")
             return
         
         dimensions = ["correctness", "performance", "stability", "code_quality"]
@@ -212,8 +212,8 @@ class SelectionEngine:
         for dim in dimensions:
             sorted_variants = sorted(variants, key=lambda v: getattr(v.fitness, dim))
             
-            sorted_variants[0].crow_distance = float("inf")
-            sorted_variants[-1].crow_distance = float("inf")
+            sorted_variants[0].crowd_distance = float("inf")
+            sorted_variants[-1].crowd_distance = float("inf")
             
             dim_range = (
                 getattr(sorted_variants[-1].fitness, dim) -
@@ -222,7 +222,7 @@ class SelectionEngine:
             
             if dim_range > 0:
                 for i in range(1, len(sorted_variants) - 1):
-                    sorted_variants[i].crow_distance += (
+                    sorted_variants[i].crowd_distance += (
                         getattr(sorted_variants[i + 1].fitness, dim) -
                         getattr(sorted_variants[i - 1].fitness, dim)
                     ) / dim_range

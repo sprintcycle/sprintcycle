@@ -66,7 +66,7 @@ class IntentParser:
         project: Optional[str] = None, 
         target: Optional[str] = None, 
         mode: str = "auto",
-        constraints: List[str] = None,
+        constraints: Optional[List[str]] = None,
     ) -> ParsedIntent:
         """解析用户意图"""
         

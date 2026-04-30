@@ -110,7 +110,7 @@ class AgentExecutor(ABC):
     7. post_execute - 执行后钩子
     """
     
-    def __init__(self, config: AgentConfig = None):
+    def __init__(self, config: Optional[AgentConfig] = None):
         self._name = self.__class__.__name__
         self._config = config or AgentConfig()
         self._logger = logging.getLogger(self._name)

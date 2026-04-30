@@ -141,7 +141,7 @@ class VariationEngine:
             logger.warning("No code to vary")
             return []
         
-        variants = []
+        variants: List[Any] = []
         
         for strategy_name, weight in self.config.strategy_weights.items():
             if len(variants) >= max_count:
@@ -186,7 +186,7 @@ class VariationEngine:
             ("提取常量", self._extract_constant),
         ]
         
-        variants = []
+        variants: List[Any] = []
         for i in range(min(count, len(strategies))):
             name, func = strategies[i]
             try:
@@ -214,7 +214,7 @@ class VariationEngine:
         if not goal:
             return []
         
-        variants = []
+        variants: List[Any] = []
         
         if "性能" in goal or "performance" in goal.lower():
             variants.extend(self._generate_performance_variants(code, count // 2 + 1))
@@ -237,7 +237,7 @@ class VariationEngine:
         if not self._gene_pool:
             return []
         
-        variants = []
+        variants: List[Any] = []
         for gene in self._gene_pool[:count]:
             try:
                 modified = self._apply_gene(code, gene)
@@ -263,7 +263,7 @@ class VariationEngine:
     ) -> List[GeneratedVariant]:
         """基于规则的代码重构变体"""
         import re
-        variants = []
+        variants: List[Any] = []
         
         # 策略1: 简化条件表达式 (if x == True -> if x)
         def simplify_conditions(code: str) -> str:
@@ -311,7 +311,7 @@ class VariationEngine:
     ) -> List[GeneratedVariant]:
         """基于规则的代码优化变体"""
         import re
-        variants = []
+        variants: List[Any] = []
         
         # 策略1: for循环转列表推导
         def loop_to_comprehension(code: str) -> str:
@@ -450,7 +450,7 @@ class VariationEngine:
             # No LLM available, skip silently
             return []
         
-        variants = []
+        variants: List[Any] = []
         prompt = f"""Improve the following Python code. Goal: {goal or 'improve code quality'}
 
 Original code:

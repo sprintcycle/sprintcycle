@@ -108,7 +108,7 @@ class StateStore:
     使用 JSON 文件存储，每个 execution_id 对应一个文件。
     """
     
-    def __init__(self, store_dir: str = None):
+    def __init__(self, store_dir: Optional[str] = None):
         """
         初始化状态存储
         
@@ -339,7 +339,7 @@ class StateStore:
 _default_store: Optional[StateStore] = None
 
 
-def get_state_store(store_dir: str = None) -> StateStore:
+def get_state_store(store_dir: Optional[str] = None) -> StateStore:
     """获取默认状态存储实例"""
     global _default_store
     if _default_store is None:
