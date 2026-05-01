@@ -13,6 +13,10 @@ SprintCycle MCP Server
 - sprintcycle_status:   查状态/历史
 - sprintcycle_rollback: 回滚
 - sprintcycle_stop:     停止执行
+
+传输模式:
+- stdio: 标准输入输出（默认，本地使用）
+- sse:   Server-Sent Events（远程 Agent 接入）
 """
 
 from __future__ import annotations
@@ -26,6 +30,10 @@ from typing import Any, Dict, List, Optional, TYPE_CHECKING
 MCP_AVAILABLE = False
 stdio_server: Any = None
 
+# SSE imports - graceful fallback if dependencies not installed
+SSE_AVAILABLE = False
+SseServerTransport: Any = None
+
 if TYPE_CHECKING:
     from mcp.server import Server
     from mcp.types import Tool, TextContent
@@ -33,13 +41,32 @@ if TYPE_CHECKING:
 try:
     from mcp.server import Server
     from mcp.server.stdio import stdio_server
+    from mcp.server.sse import SseServerTransport
     from mcp.types import Tool, TextContent
 
     MCP_AVAILABLE = True
+    SSE_AVAILABLE = True
 except ImportError:
     Server = Any  # type: ignore[misc,assignment]
     Tool = Any  # type: ignore[misc,assignment]
     TextContent = Any  # type: ignore[misc,assignment]
+
+# Optional HTTP server for SSE mode
+try:
+    import uvicorn
+    from starlette.applications import Starlette
+    from starlette.routing import Route, Mount
+    from starlette.middleware import Middleware
+    from starlette.middleware.cors import CORSMiddleware
+    HTTP_AVAILABLE = True
+except ImportError:
+    uvicorn = None  # type: ignore[assignment]
+    Starlette = None  # type: ignore[misc,assignment]
+    Route = None  # type: ignore[misc,assignment]
+    Mount = None  # type: ignore[misc,assignment]
+    Middleware = None  # type: ignore[misc,assignment]
+    CORSMiddleware = None  # type: ignore[misc,assignment]
+    HTTP_AVAILABLE = False
 
 from sprintcycle.api import SprintCycle
 
@@ -99,7 +126,7 @@ class SprintCycleMCPServer:
                             "prd_path": {"type": "string", "description": "PRD 文件路径"},
                             "mode": {"type": "string", "enum": ["auto", "evolution", "normal", "fix", "test"], "description": "执行模式"},
                             "target": {"type": "string", "description": "目标文件/模块"},
-                            "execution_id": {"type": "string", "description": "断点续跑的执行 ID"},
+                            "execution_id": {"type": "string", "description": "断点续跑的执渡 ID"},
                             "resume": {"type": "boolean", "description": "是否断点续跑", "default": False},
                         },
                     },
@@ -221,9 +248,87 @@ class SprintCycleMCPServer:
                 self._server.create_initialization_options(),
             )
 
+    async def run_sse(self, host: str = "0.0.0.0", port: int = 8080) -> None:
+        """
+        启动 MCP Server（SSE 模式）
+
+        通过 HTTP SSE 端点暴露 MCP 协议，支持远程 Agent 接入。
+        端点:
+        - GET /sse  - 建立 SSE 连接，接收服务端消息
+        - POST /messages - 发送客户端消息
+
+        Args:
+            host: 监听地址
+            port: 监听端口
+        """
+        if not MCP_AVAILABLE or not SSE_AVAILABLE:
+            raise RuntimeError(
+                "MCP SDK with SSE support is not installed. "
+                "Install with: pip install mcp[dev]"
+            )
+
+        if not HTTP_AVAILABLE:
+            raise RuntimeError(
+                "HTTP dependencies are not installed. "
+                "Install with: pip install uvicorn starlette"
+            )
+
+        if self._server is None:
+            raise RuntimeError("MCP Server not initialized")
+
+        # Create SSE transport
+        sse_transport = SseServerTransport("/messages/")
+
+        # Reference to server for type checking
+        server = self._server
+
+        async def sse_handler(scope: Any, receive: Any, send: Any) -> None:
+            """Handle incoming SSE connections"""
+            async with sse_transport.connect_sse(scope, receive, send) as streams:
+                await server.run(  # type: ignore[union-attr]
+                    streams[0],
+                    streams[1],
+                    server.create_initialization_options(),  # type: ignore[union-attr]
+                )
+
+        # Create Starlette application with CORS
+        app = Starlette(
+            debug=True,
+            routes=[
+                Route("/sse", sse_handler),
+                Route("/messages/", sse_transport.handle_post_message),
+            ],
+            middleware=[
+                Middleware(
+                    CORSMiddleware,
+                    allow_origins=["*"],
+                    allow_methods=["*"],
+                    allow_headers=["*"],
+                ),
+            ],
+        )
+
+        config = uvicorn.Config(
+            app,
+            host=host,
+            port=port,
+            log_level="info",
+        )
+        server_instance = uvicorn.Server(config)
+
+        logger.info(f"MCP SSE Server starting on {host}:{port}")
+        logger.info(f"SSE endpoint: http://{host}:{port}/sse")
+        logger.info(f"Messages endpoint: http://{host}:{port}/messages/")
+
+        await server_instance.serve()
+
     def is_available(self) -> bool:
         """检查 MCP Server 是否可用"""
         return MCP_AVAILABLE
+
+    def is_sse_available(self) -> bool:
+        """检查 SSE 模式是否可用"""
+        return MCP_AVAILABLE and SSE_AVAILABLE and HTTP_AVAILABLE
 
 
 def main() -> None:
@@ -236,6 +341,7 @@ def main() -> None:
     )
 
     project_path = sys.argv[1] if len(sys.argv) > 1 else "."
+    transport = sys.argv[2] if len(sys.argv) > 2 else "stdio"
 
     if not MCP_AVAILABLE:
         print("Error: MCP SDK is not installed.", file=sys.stderr)
@@ -243,7 +349,13 @@ def main() -> None:
         sys.exit(1)
 
     server = SprintCycleMCPServer(project_path=project_path)
-    asyncio.run(server.run())
+
+    if transport == "sse":
+        host = sys.argv[3] if len(sys.argv) > 3 else "0.0.0.0"
+        port = int(sys.argv[4]) if len(sys.argv) > 4 else 8080
+        asyncio.run(server.run_sse(host=host, port=port))
+    else:
+        asyncio.run(server.run())
 
 
 if __name__ == "__main__":

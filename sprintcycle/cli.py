@@ -299,28 +299,54 @@ def stop(ctx: click.Context, execution_id: str) -> None:
 @cli.command()
 @click.option("--host", default="0.0.0.0", help="MCP Server host")
 @click.option("--port", default=8080, type=int, help="MCP Server port")
-@click.option("--transport", type=click.Choice(["stdio", "sse"]), default="stdio", help="传输方式")
+@click.option("--transport", "transport", type=click.Choice(["stdio", "sse"]), default="stdio", help="传输方式")
 @click.pass_context
 def serve(ctx: click.Context, host: str, port: int, transport: str) -> None:
-    """启动 MCP Server"""
+    """启动 MCP Server
+
+    支持两种传输模式:
+
+    \b
+    stdio 模式（默认）:
+        本地进程通信，适合 Claude Desktop、Cursor 等本地工具
+        $ sprintcycle serve
+
+    \b
+    SSE 模式（远程 Agent 接入）:
+        HTTP SSE 传输，适合扣子、OpenClaw 等远程 Agent
+        $ sprintcycle serve --transport sse --host 0.0.0.0 --port 8080
+
+        端点说明:
+        - GET  /sse       → 建立 SSE 连接，接收服务端消息
+        - POST /messages/ → 发送客户端消息
+    """
     try:
-        from sprintcycle.mcp.server import SprintCycleMCPServer, MCP_AVAILABLE
+        from sprintcycle.mcp.server import SprintCycleMCPServer, MCP_AVAILABLE, SSE_AVAILABLE, HTTP_AVAILABLE
 
         if not MCP_AVAILABLE:
             click.echo("❌ MCP SDK 未安装，请执行: pip install mcp")
             sys.exit(1)
 
         server = SprintCycleMCPServer(project_path=ctx.obj["sc"].project_path)
+
         if transport == "stdio":
             click.echo("🚀 MCP Server 启动 (stdio)", err=True)
             asyncio.run(server.run())
-        else:
+        else:  # SSE mode
+            if not SSE_AVAILABLE:
+                click.echo("❌ MCP SSE 支持未安装，请执行: pip install mcp[dev]")
+                sys.exit(1)
+            if not HTTP_AVAILABLE:
+                click.echo("❌ HTTP 服务器未安装，请执行: pip install uvicorn starlette")
+                sys.exit(1)
+
             click.echo(f"🚀 MCP Server 启动 (SSE {host}:{port})", err=True)
-            # SSE 模式将在后续实现
-            click.echo("❌ SSE 模式尚未实现")
-            sys.exit(1)
-    except ImportError:
-        click.echo("❌ MCP 模块未找到")
+            click.echo(f"   SSE 端点: http://{host}:{port}/sse", err=True)
+            click.echo(f"   消息端点: http://{host}:{port}/messages/", err=True)
+            asyncio.run(server.run_sse(host=host, port=port))
+
+    except ImportError as e:
+        click.echo(f"❌ MCP 模块导入失败: {e}")
         sys.exit(1)
 
 

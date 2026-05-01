@@ -11,6 +11,12 @@ requires-python = ">=3.10"
 dependencies = ["mcp>=1.0.0"]
 license = {text = "MIT"}
 
+[project.optional-dependencies]
+# SSE transport for remote agent access (uvicorn for HTTP server, starlette for ASGI)
+mcp-sse = ["uvicorn>=0.23.0", "starlette>=0.27.0"]
+# Development dependencies
+dev = ["mypy>=1.0.0", "pytest>=7.0.0", "pytest-asyncio>=0.21.0"]
+
 [project.scripts]
 sprintcycle = "sprintcycle.cli:cli"
 
