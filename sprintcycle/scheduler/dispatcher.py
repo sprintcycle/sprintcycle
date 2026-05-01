@@ -287,20 +287,23 @@ class TaskDispatcher:
             if not target_path.exists():
                 raise FileNotFoundError(f"目标文件不存在: {target_path}")
             
-            # 执行进化
+            # 执行进化（通过 execute + EvolutionPRD）
             assert self.evolution_pipeline is not None
-            result = self.evolution_pipeline.run(
-                max_cycles=self.config.evolution_iterations,
+            from sprintcycle.evolution.prd_source import EvolutionPRD
+            evo_prd = EvolutionPRD(
+                name=f"evo-{sprint.tasks[0].agent}",
+                version="1.0",
+                path=prd.project.path,
             )
+            evo_prd.sprints = [{"name": "evolution", "tasks": [sprint.tasks[0].task]}]
+            evo_result = self.evolution_pipeline.execute(evo_prd)
             
-            if result.success:
+            if evo_result.success:
                 task_result.status = ExecutionStatus.SUCCESS
-                variations: list = getattr(result, "variations", [])
-                selected: list = getattr(result, "selected_genes", [])
-                task_result.output = f"生成 {len(variations)} 个变异，选择 {len(selected)} 个基因"
+                task_result.output = f"进化执行完成: {evo_result.completed_sprints} 个Sprint"
             else:
                 task_result.status = ExecutionStatus.FAILED
-                task_result.error = result.error or "未知错误"
+                task_result.error = evo_result.error or "未知错误"
                 
         except Exception as e:
             task_result.status = ExecutionStatus.FAILED
@@ -408,11 +411,18 @@ class TaskDispatcher:
         
         # 执行进化
         try:
-            evo_result = self.evolution_pipeline.run(max_cycles=self.config.evolution_iterations if hasattr(self.config, "evolution_iterations") else 3)
+            from sprintcycle.evolution.prd_source import EvolutionPRD
+            evo_prd = EvolutionPRD(
+                name=f"evolution-{task.target}",
+                version="1.0",
+                path=".",
+                goals=[task.task],
+                sprints=[{"name": f"evo-{task.target}", "tasks": [{"name": task.target}]}],
+            )
+            evo_result = self.evolution_pipeline.execute(evo_prd)
             if evo_result.success:
                 result.status = ExecutionStatus.SUCCESS
-                evo_variations: list = getattr(result, "variations", [])
-                result.output = f"进化成功: {len(evo_variations)} 个变异"
+                result.output = f"进化执行完成: {evo_result.completed_sprints} 个Sprint"
             else:
                 result.status = ExecutionStatus.FAILED
                 result.error = evo_result.error

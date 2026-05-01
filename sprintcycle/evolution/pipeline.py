@@ -2,6 +2,8 @@ from __future__ import annotations
 
 """
 EvolutionPipeline - 统一进化管道
+
+v0.9.1: 删除空壳 run() 方法，保留 execute() 方法
 """
 
 import logging
@@ -25,7 +27,6 @@ class PipelineStatus(Enum):
     SUCCESS = "success"
     FAILED = "failed"
     PARTIAL = "partial"
-
 
 
 
@@ -112,6 +113,15 @@ class EvolutionPipeline:
         self._current_prd: Optional[EvolutionPRD] = None
     
     def execute(self, prd: EvolutionPRD) -> PRDExecutionResult:
+        """
+        执行单个 PRD
+        
+        Args:
+            prd: EvolutionPRD 对象
+            
+        Returns:
+            PRDExecutionResult
+        """
         self._status = PipelineStatus.RUNNING
         self._current_prd = prd
         
@@ -173,9 +183,3 @@ class EvolutionPipeline:
     
     def get_memory(self) -> MemoryStore:
         return self._memory_store
-    
-    def run(self, max_cycles: int = 1) -> PRDExecutionResult:
-        """运行管道（兼容旧API）"""
-        prd = EvolutionPRD(name="run", version="1.0", path=self.project_path)
-        prd.sprints = [{"name": "default", "tasks": []} for _ in range(max_cycles)]
-        return self.execute(prd)

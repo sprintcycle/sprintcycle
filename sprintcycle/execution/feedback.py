@@ -433,6 +433,43 @@ class FeedbackLoop:
             })
         return improvements
     
+
+    def decide(self, feedback: ExecutionFeedback) -> Dict[str, Any]:
+        """基于反馈做出决策
+
+        Sprint间反馈闭环的核心方法，根据反馈分析结果决定下一步行动。
+
+        Returns:
+            {
+                "action": "continue" | "retry" | "abort",
+                "reason": "...",
+                "suggestions": [...],
+            }
+        """
+        suggestions = self.analyze(feedback)
+
+        # 成功率太低 → 中止
+        if feedback.success_rate < 20 and feedback.failed_tasks > 2:
+            return {
+                "action": "abort",
+                "reason": f"成功率过低({feedback.success_rate}%)，中止避免浪费资源",
+                "suggestions": suggestions,
+            }
+
+        # 有改进建议且成功率不够高 → 重试
+        if suggestions and feedback.success_rate < 80:
+            return {
+                "action": "retry",
+                "reason": f"成功率{feedback.success_rate}%，有{len(suggestions)}条改进建议",
+                "suggestions": suggestions,
+            }
+
+        # 成功率高 → 继续
+        return {
+            "action": "continue",
+            "reason": f"执行良好，成功率{feedback.success_rate}%",
+            "suggestions": suggestions,
+        }
     def track_learning(self, iterations: Optional[int] = None) -> Dict[str, Any]:
         """跟踪学习进度"""
         history = self._history[-iterations:] if iterations else self._history

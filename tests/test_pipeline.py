@@ -1,12 +1,7 @@
 """
 Tests for EvolutionPipeline - 统一进化管道测试
 
-测试场景:
-1. 基础初始化
-2. Mock PRD Source执行
-3. Mock Executor执行
-4. Fitness测量
-5. 基因保存
+v0.9.1: 更新测试以匹配移除 run() 方法后的新 API
 """
 
 import pytest
@@ -59,68 +54,17 @@ class TestEvolutionPipeline:
         assert pipeline._config.max_tasks_per_sprint == 10
         assert pipeline._config.dry_run is True
     
-    def test_init_with_mock_executor(self):
-        """测试带Mock执行器初始化"""
-        mock_executor = Mock()
-        mock_executor.execute = Mock(return_value={"success": True})
+    def test_init_with_memory_store(self):
+        """测试带MemoryStore初始化"""
+        from sprintcycle.evolution.memory_store import MemoryStore
         
+        memory_store = MemoryStore(storage_path="/tmp/memory")
         pipeline = EvolutionPipeline(
             project_path="/test/project",
+            memory_store=memory_store,
         )
         
-        # Check that pipeline is initialized
-        assert pipeline.project_path == "/test/project"
-    
-    def test_run_empty_prds(self):
-        """测试无PRD时运行"""
-        # Mock PRD源返回空列表
-        mock_source = Mock(spec=PRDSource)
-        mock_source.generate = Mock(return_value=[])
-        
-        pipeline = EvolutionPipeline(
-            project_path="/test/project",
-            prd_source=mock_source,
-        )
-        
-        result = pipeline.run()
-        
-        assert result.prd.name == "run"
-        mock_source.generate.assert_not_called()
-    
-    def test_run_single_prd_dry_run(self):
-        """测试单个PRD干跑"""
-        # 创建测试PRD
-        prd = EvolutionPRD(
-            name="Test PRD",
-            version="v1.0.0",
-            path="/test/project",
-            goals=["Goal 1", "Goal 2"],
-            sprints=[{
-                "name": "Sprint 1",
-                "goals": ["Sprint Goal 1"],
-                "tasks": [
-                    {"task": "Task 1", "agent": "coder"},
-                    {"task": "Task 2", "agent": "tester"},
-                ],
-            }],
-            source_type=PRDSourceType.MANUAL,
-            confidence=0.9,
-            expected_benefit=10.0,
-        )
-        
-        mock_source = Mock(spec=PRDSource)
-        mock_source.generate = Mock(return_value=[prd])
-        
-        pipeline = EvolutionPipeline(
-            project_path="/test/project",
-            prd_source=mock_source,
-        )
-        
-        # Execute the PRD
-        result = pipeline.execute(prd)
-        
-        # Verify execution
-        assert result.prd == prd
+        assert pipeline._memory_store is memory_store
     
     def test_execute_with_sprint_success(self):
         """测试执行带Sprint的成功场景"""
@@ -165,6 +109,13 @@ class TestEvolutionPipeline:
         # This is expected behavior - no sprints means nothing to fail
         assert len(result.sprint_results) == 0
     
+    def test_pipeline_status_property(self):
+        """测试status属性"""
+        pipeline = EvolutionPipeline(project_path="/test/project")
+        
+        # Initial status should be IDLE
+        assert pipeline.status == PipelineStatus.IDLE
+    
     def test_pipeline_result_to_dict(self):
         """测试PipelineResult序列化"""
         prd = EvolutionPRD(
@@ -186,7 +137,7 @@ class TestEvolutionPipeline:
 
 
 class TestRuntimeConfig:
-    """RuntimeConfig测试类（替代原PipelineConfig测试）"""
+    """RuntimeConfig测试类"""
     
     def test_default_values(self):
         """测试默认值"""
@@ -228,6 +179,21 @@ class TestSprintExecutionResult:
         assert result.success is True
         assert result.duration == 5.0
         assert len(result.task_results) == 2
+    
+    def test_failure_result(self):
+        """测试失败结果"""
+        result = SprintExecutionResult(
+            sprint_name="Sprint 1",
+            success=False,
+            task_results=[
+                {"task": "Task 1", "success": False, "error": "Failed"},
+            ],
+            duration=3.0,
+            error="Sprint failed",
+        )
+        
+        assert result.success is False
+        assert result.error == "Sprint failed"
     
     def test_to_dict(self):
         """测试序列化"""

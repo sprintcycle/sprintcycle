@@ -224,12 +224,69 @@ class SprintExecutor(CheckpointMixin):
     
     async def _execute_normal_sprints(self, sprints: List[PRDSprint], context: Optional[Dict[str, Any]] = None) -> List[SprintResult]:
         results = []
-        for sprint in sprints:
+        for i, sprint in enumerate(sprints):
             result = await self.execute_sprint(sprint, context, save_checkpoint=True)
             results.append(result)
+
             if result.status == ExecutionStatus.FAILED:
                 logger.warning(f"Sprint 失败: {sprint.name}")
+                # 反馈闭环：分析失败原因，决定是否重试
+                if self._feedback_loop:
+                    feedback = self._get_feedback_for_sprint(sprint, result)
+                    if feedback:
+                        decision = self._feedback_loop.decide(feedback)
+                        if decision["action"] == "retry" and self._should_retry(sprint):
+                            logger.info(f"Sprint {sprint.name} 根据反馈重试: {decision['reason']}")
+                            result = await self._retry_with_feedback(sprint, feedback, decision, context)
+                            results[-1] = result
+                        elif decision["action"] == "abort":
+                            logger.warning(f"Sprint {sprint.name} 反馈决策中止: {decision['reason']}")
+                            break
+
+            # 将反馈传递给下一个 Sprint
+            if self._feedback_loop and i < len(sprints) - 1:
+                feedback = self._get_feedback_for_sprint(sprint, result)
+                if feedback:
+                    if context is None:
+                        context = {}
+                    context["previous_feedback"] = feedback.to_dict()
+                    context["improvement_suggestions"] = self._feedback_loop.analyze(feedback)
+
         return results
+
+    def _should_retry(self, sprint: PRDSprint) -> bool:
+        """判断是否应该重试 Sprint（最多1次）"""
+        retry_count = getattr(sprint, '_retry_count', 0)
+        return retry_count < 1
+
+    async def _retry_with_feedback(self, sprint: PRDSprint, feedback: Any, decision: Dict[str, Any], context: Optional[Dict[str, Any]]) -> SprintResult:
+        """根据反馈重试 Sprint"""
+        sprint._retry_count = getattr(sprint, '_retry_count', 0) + 1  # type: ignore[attr-defined]
+        if context is None:
+            context = {}
+        context["retry_feedback"] = feedback.to_dict()
+        context["improvement_suggestions"] = decision.get("suggestions", [])
+        context["retry_from_failure"] = True
+        logger.info(f"重试 Sprint {sprint.name}，携带 {len(decision.get('suggestions', []))} 条改进建议")
+        result = await self.execute_sprint(sprint, context, save_checkpoint=True)
+        return result
+
+    def _get_feedback_for_sprint(self, sprint: PRDSprint, result: SprintResult) -> Any:
+        """收集 Sprint 的反馈（复用已有逻辑）"""
+        if not self._feedback_loop:
+            return None
+        try:
+            if self._prd:
+                return self._feedback_loop.collect(self._prd, [result])
+            else:
+                class SimplePRD:
+                    def __init__(self):
+                        self.id = "sprint-feedback"
+                        self.project = type("obj", (), {"name": sprint.name})()
+                return self._feedback_loop.collect(SimplePRD(), [result])
+        except Exception as e:
+            logger.warning(f"收集反馈失败: {e}")
+            return None
     
     async def _execute_evolution_sprints(self, sprints: List[PRDSprint], evolution_config: Optional[PRDEvolutionParams], context: Optional[Dict[str, Any]] = None) -> List[SprintResult]:
         results = []
@@ -250,11 +307,6 @@ class SprintExecutor(CheckpointMixin):
             status=ExecutionStatus.SUCCESS if success else ExecutionStatus.FAILED,
             duration=evo_result.execution_time if hasattr(evo_result, "execution_time") else 0.0,
         )
-        if hasattr(evo_result, "selected_genes") and evo_result.selected_genes:
-            for gene in evo_result.selected_genes:
-                task = PRDTask(task=f"Evolution Gene: {gene.id[:8]}", agent="evolver")
-                task_result = TaskResult(task=task, sprint_name=sprint.name, status=ExecutionStatus.SUCCESS)
-                sprint_result.task_results.append(task_result)
         return sprint_result
     
     def set_event_bus(self, event_bus) -> None:
@@ -312,7 +364,20 @@ class SprintExecutor(CheckpointMixin):
         if not executor:
             return TaskResult(task=task, sprint_name=sprint_name, status=ExecutionStatus.FAILED, error=f"未知的 Agent 类型: {task.agent}")
         try:
-            output = await executor(task, context)
+            # 注入反馈闭环信息到 task context
+            enriched_context = dict(context)
+            if "improvement_suggestions" in context:
+                suggestions = context["improvement_suggestions"]
+                if suggestions:
+                    enriched_context["task_guidance"] = (
+                        f"前序 Sprint 反馈改进建议:\n"
+                        + "\n".join(f"- {s}" for s in suggestions)
+                    )
+            if "retry_from_failure" in context:
+                enriched_context["task_guidance"] = enriched_context.get("task_guidance", "") + (
+                    "\n[重要] 本次为失败重试，请特别注意上述问题。"
+                )
+            output = await executor(task, enriched_context)
             return TaskResult(task=task, sprint_name=sprint_name, status=ExecutionStatus.SUCCESS, output=output, duration=time.time() - start_time)
         except Exception as e:
             return TaskResult(task=task, sprint_name=sprint_name, status=ExecutionStatus.FAILED, error=str(e), duration=time.time() - start_time)

@@ -7,12 +7,7 @@ v0.9.1: 精简 Config 类，删除未使用的枚举
 """
 
 # ========== Core Types ==========
-from .types import (
-    Gene, Variation,
-    SprintContext, EvolutionResult, EvolutionStage,
-    EvolutionMetrics,
-    FitnessScore,
-)
+from .types import SprintContext
 
 # ========== Unified Pipeline (v0.9.0) ==========
 from .pipeline import (
