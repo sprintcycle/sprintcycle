@@ -244,3 +244,49 @@ class TestLLMPRDGenerator:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+class TestProjectDiagnosticExtended:
+    """ProjectDiagnostic 扩展测试"""
+
+    def test_init_with_project_path(self):
+        """测试带项目路径初始化"""
+        diagnostic = ProjectDiagnostic(project_path="/custom/path")
+        assert diagnostic.project_path == "/custom/path"
+
+    def test_init_with_custom_timeout(self):
+        """测试带自定义超时初始化"""
+        diagnostic = ProjectDiagnostic(timeout=600)
+        assert diagnostic.timeout == 600
+
+    def test_run_tests_parse_output(self):
+        """测试解析测试输出"""
+        def mock_runner(cmd, cwd, timeout):
+            return 0, "10 passed, 2 failed", ""
+        
+        diagnostic = ProjectDiagnostic(runner=mock_runner)
+        result = diagnostic.run_tests()
+        
+        assert result["passed"] == 10
+        assert result["failed"] == 2
+
+    def test_run_tests_no_output(self):
+        """测试无输出解析"""
+        def mock_runner(cmd, cwd, timeout):
+            return 0, "", ""
+        
+        diagnostic = ProjectDiagnostic(runner=mock_runner)
+        result = diagnostic.run_tests()
+        
+        assert result["passed"] == 0
+        assert result["failed"] == 0
+
+    def test_run_tests_with_errors(self):
+        """测试带错误的测试运行"""
+        def mock_runner(cmd, cwd, timeout):
+            return 1, "5 passed, 1 error", "Error message"
+        
+        diagnostic = ProjectDiagnostic(runner=mock_runner)
+        result = diagnostic.run_tests()
+        
+        assert result["returncode"] == 1
