@@ -44,7 +44,12 @@ class EvolutionRollbackManager(GitRollbackMixin):
 
     def __init__(
         self,
-        config: Optional[RollbackConfig] = None,
+        git_branch_mode: bool = True,
+        repo_path: str = ".",
+        branch_prefix: str = "evo/variant-",
+        backup_dir: str = ".sprintcycle/evo_backups",
+        auto_cleanup: bool = True,
+        max_branches: int = 20,
         rollback_manager: Optional[Any] = None,
         git_runner: Optional[Any] = None,
     ):
@@ -52,36 +57,49 @@ class EvolutionRollbackManager(GitRollbackMixin):
         初始化进化回滚管理器
 
         Args:
-            config: 进化回滚配置
+            git_branch_mode: 是否使用 Git Branch 模式
+            repo_path: 仓库路径
+            branch_prefix: 分支前缀
+            backup_dir: 备份目录
+            auto_cleanup: 是否自动清理
+            max_branches: 最大分支数
             rollback_manager: 已有 RollbackManager 实例（用于 fallback 模式）
             git_runner: git 命令运行器（用于测试 mock）
         """
-        self.config = config or RollbackConfig()
-        self._git_runner = git_runner or _run_git
+        # 直接使用父类 __init__，传递配置参数
         self._rollback_manager = rollback_manager
-
-        # 分支记录（来自 GitRollbackMixin）
-        self._branches: Dict[str, VariantBranch] = {}
-        self._lock = asyncio.Lock()
+        
+        # 使用 RollbackConfig 兼容方式初始化
+        config = RollbackConfig(
+            git_branch_mode=git_branch_mode,
+            repo_path=repo_path,
+            branch_prefix=branch_prefix,
+            backup_dir=backup_dir,
+            auto_cleanup=auto_cleanup,
+            max_branches=max_branches,
+        )
+        GitRollbackMixin.__init__(self, git_runner=git_runner, config=config)
+        
+        self._git_runner = git_runner or _run_git
 
         # 检查 git 模式是否可用
         self._git_available = (
-            self.config.git_branch_mode
-            and _is_git_repo(self.config.repo_path)
+            config.git_branch_mode
+            and _is_git_repo(config.repo_path)
         )
-        if self.config.git_branch_mode and not self._git_available:
+        if config.git_branch_mode and not self._git_available:
             logger.warning(
                 "Git Branch 模式不可用（不是 git 仓库或 git 不可用），"
                 "将使用文件备份模式"
             )
-        if not self.config.git_branch_mode:
+        if not config.git_branch_mode:
             self._git_available = False
 
         # 初始化 fallback RollbackManager
         if not self._git_available:
             from sprintcycle.execution.rollback import RollbackManager
             self._rollback_manager = self._rollback_manager or RollbackManager(
-                backup_dir=self.config.backup_dir
+                backup_dir=config.backup_dir
             )
 
         logger.info(
@@ -368,7 +386,8 @@ class EvolutionRollbackManager(GitRollbackMixin):
         """列出所有活跃分支"""
         return [r for r in self._branches.values() if not r.merged]
 
-    def get_stats(self) -> Dict[str, Any]:
+    @property
+    def stats(self) -> Dict[str, Any]:
         """获取统计信息"""
         return {
             "mode": self.mode,

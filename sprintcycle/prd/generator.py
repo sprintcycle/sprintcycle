@@ -12,12 +12,12 @@ from pathlib import Path
 
 from .models import (
     PRD, PRDProject, PRDSprint, PRDTask,
-    EvolutionConfig, ExecutionMode
+    PRDEvolutionParams, ExecutionMode
 )
 from ..intent.parser import ParsedIntent, ActionType
 
 
-class PRDGenerator:
+class IntentPRDGenerator:
     """
     PRD 生成器
     
@@ -51,22 +51,22 @@ class PRDGenerator:
         """
         # 优先级 1: 根据意图描述判断是否为自进化
         if parsed.description:
-            inferred_mode = PRDGenerator._infer_mode_from_intent(parsed.description)
+            inferred_mode = IntentPRDGenerator._infer_mode_from_intent(parsed.description)
             if inferred_mode == ExecutionMode.EVOLUTION:
                 # 意图匹配自进化，强制使用 EVOLVE 动作
-                return PRDGenerator._from_evolve(parsed)
+                return IntentPRDGenerator._from_evolve(parsed)
         
         # 优先级 2: 根据动作类型生成不同的 PRD
         if parsed.action == ActionType.EVOLVE:
-            return PRDGenerator._from_evolve(parsed)
+            return IntentPRDGenerator._from_evolve(parsed)
         elif parsed.action == ActionType.FIX:
-            return PRDGenerator._from_fix(parsed)
+            return IntentPRDGenerator._from_fix(parsed)
         elif parsed.action == ActionType.TEST:
-            return PRDGenerator._from_test(parsed)
+            return IntentPRDGenerator._from_test(parsed)
         elif parsed.action == ActionType.RUN:
-            return PRDGenerator._from_run(parsed)
+            return IntentPRDGenerator._from_run(parsed)
         else:
-            return PRDGenerator._from_build(parsed)
+            return IntentPRDGenerator._from_build(parsed)
     
     @staticmethod
     def _infer_mode_from_intent(description: str) -> Optional[ExecutionMode]:
@@ -87,10 +87,10 @@ class PRDGenerator:
         desc_lower = description.lower()
         
         # 检查是否包含项目关键词
-        has_project = any(kw in desc_lower for kw in PRDGenerator.EVOLUTION_PROJECT_KEYWORDS)
+        has_project = any(kw in desc_lower for kw in IntentPRDGenerator.EVOLUTION_PROJECT_KEYWORDS)
         
         # 检查是否包含动作关键词
-        has_action = any(kw in desc_lower for kw in PRDGenerator.EVOLUTION_ACTION_KEYWORDS)
+        has_action = any(kw in desc_lower for kw in IntentPRDGenerator.EVOLUTION_ACTION_KEYWORDS)
         
         # 同时满足才判断为自进化
         if has_project and has_action:
@@ -120,7 +120,7 @@ class PRDGenerator:
     @staticmethod
     def _from_evolve(parsed: ParsedIntent) -> PRD:
         """从进化意图生成 PRD"""
-        project_path = parsed.project or PRDGenerator._get_sprintcycle_root()
+        project_path = parsed.project or IntentPRDGenerator._get_sprintcycle_root()
         # 确保 path 是字符串
         project_path_str = str(project_path)
         
@@ -130,7 +130,7 @@ class PRDGenerator:
             version="v0.6.0",
         )
         
-        evolution = EvolutionConfig(
+        evolution = PRDEvolutionParams(
             targets=[parsed.target] if parsed.target else [],
             goals=[parsed.description],
             constraints=parsed.constraints,
@@ -195,7 +195,7 @@ class PRDGenerator:
     def _from_fix(parsed: ParsedIntent) -> PRD:
         """从修复意图生成 PRD - 使用自进化能力"""
         # 解析错误信息
-        error_info = PRDGenerator._parse_error_info(parsed.description)
+        error_info = IntentPRDGenerator._parse_error_info(parsed.description)
         
         # 定位问题文件
         target_file = parsed.target or error_info.get("file")
@@ -216,7 +216,7 @@ class PRDGenerator:
             fix_goal = f"修复 {error_info['error_type']}: {error_info.get('error_msg', parsed.description)}"
         
         # 使用进化配置
-        evolution = EvolutionConfig(
+        evolution = PRDEvolutionParams(
             targets=[target_file] if target_file else [],
             goals=[fix_goal],
             constraints=parsed.constraints,
@@ -279,13 +279,13 @@ class PRDGenerator:
     @staticmethod
     def _from_test(parsed: ParsedIntent) -> PRD:
         """从测试意图生成 PRD"""
-        return PRDGenerator._from_build(parsed)
+        return IntentPRDGenerator._from_build(parsed)
     
     @staticmethod
     def _from_run(parsed: ParsedIntent) -> PRD:
         """从运行 PRD 文件意图生成"""
         # TODO: 实际解析 PRD 文件
-        return PRDGenerator._from_build(parsed)
+        return IntentPRDGenerator._from_build(parsed)
     
     @staticmethod
     def sample_prd() -> PRD:

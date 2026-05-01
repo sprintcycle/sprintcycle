@@ -4,7 +4,7 @@ Execution 模块 - 统一执行引擎
 
 from .engine import ExecutionEngine
 from .strategies import NormalStrategy, EvolutionStrategy as StrategyEvolutionStrategy, ExecutionStrategy, get_strategy
-from .sprint_executor import SprintExecutor, TaskStatus, TaskResult, SprintResult
+from .sprint_executor import SprintExecutor, ExecutionStatus, TaskResult, SprintResult
 from .events import EventBus, Event, EventType, get_event_bus
 from .state_store import StateStore, ExecutionState, ExecutionStateStatus, get_state_store
 from .feedback import FeedbackLoop, ExecutionFeedback, FeedbackLevel, FeedbackCategory
@@ -16,7 +16,7 @@ from .agents import (
 # 错误处理组件 (新增)
 from .error_knowledge import ErrorKnowledgeBase, ErrorPattern, PatternMatch, get_error_knowledge_base, reset_error_knowledge_base
 from .error_router import ErrorRouter, RoutingLevel, RoutingContext, RoutingResult, get_error_router
-from .rollback import RollbackManager, BackupRecord, RollbackResult, get_rollback_manager
+from .rollback import RollbackManager, BackupRecord, RollbackResult, get_rollback_manager, RollbackConfig
 from .error_handler import ErrorHandler, ErrorContext, FixResult, get_error_handler, reset_error_handler
 # Use execution.engine.ExecutionEngine._get_evolution_engine() instead
 from ..evolution.types import SprintContext
@@ -32,7 +32,7 @@ def _get_evolution_pipeline():
 
 __all__ = [
     "ExecutionEngine", "SprintExecutor", "NormalStrategy", "EvolutionStrategy", "ExecutionStrategy", "get_strategy",
-    "TaskStatus", "TaskResult", "SprintResult",
+    "ExecutionStatus", "TaskResult", "SprintResult", "TaskStatus",
     "EventBus", "Event", "EventType", "get_event_bus",
     "StateStore", "ExecutionState", "ExecutionStateStatus", "get_state_store",
     "FeedbackLoop", "ExecutionFeedback", "FeedbackLevel", "FeedbackCategory",
@@ -42,7 +42,7 @@ __all__ = [
     # 错误处理
     "ErrorKnowledgeBase", "ErrorPattern", "PatternMatch", "get_error_knowledge_base", "reset_error_knowledge_base",
     "ErrorRouter", "RoutingLevel", "RoutingContext", "RoutingResult", "get_error_router",
-    "RollbackManager", "BackupRecord", "RollbackResult", "get_rollback_manager",
+    "RollbackManager", "BackupRecord", "RollbackResult", "get_rollback_manager", "RollbackConfig",
     "ErrorHandler", "ErrorContext", "FixResult", "get_error_handler", "reset_error_handler",
-    "EvolutionEngine", "SprintContext",
+    "SprintContext",
 ]

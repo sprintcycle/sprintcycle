@@ -1,142 +1,189 @@
-SprintCycle - 自进化敏捷开发框架
-===============================
+# SprintCycle - 自进化敏捷开发框架
 
-一键执行入口：PRD解析 → 任务拆分 → 代码生成 → 多源验证 → 自进化
+[![Version](https://img.shields.io/badge/version-v0.7.0-blue.svg)](sprintcycle/__init__.py)
+[![Python](https://img.shields.io/badge/python-3.10+-green.svg)](pyproject.toml)
+[![License](https://img.shields.io/badge/license-MIT-orange.svg)](LICENSE)
+[![Tests](https://img.shields.io/badge/tests-183%20passed-brightgreen.svg)]()
+
+**SprintCycle** 是一个 PRD 驱动的自我进化敏捷开发框架，通过统一进化管道实现代码生成、测试验证与持续优化的闭环。
+
+## 核心特性
+
+- **统一进化管道** - EvolutionPipeline 驱动的诊断→PRD→执行→验证闭环
+- **多源 PRD** - 支持 ManualPRDSource（产品迭代）和 DiagnosticPRDSource（自进化诊断）
+- **智能错误路由** - LEVEL_1_STATIC → LEVEL_2_PATTERN → LEVEL_3_LLM 三级路由
+- **多编码引擎** - 支持 cursor、llm、claude 等编码引擎
+- **统一配置** - RuntimeConfig 统一管理所有配置项
+- **诊断系统** - 代码/架构/文档/历史四维度体检
 
 ## 快速开始
 
 ### 安装
 
 ```bash
-# 克隆项目
-git clone https://github.com/your-username/sprintcycle.git
+git clone https://github.com/sprintcycle/sprintcycle.git
 cd sprintcycle
-
-# 安装依赖
-pip install -r requirements.txt
-
-# 安装Playwright（用于前端验证）
-playwright install
+pip install -e .
 ```
 
-### 配置API密钥
+### 配置
 
 ```bash
-# 复制环境变量模板
-cp .env.example .env
+# 设置 API Key
+export DEEPSEEK_API_KEY="your-api-key"
 
-# 编辑.env文件，添加你的API密钥
-vim .env
+# 或创建 .env 文件
+echo "DEEPSEEK_API_KEY=your-api-key" > .env
 ```
 
 ### 基本使用
 
+```python
+from sprintcycle.prd.models import PRD, ExecutionMode
+from sprintcycle.execution.engine import ExecutionEngine
+
+# 创建 PRD
+prd = PRD(
+    project_name="my-project",
+    mode=ExecutionMode.NORMAL,
+    # ... 其他配置
+)
+
+# 执行
+engine = ExecutionEngine()
+result = await engine.execute(prd)
+```
+
+## 架构概览
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    PRD-driven Sprint                       │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  ┌──────────────┐    ┌─────────────────┐    ┌───────────┐ │
+│  │ ManualPRD    │    │ EvolutionPipeline│    │ Diagnostic│ │
+│  │ Source       │───▶│ (统一进化管道)   │───▶│ PRD Source│ │
+│  └──────────────┘    └─────────────────┘    └───────────┘ │
+│                              │                              │
+│                              ▼                              │
+│                     ┌─────────────────┐                     │
+│                     │  SprintExecutor │                     │
+│                     └─────────────────┘                     │
+│                              │                              │
+│              ┌───────────────┼───────────────┐            │
+│              ▼               ▼               ▼            │
+│        ┌──────────┐    ┌──────────┐    ┌──────────┐       │
+│        │ Analyzer │    │  Coder   │    │  Tester  │       │
+│        └──────────┘    └──────────┘    └──────────┘       │
+│                                                             │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │        Error Router (三级路由)                       │   │
+│  │  LEVEL_1_STATIC → LEVEL_2_PATTERN → LEVEL_3_LLM     │   │
+│  └─────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 核心模块
+
+| 模块 | 路径 | 说明 |
+|------|------|------|
+| `EvolutionPipeline` | `sprintcycle/evolution/pipeline.py` | 统一进化管道 |
+| `SprintExecutor` | `sprintcycle/execution/sprint_executor.py` | Sprint 执行器 |
+| `ExecutionEngine` | `sprintcycle/execution/engine.py` | 统一执行引擎 |
+| `ErrorRouter` | `sprintcycle/execution/error_router.py` | 错误路由 |
+| `PRDValidator` | `sprintcycle/prd/validator.py` | PRD 验证器 |
+
+## 配置
+
+### 环境变量
+
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| `DEEPSEEK_API_KEY` | DeepSeek API Key | - |
+| `SPRINTCYCLE_LLM_PROVIDER` | LLM 提供商 | deepseek |
+| `SPRINTCYCLE_LLM_MODEL` | 模型名称 | deepseek-reasoner |
+| `SPRINTCYCLE_LLM_TEMPERATURE` | 温度参数 | 0.7 |
+| `SPRINTCYCLE_LLM_MAX_TOKENS` | 最大 Token | 2048 |
+| `SPRINTCYCLE_EVOLUTION_ENABLED` | 启用进化 | true |
+| `SPRINTCYCLE_DRY_RUN` | 试运行模式 | false |
+| `SPRINTCYCLE_MAX_SPRINTS` | 最大 Sprint 数 | 10 |
+| `SPRINTCYCLE_PARALLEL_TASKS` | 并行任务数 | 3 |
+| `SPRINTCYCLE_LOG_LEVEL` | 日志级别 | INFO |
+| `CODING_ENGINE` | 编码引擎 | cursor |
+
+## 项目结构
+
+```
+sprintcycle/
+├── cli.py                    # 命令行入口
+├── coding_engine.py          # 编码引擎
+├── llm_provider.py           # LLM 提供商
+├── exceptions.py             # 异常定义
+│
+├── config/
+│   └── manager.py            # 配置管理 (RuntimeConfig, LLMConfig)
+│
+├── evolution/                 # 进化系统
+│   ├── pipeline.py           # EvolutionPipeline
+│   ├── prd_source.py         # PRD 源 (Manual/Diagnostic)
+│   ├── measurement.py        # 测量
+│   ├── memory_store.py       # 记忆存储
+│   └── rollback_manager.py   # 回滚管理
+│
+├── diagnostic/               # 诊断系统
+│   ├── provider.py           # 诊断提供者
+│   ├── health_report.py      # 健康报告
+│   └── prd_generator.py      # PRD 生成
+│
+├── execution/                # 执行系统
+│   ├── engine.py             # 执行引擎
+│   ├── sprint_executor.py    # Sprint 执行器
+│   ├── error_router.py       # 错误路由
+│   ├── static_analyzer.py    # 静态分析
+│   └── agents/               # Agent 实现
+│       ├── analyzer.py
+│       ├── coder.py
+│       └── tester.py
+│
+├── intent/                    # 意图识别
+│   ├── parser.py
+│   └── runner.py
+│
+├── prd/                       # PRD 处理
+│   ├── models.py            # PRD 模型
+│   ├── parser.py            # 解析器
+│   └── validator.py         # 验证器
+│
+└── integrations/             # 集成
+    └── evolution_integration.py
+```
+
+## 开发
+
+### 运行测试
+
 ```bash
-# 自动修复项目问题
-python run_cycle.py /path/to/your/project --autofix
-
-# 执行PRD驱动的开发
-python run_cycle.py /path/to/your/project /path/to/your/prd.md
-
-# 只扫描不修复
-python run_cycle.py /path/to/your/project --scan-only
+pytest tests/ -v
 ```
 
-## 示例：修复学玩派项目
+### 代码检查
 
 ```bash
-# 自动修复学玩派的启动问题
-python run_cycle.py /root/xuewanpai --autofix
+# mypy 类型检查
+mypy sprintcycle/ --ignore-missing-imports
+
+# ruff 代码格式
+ruff check sprintcycle/
 ```
 
-执行成功后，会输出：
-- 发现的问题
-- 修复的问题
-- 生成的文件
+### 状态
 
-## 核心特性
+- **版本**: 0.7.0
+- **代码行数**: ~15000
+- **测试**: 183 passed
+- **mypy**: 0 errors
 
-- 🤖 **AI驱动全流程**：自动完成需求分析、任务拆分、代码生成、测试验证
-- 🔄 **自进化机制**：通过执行结果持续优化自身能力
-- 🎯 **多源验证**：Playwright MCP + CLI + 日志 + 测试用例 五源并行验证
-- 🛠️ **灵活扩展**：支持多种AI编程工具（Aider、Cursor、Claude等）
-- 📦 **开箱即用**：无需复杂部署，Python虚拟环境一键启动
+## License
 
-## 架构设计
-
-```
-┌───────────────────────────────────────────────────┐
-│                   SprintCycle                    │
-├───────────┬───────────┬───────────┬─────────────┤
-│  Scanner  │ Autofix   │ Verifier  │  Executor   │
-├───────────┼───────────┼───────────┼─────────────┤
-│  问题扫描 │ 自动修复  │ 多源验证  │ 任务执行    │
-└───────────┴───────────┴───────────┴─────────────┘
-         │           │           │           │
-         ▼           ▼           ▼           ▼
-┌───────────┐ ┌───────────┐ ┌───────────┐ ┌───────────┐
-│  Scanner  │ │ Autofix   │ │ Playwright│ │   Aider   │
-│  Module   │ │  Engine   │ │   MCP     │ │  Cursor   │
-└───────────┘ └───────────┘ └───────────┘ └───────────┘
-```
-
-## 开发指南
-
-### 添加新的工具支持
-
-在`sprintcycle/config.py`中添加新的工具配置：
-
-```python
-@dataclass
-class ToolConfig:
-    """工具配置"""
-    command: str
-    timeout: int = 180
-    # 添加新工具参数
-    api_key: Optional[str] = None
-```
-
-然后在`config.yaml`中配置：
-
-```yaml
-tools:
-  new_tool:
-    command: new-tool-agent
-    timeout: 180
-    api_key: ${NEW_TOOL_API_KEY}
-```
-
-### 扩展问题扫描器
-
-在`sprintcycle/scanner.py`中添加新的扫描方法：
-
-```python
-def scan_new_problem_type(self) -> List[str]:
-    """扫描新类型的问题"""
-    issues = []
-    # 实现扫描逻辑
-    return issues
-```
-
-然后在`scan_all()`方法中调用：
-
-```python
-def scan_all(self) -> List[str]:
-    # ...
-    issues.extend(self.scan_new_problem_type())
-    # ...
-```
-
-## 贡献指南
-
-欢迎提交Issue和Pull Request！请遵循以下步骤：
-
-1. Fork 项目
-2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 打开 Pull Request
-
-## 许可证
-
-MIT License - 详见LICENSE文件
+MIT License

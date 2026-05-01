@@ -15,16 +15,14 @@ from typing import Tuple
 from sprintcycle.diagnostic.health_report import (
     ProjectHealthReport,
     CodeIssue,
-    IssueSeverity,
+    Severity,
 )
 
 from sprintcycle.diagnostic.provider import (
-    ProjectDiagnostic,
-    DiagnosticConfig,
+    ProjectDiagnostic
 )
 
 from sprintcycle.diagnostic.prd_generator import (
-    PRDGenerator,
     PRDRuleEngine,
     LLMPRDGenerator,
     PRDRulePriority,

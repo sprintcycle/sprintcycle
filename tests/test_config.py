@@ -99,16 +99,18 @@ class TestCodingClaudeConfig:
 class TestEvolutionRunConfig:
     """EvolutionRunConfig 测试"""
 
-    def test_init_requires_llm(self):
-        """测试需要 LLM 配置"""
-        with pytest.raises(ValueError, match="evolution.llm 是必填配置"):
-            EvolutionRunConfig()
+    def test_init_allows_no_llm(self):
+        """测试允许不传 LLM 配置（v0.9.1 变更）"""
+        config = EvolutionRunConfig()
+        assert config.enabled == True
+        assert config.llm is None
 
-    def test_init_requires_api_key(self):
-        """测试需要 API Key"""
+    def test_init_validates_llm_when_provided(self):
+        """测试当提供 LLM 时的验证（v0.9.1 变更）"""
         llm = EvolutionLLMConfig(provider="deepseek", model="test", api_key="")
-        with pytest.raises(ValueError, match="evolution.llm.api_key 未配置"):
-            EvolutionRunConfig(llm=llm)
+        # v0.9.1: 不再在初始化时强制验证 api_key
+        config = EvolutionRunConfig(llm=llm)
+        assert config.llm is llm
 
     def test_init_with_valid_config(self):
         """测试有效配置初始化"""

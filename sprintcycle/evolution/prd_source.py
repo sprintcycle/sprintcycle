@@ -203,7 +203,7 @@ class DiagnosticPRDSource(PRDSource):
     
     通过项目诊断生成PRD:
     1. 调用ProjectDiagnostic进行多维度诊断
-    2. 调用PRDGenerator生成结构化PRD
+    2. 调用DiagnosticPRDGenerator生成结构化PRD
     """
     
     def __init__(
@@ -240,8 +240,8 @@ class DiagnosticPRDSource(PRDSource):
             self._diagnostic = ProjectDiagnostic()
         
         if self._generator is None:
-            from sprintcycle.diagnostic import PRDGenerator
-            self._generator = PRDGenerator()
+            from sprintcycle.diagnostic import DiagnosticPRDGenerator
+            self._generator = DiagnosticPRDGenerator()
         
         # 1. 执行诊断
         logger.info(f"开始诊断项目: {project_path}")

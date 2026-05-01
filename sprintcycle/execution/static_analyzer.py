@@ -1,34 +1,5 @@
 """
 静态代码分析工具封装
-
-集成成熟的开源工具：
-- Ruff: Python Linter + Formatter (极快)
-- MyPy: 类型检查
-- Semgrep: 代码模式匹配
-
-优点：
-1. 无需 LLM 调用，速度快
-2. 专业工具，准确率高
-3. 可扩展（添加更多规则）
-
-使用方式：
-```python
-from .static_analyzer import StaticAnalyzer, AnalysisResult
-
-# 初始化
-analyzer = StaticAnalyzer(project_path="/path/to/project")
-
-# 分析 Python 代码
-results = await analyzer.analyze_python(files=["src/main.py"])
-
-# 分析特定文件
-results = await analyzer.analyze_file("src/utils.py")
-
-# 自动修复
-for result in results:
-    if result.fix:
-        await analyzer.auto_fix(result)
-```
 """
 
 import asyncio
@@ -114,7 +85,11 @@ def _map_ruff_severity(severity: Dict[str, Any]) -> str:
 
 @dataclass
 class AnalysisConfig:
-    """分析配置"""
+    """
+    分析配置（deprecated in v0.9.1）
+    
+    推荐直接使用 RuntimeConfig 的相关字段。
+    """
     ruff_enabled: bool = True
     ruff_rules: List[str] = field(default_factory=lambda: ["E", "F", "W", "I", "UP", "B", "C4"])
     ruff_ignore: List[str] = field(default_factory=list)
@@ -150,175 +125,101 @@ class StaticAnalyzer:
             return False
     
     async def analyze_python(self, files: Optional[List[str]] = None) -> List[AnalysisResult]:
-        results: List[AnalysisResult] = []
-        target = str(self.project_path) if not files else " ".join(files)
+        """分析 Python 文件"""
+        results = []
         
         if self.config.ruff_enabled and self._is_tool_available("ruff"):
-            ruff_results = await self._run_ruff(target)
-            results.extend(ruff_results)
+            results.extend(await self._analyze_with_ruff(files))
         
         if self.config.mypy_enabled and self._is_tool_available("mypy"):
-            mypy_results = await self._run_mypy(target)
-            results.extend(mypy_results)
+            results.extend(await self._analyze_with_mypy(files))
         
-        if self.config.semgrep_enabled and self._is_tool_available("semgrep"):
-            semgrep_results = await self._run_semgrep(target)
-            results.extend(semgrep_results)
-        
-        results = self._dedupe_results(results)[:self.config.max_results]
         return results
     
-    async def analyze_file(self, file_path: str) -> List[AnalysisResult]:
-        if not Path(file_path).is_absolute():
-            file_path = str(self.project_path / file_path)
-        return await self.analyze_python(files=[file_path])
-    
-    async def _run_ruff(self, target: str) -> List[AnalysisResult]:
+    async def _analyze_with_ruff(self, files: Optional[List[str]] = None) -> List[AnalysisResult]:
+        """使用 Ruff 分析"""
         cmd = ["ruff", "check", "--output-format=json"]
+        
         if self.config.ruff_rules:
             cmd.extend(["--select", ",".join(self.config.ruff_rules)])
+        
         if self.config.ruff_ignore:
             cmd.extend(["--ignore", ",".join(self.config.ruff_ignore)])
-        cmd.append(target)
+        
+        if self.config.ruff_fix:
+            cmd.append("--fix")
+        
+        if files:
+            cmd.extend(files)
+        else:
+            cmd.append(str(self.project_path))
         
         try:
-            process = await asyncio.create_subprocess_exec(
-                *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
-                cwd=str(self.project_path),
-            )
-            stdout, _ = await process.communicate()
-            if stdout:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            
+            if result.stdout:
                 try:
-                    data = json.loads(stdout.decode("utf-8"))
+                    data = json.loads(result.stdout)
                     return [AnalysisResult.from_ruff(item) for item in data]
                 except json.JSONDecodeError:
-                    pass
+                    logger.warning("Failed to parse ruff output")
         except Exception as e:
-            logger.warning(f"Ruff 执行失败: {e}")
+            logger.warning(f"Ruff analysis failed: {e}")
+        
         return []
     
-    async def _run_mypy(self, target: str) -> List[AnalysisResult]:
-        cmd = ["mypy", "--output=json", "--no-error-summary"]
+    async def _analyze_with_mypy(self, files: Optional[List[str]] = None) -> List[AnalysisResult]:
+        """使用 MyPy 分析"""
+        cmd = ["python", "-m", "mypy", "--no-error-summary", "--output-format=json"]
+        
         if self.config.mypy_ignore_missing_imports:
             cmd.append("--ignore-missing-imports")
+        
         if self.config.mypy_strict:
             cmd.append("--strict")
-        cmd.append(target)
+        
+        if files:
+            cmd.extend(files)
+        else:
+            cmd.append(str(self.project_path))
         
         try:
-            process = await asyncio.create_subprocess_exec(
-                *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
-                cwd=str(self.project_path),
-            )
-            stdout, _ = await process.communicate()
-            results = []
-            if stdout:
-                for line in stdout.decode("utf-8").strip().split("\n"):
-                    if not line:
-                        continue
-                    try:
-                        data = json.loads(line)
-                        if "message" in data:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+            
+            if result.stdout:
+                try:
+                    data = json.loads(result.stdout)
+                    results = []
+                    for item in data:
+                        if "message" in item:
                             results.append(AnalysisResult.from_mypy(
-                                file_path=data.get("file", ""),
-                                line=data.get("line", 0),
-                                message=data.get("message", ""),
+                                item.get("file", ""),
+                                item.get("line", 0),
+                                item.get("message", "")
                             ))
-                    except json.JSONDecodeError:
-                        simple_match = re.match(r"(.+?):(\d+): (.+)", line)
-                        if simple_match:
-                            results.append(AnalysisResult.from_mypy(
-                                file_path=simple_match.group(1),
-                                line=int(simple_match.group(2)),
-                                message=simple_match.group(3),
-                            ))
-            return results
+                    return results
+                except json.JSONDecodeError:
+                    logger.warning("Failed to parse mypy output")
         except Exception as e:
-            logger.warning(f"MyPy 执行失败: {e}")
+            logger.warning(f"MyPy analysis failed: {e}")
+        
         return []
     
-    async def _run_semgrep(self, target: str) -> List[AnalysisResult]:
-        results = []
-        patterns = {"security": "eval($X)", "best-practice": "open(...)"}
-        for rule in self.config.semgrep_rules:
-            cmd = ["semgrep", "--quiet", "--json", "--pattern", patterns.get(rule, ""), target]
-            try:
-                process = await asyncio.create_subprocess_exec(
-                    *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
-                    cwd=str(self.project_path),
-                )
-                stdout, _ = await process.communicate()
-                if stdout:
-                    data = json.loads(stdout.decode("utf-8"))
-                    for r in data.get("results", []):
-                        results.append(AnalysisResult(
-                            tool="semgrep",
-                            file_path=r.get("path", ""),
-                            line=r.get("start", {}).get("line", 0),
-                            column=r.get("start", {}).get("col", 0),
-                            code=r.get("check_id", ""),
-                            message=r.get("extra", {}).get("message", ""),
-                            severity="warning",
-                        ))
-            except Exception as e:
-                logger.debug(f"Semgrep 规则 {rule} 执行失败: {e}")
-        return results
-    
-    def _dedupe_results(self, results: List[AnalysisResult]) -> List[AnalysisResult]:
-        seen = set()
-        deduped = []
-        for result in results:
-            key = (result.file_path, result.line, result.column, result.code)
-            if key not in seen:
-                seen.add(key)
-                deduped.append(result)
-        return deduped
+    async def analyze_file(self, file_path: str) -> List[AnalysisResult]:
+        """分析单个文件"""
+        return await self.analyze_python([file_path])
     
     async def auto_fix(self, result: AnalysisResult) -> bool:
-        if not self.config.auto_fix:
-            return False
-        if result.tool == "ruff" and result.fix:
-            return await self._ruff_fix(result.file_path)
+        """自动修复问题"""
+        if result.tool == "ruff" and self.config.ruff_fix:
+            try:
+                proc = await asyncio.create_subprocess_exec(
+                    "ruff", "check", "--fix", result.file_path,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                await proc.communicate()
+                return proc.returncode == 0
+            except Exception as e:
+                logger.warning(f"Auto-fix failed: {e}")
         return False
-    
-    async def _ruff_fix(self, file_path: str) -> bool:
-        cmd = ["ruff", "check", "--fix", file_path]
-        try:
-            process = await asyncio.create_subprocess_exec(
-                *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
-                cwd=str(self.project_path),
-            )
-            await process.communicate()
-            return True
-        except Exception:
-            return False
-    
-    def get_summary(self, results: List[AnalysisResult]) -> Dict[str, Any]:
-        if not results:
-            return {"total": 0, "errors": 0, "warnings": 0, "infos": 0}
-        errors = [r for r in results if r.severity == "error"]
-        warnings = [r for r in results if r.severity == "warning"]
-        return {
-            "total": len(results),
-            "errors": len(errors),
-            "warnings": len(warnings),
-            "infos": len([r for r in results if r.severity == "info"]),
-            "fixable": len([r for r in results if r.fix]),
-        }
-
-
-ERROR_CODE_HINTS = {
-    "E501": "行太长，建议拆分为多行或使用括号续行",
-    "F401": "导入了但未使用，可以删除或用 _ 前缀",
-    "F811": "名称重复定义",
-    "W291": "行尾有多余空格",
-    "W293": "行尾有空行",
-    "E302": "需要两个空行分隔",
-    "E231": "缺少空格",
-    "I001": "导入顺序需要排序（运行 isort）",
-    "UP007": "使用 | 代替 Optional[]",
-    "UP006": "使用 list[] 代替 List[]",
-}
-
-
-__all__ = ["StaticAnalyzer", "AnalysisResult", "AnalysisConfig", "ERROR_CODE_HINTS"]

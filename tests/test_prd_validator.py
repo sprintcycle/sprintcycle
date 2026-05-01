@@ -6,8 +6,7 @@ import pytest
 
 from sprintcycle.prd.validator import PRDValidator, ValidationResult
 from sprintcycle.prd.models import (
-    PRD, PRDProject, PRDSprint, PRDTask,
-    EvolutionConfig, ExecutionMode
+    PRD, PRDProject, PRDSprint, PRDTask, ExecutionMode
 )
 
 

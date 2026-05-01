@@ -20,8 +20,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
+from ..execution.sprint_types import ExecutionStatus
 from .metrics import (
-    ExecutionStatus,
     ExecutionRecord,
     MetricsCollector,
     get_metrics_collector,
@@ -140,7 +140,7 @@ def create_dashboard_app(
     @app.get("/api/stats", response_model=StatsResponse)
     async def get_stats():
         """获取统计数据"""
-        return collector.get_stats()
+        return collector.stats
     
     @app.get("/api/executions", response_model=List[ExecutionResponse])
     async def list_executions(

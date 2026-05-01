@@ -16,10 +16,11 @@ from typing import Any, Optional
 import click
 
 from sprintcycle.intent.parser import IntentParser, ActionType
-from sprintcycle.prd.generator import PRDGenerator
+from sprintcycle.prd.generator import IntentPRDGenerator
 from sprintcycle.prd.parser import PRDParser, PRDParseError, YAMLError
 from sprintcycle.scheduler.dispatcher import TaskDispatcher, ExecutionStatus
 from sprintcycle.intent.base import IntentResult
+
 
 def setup_logging(
     log_file: str = ".sprintcycle/logs/sprintcycle.log",
@@ -29,36 +30,22 @@ def setup_logging(
 ) -> logging.Logger:
     """
     配置日志系统，支持文件轮转
-    
-    Args:
-        log_file: 日志文件路径
-        level: 日志级别
-        max_bytes: 单个日志文件最大大小
-        backup_count: 保留的备份文件数量
-        
-    Returns:
-        配置好的 logger 实例
     """
-    # 确保日志目录存在
     log_path = Path(log_file)
     log_path.parent.mkdir(parents=True, exist_ok=True)
     
-    # 创建格式化器
     formatter = logging.Formatter(
         "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
     
-    # 配置根 logger
     root_logger = logging.getLogger()
     root_logger.setLevel(level)
     
-    # 添加控制台处理器
     console_handler = logging.StreamHandler()
     console_handler.setLevel(level)
     console_handler.setFormatter(formatter)
     root_logger.addHandler(console_handler)
     
-    # 添加文件轮转处理器
     file_handler = RotatingFileHandler(
         log_file,
         maxBytes=max_bytes,
@@ -71,30 +58,17 @@ def setup_logging(
     
     return logging.getLogger(__name__)
 
-# 初始化日志系统
+
 logger = setup_logging()
 
 
-@click.command()
-@click.option('--intent', '-i', type=str, help='用户意图描述')
-@click.option('--project', '-p', type=str, help='项目路径')
-@click.option('--target', '-t', type=str, help='目标文件')
-@click.option('--mode', '-m', type=click.Choice(['auto', 'evolution', 'normal', 'fix', 'test']),
-              default='auto', help='执行模式')
-@click.option('--constraints', '-c', multiple=True, help='约束条件')
-@click.option('--dry-run', is_flag=True, help='仅生成 PRD，不执行')
-@click.option('--status', is_flag=True, help='查看状态')
-@click.option('--init', 'init_path', type=click.Path(), help='初始化项目')
-@click.option('--verbose', '-v', is_flag=True, help='详细输出')
-@click.argument('args', nargs=-1)  # 捕获所有剩余参数作为意图
-@click.version_option(version='0.6.0', prog_name='sprintcycle')
 def _resolve_intent(intent: Optional[str], args: tuple) -> str:
     """解析意图来源：--intent 参数或位置参数"""
     if not intent and args:
         intent = ' '.join(args)
     if not intent:
-        click.echo("请提供意图描述，使用 --help 查看帮助")
-        sys.exit(1)
+        click.echo(click.get_current_context().get_help())
+        sys.exit(0)
     return intent
 
 
@@ -128,7 +102,7 @@ def _handle_run_action(parsed, dry_run: bool, verbose: bool):
 
 def _generate_and_execute(parsed, dry_run: bool):
     """生成 PRD 并执行（非 RUN action）"""
-    generator = PRDGenerator()
+    generator = IntentPRDGenerator()
     prd = generator.generate(parsed)
     
     if dry_run:
@@ -148,6 +122,113 @@ def _generate_and_execute(parsed, dry_run: bool):
         sys.exit(1)
 
 
+def _show_status():
+    """显示状态信息"""
+    click.echo("📊 SprintCycle 状态")
+    
+    state_dir = Path(".sprintcycle/state")
+    if not state_dir.exists():
+        click.echo("   状态目录不存在")
+        return
+    
+    click.echo(f"   状态目录: {state_dir}")
+
+
+def _init_project(init_path: str):
+    """初始化项目"""
+    click.echo(f"🚀 初始化项目: {init_path}")
+    
+    path = Path(init_path)
+    if path.exists():
+        click.echo(f"   目录已存在: {path}")
+    else:
+        path.mkdir(parents=True)
+        click.echo(f"   创建目录: {path}")
+    
+    state_dir = path / ".sprintcycle" / "state"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    click.echo(f"   创建状态目录: {state_dir}")
+    
+    click.echo("\n✅ 项目初始化完成")
+
+
+def _run_prd_file(prd_file: str, dry_run: bool, verbose: bool):
+    """执行 PRD 文件"""
+    try:
+        parser = PRDParser()
+        prd = parser.parse_file(prd_file)
+        
+        click.echo(f"📄 PRD 文件: {prd_file}")
+        click.echo(f"   项目: {prd.project.name}")
+        click.echo(f"   模式: {prd.mode.value}")
+        click.echo(f"   Sprint 数: {len(prd.sprints)}")
+        click.echo(f"   任务数: {prd.total_tasks}")
+        
+        if dry_run:
+            click.echo("\n✅ PRD 验证通过（dry-run 模式）")
+            return
+        
+        click.echo(f"\n🚀 开始执行...")
+        result = _execute_prd(prd)
+        
+        if result.success:
+            click.echo(f"\n✅ 执行成功")
+            click.echo(f"   完成 Sprint: {result.completed_sprints}/{result.total_sprints}")
+            click.echo(f"   完成任务: {result.completed_tasks}/{result.total_tasks}")
+        else:
+            click.echo(f"\n❌ 执行失败: {result.error}")
+            sys.exit(1)
+
+    except PRDParseError as e:
+        click.echo(f"❌ PRD 解析错误: {e}")
+        sys.exit(1)
+    except YAMLError as e:
+        click.echo(f"❌ YAML 错误: {e}")
+        sys.exit(1)
+
+
+def _execute_prd(prd) -> IntentResult:
+    """执行 PRD"""
+    dispatcher = TaskDispatcher()
+    sprint_results = asyncio.run(dispatcher.execute_prd(prd, max_concurrent=3))
+    
+    success = all(
+        r.status in (ExecutionStatus.SUCCESS, ExecutionStatus.SKIPPED)
+        for r in sprint_results
+    )
+    
+    completed_sprints = sum(
+        1 for r in sprint_results 
+        if r.status in (ExecutionStatus.SUCCESS, ExecutionStatus.SKIPPED)
+    )
+    completed_tasks = sum(r.success_count for r in sprint_results)
+    
+    return IntentResult(
+        success=success,
+        prd=prd,
+        completed_sprints=completed_sprints,
+        completed_tasks=completed_tasks,
+        total_sprints=len(sprint_results),
+        total_tasks=prd.total_tasks,
+        error=None if success else "部分任务失败",
+        sprint_results=sprint_results,
+    )
+
+
+# CLI 入口点 - 使用 click 装饰器
+@click.command()
+@click.option('--intent', '-i', type=str, help='用户意图描述')
+@click.option('--project', '-p', type=str, help='项目路径')
+@click.option('--target', '-t', type=str, help='目标文件')
+@click.option('--mode', '-m', type=click.Choice(['auto', 'evolution', 'normal', 'fix', 'test']),
+              default='auto', help='执行模式')
+@click.option('--constraints', '-c', multiple=True, help='约束条件')
+@click.option('--dry-run', is_flag=True, help='仅生成 PRD，不执行')
+@click.option('--status', is_flag=True, help='查看状态')
+@click.option('--init', 'init_path', type=click.Path(), help='初始化项目')
+@click.option('--verbose', '-v', is_flag=True, help='详细输出')
+@click.argument('args', nargs=-1)  # 捕获所有剩余参数作为意图
+@click.version_option(version='0.7.0', prog_name='sprintcycle')
 def cli(
     intent: Optional[str],
     project: Optional[str],
@@ -200,96 +281,12 @@ def cli(
         click.echo(f"❌ PRD 解析错误: {e}")
         sys.exit(1)
     except Exception as e:
-        logger.exception("执行失败")
-        click.echo(f"❌ 错误: {e}")
+        click.echo(f"❌ 执行错误: {e}")
+        if verbose:
+            import traceback
+            traceback.print_exc()
         sys.exit(1)
-
-
-def _show_status():
-    """显示状态"""
-    click.echo("📊 SprintCycle v0.6.0")
-    click.echo("   模式: PRD 驱动")
-    click.echo("")
-    click.echo("意图类型:")
-    click.echo("   evolution - 进化优化")
-    click.echo("   normal    - 普通构建")
-    click.echo("   fix       - Bug 修复")
-    click.echo("   test      - 测试验证")
-    click.echo("   run       - 执行 PRD 文件")
-
-
-def _init_project(path: str):
-    """初始化项目"""
-    p = Path(path)
-    p.mkdir(parents=True, exist_ok=True)
-    
-    sprintcycle_dir = p / ".sprintcycle"
-    sprintcycle_dir.mkdir(exist_ok=True)
-    
-    sample_prd_path = sprintcycle_dir / "sample.yaml"
-    sample_prd_obj = PRDGenerator.sample_prd()
-    sample_prd_content = sample_prd_obj.to_yaml()
-    sample_prd_path.write_text(sample_prd_content, encoding="utf-8")
-    
-    click.echo(f"✅ 项目初始化完成: {path}")
-    click.echo(f"   创建了 .sprintcycle 目录")
-    click.echo(f"   创建了示例 PRD: {sample_prd_path}")
-
-
-def _run_prd_file(prd_file: str, dry_run: bool, verbose: bool):
-    """执行 PRD 文件"""
-    parser = PRDParser()
-    click.echo(f"📄 解析 PRD: {prd_file}")
-    prd = parser.parse_file(prd_file)
-    
-    click.echo(f"✅ 项目: {prd.project.name}")
-    click.echo(f"   模式: {prd.mode.value}")
-    click.echo(f"   Sprint 数: {len(prd.sprints)}")
-    click.echo(f"   任务数: {prd.total_tasks}")
-    
-    if dry_run:
-        click.echo("\n✅ PRD 验证通过（dry-run 模式）")
-        return
-    
-    click.echo(f"\n🚀 开始执行...")
-    result = _execute_prd(prd)
-    
-    if result.success:
-        click.echo(f"\n✅ 执行成功")
-        click.echo(f"   完成 Sprint: {result.completed_sprints}/{result.total_sprints}")
-        click.echo(f"   完成任务: {result.completed_tasks}/{result.total_tasks}")
-    else:
-        click.echo(f"\n❌ 执行失败: {result.error}")
-        sys.exit(1)
-
-
-def _execute_prd(prd) -> IntentResult:
-    """执行 PRD"""
-    dispatcher = TaskDispatcher()
-    sprint_results = asyncio.run(dispatcher.execute_prd(prd, max_concurrent=3))
-    
-    success = all(
-        r.status in (ExecutionStatus.SUCCESS, ExecutionStatus.SKIPPED)
-        for r in sprint_results
-    )
-    
-    completed_sprints = sum(
-        1 for r in sprint_results 
-        if r.status in (ExecutionStatus.SUCCESS, ExecutionStatus.SKIPPED)
-    )
-    completed_tasks = sum(r.success_count for r in sprint_results)
-    
-    return IntentResult(
-        success=success,
-        prd=prd,
-        completed_sprints=completed_sprints,
-        completed_tasks=completed_tasks,
-        total_sprints=len(sprint_results),
-        total_tasks=prd.total_tasks,
-        error=None if success else "部分任务失败",
-        sprint_results=sprint_results,
-    )
 
 
 if __name__ == '__main__':
-    cli(None, None, None, "normal", (), False, False, None, False, ())
+    cli()  # Use click's auto-discovery

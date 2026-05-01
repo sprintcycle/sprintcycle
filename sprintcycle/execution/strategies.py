@@ -13,7 +13,7 @@ from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, field
 
 from ..prd.models import PRD, ExecutionMode
-from .sprint_executor import SprintExecutor, SprintResult, TaskStatus
+from .sprint_executor import SprintExecutor, SprintResult, ExecutionStatus
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ class ExecutionResult:
     
     @property
     def completed_sprints(self) -> int:
-        return sum(1 for r in self.sprint_results if r.status == TaskStatus.SUCCESS)
+        return sum(1 for r in self.sprint_results if r.status == ExecutionStatus.SUCCESS)
     
     @property
     def total_sprints(self) -> int:
@@ -104,7 +104,7 @@ class NormalStrategy(ExecutionStrategy):
         sprint_results = await self.sprint_executor.execute_sprints(prd.sprints)
         
         # 判断整体成功
-        success = all(r.status == TaskStatus.SUCCESS for r in sprint_results)
+        success = all(r.status == ExecutionStatus.SUCCESS for r in sprint_results)
         
         duration = time.time() - start_time
         logger.info(f"{'✅' if success else '❌'} Normal 策略完成 ({duration:.2f}s)")
@@ -159,7 +159,7 @@ class EvolutionStrategy(ExecutionStrategy):
             evolution_config=prd.evolution,
         )
         
-        success = all(r.status == TaskStatus.SUCCESS for r in sprint_results)
+        success = all(r.status == ExecutionStatus.SUCCESS for r in sprint_results)
         duration = time.time() - start_time
         
         logger.info(f"{'✅' if success else '❌'} Evolution 策略完成 ({duration:.2f}s)")

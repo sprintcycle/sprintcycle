@@ -14,19 +14,13 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
+from ..execution.sprint_types import ExecutionStatus
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
 
-class ExecutionStatus(Enum):
-    """执行状态"""
-    PENDING = "pending"
-    RUNNING = "running"
-    SUCCESS = "success"
-    FAILED = "failed"
-    CANCELLED = "cancelled"
 
 
 class MetricType(Enum):
@@ -229,7 +223,8 @@ class MetricsCollector:
         """记录计时器"""
         self.record_metric(name, duration, MetricType.TIMER, labels)
     
-    def get_stats(self) -> Dict[str, Any]:
+    @property
+    def stats(self) -> Dict[str, Any]:
         """获取统计数据"""
         exec_status = self._calc_execution_status()
         duration_stats = self._calc_duration_stats()

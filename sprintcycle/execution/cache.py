@@ -284,7 +284,8 @@ class ExecutionCache:
         self._stats["evictions"] += 1
         logger.debug(f"Cache evicted (LRU): {lru_key[:8]}")
     
-    def get_stats(self) -> Dict[str, Any]:
+    @property
+    def stats(self) -> Dict[str, Any]:
         """
         获取缓存统计
         

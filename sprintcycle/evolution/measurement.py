@@ -6,34 +6,9 @@ import logging
 import subprocess
 import time
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from ..config.manager import RuntimeConfig
-from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class MeasurementConfig:
-    repo_path: str = "."
-    test_command: str = "python -m pytest tests/ -v --tb=short"
-    coverage_threshold: float = 0.0
-    quality_gate_enabled: bool = True
-    measurement_timeout: int = 300
-
-
-    @classmethod
-    def from_runtime_config(cls, rc: "RuntimeConfig") -> "MeasurementConfig":
-        """Construct from RuntimeConfig."""
-        return cls(
-            repo_path=getattr(rc, 'state_dir', '.'),
-            test_command=getattr(rc, 'test_command', 'python -m pytest tests/ -v --tb=short'),
-            quality_gate_enabled=getattr(rc, 'quality_gate_enabled', True),
-            measurement_timeout=getattr(rc, 'diagnostic_timeout', 300),
-        )
 
 
 @dataclass
@@ -76,24 +51,34 @@ class MeasurementResult:
 class MeasurementProvider:
     def __init__(
         self,
-        config: Optional[MeasurementConfig] = None,
+        repo_path: str = ".",
+        test_command: str = "python -m pytest tests/ -v --tb=short",
+        coverage_threshold: float = 0.0,
+        quality_gate_enabled: bool = True,
+        measurement_timeout: int = 300,
+        runtime_config=None,
         runner: Optional[Callable[..., Tuple[int, str, str]]] = None,
     ):
-        self.config = config or MeasurementConfig()
+        # 支持从 RuntimeConfig 构造
+        if runtime_config is not None:
+            self.repo_path = getattr(runtime_config, 'state_dir', '.')
+            self.test_command = getattr(runtime_config, 'test_command', test_command)
+            self.quality_gate_enabled = getattr(runtime_config, 'quality_gate_enabled', quality_gate_enabled)
+            self.measurement_timeout = getattr(runtime_config, 'diagnostic_timeout', measurement_timeout)
+            self.coverage_threshold = coverage_threshold
+        else:
+            self.repo_path = repo_path
+            self.test_command = test_command
+            self.quality_gate_enabled = quality_gate_enabled
+            self.measurement_timeout = measurement_timeout
+            self.coverage_threshold = coverage_threshold
         self._runner = runner or self._default_runner
         self._history: List[MeasurementResult] = []
         
-    def _default_runner(
-        self, cmd: str, cwd: str = ".", timeout: int = 300
-    ) -> Tuple[int, str, str]:
+    def _default_runner(self, cmd: str, cwd: str = ".", timeout: int = 300) -> Tuple[int, str, str]:
         try:
             result = subprocess.run(
-                cmd,
-                shell=True,
-                cwd=cwd,
-                capture_output=True,
-                text=True,
-                timeout=timeout,
+                cmd, shell=True, cwd=cwd, capture_output=True, text=True, timeout=timeout,
             )
             return result.returncode, result.stdout, result.stderr
         except subprocess.TimeoutExpired:
@@ -107,12 +92,7 @@ class MeasurementProvider:
         stability = self._measure_stability()
         code_quality = self._measure_code_quality()
         
-        overall = (
-            correctness * 0.3 +
-            performance * 0.2 +
-            stability * 0.2 +
-            code_quality * 0.3
-        )
+        overall = correctness * 0.3 + performance * 0.2 + stability * 0.2 + code_quality * 0.3
         
         result = MeasurementResult(
             correctness=correctness,
@@ -125,23 +105,16 @@ class MeasurementProvider:
                 "quality_details": self._get_quality_details(),
             },
         )
-        
         self._history.append(result)
-        logger.info(
-            f"Measurement complete: overall={overall:.3f}, "
-            f"correctness={correctness:.3f}, performance={performance:.3f}, "
-            f"stability={stability:.3f}, code_quality={code_quality:.3f}"
-        )
         return result
     
     def _measure_correctness(self) -> float:
         try:
             rc, stdout, stderr = self._runner(
-                self.config.test_command,
-                cwd=self.config.repo_path,
-                timeout=self.config.measurement_timeout,
+                self.test_command,
+                cwd=self.repo_path,
+                timeout=self.measurement_timeout,
             )
-            
             if "passed" in stdout.lower() or "passed" in stderr.lower():
                 import re
                 match = re.search(r'(\d+) passed', stdout + stderr)
@@ -153,10 +126,8 @@ class MeasurementProvider:
                     else:
                         total = passed
                     return min(1.0, passed / max(1, total))
-            
             return 1.0 if rc == 0 else 0.0
-        except Exception as e:
-            logger.warning(f"Correctness measurement failed: {e}")
+        except Exception:
             return 0.5
     
     def _measure_performance(self) -> float:
@@ -174,14 +145,9 @@ class MeasurementProvider:
     
     def _measure_code_quality(self) -> float:
         try:
-            rc_mypy, _, _ = self._runner(
-                "python -m mypy sprintcycle --ignore-missing-imports 2>&1 || true",
-                cwd=self.config.repo_path,
-                timeout=60,
-            )
+            self._runner("python -m mypy sprintcycle --ignore-missing-imports 2>&1 || true", cwd=self.repo_path, timeout=60)
             return 0.7
-        except Exception as e:
-            logger.warning(f"Quality measurement failed: {e}")
+        except Exception:
             return 0.5
     
     def _get_correctness_details(self) -> Dict[str, Any]:
@@ -191,13 +157,11 @@ class MeasurementProvider:
         return {}
     
     def check_quality_gate(self, result: MeasurementResult) -> bool:
-        if not self.config.quality_gate_enabled:
+        if not self.quality_gate_enabled:
             return True
         if result.correctness < 0.5:
-            logger.warning(f"Quality gate failed: correctness={result.correctness}")
             return False
-        if result.overall < self.config.coverage_threshold:
-            logger.warning(f"Quality gate failed: overall={result.overall}")
+        if result.overall < self.coverage_threshold:
             return False
         return True
     
@@ -207,9 +171,7 @@ class MeasurementProvider:
     def get_latest(self) -> Optional[MeasurementResult]:
         return self._history[-1] if self._history else None
     
-    def compare(
-        self, baseline: MeasurementResult, current: MeasurementResult
-    ) -> Dict[str, float]:
+    def compare(self, baseline: MeasurementResult, current: MeasurementResult) -> Dict[str, float]:
         return {
             "correctness_delta": current.correctness - baseline.correctness,
             "performance_delta": current.performance - baseline.performance,
@@ -218,7 +180,5 @@ class MeasurementProvider:
             "overall_delta": current.overall - baseline.overall,
         }
     
-    def is_improved(
-        self, baseline: MeasurementResult, current: MeasurementResult
-    ) -> bool:
+    def is_improved(self, baseline: MeasurementResult, current: MeasurementResult) -> bool:
         return current.overall > baseline.overall

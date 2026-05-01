@@ -16,11 +16,6 @@ class ExecutionMode(Enum):
     EVOLUTION = "evolution"  # 自进化模式
 
 
-class AgentType(Enum):
-    """Agent 类型"""
-    CODER = "coder"  # 编码 agent
-    EVOLVER = "evolver"  # 进化 agent（自进化专用）
-    TESTER = "tester"  # 测试 agent
 
 
 @dataclass
@@ -39,7 +34,7 @@ class PRDProject:
 
 
 @dataclass
-class EvolutionConfig:
+class PRDEvolutionParams:
     """进化配置（自进化模式专用）"""
     targets: List[str] = field(default_factory=list)
     goals: List[str] = field(default_factory=list)
@@ -98,7 +93,7 @@ class PRD:
     """完整 PRD 文档"""
     project: PRDProject
     mode: ExecutionMode = ExecutionMode.NORMAL
-    evolution: Optional[EvolutionConfig] = None
+    evolution: Optional[PRDEvolutionParams] = None
     sprints: List[PRDSprint] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=datetime.now)

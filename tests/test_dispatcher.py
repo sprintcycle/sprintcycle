@@ -10,8 +10,7 @@ from sprintcycle.scheduler.dispatcher import (
     ExecutionStatus
 )
 from sprintcycle.prd.models import (
-    PRD, PRDProject, PRDSprint, PRDTask,
-    EvolutionConfig, ExecutionMode
+    PRD, PRDProject, PRDSprint, PRDTask, ExecutionMode
 )
 
 

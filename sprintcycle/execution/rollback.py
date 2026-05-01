@@ -18,81 +18,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 logger = logging.getLogger(__name__)
 
 
-# =============================================================================
-# Shared Dataclasses (also used by evolution/rollback_manager.py)
-# =============================================================================
-
-@dataclass
-class BackupRecord:
-    backup_id: str
-    file_path: str
-    backup_path: str
-    timestamp: datetime
-    file_hash: str
-    file_size: int
-    description: str = ""
-    operation: str = "modify"
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "backup_id": self.backup_id, "file_path": self.file_path, "backup_path": self.backup_path,
-            "timestamp": self.timestamp.isoformat(), "file_hash": self.file_hash, "file_size": self.file_size,
-            "description": self.description, "operation": self.operation, "metadata": self.metadata,
-        }
-    
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "BackupRecord":
-        data = data.copy()
-        if "timestamp" in data and isinstance(data["timestamp"], str):
-            data["timestamp"] = datetime.fromisoformat(data["timestamp"])
-        return cls(**data)
-
-
-@dataclass
-class RollbackResult:
-    success: bool
-    backup_id: str
-    restored_file: str
-    message: str = ""
-    duration: float = 0.0
-
-
-# =============================================================================
-# Evolution Shared Dataclasses
-# =============================================================================
-
-class RollbackError(Exception):
-    """回滚管理异常"""
-    pass
-
-
-@dataclass
-class RollbackConfig:
-    """进化回滚配置"""
-    git_branch_mode: bool = True
-    repo_path: str = "."
-    branch_prefix: str = "evo/variant-"
-    backup_dir: str = ".sprintcycle/evo_backups"
-    auto_cleanup: bool = True
-    max_branches: int = 20
-
-
-@dataclass
-class VariantBranch:
-    """变体分支记录"""
-    variant_id: str
-    branch_name: str
-    base_commit: str
-    created_at: datetime = field(default_factory=datetime.now)
-    committed: bool = False
-    merged: bool = False
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
-
-# =============================================================================
-# Git Operations Helper
-# =============================================================================
+from .rollback_types import BackupRecord, RollbackResult, RollbackError, VariantBranch
 
 def _run_git(args: List[str], cwd: str = ".", timeout: int = 30) -> Tuple[int, str, str]:
     """运行 git 命令，返回 (returncode, stdout, stderr)"""
@@ -118,6 +44,25 @@ def _is_git_repo(path: str) -> bool:
 
 
 # =============================================================================
+# RollbackConfig - 内联配置（无单独类）
+# =============================================================================
+
+@dataclass
+class RollbackConfigInline:
+    """进化回滚配置（内联版本，替代 RollbackConfig 类）"""
+    git_branch_mode: bool = True
+    repo_path: str = "."
+    branch_prefix: str = "evo/variant-"
+    backup_dir: str = ".sprintcycle/evo_backups"
+    auto_cleanup: bool = True
+    max_branches: int = 20
+
+
+# 别名，保持向后兼容
+RollbackConfig = RollbackConfigInline
+
+
+# =============================================================================
 # GitRollbackMixin - Git Branch based variant management
 # =============================================================================
 
@@ -134,12 +79,24 @@ class GitRollbackMixin:
 
     def __init__(
         self,
-        config: Optional[RollbackConfig] = None,
+        git_branch_mode: bool = True,
+        repo_path: str = ".",
+        branch_prefix: str = "evo/variant-",
+        backup_dir: str = ".sprintcycle/evo_backups",
+        auto_cleanup: bool = True,
+        max_branches: int = 20,
         git_runner: Optional[Callable[..., Tuple[int, str, str]]] = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.config = config or RollbackConfig()
+        self.config = RollbackConfigInline(
+            git_branch_mode=git_branch_mode,
+            repo_path=repo_path,
+            branch_prefix=branch_prefix,
+            backup_dir=backup_dir,
+            auto_cleanup=auto_cleanup,
+            max_branches=max_branches,
+        )
         self._git_runner = git_runner or _run_git
         self._branches: Dict[str, VariantBranch] = {}
         self._lock = asyncio.Lock()

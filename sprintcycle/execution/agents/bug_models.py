@@ -5,21 +5,17 @@ Bug 分析数据模型
 - BugReport: Bug 分析报告
 - FixSuggestion: 修复建议
 - FixResult: 修复结果
-- BugSeverity: 严重程度枚举
+- Severity: 严重程度枚举
 - Location: 问题位置
+
+v0.9.1: 从 Pydantic 迁移到 dataclass，消除 type: ignore 警告
 """
 
-from pydantic import BaseModel, ConfigDict, Field
+from dataclasses import dataclass, field
 from typing import List, Optional, Dict, Any
 from enum import Enum
 
-
-class BugSeverity(str, Enum):
-    """Bug 严重程度枚举"""
-    CRITICAL = "critical"  # 系统崩溃、数据丢失
-    HIGH = "high"          # 功能完全不可用
-    MEDIUM = "medium"      # 功能部分受损
-    LOW = "low"           # 界面问题或小问题
+from sprintcycle.exceptions import Severity
 
 
 class ErrorCategory(str, Enum):
@@ -37,15 +33,15 @@ class ErrorCategory(str, Enum):
     UNKNOWN = "unknown"            # 未知错误
 
 
-class Location(BaseModel):
+@dataclass
+class Location:
     """问题位置"""
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    file_path: str | None = None
-    line_number: int | None = None
-    column_number: int | None = None
-    function_name: str | None = None
-    class_name: str | None = None
-    code_snippet: str | None = None
+    file_path: Optional[str] = None
+    line_number: Optional[int] = None
+    column_number: Optional[int] = None
+    function_name: Optional[str] = None
+    class_name: Optional[str] = None
+    code_snippet: Optional[str] = None
 
     def __str__(self) -> str:
         """格式化位置信息"""
@@ -61,56 +57,58 @@ class Location(BaseModel):
         return "".join(parts) or "unknown location"
 
 
-class BugReport(BaseModel):
+@dataclass
+class BugReport:
     """Bug 分析报告"""
     # 错误基本信息
-    error_type: str = Field(..., description="异常类型（如 NameError, TypeError）")
-    error_message: str = Field(..., description="原始错误信息")
-    category: ErrorCategory = Field(ErrorCategory.UNKNOWN, description="错误分类")
+    error_type: str = ""
+    error_message: str = ""
+    category: ErrorCategory = ErrorCategory.UNKNOWN
     
-    # 位置信息
-    location: Location | None = Field(default_factory=Location, description="问题位置")
+    # 位置信息 - 支持 None
+    location: Optional[Location] = None
     
     # 分析结果
-    severity: BugSeverity = Field(BugSeverity.MEDIUM, description="严重程度")
-    root_cause: str = Field(..., description="根因分析")
-    suggestions: List[str] = Field(default_factory=list, description="修复建议列表")
+    severity: Severity = Severity.MEDIUM
+    root_cause: str = ""
+    suggestions: List[str] = field(default_factory=list)
     
     # 上下文
-    stack_trace: str | None = None
-    code_snippet: str | None = None
-    related_files: List[str] = Field(default_factory=list, description="相关文件")
+    stack_trace: Optional[str] = None
+    code_snippet: Optional[str] = None
+    related_files: List[str] = field(default_factory=list)
     
     # 元数据
-    confidence: float = Field(1.0, ge=0.0, le=1.0, description="分析置信度")
-    llm_used: bool = Field(False, description="是否使用了 LLM 分析")
+    confidence: float = 1.0
+    llm_used: bool = False
 
     def to_summary(self) -> str:
         """生成简洁的摘要"""
+        loc_str = str(self.location) if self.location else "unknown"
         return (
             f"[{self.severity.value.upper()}] {self.error_type}: {self.error_message[:100]}\n"
-            f"位置: {self.location}\n"
+            f"位置: {loc_str}\n"
             f"根因: {self.root_cause[:200]}\n"
             f"建议: {'; '.join(self.suggestions[:3])}"
         )
 
 
-class FixSuggestion(BaseModel):
+@dataclass
+class FixSuggestion:
     """修复建议"""
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    file_path: str = Field(..., description="需要修改的文件路径")
-    old_code: str = Field(..., description="原始代码")
-    new_code: str = Field(..., description="修复后的代码")
-    explanation: str = Field(..., description="修复说明")
-    confidence: float = Field(0.8, ge=0.0, le=1.0, description="修复置信度 (0-1)")
+    file_path: str = ""
+    old_code: str = ""
+    new_code: str = ""
+    explanation: str = ""
+    confidence: float = 0.8
     
     # 修复位置
-    line_start: int | None = None
-    line_end: int | None = None
+    line_start: Optional[int] = None
+    line_end: Optional[int] = None
     
     # 额外信息
-    is_automated: bool = Field(False, description="是否可自动修复")
-    warnings: List[str] = Field(default_factory=list, description="修复警告")
+    is_automated: bool = False
+    warnings: List[str] = field(default_factory=list)
 
     def generate_diff(self) -> str:
         """生成 diff 格式的变更"""
@@ -123,22 +121,22 @@ class FixSuggestion(BaseModel):
         )
 
 
-class FixResult(BaseModel):
+@dataclass
+class FixResult:
     """修复结果"""
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    success: bool = Field(..., description="修复是否成功")
-    file_path: str = Field(..., description="修改的文件路径")
+    success: bool = False
+    file_path: str = ""
     
     # 变更信息
-    diff: str | None = None
+    diff: Optional[str] = None
     lines_changed: int = 0
     
     # 错误信息（如有）
-    error: str | None = None
+    error: Optional[str] = None
     
     # 验证信息
-    verified: bool = Field(False, description="是否已验证")
-    backup_path: str | None = None
+    verified: bool = False
+    backup_path: Optional[str] = None
 
     def to_summary(self) -> str:
         """生成结果摘要"""
@@ -148,37 +146,71 @@ class FixResult(BaseModel):
             return f"❌ 修复失败: {self.file_path} - {self.error}"
 
 
-class AnalysisRequest(BaseModel):
+@dataclass
+class AnalysisRequest:
     """分析请求"""
-    error_log: str = Field(..., description="错误日志或 traceback")
-    code_context: Dict[str, str] | None = None
-    file_paths: List[str] = Field(default_factory=list, description="相关文件路径列表")
+    error_log: str = ""
+    code_context: Optional[Dict[str, str]] = None
+    file_paths: List[str] = field(default_factory=list)
     
     # 分析选项
-    use_llm: bool = Field(True, description="是否使用 LLM 进行深度分析")
-    max_depth: int | None = 3
+    use_llm: bool = True
+    max_depth: Optional[int] = 3
     
     # 语言
-    language: str | None = "python"
+    language: Optional[str] = "python"
 
 
-class AnalysisResult(BaseModel):
+@dataclass
+class AnalysisResult:
     """完整分析结果"""
     # 原始请求
-    request: AnalysisRequest = Field(..., description="分析请求")
+    request: AnalysisRequest = field(default_factory=AnalysisRequest)
     
     # 分析报告
-    report: BugReport = Field(..., description="Bug 分析报告")
+    report: BugReport = field(default_factory=BugReport)
     
     # 修复建议（可能为空）
-    suggestions: List[FixSuggestion] = Field(default_factory=list, description="修复建议列表")
+    suggestions: List[FixSuggestion] = field(default_factory=list)
     
     # 执行信息
-    execution_time: float = Field(0.0, description="分析耗时（秒）")
-    patterns_matched: List[str] = Field(default_factory=list, description="匹配到的模式列表")
+    execution_time: float = 0.0
+    patterns_matched: List[str] = field(default_factory=list)
 
     def get_best_fix(self) -> Optional[FixSuggestion]:
         """获取最佳修复建议（置信度最高）"""
         if not self.suggestions:
             return None
         return max(self.suggestions, key=lambda s: s.confidence)
+
+
+@dataclass
+class StackFrame:
+    """堆栈帧信息"""
+    file_path: str = ""
+    line_number: int = 0
+    function_name: Optional[str] = None
+    code: Optional[str] = None
+    column_number: Optional[int] = None
+
+
+@dataclass
+class ParsedTraceback:
+    """解析后的追踪信息"""
+    error_type: str = ""
+    error_message: str = ""
+    full_traceback: str = ""
+    location: Optional[Location] = None
+    code_snippet: Optional[str] = None
+    frames: List[StackFrame] = field(default_factory=list)
+
+
+@dataclass
+class PatternMatch:
+    """模式匹配结果"""
+    category: ErrorCategory = ErrorCategory.UNKNOWN
+    severity: Severity = Severity.MEDIUM
+    root_cause: str = ""
+    fixes: List[str] = field(default_factory=list)
+    confidence: float = 0.0
+    matched_patterns: List[str] = field(default_factory=list)

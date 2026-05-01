@@ -8,16 +8,10 @@ ProjectHealthReport - 项目健康报告
 
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional
+from ..exceptions import Severity
 from enum import Enum
 
 
-class IssueSeverity(Enum):
-    """问题严重程度"""
-    CRITICAL = "critical"
-    HIGH = "high"
-    MEDIUM = "medium"
-    LOW = "low"
-    INFO = "info"
 
 
 @dataclass
@@ -29,7 +23,7 @@ class CodeIssue:
     """
     file: str
     line: int
-    severity: IssueSeverity
+    severity: Severity
     message: str
     rule: Optional[str] = None
     tool: Optional[str] = None
@@ -145,7 +139,7 @@ class ProjectHealthReport:
         """高优先级问题"""
         return [
             issue for issue in self.code_issues
-            if issue.severity in (IssueSeverity.CRITICAL, IssueSeverity.HIGH)
+            if issue.severity in (Severity.CRITICAL, Severity.HIGH)
         ]
     
     def to_dict(self) -> Dict[str, Any]:

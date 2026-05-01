@@ -23,12 +23,6 @@ from enum import Enum
 logger = logging.getLogger(__name__)
 
 
-class ErrorSeverity(Enum):
-    """错误严重级别"""
-    CRITICAL = "critical"
-    HIGH = "high"
-    MEDIUM = "medium"
-    LOW = "low"
 
 
 @dataclass
@@ -129,6 +123,44 @@ class ErrorPattern:
             data["first_seen"] = datetime.fromisoformat(data["first_seen"])
         return cls(**data)
 
+
+
+    @classmethod
+    def from_error_log(
+        cls,
+        error_log: str,
+        error_type: str = "unknown",
+        suggested_fix: str = "",
+    ) -> Optional["ErrorPattern"]:
+        patterns_to_try = [
+            (r"ModuleNotFoundError: No module named '([^']+)'", "import_error", "pip install \\1"),
+            (r"ImportError: (.+?)(?:\n|$)", "import_error", "检查导入语句"),
+            (r"AttributeError: '([^']+)' object has no attribute '([^']+)'", "attribute_error", "检查属性名"),
+            (r"TypeError: (.+?)(?:\n|$)", "type_error", "检查参数类型"),
+            (r"SyntaxError: (.+?)(?:\n|$)", "syntax_error", "检查语法"),
+            (r"NameError: name '([^']+)' is not defined", "name_error", "定义或导入 \\1"),
+            (r"FileNotFoundError: \[Errno 2\] No such file or directory: '([^']+)'", "file_not_found", "检查文件路径"),
+            (r"IndentationError: (.+?)(?:\n|$)", "indentation_error", "检查缩进"),
+        ]
+        
+        for pattern_str, err_type, fix_template in patterns_to_try:
+            match = re.search(pattern_str, error_log)
+            if match:
+                return cls(
+                    pattern=pattern_str,
+                    error_type=err_type,
+                    root_cause=f"自动识别: {err_type}",
+                    suggested_fix=suggested_fix or fix_template,
+                )
+        
+        lines = error_log.strip().split("\n")
+        first_line = lines[0] if lines else ""
+        return cls(
+            pattern=re.escape(first_line[:100]),
+            error_type=error_type,
+            root_cause="未知原因",
+            suggested_fix=suggested_fix,
+        )
 
 @dataclass
 class PatternMatch:
@@ -316,7 +348,8 @@ class ErrorKnowledgeBase:
         if self.auto_save:
             asyncio.create_task(self.save())
     
-    def get_statistics(self) -> Dict[str, Any]:
+    @property
+    def stats(self) -> Dict[str, Any]:
         total_patterns = len(self._patterns)
         total_fixes = len(self._fix_history)
         successful_fixes = sum(1 for r in self._fix_history if r.success)

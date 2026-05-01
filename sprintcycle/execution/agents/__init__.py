@@ -35,13 +35,14 @@ result = await analyzer.execute("分析并修复 NameError", context)
 """
 
 from .base import AgentType, AgentContext, AgentResult, AgentExecutor
-from .coder import CoderAgent, BatchTask, BatchConfig
+from .coder_base import CoderAgent
+from .coder_types import BatchTask, BatchConfig
 from .evolver import EvolverAgent, EvolutionStrategy
 from .tester import TesterAgent, TestCase, TestType, TestResult
 from .analyzer import BugAnalyzerAgent
 from .bug_models import (
     BugReport,
-    BugSeverity,
+    Severity,
     ErrorCategory,
     Location,
     FixSuggestion,
@@ -72,7 +73,7 @@ __all__ = [
     "BugAnalyzerAgent",
     # Bug 分析数据模型
     "BugReport",
-    "BugSeverity",
+    "Severity",
     "ErrorCategory",
     "Location",
     "FixSuggestion",

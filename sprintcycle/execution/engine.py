@@ -63,7 +63,7 @@ class ExecutionEngine:
         # v0.9.0: EvolutionPipeline replaces legacy engine
         from ..evolution.pipeline import EvolutionPipeline
         from ..evolution.prd_source import ManualPRDSource
-        self._evolution_pipeline = EvolutionPipeline(".", ManualPRDSource(""))
+        self._evolution_pipeline = EvolutionPipeline(prd_source=ManualPRDSource())
         
         # 创建共享的 SprintExecutor（注入 EvolutionEngine）
         self.sprint_executor = SprintExecutor(

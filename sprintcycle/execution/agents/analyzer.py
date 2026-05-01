@@ -5,110 +5,29 @@ Bug Analyzer Agent - Bug 分析执行器
 import re
 import logging
 import time
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Callable, TYPE_CHECKING
 from pathlib import Path
 
 from .base import AgentExecutor, AgentContext, AgentResult, AgentType, AgentConfig
 from .bug_models import (
     BugReport,
-    BugSeverity,
+    Severity,
     ErrorCategory,
     Location,
     FixSuggestion,
     FixResult,
     AnalysisRequest,
     AnalysisResult,
+    StackFrame,
+    ParsedTraceback,
+    PatternMatch,
 )
 
 logger = logging.getLogger(__name__)
 
 
-ROOT_CAUSE_PATTERNS: Dict[str, Dict[str, Any]] = {
-    "NameError": {
-        "patterns": [r"name .+ is not defined"],
-        "causes": ["变量未定义", "变量名拼写错误", "缺少 import"],
-        "fixes": ["确保变量在使用前已定义", "检查变量名拼写", "添加缺失的 import"],
-        "severity": BugSeverity.MEDIUM,
-    },
-    "TypeError": {
-        "patterns": [r"unsupported operand", r"NoneType"],
-        "causes": ["类型不匹配", "空值未处理"],
-        "fixes": ["添加类型检查", "处理 None 情况"],
-        "severity": BugSeverity.MEDIUM,
-    },
-    "ImportError": {
-        "patterns": [r"No module named", r"cannot import name"],
-        "causes": ["依赖未安装", "模块路径错误"],
-        "fixes": ["pip install", "检查 import 路径"],
-        "severity": BugSeverity.HIGH,
-    },
-    "AttributeError": {
-        "patterns": [r"has no attribute"],
-        "causes": ["对象没有该属性", "属性名拼写错误"],
-        "fixes": ["检查属性名", "使用 hasattr", "使用 getattr"],
-        "severity": BugSeverity.MEDIUM,
-    },
-    "IndexError": {
-        "patterns": [r"index out of range"],
-        "causes": ["索引越界"],
-        "fixes": ["检查序列长度", "使用 try-except"],
-        "severity": BugSeverity.MEDIUM,
-    },
-    "KeyError": {
-        "patterns": [r"KeyError"],
-        "causes": ["字典键不存在"],
-        "fixes": ["使用 dict.get()", "检查键存在"],
-        "severity": BugSeverity.LOW,
-    },
-    "FileNotFoundError": {
-        "patterns": [r"No such file or directory"],
-        "causes": ["文件不存在", "路径错误"],
-        "fixes": ["检查文件路径", "使用 Path 检查"],
-        "severity": BugSeverity.HIGH,
-    },
-    "SyntaxError": {
-        "patterns": [r"invalid syntax"],
-        "causes": ["语法错误", "括号不匹配"],
-        "fixes": ["检查语法", "检查缩进"],
-        "severity": BugSeverity.CRITICAL,
-    },
-    "IndentationError": {
-        "patterns": [r"unexpected indent", r"expected an indented block"],
-        "causes": ["缩进不一致", "混用空格和 Tab"],
-        "fixes": ["统一缩进", "配置编辑器"],
-        "severity": BugSeverity.CRITICAL,
-    },
-    "ValueError": {
-        "patterns": [r"invalid literal for int", r"could not convert"],
-        "causes": ["值转换失败", "参数值不符合预期"],
-        "fixes": ["验证输入", "使用 try-except"],
-        "severity": BugSeverity.MEDIUM,
-    },
-    "ZeroDivisionError": {
-        "patterns": [r"division by zero"],
-        "causes": ["除数为零"],
-        "fixes": ["检查除数", "使用 if denominator != 0"],
-        "severity": BugSeverity.MEDIUM,
-    },
-    "PermissionError": {
-        "patterns": [r"Permission denied"],
-        "causes": ["没有权限"],
-        "fixes": ["检查权限", "使用 sudo"],
-        "severity": BugSeverity.HIGH,
-    },
-    "MemoryError": {
-        "patterns": [r"out of memory"],
-        "causes": ["内存不足", "加载过大文件"],
-        "fixes": ["优化内存", "使用生成器"],
-        "severity": BugSeverity.CRITICAL,
-    },
-    "RecursionError": {
-        "patterns": [r"maximum recursion depth"],
-        "causes": ["递归过深", "没有终止条件"],
-        "fixes": ["检查终止条件", "改用迭代"],
-        "severity": BugSeverity.HIGH,
-    },
-}
+from .patterns import ROOT_CAUSE_PATTERNS
+from .traceback_parser import parse_traceback
 
 
 class BugAnalyzerAgent(AgentExecutor):
@@ -153,8 +72,8 @@ class BugAnalyzerAgent(AgentExecutor):
                 success=True,
                 output=analysis_result.report.to_summary(),
                 artifacts={
-                    "report": analysis_result.report.model_dump(),
-                    "suggestions": [s.model_dump() for s in suggestions],
+                    "report": dataclass_to_dict(analysis_result.report),
+                    "suggestions": [dataclass_to_dict(s) for s in suggestions],
                 },
                 metrics={
                     "duration": duration,
@@ -182,14 +101,16 @@ class BugAnalyzerAgent(AgentExecutor):
     async def analyze(self, request: AnalysisRequest) -> AnalysisResult:
         start_time = time.time()
         
-        parsed = self._parse_traceback(request.error_log or "", request.language or "python")
+        parsed = parse_traceback(request.error_log or "", request.language or "python")
         pattern_match = self._match_pattern(parsed.error_type, parsed.error_message)
         
-        report = BugReport(  # type: ignore[call-arg]
+        # 创建 BugReport，location 可能为 None
+        loc = parsed.location or Location()
+        report = BugReport(
             error_type=parsed.error_type,
             error_message=parsed.error_message,
             category=pattern_match.category,
-            location=parsed.location,
+            location=loc,
             severity=pattern_match.severity,
             root_cause=pattern_match.root_cause,
             suggestions=pattern_match.fixes,
@@ -216,121 +137,14 @@ class BugAnalyzerAgent(AgentExecutor):
             patterns_matched=pattern_match.matched_patterns,
         )
     
-    def _parse_traceback(self, error_log: str, language: str = "python") -> "ParsedTraceback":
-        parsed = ParsedTraceback()
-        parsed.full_traceback = error_log
-        
-        if language == "python":
-            self._parse_python_traceback(error_log, parsed)
-        elif language in ("javascript", "typescript"):
-            self._parse_js_traceback(error_log, parsed)
-        else:
-            self._parse_generic_error(error_log, parsed)
-        
-        return parsed
     
-    def _parse_python_traceback(self, error_log: str, parsed: "ParsedTraceback") -> None:
-        lines = error_log.strip().split("\n")
-        
-        if lines:
-            error_line = lines[-1].strip()
-            match = re.match(r"(\w+):\s*(.*)", error_line)
-            if match:
-                parsed.error_type = match.group(1)
-                parsed.error_message = match.group(2)
-            else:
-                parsed.error_type = "Error"
-                parsed.error_message = error_line
-        
-        frame_pattern = r'File "(.+)", line (\d+)(?:, in (.+))?\s*\n\s*(.+)'
-        matches = re.finditer(frame_pattern, error_log)
-        
-        for match in matches:
-            frame = StackFrame(
-                file_path=match.group(1),
-                line_number=int(match.group(2)),
-                function_name=match.group(3),
-                code=match.group(4).strip() if match.group(4) else None,
-            )
-            parsed.frames.append(frame)
-        
-        for frame in parsed.frames:
-            if not self._is_stdlib_path(frame.file_path):
-                parsed.location = Location(
-                    file_path=frame.file_path,
-                    line_number=frame.line_number,
-                    function_name=frame.function_name,
-                )
-                parsed.code_snippet = frame.code
-                break
-        
-        if not parsed.location and parsed.frames:
-            frame = parsed.frames[-1]
-            parsed.location = Location(
-                file_path=frame.file_path,
-                line_number=frame.line_number,
-                function_name=frame.function_name,
-            )
-            parsed.code_snippet = frame.code
-    
-    def _parse_js_traceback(self, error_log: str, parsed: "ParsedTraceback") -> None:
-        match = re.search(r"(\w+Error):\s*(.*?)(?:\s+at\s+|\n|$)", error_log, re.DOTALL)
-        if match:
-            parsed.error_type = match.group(1)
-            parsed.error_message = match.group(2).strip()
-        
-        frame_pattern = r"at\s+(?:(.+?)\s+\)?(.+?):(\d+):(\d+)\)?"
-        matches = re.finditer(frame_pattern, error_log)
-        
-        for match in matches:
-            frame = StackFrame(
-                file_path=match.group(2),
-                line_number=int(match.group(3)),
-                function_name=match.group(1),
-                column_number=int(match.group(4)),
-            )
-            parsed.frames.append(frame)
-        
-        if parsed.frames:
-            frame = parsed.frames[0]
-            parsed.location = Location(
-                file_path=frame.file_path,
-                line_number=frame.line_number,
-                column_number=frame.column_number,
-                function_name=frame.function_name,
-            )
-    
-    def _parse_generic_error(self, error_log: str, parsed: "ParsedTraceback") -> None:
-        lines = error_log.strip().split("\n")
-        
-        if lines:
-            match = re.match(r"(\w+Error|\w+Exception):\s*(.*)", lines[-1].strip())
-            if match:
-                parsed.error_type = match.group(1)
-                parsed.error_message = match.group(2)
-            else:
-                parsed.error_type = "UnknownError"
-                parsed.error_message = lines[-1].strip()
-        
-        path_pattern = r"([/\w]+\.[\w]+):(\d+)"
-        match = re.search(path_pattern, error_log)
-        if match:
-            parsed.location = Location(
-                file_path=match.group(1),
-                line_number=int(match.group(2)),
-            )
-    
-    def _is_stdlib_path(self, file_path: str) -> bool:
-        stdlib_paths = ["/usr/lib/python", "/usr/local/lib/python", "lib/python", "site-packages"]
-        return any(p in file_path for p in stdlib_paths)
-    
-    def _match_pattern(self, error_type: str, error_message: str) -> "PatternMatch":
+    def _match_pattern(self, error_type: str, error_message: str) -> PatternMatch:
         # 第一轮：精确匹配 error_type 与 pattern key
         for pattern_type, pattern_info in ROOT_CAUSE_PATTERNS.items():
             if pattern_type.lower() == error_type.lower():
                 return PatternMatch(
                     category=self._type_to_category(pattern_type),
-                    severity=pattern_info.get("severity", BugSeverity.MEDIUM),
+                    severity=pattern_info.get("severity", Severity.MEDIUM),
                     root_cause=", ".join(pattern_info.get("causes", [])),
                     fixes=pattern_info.get("fixes", []),
                     confidence=0.9,
@@ -343,7 +157,7 @@ class BugAnalyzerAgent(AgentExecutor):
                 if re.search(regex_pattern, error_message, re.IGNORECASE):
                     return PatternMatch(
                         category=self._type_to_category(pattern_type),
-                        severity=pattern_info.get("severity", BugSeverity.MEDIUM),
+                        severity=pattern_info.get("severity", Severity.MEDIUM),
                         root_cause=", ".join(pattern_info.get("causes", [])),
                         fixes=pattern_info.get("fixes", []),
                         confidence=0.85,
@@ -352,7 +166,7 @@ class BugAnalyzerAgent(AgentExecutor):
         
         return PatternMatch(
             category=ErrorCategory.UNKNOWN,
-            severity=BugSeverity.MEDIUM,
+            severity=Severity.MEDIUM,
             root_cause="需要更多信息才能确定根因",
             fixes=["查看完整堆栈跟踪", "检查相关代码逻辑", "使用 LLM 进行深度分析"],
             confidence=0.3,
@@ -410,7 +224,7 @@ class BugAnalyzerAgent(AgentExecutor):
                 error_message=error_log[:200],
                 category=self._type_to_category(data.get("error_type", "")),
                 location=Location(file_path=data.get("file_path"), line_number=data.get("line_number")),
-                severity=BugSeverity(data.get("severity", "medium")),
+                severity=Severity(data.get("severity", "medium")),
                 root_cause=data.get("root_cause", ""),
                 suggestions=data.get("suggestions", []),
                 confidence=data.get("confidence", 0.8),
@@ -469,110 +283,107 @@ class BugAnalyzerAgent(AgentExecutor):
             if keyword in line:
                 return True
         return False
-    
-    # 修复建议生成策略
-    _FIX_STRATEGIES = {
-        "NameError": {
-            "pattern": r"name '(\w+)'",
-            "group_idx": 1,
-            "generate": lambda m, loc: FixSuggestion(  # type: ignore[call-arg]
-                file_path=loc.file_path or "unknown",
-                old_code=m.group(1),
-                new_code=f"# TODO: Define {m.group(1)}\n{m.group(1)}",
-                explanation=f"变量 {m.group(1)} 未定义，请在使用前定义该变量",
-                confidence=0.8,
-            )
-        },
-        "ImportError": {
-            "pattern": r"No module named '(.+)'",
-            "group_idx": 1,
-            "generate": lambda m, loc: FixSuggestion(  # type: ignore[call-arg]
-                file_path=loc.file_path or "unknown",
-                old_code=f"# import {m.group(1)}",
-                new_code=f"# pip install {m.group(1)}\nimport {m.group(1)}",
-                explanation=f"安装缺失的模块: pip install {m.group(1)}",
-                confidence=0.95,
-                is_automated=True,
-            )
-        },
-        "KeyError": {
-            "pattern": r"KeyError: '?(\w+)'?",
-            "group_idx": 1,
-            "generate": lambda m, loc: FixSuggestion(  # type: ignore[call-arg]
-                file_path=loc.file_path or "unknown",
-                old_code=f"dict['{m.group(1)}']",
-                new_code=f"dict.get('{m.group(1)}', default_value)",
-                explanation=f"使用 dict.get() 安全获取键 {m.group(1)}",
-                confidence=0.85,
-            )
-        },
-        "AttributeError": {
-            "pattern": r"has no attribute '(\w+)'",
-            "group_idx": 1,
-            "generate": lambda m, loc: FixSuggestion(  # type: ignore[call-arg]
-                file_path=loc.file_path or "unknown",
-                old_code=f"obj.{m.group(1)}",
-                new_code=f"getattr(obj, '{m.group(1)}', default_value)",
-                explanation=f"使用 getattr() 安全获取属性 {m.group(1)}",
-                confidence=0.75,
-            )
-        },
-    }
-    
-    # 简单的固定建议模板
-    _FIX_TEMPLATES = {
-        "TypeError": lambda loc: FixSuggestion(  # type: ignore[call-arg]
-            file_path=loc.file_path or "unknown",
-            old_code="# existing code",
-            new_code="# Add type check\nif isinstance(value, expected_type):\n    # existing code",
-            explanation="添加类型检查以避免类型错误",
-            confidence=0.7,
-            line_start=loc.line_number,
-        ),
-        "ZeroDivisionError": lambda loc: FixSuggestion(  # type: ignore[call-arg]
-            file_path=loc.file_path or "unknown",
-            old_code="# denominator",
-            new_code="# Add zero check\nif denominator != 0:\n    result = numerator / denominator",
-            explanation="在除法前检查除数是否为零",
-            confidence=0.9,
-        ),
-        "IndexError": lambda loc: FixSuggestion(  # type: ignore[call-arg]
-            file_path=loc.file_path or "unknown",
-            old_code="# list[index]",
-            new_code="# Add bounds check\nif 0 <= index < len(list):\n    item = list[index]",
-            explanation="在访问索引前检查边界",
-            confidence=0.8,
-        ),
-    }
 
     async def suggest_fix(self, report: BugReport) -> List[FixSuggestion]:
         """生成修复建议"""
-        suggestions = []
+        suggestions: List[FixSuggestion] = []
         error_type = report.error_type
-        location = report.location
+        location = report.location or Location()
         
-        # 使用策略模式处理需要正则匹配的修复
-        if error_type in self._FIX_STRATEGIES:
-            strategy = self._FIX_STRATEGIES[error_type]
-            match = re.search(str(strategy["pattern"]), report.error_message)
+        # NameError 修复
+        if error_type == "NameError":
+            match = re.search(r"name '(\w+)'", report.error_message)
             if match:
-                suggestions.append(strategy["generate"](match, location))  # type: ignore[arg-type,misc,operator]
+                var_name = match.group(1)
+                suggestions.append(FixSuggestion(
+                    file_path=location.file_path or "unknown",
+                    old_code=var_name,
+                    new_code=f"# TODO: Define {var_name}\n{var_name}",
+                    explanation=f"变量 {var_name} 未定义，请在使用前定义该变量",
+                    confidence=0.8,
+                ))
         
-        # 使用模板处理固定的修复建议
-        elif error_type in self._FIX_TEMPLATES:
-            suggestions.append(self._FIX_TEMPLATES[error_type](location))
+        # ImportError 修复
+        elif error_type == "ImportError":
+            match = re.search(r"No module named '(.+)'", report.error_message)
+            if match:
+                module_name = match.group(1)
+                suggestions.append(FixSuggestion(
+                    file_path=location.file_path or "unknown",
+                    old_code=f"# import {module_name}",
+                    new_code=f"# pip install {module_name}\nimport {module_name}",
+                    explanation=f"安装缺失的模块: pip install {module_name}",
+                    confidence=0.95,
+                    is_automated=True,
+                ))
+        
+        # KeyError 修复
+        elif error_type == "KeyError":
+            match = re.search(r"KeyError: '?(\w+)'?", report.error_message)
+            if match:
+                key_name = match.group(1)
+                suggestions.append(FixSuggestion(
+                    file_path=location.file_path or "unknown",
+                    old_code=f"dict['{key_name}']",
+                    new_code=f"dict.get('{key_name}', default_value)",
+                    explanation=f"使用 dict.get() 安全获取键 {key_name}",
+                    confidence=0.85,
+                ))
+        
+        # AttributeError 修复
+        elif error_type == "AttributeError":
+            match = re.search(r"has no attribute '(\w+)'", report.error_message)
+            if match:
+                attr_name = match.group(1)
+                suggestions.append(FixSuggestion(
+                    file_path=location.file_path or "unknown",
+                    old_code=f"obj.{attr_name}",
+                    new_code=f"getattr(obj, '{attr_name}', default_value)",
+                    explanation=f"使用 getattr() 安全获取属性 {attr_name}",
+                    confidence=0.75,
+                ))
+        
+        # TypeError 修复
+        elif error_type == "TypeError":
+            suggestions.append(FixSuggestion(
+                file_path=location.file_path or "unknown",
+                old_code="# existing code",
+                new_code="# Add type check\nif isinstance(value, expected_type):\n    # existing code",
+                explanation="添加类型检查以避免类型错误",
+                confidence=0.7,
+                line_start=location.line_number,
+            ))
+        
+        # ZeroDivisionError 修复
+        elif error_type == "ZeroDivisionError":
+            suggestions.append(FixSuggestion(
+                file_path=location.file_path or "unknown",
+                old_code="# denominator",
+                new_code="# Add zero check\nif denominator != 0:\n    result = numerator / denominator",
+                explanation="在除法前检查除数是否为零",
+                confidence=0.9,
+            ))
+        
+        # IndexError 修复
+        elif error_type == "IndexError":
+            suggestions.append(FixSuggestion(
+                file_path=location.file_path or "unknown",
+                old_code="# list[index]",
+                new_code="# Add bounds check\nif 0 <= index < len(list):\n    item = list[index]",
+                explanation="在访问索引前检查边界",
+                confidence=0.8,
+            ))
         
         # 添加来自报告的建议
         for suggestion in report.suggestions[:2]:
             if not any(s.explanation == suggestion for s in suggestions):
-                suggestions.append(FixSuggestion(  # type: ignore[call-arg]
-                    file_path=str(getattr(location, "file_path", None) or "unknown"),
+                suggestions.append(FixSuggestion(
+                    file_path=str(location.file_path or "unknown"),
                     old_code="",
                     new_code="",
                     explanation=suggestion,
                     confidence=0.6,
                 ))
-        
         
         return suggestions
 
@@ -584,7 +395,7 @@ class BugAnalyzerAgent(AgentExecutor):
             try:
                 file_path.parent.mkdir(parents=True, exist_ok=True)
                 file_path.write_text(suggestion.new_code, encoding="utf-8")
-                return FixResult(  # type: ignore[call-arg]
+                return FixResult(
                     success=True,
                     file_path=str(file_path),
                     diff=suggestion.generate_diff(),
@@ -592,7 +403,7 @@ class BugAnalyzerAgent(AgentExecutor):
                     backup_path=None,
                 )
             except Exception as e:
-                return FixResult(success=False, file_path=str(file_path), error=str(e))  # type: ignore[call-arg]
+                return FixResult(success=False, file_path=str(file_path), error=str(e))
         
         try:
             content = file_path.read_text(encoding="utf-8")
@@ -620,7 +431,7 @@ class BugAnalyzerAgent(AgentExecutor):
             new_lines = len(new_content.split("\n"))
             lines_changed = abs(new_lines - old_lines)
             
-            return FixResult(  # type: ignore[call-arg]
+            return FixResult(
                 success=True,
                 file_path=str(file_path),
                 diff=suggestion.generate_diff(),
@@ -630,48 +441,38 @@ class BugAnalyzerAgent(AgentExecutor):
             )
             
         except Exception as e:
-            return FixResult(success=False, file_path=str(file_path), error=str(e))  # type: ignore[call-arg]
+            return FixResult(success=False, file_path=str(file_path), error=str(e))
 
 
-class StackFrame:
-    def __init__(self, file_path: str, line_number: int, function_name: Optional[str] = None,
-                 code: Optional[str] = None, column_number: Optional[int] = None):
-        self.file_path = file_path
-        self.line_number = line_number
-        self.function_name = function_name
-        self.code = code
-        self.column_number = column_number
-
-
-class ParsedTraceback:
-    def __init__(self):
-        self.error_type: str = ""
-        self.error_message: str = ""
-        self.full_traceback: str = ""
-        self.location: Optional[Location] = None
-        self.code_snippet: Optional[str] = None
-        self.frames: List[StackFrame] = []
-
-
-class PatternMatch:
-    def __init__(self, category: ErrorCategory, severity: BugSeverity, root_cause: str,
-                 fixes: List[str], confidence: float, matched_patterns: List[str]):
-        self.category = category
-        self.severity = severity
-        self.root_cause = root_cause
-        self.fixes = fixes
-        self.confidence = confidence
-        self.matched_patterns = matched_patterns
+def dataclass_to_dict(obj: Any) -> Dict[str, Any]:
+    """将 dataclass 对象转换为字典"""
+    if hasattr(obj, '__dataclass_fields__'):
+        result: Dict[str, Any] = {}
+        for name in obj.__dataclass_fields__:
+            value = getattr(obj, name)
+            if isinstance(value, (list, tuple)):
+                result[name] = [dataclass_to_dict(v) if hasattr(v, '__dataclass_fields__') else v for v in value]
+            elif isinstance(value, dict):
+                result[name] = {k: dataclass_to_dict(v) if hasattr(v, '__dataclass_fields__') else v for k, v in value.items()}
+            elif hasattr(value, '__dataclass_fields__'):
+                result[name] = dataclass_to_dict(value)
+            elif value is not None:
+                result[name] = value
+        return result
+    return obj
 
 
 __all__ = [
     "BugAnalyzerAgent",
     "BugReport",
-    "BugSeverity",
+    "Severity",
     "ErrorCategory",
     "Location",
     "FixSuggestion",
     "FixResult",
     "AnalysisRequest",
     "AnalysisResult",
+    "StackFrame",
+    "ParsedTraceback",
+    "PatternMatch",
 ]

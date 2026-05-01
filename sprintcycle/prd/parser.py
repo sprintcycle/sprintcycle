@@ -11,7 +11,7 @@ from typing import Union, Dict, Any, Optional
 
 from .models import (
     PRD, PRDProject, PRDSprint, PRDTask,
-    EvolutionConfig, ExecutionMode
+    PRDEvolutionParams, ExecutionMode
 )
 from .validator import PRDValidator, ValidationResult
 
@@ -182,9 +182,9 @@ class PRDParser:
             version=data.get("version", "v1.0.0"),
         )
     
-    def _parse_evolution(self, data: Dict[str, Any]) -> EvolutionConfig:
+    def _parse_evolution(self, data: Dict[str, Any]) -> PRDEvolutionParams:
         """解析进化配置"""
-        return EvolutionConfig(
+        return PRDEvolutionParams(
             targets=data.get("targets", []),
             goals=data.get("goals", []),
             constraints=data.get("constraints", []),

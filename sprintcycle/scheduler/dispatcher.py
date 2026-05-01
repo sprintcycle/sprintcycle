@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from ..prd.models import PRD, PRDSprint, PRDTask, ExecutionMode
-from ..evolution.pipeline import EvolutionPipeline, PipelineConfig
+from ..evolution.pipeline import EvolutionPipeline
 from ..evolution.prd_source import DiagnosticPRDSource
 from ..config.manager import RuntimeConfig
 from ..evolution.types import SprintContext
@@ -22,75 +22,7 @@ from ..evolution.types import SprintContext
 logger = logging.getLogger(__name__)
 
 
-class ExecutionStatus(Enum):
-    """执行状态"""
-    PENDING = "pending"
-    RUNNING = "running"
-    SUCCESS = "success"
-    FAILED = "failed"
-    SKIPPED = "skipped"
-    TIMEOUT = "timeout"
-
-
-@dataclass
-class TaskResult:
-    """任务执行结果"""
-    task: PRDTask
-    sprint_name: str
-    status: ExecutionStatus
-    output: str = ""
-    error: Optional[str] = None
-    duration: float = 0.0
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None
-    
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "task": self.task.task[:100] + "..." if len(self.task.task) > 100 else self.task.task,
-            "agent": self.task.agent,
-            "target": self.task.target,
-            "status": self.status.value,
-            "output": self.output[:500] if self.output else "",
-            "error": self.error,
-            "duration": self.duration,
-        }
-
-
-@dataclass
-class SprintResult:
-    """Sprint 执行结果"""
-    sprint: PRDSprint
-    status: ExecutionStatus
-    task_results: List[TaskResult] = field(default_factory=list)
-    duration: float = 0.0
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None
-    
-    @property
-    def success_count(self) -> int:
-        return sum(1 for r in self.task_results if r.status == ExecutionStatus.SUCCESS)
-    
-    @property
-    def failed_count(self) -> int:
-        return sum(1 for r in self.task_results if r.status == ExecutionStatus.FAILED)
-    
-    @property
-    def success_rate(self) -> float:
-        if not self.task_results:
-            return 0.0
-        return self.success_count / len(self.task_results)
-    
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "sprint_name": self.sprint.name,
-            "status": self.status.value,
-            "total_tasks": len(self.task_results),
-            "success_count": self.success_count,
-            "failed_count": self.failed_count,
-            "success_rate": self.success_rate,
-            "duration": self.duration,
-            "task_results": [r.to_dict() for r in self.task_results],
-        }
+from ..execution.sprint_types import ExecutionStatus, TaskResult, SprintResult
 
 
 class TaskDispatcher:
@@ -211,7 +143,7 @@ class TaskDispatcher:
         
         # 初始化进化引擎
         if not self.evolution_pipeline:
-            self.evolution_pipeline = EvolutionPipeline(".", DiagnosticPRDSource(), PipelineConfig())
+            self.evolution_pipeline = EvolutionPipeline(".",  prd_source=DiagnosticPRDSource())
         
         # 创建 Sprint 上下文
         context = SprintContext(
@@ -446,8 +378,8 @@ class TaskDispatcher:
         
         # 初始化进化引擎（如果需要）
         if not self.evolution_pipeline:
-            pipeline_config = PipelineConfig()
-            self.evolution_pipeline = EvolutionPipeline(".", DiagnosticPRDSource(), pipeline_config)
+            
+            self.evolution_pipeline = EvolutionPipeline(".", config=self.config, prd_source=DiagnosticPRDSource())
         
         # 创建上下文
         context = SprintContext(

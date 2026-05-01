@@ -13,65 +13,17 @@ from dataclasses import dataclass, field
 from enum import Enum
 from datetime import datetime
 
-from ..prd.models import PRD, PRDSprint, PRDTask, ExecutionMode, EvolutionConfig
+from ..prd.models import PRD, PRDSprint, PRDTask, ExecutionMode, PRDEvolutionParams
 from .state_store import StateStore, ExecutionState, ExecutionStateStatus, get_state_store
+from .checkpoint import CheckpointMixin
 
 logger = logging.getLogger(__name__)
 
 
-class TaskStatus(Enum):
-    PENDING = "pending"
-    RUNNING = "running"
-    SUCCESS = "success"
-    FAILED = "failed"
-    SKIPPED = "skipped"
+from .sprint_types import ExecutionStatus, TaskResult, SprintResult
 
 
-@dataclass
-class TaskResult:
-    task: PRDTask
-    sprint_name: str
-    status: TaskStatus
-    output: str = ""
-    error: Optional[str] = None
-    duration: float = 0.0
-    
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "task": self.task.task[:100],
-            "agent": self.task.agent,
-            "status": self.status.value,
-            "error": self.error,
-            "duration": self.duration,
-        }
-
-
-@dataclass
-class SprintResult:
-    sprint: PRDSprint
-    status: TaskStatus
-    task_results: List[TaskResult] = field(default_factory=list)
-    duration: float = 0.0
-    
-    @property
-    def success_count(self) -> int:
-        return sum(1 for r in self.task_results if r.status == TaskStatus.SUCCESS)
-    
-    @property
-    def failed_count(self) -> int:
-        return sum(1 for r in self.task_results if r.status == TaskStatus.FAILED)
-    
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "sprint_name": self.sprint.name,
-            "status": self.status.value,
-            "success_count": self.success_count,
-            "failed_count": self.failed_count,
-            "duration": self.duration,
-        }
-
-
-class SprintExecutor:
+class SprintExecutor(CheckpointMixin):
     """
     Sprint 执行器
     支持断点续传（通过 StateStore）。
@@ -96,7 +48,7 @@ class SprintExecutor:
         self._evolution_engine = evolution_engine
         self._error_handler = error_handler
         self._state_store = state_store
-        self._execution_id: Optional[str] = None
+        self._execution_id: Optional[str] = None  # type: ignore[assignment]
         self._checkpoint_interval = 1
         self._register_default_executors()
     
@@ -127,78 +79,6 @@ class SprintExecutor:
             return self._feedback_loop.get_history()
         return []
     
-    def _init_execution_state(self, prd: Optional[PRD] = None) -> str:
-        if self._execution_id is None:
-            self._execution_id = f"exec_{uuid.uuid4().hex[:8]}"
-        
-        total_sprints = len(prd.sprints) if prd else (len(self._prd.sprints) if self._prd else 0)
-        total_tasks = prd.total_tasks if prd else (self._prd.total_tasks if self._prd else 0)
-        
-        state = ExecutionState(
-            execution_id=self._execution_id,
-            prd_name=prd.project.name if prd and prd.project else (self._prd.project.name if self._prd else "unknown"),
-            mode="normal",
-            status=ExecutionStateStatus.RUNNING,
-            total_sprints=total_sprints,
-            total_tasks=total_tasks,
-        )
-        
-        self.state_store.save(state)
-        logger.info(f"执行状态已初始化: {self._execution_id}")
-        return self._execution_id
-    
-    def _save_checkpoint(
-        self, 
-        sprint_idx: int, 
-        sprint_name: str, 
-        sprint_result: SprintResult
-    ) -> None:
-        if not self._execution_id:
-            return
-        
-        task_results = [r.to_dict() for r in sprint_result.task_results]
-        
-        success = self.state_store.create_checkpoint(
-            execution_id=self._execution_id,
-            sprint_idx=sprint_idx,
-            sprint_name=sprint_name,
-            task_results=task_results,
-        )
-        
-        if success:
-            self.state_store.increment_progress(
-                execution_id=self._execution_id,
-                completed_tasks=sprint_result.success_count,
-                completed_sprints=1,
-            )
-            logger.debug(f"检查点已保存: {sprint_name}")
-    
-    def can_resume(self, execution_id: str) -> bool:
-        return self.state_store.can_resume(execution_id)
-    
-    def get_resume_point(self, execution_id: str) -> Optional[Dict[str, Any]]:
-        return self.state_store.get_resume_point(execution_id)
-    
-    def load_execution_state(self, execution_id: str) -> Optional[ExecutionState]:
-        return self.state_store.load(execution_id)
-    
-    def pause_execution(self) -> bool:
-        if not self._execution_id:
-            return False
-        return self.state_store.update_status(
-            execution_id=self._execution_id,
-            status=ExecutionStateStatus.PAUSED,
-        )
-    
-    def resume_execution(self, execution_id: str) -> bool:
-        state = self.load_execution_state(execution_id)
-        if not state or state.status != ExecutionStateStatus.PAUSED:
-            return False
-        self._execution_id = execution_id
-        return self.state_store.update_status(
-            execution_id=execution_id,
-            status=ExecutionStateStatus.RUNNING,
-        )
     
     def _register_default_executors(self):
         self._agent_executors = {
@@ -268,19 +148,19 @@ class SprintExecutor:
     
     async def execute_sprint(self, sprint: PRDSprint, context: Optional[Dict[str, Any]] = None, save_checkpoint: bool = True) -> SprintResult:
         start_time = time.time()
-        result = SprintResult(sprint=sprint, status=TaskStatus.RUNNING)
+        result = SprintResult(sprint=sprint, status=ExecutionStatus.RUNNING)
         logger.info(f"开始执行 Sprint: {sprint.name}")
         
         for task in sprint.tasks:
             task_result = await self._execute_task(task, sprint.name, context or {})
             result.task_results.append(task_result)
         
-        if all(r.status == TaskStatus.SUCCESS for r in result.task_results):
-            result.status = TaskStatus.SUCCESS
-        elif any(r.status == TaskStatus.FAILED for r in result.task_results):
-            result.status = TaskStatus.FAILED
+        if all(r.status == ExecutionStatus.SUCCESS for r in result.task_results):
+            result.status = ExecutionStatus.SUCCESS
+        elif any(r.status == ExecutionStatus.FAILED for r in result.task_results):
+            result.status = ExecutionStatus.FAILED
         else:
-            result.status = TaskStatus.SUCCESS
+            result.status = ExecutionStatus.SUCCESS
         
         result.duration = time.time() - start_time
         self._collect_feedback(sprint, result)
@@ -309,7 +189,7 @@ class SprintExecutor:
     
     async def execute_sprints(
         self, sprints: List[PRDSprint], mode: str = "normal",
-        evolution_config: Optional[EvolutionConfig] = None,
+        evolution_config: Optional[PRDEvolutionParams] = None,
         context: Optional[Dict[str, Any]] = None,
         execution_id: Optional[str] = None,
         resume: bool = False,
@@ -338,7 +218,7 @@ class SprintExecutor:
                 continue
             result = await self.execute_sprint(sprint, context, save_checkpoint=True)
             results.append(result)
-            if result.status == TaskStatus.FAILED:
+            if result.status == ExecutionStatus.FAILED:
                 break
         return results
     
@@ -347,11 +227,11 @@ class SprintExecutor:
         for sprint in sprints:
             result = await self.execute_sprint(sprint, context, save_checkpoint=True)
             results.append(result)
-            if result.status == TaskStatus.FAILED:
+            if result.status == ExecutionStatus.FAILED:
                 logger.warning(f"Sprint 失败: {sprint.name}")
         return results
     
-    async def _execute_evolution_sprints(self, sprints: List[PRDSprint], evolution_config: Optional[EvolutionConfig], context: Optional[Dict[str, Any]] = None) -> List[SprintResult]:
+    async def _execute_evolution_sprints(self, sprints: List[PRDSprint], evolution_config: Optional[PRDEvolutionParams], context: Optional[Dict[str, Any]] = None) -> List[SprintResult]:
         results = []
         max_generations = evolution_config.iterations if evolution_config else 3
         for sprint in sprints:
@@ -367,13 +247,13 @@ class SprintExecutor:
         success = evo_result.success if hasattr(evo_result, "success") else True
         sprint_result = SprintResult(
             sprint=sprint,
-            status=TaskStatus.SUCCESS if success else TaskStatus.FAILED,
+            status=ExecutionStatus.SUCCESS if success else ExecutionStatus.FAILED,
             duration=evo_result.execution_time if hasattr(evo_result, "execution_time") else 0.0,
         )
         if hasattr(evo_result, "selected_genes") and evo_result.selected_genes:
             for gene in evo_result.selected_genes:
                 task = PRDTask(task=f"Evolution Gene: {gene.id[:8]}", agent="evolver")
-                task_result = TaskResult(task=task, sprint_name=sprint.name, status=TaskStatus.SUCCESS)
+                task_result = TaskResult(task=task, sprint_name=sprint.name, status=ExecutionStatus.SUCCESS)
                 sprint_result.task_results.append(task_result)
         return sprint_result
     
@@ -391,7 +271,7 @@ class SprintExecutor:
     
     async def execute_sprint_parallel(self, sprint: PRDSprint, context: Optional[Dict[str, Any]] = None, dependency_map: Optional[Dict[int, Set[int]]] = None, save_checkpoint: bool = True) -> SprintResult:
         start_time = time.time()
-        result = SprintResult(sprint=sprint, status=TaskStatus.RUNNING)
+        result = SprintResult(sprint=sprint, status=ExecutionStatus.RUNNING)
         task_count = len(sprint.tasks)
         completed: Set[int] = set()
         task_semaphore = asyncio.Semaphore(self._max_parallel)
@@ -408,12 +288,12 @@ class SprintExecutor:
         task_coroutines = [run_task(i) for i in range(task_count)]
         await asyncio.gather(*task_coroutines, return_exceptions=True)
         
-        if all(r.status == TaskStatus.SUCCESS for r in result.task_results):
-            result.status = TaskStatus.SUCCESS
-        elif any(r.status == TaskStatus.FAILED for r in result.task_results):
-            result.status = TaskStatus.FAILED
+        if all(r.status == ExecutionStatus.SUCCESS for r in result.task_results):
+            result.status = ExecutionStatus.SUCCESS
+        elif any(r.status == ExecutionStatus.FAILED for r in result.task_results):
+            result.status = ExecutionStatus.FAILED
         else:
-            result.status = TaskStatus.SUCCESS
+            result.status = ExecutionStatus.SUCCESS
         
         result.duration = time.time() - start_time
         
@@ -430,12 +310,12 @@ class SprintExecutor:
         start_time = time.time()
         executor = self._agent_executors.get(task.agent)
         if not executor:
-            return TaskResult(task=task, sprint_name=sprint_name, status=TaskStatus.FAILED, error=f"未知的 Agent 类型: {task.agent}")
+            return TaskResult(task=task, sprint_name=sprint_name, status=ExecutionStatus.FAILED, error=f"未知的 Agent 类型: {task.agent}")
         try:
             output = await executor(task, context)
-            return TaskResult(task=task, sprint_name=sprint_name, status=TaskStatus.SUCCESS, output=output, duration=time.time() - start_time)
+            return TaskResult(task=task, sprint_name=sprint_name, status=ExecutionStatus.SUCCESS, output=output, duration=time.time() - start_time)
         except Exception as e:
-            return TaskResult(task=task, sprint_name=sprint_name, status=TaskStatus.FAILED, error=str(e), duration=time.time() - start_time)
+            return TaskResult(task=task, sprint_name=sprint_name, status=ExecutionStatus.FAILED, error=str(e), duration=time.time() - start_time)
     
     async def _execute_coder_task(self, task: PRDTask, context: Dict[str, Any]) -> str:
         await asyncio.sleep(0.1)

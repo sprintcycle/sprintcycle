@@ -16,6 +16,7 @@ import shutil
 from pathlib import Path
 
 from sprintcycle.execution.agents.analyzer import (
+    parse_traceback,
     BugAnalyzerAgent,
     ParsedTraceback,
     PatternMatch,
@@ -23,7 +24,7 @@ from sprintcycle.execution.agents.analyzer import (
 )
 from sprintcycle.execution.agents.bug_models import (
     BugReport,
-    BugSeverity,
+    Severity,
     ErrorCategory,
     Location,
     FixSuggestion,
@@ -68,7 +69,7 @@ class TestTracebackParsing(TestBugAnalyzerAgent):
     print(x)
 NameError: name 'x' is not defined"""
         
-        result = analyzer._parse_traceback(error_log, "python")
+        result = parse_traceback(error_log, "python")
         
         assert result.error_type == "NameError"
         assert "not defined" in result.error_message
@@ -82,7 +83,7 @@ NameError: name 'x' is not defined"""
     return a + b
 TypeError: unsupported operand type(s) for +: 'int' and 'str'"""
         
-        result = analyzer._parse_traceback(error_log, "python")
+        result = parse_traceback(error_log, "python")
         
         assert result.error_type == "TypeError"
         assert "unsupported operand" in result.error_message
@@ -94,7 +95,7 @@ TypeError: unsupported operand type(s) for +: 'int' and 'str'"""
     import requests
 ModuleNotFoundError: No module named 'requests'"""
         
-        result = analyzer._parse_traceback(error_log, "python")
+        result = parse_traceback(error_log, "python")
         
         assert result.error_type == "ModuleNotFoundError"
         assert "requests" in result.error_message
@@ -106,7 +107,7 @@ ModuleNotFoundError: No module named 'requests'"""
          ^
 SyntaxError: invalid syntax"""
         
-        result = analyzer._parse_traceback(error_log, "python")
+        result = parse_traceback(error_log, "python")
         
         assert result.error_type == "SyntaxError"
         assert "invalid syntax" in result.error_message
@@ -118,7 +119,7 @@ SyntaxError: invalid syntax"""
     return a / b
 ZeroDivisionError: division by zero"""
         
-        result = analyzer._parse_traceback(error_log, "python")
+        result = parse_traceback(error_log, "python")
         
         assert result.error_type == "ZeroDivisionError"
         assert "division by zero" in result.error_message
@@ -130,7 +131,7 @@ ZeroDivisionError: division by zero"""
     return data['key']
 KeyError: 'key'"""
         
-        result = analyzer._parse_traceback(error_log, "python")
+        result = parse_traceback(error_log, "python")
         
         assert result.error_type == "KeyError"
         assert "'key'" in result.error_message
@@ -144,7 +145,7 @@ class TestPatternMatching(TestBugAnalyzerAgent):
         match = analyzer._match_pattern("NameError", "name 'x' is not defined")
         
         assert match.category == ErrorCategory.NAME
-        assert match.severity == BugSeverity.MEDIUM
+        assert match.severity == Severity.MEDIUM
         assert len(match.fixes) > 0
         assert match.confidence > 0.8
     
@@ -156,7 +157,7 @@ class TestPatternMatching(TestBugAnalyzerAgent):
         )
         
         assert match.category == ErrorCategory.TYPE
-        assert match.severity == BugSeverity.MEDIUM
+        assert match.severity == Severity.MEDIUM
         assert "类型不匹配" in match.root_cause
     
     def test_match_import_error_pattern(self, analyzer):
@@ -167,7 +168,7 @@ class TestPatternMatching(TestBugAnalyzerAgent):
         )
         
         assert match.category == ErrorCategory.IMPORT
-        assert match.severity == BugSeverity.HIGH
+        assert match.severity == Severity.HIGH
         assert any("pip install" in f for f in match.fixes)
     
     def test_match_attribute_error_pattern(self, analyzer):
@@ -178,7 +179,7 @@ class TestPatternMatching(TestBugAnalyzerAgent):
         )
         
         assert match.category == ErrorCategory.ATTRIBUTE
-        assert match.severity == BugSeverity.MEDIUM
+        assert match.severity == Severity.MEDIUM
     
     def test_match_unknown_pattern(self, analyzer):
         """测试未知错误类型"""
@@ -208,7 +209,7 @@ NameError: name 'x' is not defined""",
         result = await analyzer.analyze(request)
         
         assert result.report.error_type == "NameError"
-        assert result.report.severity == BugSeverity.MEDIUM
+        assert result.report.severity == Severity.MEDIUM
         assert len(result.report.suggestions) > 0
         assert result.report.root_cause != ""
     
@@ -242,7 +243,7 @@ ModuleNotFoundError: No module named 'pandas'""",
         result = await analyzer.analyze(request)
         
         assert result.report.error_type == "ModuleNotFoundError"
-        assert result.report.severity == BugSeverity.HIGH
+        assert result.report.severity == Severity.HIGH
         assert any("pip install" in s for s in result.report.suggestions)
 
 
@@ -456,7 +457,7 @@ class TestBugModels(TestBugAnalyzerAgent):
         report = BugReport(
             error_type="NameError",
             error_message="name 'x' is not defined",
-            severity=BugSeverity.MEDIUM,
+            severity=Severity.MEDIUM,
             root_cause="变量未定义",
             suggestions=["定义变量", "检查拼写"],
         )

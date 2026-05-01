@@ -1,6 +1,8 @@
 """
 SprintCycle Evolution Types
 进化引擎核心类型定义
+
+v0.9.1: 删除未使用的枚举 GeneType, VariationType, FitnessDimension
 """
 
 from dataclasses import dataclass, field
@@ -9,36 +11,16 @@ from enum import Enum
 from datetime import datetime
 
 
-class GeneType(Enum):
-    CODE = "code"
-    PROMPT = "prompt"
-    CONFIG = "config"
-
-
-class VariationType(Enum):
-    POINT = "point"
-    BLOCK = "block"
-    STRUCTURAL = "structural"
-    SEMANTIC = "semantic"
-
-
 class EvolutionStage(Enum):
     VARIATION = "variation"
     SELECTION = "selection"
     INHERITANCE = "inheritance"
 
 
-class FitnessDimension(Enum):
-    CORRECTNESS = "correctness"
-    PERFORMANCE = "performance"
-    STABILITY = "stability"
-    CODE_QUALITY = "code_quality"
-
-
 @dataclass
 class Gene:
     id: str
-    type: GeneType
+    type: str  # v0.9.1: 改为 str 类型，不再使用 GeneType 枚举
     content: str
     metadata: Dict[str, Any] = field(default_factory=dict)
     fitness_scores: Dict[str, float] = field(default_factory=dict)
@@ -49,7 +31,7 @@ class Gene:
     def to_dict(self) -> dict:
         return {
             "id": self.id,
-            "type": self.type.value if isinstance(self.type, Enum) else self.type,
+            "type": self.type,
             "content": self.content,
             "metadata": self.metadata,
             "fitness_scores": self.fitness_scores,
@@ -63,7 +45,7 @@ class Gene:
 class Variation:
     id: str
     gene_id: str
-    variation_type: VariationType
+    variation_type: str  # v0.9.1: 改为 str 类型，不再使用 VariationType 枚举
     original_content: str
     modified_content: str
     change_summary: str
@@ -76,7 +58,7 @@ class Variation:
     def to_dict(self) -> dict:
         return {
             "id": self.id, "gene_id": self.gene_id,
-            "variation_type": self.variation_type.value if isinstance(self.variation_type, Enum) else self.variation_type,
+            "variation_type": self.variation_type,
             "original_content": self.original_content,
             "modified_content": self.modified_content,
             "change_summary": self.change_summary,
@@ -130,7 +112,6 @@ class EvolutionMetrics:
     active_genes: int = 0
     generations: int = 0
     avg_fitness: float = 0.0
-    # pareto_front_size removed (no longer using pareto optimization)
     evolution_rate: float = 0.0
     variation_count: int = 0
     selection_count: int = 0

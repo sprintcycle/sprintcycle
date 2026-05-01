@@ -186,7 +186,8 @@ class ErrorRouter:
         except Exception as e:
             return RoutingResult(level=RoutingLevel.LEVEL_3_LLM, success=False, explanation=f"Analysis failed: {e}")
     
-    def get_statistics(self) -> Dict[str, Any]:
+    @property
+    def stats(self) -> Dict[str, Any]:
         return {**self._stats, "knowledge_base_size": len(self.knowledge_base.patterns)}
 
 

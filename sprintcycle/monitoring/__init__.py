@@ -6,8 +6,8 @@ SprintCycle 监控模块
 - Web 仪表盘 (Dashboard)
 """
 
+from ..execution.sprint_types import ExecutionStatus
 from .metrics import (
-    ExecutionStatus,
     MetricType,
     ExecutionRecord,
     MetricPoint,
@@ -22,8 +22,9 @@ from .dashboard import (
 )
 
 __all__ = [
-    # 指标收集
+    # 统一执行状态
     "ExecutionStatus",
+    # 指标收集
     "MetricType",
     "ExecutionRecord",
     "MetricPoint",

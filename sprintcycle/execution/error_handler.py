@@ -222,7 +222,8 @@ class ErrorHandler:
     def match_error(self, error_log: str) -> Optional[Any]:
         return self.knowledge_base.match(error_log)
     
-    def get_statistics(self) -> Dict[str, Any]:
+    @property
+    def stats(self) -> Dict[str, Any]:
         return {
             **self._stats, "knowledge_base_size": len(self.knowledge_base.patterns),
             "success_rate": self._stats["successful"] / self._stats["total_handled"] if self._stats["total_handled"] > 0 else 0,
