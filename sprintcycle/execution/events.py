@@ -2,14 +2,16 @@
 事件总线 - 执行过程中的事件通知
 
 事件类型：
-- on_execution_start: 执行开始
-- on_sprint_start: Sprint 开始
-- on_sprint_complete: Sprint 完成
-- on_task_start: 任务开始
-- on_task_complete: 任务完成
-- on_task_failed: 任务失败
-- on_evolution_candidate: 发现进化候选
-- on_execution_complete: 执行完成
+- execution_start: 执行开始
+- sprint_start: Sprint 开始
+- sprint_complete: Sprint 完成
+- sprint_failed: Sprint 失败
+- task_start: 任务开始
+- task_complete: 任务完成
+- task_failed: 任务失败
+- execution_complete: 执行完成
+- execution_failed: 执行失败
+- evolution_candidate: 发现进化候选
 """
 
 from dataclasses import dataclass, field
@@ -17,6 +19,7 @@ from typing import Callable, Dict, List, Any, Optional
 from enum import Enum
 from datetime import datetime
 import logging
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -24,13 +27,15 @@ logger = logging.getLogger(__name__)
 class EventType(Enum):
     """事件类型枚举"""
     EXECUTION_START = "execution_start"
+    EXECUTION_COMPLETE = "execution_complete"
+    EXECUTION_FAILED = "execution_failed"
     SPRINT_START = "sprint_start"
     SPRINT_COMPLETE = "sprint_complete"
+    SPRINT_FAILED = "sprint_failed"
     TASK_START = "task_start"
     TASK_COMPLETE = "task_complete"
     TASK_FAILED = "task_failed"
     EVOLUTION_CANDIDATE = "evolution_candidate"
-    EXECUTION_COMPLETE = "execution_complete"
 
 
 @dataclass
@@ -40,13 +45,27 @@ class Event:
     data: Dict[str, Any] = field(default_factory=dict)
     timestamp: Optional[datetime] = None
     
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.timestamp is None:
             self.timestamp = datetime.now()
     
     def __str__(self) -> str:
         ts = self.timestamp.isoformat() if self.timestamp else "none"
         return f"Event({self.type.value}, {ts})"
+    
+    def to_sse_dict(self) -> Dict[str, Any]:
+        """转换为适合SSE推送的字典"""
+        return {
+            "event_type": self.type.value,
+            "timestamp": self.timestamp.isoformat() if self.timestamp else None,
+            **self.data,
+        }
+    
+    def to_sse_message(self) -> str:
+        """转换为SSE格式的消息"""
+        event_name = self.type.value
+        data = self.to_sse_dict()
+        return f"event: {event_name}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
 class EventBus:
@@ -57,7 +76,7 @@ class EventBus:
     采用发布-订阅模式，事件处理器错误不会影响主流程。
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         self._handlers: Dict[EventType, List[Callable]] = {}
         self._once_handlers: Dict[EventType, List[Callable]] = {}
     
@@ -203,3 +222,35 @@ def reset_event_bus() -> EventBus:
     global _default_event_bus
     _default_event_bus = EventBus()
     return _default_event_bus
+
+
+# 便捷的事件创建函数
+def create_event(
+    event_type: EventType,
+    sprint_number: Optional[int] = None,
+    sprint_name: Optional[str] = None,
+    agent_type: Optional[str] = None,
+    task: Optional[str] = None,
+    status: Optional[str] = None,
+    message: Optional[str] = None,
+    error: Optional[str] = None,
+    execution_id: Optional[str] = None,
+    duration: Optional[float] = None,
+    **extra: Any,
+) -> Event:
+    """创建Sprint执行相关的事件"""
+    data: Dict[str, Any] = {
+        k: v for k, v in {
+            "sprint_number": sprint_number,
+            "sprint_name": sprint_name,
+            "agent_type": agent_type,
+            "task": task,
+            "status": status,
+            "message": message,
+            "error": error,
+            "execution_id": execution_id,
+            "duration": duration,
+        }.items() if v is not None
+    }
+    data.update(extra)
+    return Event(type=event_type, data=data)

@@ -23,6 +23,7 @@ from .prd.generator import IntentPRDGenerator
 from .prd.parser import PRDParser
 from .prd.validator import PRDValidator
 from .scheduler.dispatcher import TaskDispatcher, ExecutionStatus
+from .execution.events import get_event_bus
 from .diagnostic.provider import ProjectDiagnostic
 from .execution.state_store import StateStore, ExecutionStateStatus, get_state_store
 from .execution.rollback import RollbackManager
@@ -45,7 +46,7 @@ class SprintCycle:
     @property
     def dispatcher(self) -> TaskDispatcher:
         if self._dispatcher is None:
-            self._dispatcher = TaskDispatcher(config=self.config)
+            self._dispatcher = TaskDispatcher(config=self.config, event_bus=get_event_bus())
         return self._dispatcher
 
     # ─── 1. plan — 看计划，不干活 ───
