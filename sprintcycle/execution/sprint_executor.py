@@ -166,6 +166,7 @@ class SprintExecutor(CheckpointMixin):
         
         result.duration = time.time() - start_time
         self._collect_feedback(sprint, result)
+        self._persist_sprint_result(sprint, result)
         
         if save_checkpoint and self._execution_id:
             self._save_checkpoint(0, sprint.name, result)
@@ -188,6 +189,51 @@ class SprintExecutor(CheckpointMixin):
             self._feedback_loop.save(feedback)
         except Exception as e:
             logger.warning(f"收集反馈失败: {e}")
+
+    def _persist_sprint_result(self, sprint: PRDSprint, result: SprintResult) -> None:
+        """持久化 Sprint 执行结果到 StateStore"""
+        try:
+            # 构建执行记录
+            task_records = []
+            for tr in result.task_results:
+                task_records.append({
+                    "task": tr.task.task,
+                    "agent": tr.task.agent,
+                    "status": tr.status.value if hasattr(tr.status, "value") else str(tr.status),
+                    "output": tr.output,
+                    "error": tr.error,
+                    "duration": tr.duration,
+                })
+
+            execution_record = {
+                "sprint_name": sprint.name,
+                "status": result.status.value if hasattr(result.status, "value") else str(result.status),
+                "task_results": task_records,
+                "duration": result.duration,
+                "timestamp": datetime.now().isoformat(),
+            }
+
+            # 通过 StateStore 的 metadata 持久化
+            state = self.state_store.load(self._execution_id or "default")
+            if state:
+                if "sprint_history" not in state.metadata:
+                    state.metadata["sprint_history"] = []
+                state.metadata["sprint_history"].append(execution_record)
+                state.updated_at = datetime.now().isoformat()
+                self.state_store.save(state)
+                logger.info(f"📝 Sprint 结果已持久化: {sprint.name}")
+            else:
+                logger.debug(f"无 StateStore 状态，跳过持久化")
+        except Exception as e:
+            logger.warning(f"持久化 Sprint 结果失败: {e}")
+
+    def _log_task_execution(self, task: PRDTask, task_result: TaskResult) -> None:
+        """记录单个 Task 执行日志"""
+        status_str = task_result.status.value if hasattr(task_result.status, "value") else str(task_result.status)
+        logger.info(
+            f"📋 Task [{task.agent}] {task.task[:40]}... → {status_str} "
+            f"({task_result.duration:.2f}s)"
+        )
     
     async def execute_sprints(
         self, sprints: List[PRDSprint], mode: str = "normal",
@@ -380,7 +426,9 @@ class SprintExecutor(CheckpointMixin):
                     "\n[重要] 本次为失败重试，请特别注意上述问题。"
                 )
             output = await executor(task, enriched_context)
-            return TaskResult(task=task, sprint_name=sprint_name, status=ExecutionStatus.SUCCESS, output=output, duration=time.time() - start_time)
+            task_result = TaskResult(task=task, sprint_name=sprint_name, status=ExecutionStatus.SUCCESS, output=output, duration=time.time() - start_time)
+            self._log_task_execution(task, task_result)
+            return task_result
         except Exception as e:
             return TaskResult(task=task, sprint_name=sprint_name, status=ExecutionStatus.FAILED, error=str(e), duration=time.time() - start_time)
     
