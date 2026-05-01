@@ -1,13 +1,24 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "sprintcycle"
 version = "0.9.0"
 description = "PRD驱动的自我进化敏捷开发框架"
 readme = "README.md"
 requires-python = ">=3.10"
+dependencies = ["mcp>=1.0.0"]
 license = {text = "MIT"}
 
+[project.scripts]
+sprintcycle = "sprintcycle.cli:cli"
+
+[tool.setuptools.packages.find]
+include = ["sprintcycle*"]
+
 [tool.mypy]
-ignore_missing_imports = true
+ignore-missing-imports = true
 python_version = "3.13"
 
 [tool.pytest.ini_options]

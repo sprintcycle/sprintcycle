@@ -122,6 +122,27 @@ def _generate_and_execute(parsed, dry_run: bool):
         sys.exit(1)
 
 
+def _mcp_server(project_path: str) -> None:
+    """启动 MCP Server"""
+    try:
+        from sprintcycle.mcp.server import SprintCycleMCPServer, MCP_AVAILABLE
+    except ImportError:
+        click.echo("❌ MCP SDK 未安装")
+        click.echo("   安装命令: pip install mcp")
+        sys.exit(1)
+
+    if not MCP_AVAILABLE:
+        click.echo("❌ MCP SDK 未安装")
+        click.echo("   安装命令: pip install mcp")
+        sys.exit(1)
+
+    click.echo(f"🚀 启动 MCP Server (project: {project_path})")
+    click.echo("   按 Ctrl+C 停止")
+
+    server = SprintCycleMCPServer(project_path=project_path)
+    asyncio.run(server.run())
+
+
 def _show_status():
     """显示状态信息"""
     click.echo("📊 SprintCycle 状态")
@@ -226,6 +247,7 @@ def _execute_prd(prd) -> IntentResult:
 @click.option('--dry-run', is_flag=True, help='仅生成 PRD，不执行')
 @click.option('--status', is_flag=True, help='查看状态')
 @click.option('--init', 'init_path', type=click.Path(), help='初始化项目')
+@click.option('--mcp', 'mcp_path', type=click.Path(), help='启动 MCP Server')
 @click.option('--verbose', '-v', is_flag=True, help='详细输出')
 @click.argument('args', nargs=-1)  # 捕获所有剩余参数作为意图
 @click.version_option(version='0.7.0', prog_name='sprintcycle')
@@ -238,6 +260,7 @@ def cli(
     dry_run: bool,
     status: bool,
     init_path: Optional[str],
+    mcp_path: Optional[str],
     verbose: bool,
     args: tuple,
 ):
@@ -256,6 +279,10 @@ def cli(
     if verbose:
         logging.getLogger().setLevel(logging.DEBUG)
     
+    if mcp_path:
+        _mcp_server(mcp_path)
+        return
+
     if status:
         _show_status()
         return
