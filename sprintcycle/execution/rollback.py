@@ -88,7 +88,7 @@ class GitRollbackMixin:
         git_runner: Optional[Callable[..., Tuple[int, str, str]]] = None,
         **kwargs,
     ):
-        super().__init__(**kwargs)
+        pass  # No parent class
         self.config = RollbackConfigInline(
             git_branch_mode=git_branch_mode,
             repo_path=repo_path,

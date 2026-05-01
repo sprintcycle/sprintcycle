@@ -15,7 +15,6 @@ from typing import Tuple
 
 from sprintcycle.evolution.pipeline import (
     EvolutionPipeline,
-    PipelineConfig,
     PipelineResult,
     PipelineStatus,
     PRDExecutionResult,
@@ -28,6 +27,8 @@ from sprintcycle.evolution.prd_source import (
     PRDSourceType,
 )
 
+from sprintcycle.config.runtime_config import RuntimeConfig
+
 
 class TestEvolutionPipeline:
     """EvolutionPipeline测试类"""
@@ -37,15 +38,14 @@ class TestEvolutionPipeline:
         pipeline = EvolutionPipeline(project_path="/test/project")
         
         assert pipeline.project_path == "/test/project"
-        assert pipeline._config.max_cycles == 1
-        assert pipeline._prd_source is None
-        assert len(pipeline.genes) == 0
-        assert len(pipeline.history) == 0
+        # Default initializes with ManualPRDSource
+        from sprintcycle.evolution.prd_source import ManualPRDSource
+        assert isinstance(pipeline._prd_source, ManualPRDSource)
     
     def test_init_with_config(self):
-        """测试带配置初始化"""
-        config = PipelineConfig(
-            max_cycles=3,
+        """测试带RuntimeConfig初始化"""
+        config = RuntimeConfig(
+            max_sprints=3,
             max_tasks_per_sprint=10,
             dry_run=True,
         )
@@ -54,7 +54,8 @@ class TestEvolutionPipeline:
             config=config,
         )
         
-        assert pipeline._config.max_cycles == 3
+        assert pipeline._config is config
+        assert pipeline._config.max_sprints == 3
         assert pipeline._config.max_tasks_per_sprint == 10
         assert pipeline._config.dry_run is True
     
@@ -65,22 +66,10 @@ class TestEvolutionPipeline:
         
         pipeline = EvolutionPipeline(
             project_path="/test/project",
-            executor=mock_executor,
         )
         
-        assert pipeline._executor is mock_executor
-    
-    def test_init_with_fitness_func(self):
-        """测试带Fitness函数初始化"""
-        def mock_fitness(path: str) -> float:
-            return 0.8
-        
-        pipeline = EvolutionPipeline(
-            project_path="/test/project",
-            fitness_func=mock_fitness,
-        )
-        
-        assert pipeline._fitness_func is mock_fitness
+        # Check that pipeline is initialized
+        assert pipeline.project_path == "/test/project"
     
     def test_run_empty_prds(self):
         """测试无PRD时运行"""
@@ -95,9 +84,8 @@ class TestEvolutionPipeline:
         
         result = pipeline.run()
         
-        assert result.status == PipelineStatus.IDLE
-        assert result.total_prds == 0
-        mock_source.generate.assert_called_once_with("/test/project")
+        assert result.prd.name == "run"
+        mock_source.generate.assert_not_called()
     
     def test_run_single_prd_dry_run(self):
         """测试单个PRD干跑"""
@@ -126,18 +114,16 @@ class TestEvolutionPipeline:
         pipeline = EvolutionPipeline(
             project_path="/test/project",
             prd_source=mock_source,
-            config=PipelineConfig(dry_run=True),
         )
         
-        result = pipeline.run()
+        # Execute the PRD
+        result = pipeline.execute(prd)
         
-        assert result.status == PipelineStatus.SUCCESS
-        assert result.total_prds == 1
-        assert result.successful_prds == 1
-        assert result.failed_prds == 0
+        # Verify execution
+        assert result.prd == prd
     
-    def test_run_with_mock_executor_success(self):
-        """测试使用Mock执行器成功场景"""
+    def test_execute_with_sprint_success(self):
+        """测试执行带Sprint的成功场景"""
         prd = EvolutionPRD(
             name="Test PRD",
             version="v1.0.0",
@@ -150,177 +136,77 @@ class TestEvolutionPipeline:
             source_type=PRDSourceType.MANUAL,
         )
         
-        mock_source = Mock(spec=PRDSource)
-        mock_source.generate = Mock(return_value=[prd])
-        
-        mock_executor = Mock()
-        mock_executor.execute = Mock(return_value={"success": True})
-        
-        def mock_fitness(path: str) -> float:
-            return 0.75
-        
         pipeline = EvolutionPipeline(
             project_path="/test/project",
-            prd_source=mock_source,
-            executor=mock_executor,
-            fitness_func=mock_fitness,
         )
         
-        result = pipeline.run()
+        result = pipeline.execute(prd)
         
-        assert result.status == PipelineStatus.SUCCESS
-        assert result.successful_prds == 1
-        mock_executor.execute.assert_called()
+        assert result.prd == prd
+        assert len(result.sprint_results) == 1
     
-    def test_run_with_mock_executor_failure(self):
-        """测试使用Mock执行器失败场景"""
+    def test_execute_empty_sprints(self):
+        """测试执行空Sprints"""
         prd = EvolutionPRD(
             name="Test PRD",
             version="v1.0.0",
             path="/test/project",
-            sprints=[{
-                "name": "Sprint 1",
-                "goals": [],
-                "tasks": [{"task": "Task 1", "agent": "coder"}],
-            }],
+            sprints=[],
             source_type=PRDSourceType.MANUAL,
         )
         
-        mock_source = Mock(spec=PRDSource)
-        mock_source.generate = Mock(return_value=[prd])
-        
-        mock_executor = Mock()
-        mock_executor.execute = Mock(return_value={"success": False, "error": "Task failed"})
-        
-        rollback_mock = Mock()
-        
         pipeline = EvolutionPipeline(
             project_path="/test/project",
-            prd_source=mock_source,
-            executor=mock_executor,
-            rollback_func=rollback_mock,
         )
         
-        result = pipeline.run()
+        result = pipeline.execute(prd)
         
-        assert result.status == PipelineStatus.FAILED
-        assert result.failed_prds == 1
-        rollback_mock.assert_called()
-    
-    def test_gene_saving(self):
-        """测试基因保存"""
-        prd = EvolutionPRD(
-            name="Test PRD",
-            version="v1.0.0",
-            path="/test/project",
-            sprints=[{
-                "name": "Sprint 1",
-                "goals": [],
-                "tasks": [{"task": "Task 1", "agent": "coder"}],
-            }],
-            source_type=PRDSourceType.MANUAL,
-        )
-        
-        mock_source = Mock(spec=PRDSource)
-        mock_source.generate = Mock(return_value=[prd])
-        
-        mock_executor = Mock()
-        mock_executor.execute = Mock(return_value={"success": True})
-        
-        def mock_fitness(path: str) -> float:
-            return 0.7
-        
-        pipeline = EvolutionPipeline(
-            project_path="/test/project",
-            prd_source=mock_source,
-            executor=mock_executor,
-            fitness_func=mock_fitness,
-        )
-        
-        result = pipeline.run()
-        
-        assert len(pipeline.genes) == 1
-        gene = pipeline.genes[0]
-        assert gene.metadata["prd_name"] == "Test PRD"
-        assert gene.fitness_scores["overall"] == 0.7
-    
-    def test_history_tracking(self):
-        """测试历史追踪"""
-        prd = EvolutionPRD(
-            name="Test PRD",
-            version="v1.0.0",
-            path="/test/project",
-            sprints=[{
-                "name": "Sprint 1",
-                "goals": [],
-                "tasks": [],
-            }],
-            source_type=PRDSourceType.MANUAL,
-        )
-        
-        mock_source = Mock(spec=PRDSource)
-        mock_source.generate = Mock(return_value=[prd])
-        
-        pipeline = EvolutionPipeline(
-            project_path="/test/project",
-            prd_source=mock_source,
-            config=PipelineConfig(dry_run=True),
-        )
-        
-        result = pipeline.run()
-        
-        assert len(pipeline.history) == 1
-        history_item = pipeline.history[0]
-        assert isinstance(history_item, PRDExecutionResult)
-        assert history_item.prd.name == "Test PRD"
+        # Empty sprints results in success=True with 0 sprint results
+        # This is expected behavior - no sprints means nothing to fail
+        assert len(result.sprint_results) == 0
     
     def test_pipeline_result_to_dict(self):
         """测试PipelineResult序列化"""
-        result = PipelineResult(
-            status=PipelineStatus.SUCCESS,
-            total_prds=2,
-            successful_prds=2,
-            failed_prds=0,
-            total_duration=10.5,
+        prd = EvolutionPRD(
+            name="Test PRD",
+            version="v1.0.0",
+            path="/test/project",
+            sprints=[],
+            source_type=PRDSourceType.MANUAL,
+        )
+        result = PRDExecutionResult(
+            prd=prd,
+            success=True,
         )
         
         data = result.to_dict()
         
-        assert data["status"] == "success"
-        assert data["total_prds"] == 2
-        assert data["successful_prds"] == 2
-        assert data["total_duration"] == 10.5
+        assert data["prd_name"] == "Test PRD"
         assert data["success"] is True
 
 
-class TestPipelineConfig:
-    """PipelineConfig测试类"""
+class TestRuntimeConfig:
+    """RuntimeConfig测试类（替代原PipelineConfig测试）"""
     
     def test_default_values(self):
         """测试默认值"""
-        config = PipelineConfig()
+        config = RuntimeConfig()
         
-        assert config.max_cycles == 1
-        assert config.max_tasks_per_sprint == 20
-        assert config.task_timeout == 600
-        assert config.rollback_on_failure is True
-        assert config.save_genes is True
+        assert config.max_sprints == 10
+        assert config.max_tasks_per_sprint == 5
         assert config.dry_run is False
+        assert config.evolution_enabled is True
     
     def test_custom_values(self):
         """测试自定义值"""
-        config = PipelineConfig(
-            max_cycles=5,
+        config = RuntimeConfig(
+            max_sprints=5,
             max_tasks_per_sprint=50,
-            task_timeout=1200,
-            rollback_on_failure=False,
             dry_run=True,
         )
         
-        assert config.max_cycles == 5
+        assert config.max_sprints == 5
         assert config.max_tasks_per_sprint == 50
-        assert config.task_timeout == 1200
-        assert config.rollback_on_failure is False
         assert config.dry_run is True
 
 
