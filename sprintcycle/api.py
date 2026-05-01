@@ -388,9 +388,11 @@ class SprintCycle:
                     duration=time.time() - start,
                 )
 
-            # 从 checkpoint 恢复 PRD 并继续执行
+            # 获取断点信息
             checkpoint = state.checkpoint or {}
             sprint_idx = checkpoint.get("sprint_idx", 0)
+            task_results = checkpoint.get("task_results", [])
+            prd_yaml = checkpoint.get("prd_yaml")
 
             logger.info(
                 f"断点续跑: {execution_id}, 从 Sprint {sprint_idx} 继续"
@@ -399,13 +401,82 @@ class SprintCycle:
             # 更新状态为 RUNNING
             store.update_status(execution_id, ExecutionStateStatus.RUNNING)
 
+            # 从 PRD YAML 恢复 PRD 对象
+            if not prd_yaml:
+                return RunResult(
+                    success=False,
+                    error=f"执行 {execution_id} 没有保存的 PRD，无法恢复",
+                    execution_id=execution_id,
+                    duration=time.time() - start,
+                )
+
+            try:
+                prd = PRDParser().parse_string(prd_yaml)
+            except Exception as e:
+                logger.error(f"无法解析保存的 PRD: {e}")
+                return RunResult(
+                    success=False,
+                    error=f"无法解析保存的 PRD: {e}",
+                    execution_id=execution_id,
+                    duration=time.time() - start,
+                )
+
+            # 重建之前的 Sprint 结果
+            previous_results = self._reconstruct_sprint_results(prd, task_results)
+            
+            if previous_results:
+                logger.info(f"已恢复 {len(previous_results)} 个已完成的 Sprint 结果")
+
+            # 使用 dispatcher 从断点继续执行
+            async def run_resume():
+                return await self.dispatcher.resume_from_sprint(
+                    prd=prd,
+                    resume_from_idx=sprint_idx,
+                    previous_results=previous_results,
+                    max_concurrent=self.config.parallel_tasks,
+                )
+
+            sprint_results = asyncio.run(run_resume())
+
+            # 更新状态为 COMPLETED
+            store.update_status(execution_id, ExecutionStateStatus.COMPLETED)
+
+            # 构建 RunResult
+            success = all(
+                r.status in (ExecutionStatus.SUCCESS, ExecutionStatus.SKIPPED)
+                for r in sprint_results
+            )
+            completed_sprints = sum(
+                1
+                for r in sprint_results
+                if r.status in (ExecutionStatus.SUCCESS, ExecutionStatus.SKIPPED)
+            )
+            completed_tasks = sum(r.success_count for r in sprint_results)
+
+            # 序列化 sprint_results
+            sr_list: List[Dict[str, Any]] = []
+            for r in sprint_results:
+                sr_list.append(
+                    {
+                        "sprint_name": r.sprint.name if hasattr(r, "sprint") else "",
+                        "status": r.status.value if hasattr(r.status, "value") else str(r.status),
+                        "success_count": r.success_count,
+                        "task_count": len(r.task_results),
+                        "duration": r.duration,
+                    }
+                )
+
             return RunResult(
-                success=True,
+                success=success,
                 execution_id=execution_id,
-                prd_name=state.prd_name,
+                prd_name=prd.project.name if hasattr(prd, "project") else state.prd_name,
+                completed_sprints=completed_sprints,
+                completed_tasks=completed_tasks,
+                total_sprints=len(sprint_results),
+                total_tasks=prd.total_tasks if hasattr(prd, "total_tasks") else state.total_tasks,
                 current_sprint=sprint_idx,
-                total_sprints=state.total_sprints,
-                message=f"断点续跑已启动，从 Sprint {sprint_idx} 继续",
+                sprint_results=sr_list,
+                message=f"断点续跑完成，共执行 {len(sprint_results)} 个 Sprint",
                 duration=time.time() - start,
             )
         except Exception as e:
@@ -413,6 +484,93 @@ class SprintCycle:
             return RunResult(
                 success=False, error=str(e), duration=time.time() - start
             )
+    
+    def _reconstruct_sprint_results(
+        self, 
+        prd: Any, 
+        task_results_data: List[Dict[str, Any]]
+    ) -> List[Any]:
+        """
+        从保存的任务结果重建 SprintResult 列表
+        
+        Args:
+            prd: PRD 对象
+            task_results_data: 保存的任务结果数据
+            
+        Returns:
+            SprintResult 列表
+        """
+        from .execution.sprint_types import SprintResult, TaskResult, ExecutionStatus
+        from .prd.models import PRDTask
+        
+        if not task_results_data:
+            return []
+        
+        results: List[SprintResult] = []
+        
+        # 按 sprint_name 分组任务结果
+        sprint_groups: Dict[str, List[Dict[str, Any]]] = {}
+        for tr in task_results_data:
+            sprint_name = tr.get("sprint_name", "unknown")
+            if sprint_name not in sprint_groups:
+                sprint_groups[sprint_name] = []
+            sprint_groups[sprint_name].append(tr)
+        
+        # 找到对应的 Sprint 并重建结果
+        for sprint in prd.sprints:
+            if sprint.name in sprint_groups:
+                group = sprint_groups[sprint.name]
+                task_results: List[TaskResult] = []
+                
+                for tr_data in group:
+                    # 找到对应的任务定义
+                    task_def = None
+                    for t in sprint.tasks:
+                        if t.task == tr_data.get("task", ""):
+                            task_def = t
+                            break
+                    
+                    if task_def is None:
+                        # 如果找不到精确匹配，创建一个占位任务
+                        task_def = PRDTask(
+                            task=tr_data.get("task", ""),
+                            agent=tr_data.get("agent", "coder"),
+                            target=tr_data.get("target"),
+                        )
+                    
+                    status_str = tr_data.get("status", "success")
+                    try:
+                        status = ExecutionStatus(status_str)
+                    except ValueError:
+                        status = ExecutionStatus.SUCCESS
+                    
+                    task_result = TaskResult(
+                        task=task_def,
+                        sprint_name=sprint.name,
+                        status=status,
+                        output=tr_data.get("output", ""),
+                        error=tr_data.get("error"),
+                        duration=tr_data.get("duration", 0.0),
+                    )
+                    task_results.append(task_result)
+                
+                # 确定 Sprint 状态
+                if all(r.status == ExecutionStatus.SUCCESS for r in task_results):
+                    sprint_status = ExecutionStatus.SUCCESS
+                elif any(r.status == ExecutionStatus.FAILED for r in task_results):
+                    sprint_status = ExecutionStatus.FAILED
+                else:
+                    sprint_status = ExecutionStatus.SUCCESS
+                
+                sprint_result = SprintResult(
+                    sprint=sprint,
+                    status=sprint_status,
+                    task_results=task_results,
+                    duration=sum(r.duration for r in task_results),
+                )
+                results.append(sprint_result)
+        
+        return results
 
     def _is_git_repo(self) -> bool:
         """检查项目是否为 git 仓库"""

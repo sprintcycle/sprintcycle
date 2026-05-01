@@ -217,7 +217,8 @@ class StateStore:
         execution_id: str, 
         sprint_idx: int,
         sprint_name: str,
-        task_results: List[Dict[str, Any]]
+        task_results: List[Dict[str, Any]],
+        prd_yaml: Optional[str] = None
     ) -> bool:
         """
         创建断点
@@ -227,6 +228,7 @@ class StateStore:
             sprint_idx: 当前 Sprint 索引
             sprint_name: Sprint 名称
             task_results: 任务结果列表
+            prd_yaml: PRD YAML 字符串（用于恢复）
             
         Returns:
             是否成功创建
@@ -241,6 +243,7 @@ class StateStore:
             "sprint_name": sprint_name,
             "task_results": task_results,
             "timestamp": datetime.now().isoformat(),
+            "prd_yaml": prd_yaml,
         }
         self.save(state)
         return True
@@ -258,7 +261,7 @@ class StateStore:
         state = self.load(execution_id)
         return (
             state is not None and 
-            state.status in (ExecutionStateStatus.PAUSED, ExecutionStateStatus.FAILED) and
+            state.status in (ExecutionStateStatus.PAUSED, ExecutionStateStatus.FAILED, ExecutionStateStatus.CANCELLED) and
             state.checkpoint is not None
         )
     
@@ -278,6 +281,7 @@ class StateStore:
                 "current_sprint": state.checkpoint.get("sprint_idx", 0),
                 "sprint_name": state.checkpoint.get("sprint_name", ""),
                 "task_results": state.checkpoint.get("task_results", []),
+                "prd_yaml": state.checkpoint.get("prd_yaml"),
             }
         return None
     

@@ -23,6 +23,8 @@ logger = logging.getLogger(__name__)
 
 
 from ..execution.sprint_types import ExecutionStatus, TaskResult, SprintResult
+from ..execution.sprint_types import ExecutionStatus, TaskResult, SprintResult
+from typing import List as ListType
 
 
 class TaskDispatcher:
@@ -107,6 +109,58 @@ class TaskDispatcher:
         total_tasks = sum(len(r.task_results) for r in results)
         
         logger.info(f"\n📊 PRD 执行完成:")
+        logger.info(f"   总任务: {total_tasks}")
+        logger.info(f"   成功: {total_success}")
+        logger.info(f"   失败: {total_tasks - total_success}")
+        logger.info(f"   总耗时: {total_duration:.2f}s")
+        
+        return results
+    
+    async def resume_from_sprint(
+        self,
+        prd: PRD,
+        resume_from_idx: int,
+        previous_results: List[SprintResult],
+        max_concurrent: int = 3,
+    ) -> List[SprintResult]:
+        """
+        从指定 Sprint 索引继续执行（用于断点续跑）
+        
+        Args:
+            prd: PRD 对象
+            resume_from_idx: 从哪个 Sprint 索引开始继续执行
+            previous_results: 已完成的 Sprint 结果
+            max_concurrent: 最大并发任务数
+            
+        Returns:
+            所有 Sprint 执行结果（包括之前的和重新执行的）
+        """
+        logger.info(f"🔄 断点续跑: 从 Sprint {resume_from_idx} 继续")
+        logger.info(f"   PRD: {prd.project.name}")
+        logger.info(f"   已有结果: {len(previous_results)} 个 Sprint")
+        logger.info(f"   待执行: {len(prd.sprints) - resume_from_idx} 个 Sprint")
+        
+        results = list(previous_results)  # 保留之前的结果
+        
+        # 从断点继续执行剩余的 Sprint
+        for i, sprint in enumerate(prd.sprints[resume_from_idx:], start=resume_from_idx):
+            sprint_result = await self._execute_sprint(sprint, prd, max_concurrent)
+            results.append(sprint_result)
+            
+            # 检查是否被取消
+            # 注意：这里需要检查 cancel 标志，由调用方在调度器中维护
+            
+            # 串行执行 Sprint，遇到失败继续
+            if sprint_result.status == ExecutionStatus.FAILED:
+                if sprint_result.failed_count > sprint_result.success_count:
+                    logger.warning(f"⚠️  Sprint '{sprint.name}' 失败率较高，继续执行下一个 Sprint")
+        
+        # 输出汇总
+        total_duration = sum(r.duration for r in results)
+        total_success = sum(r.success_count for r in results)
+        total_tasks = sum(len(r.task_results) for r in results)
+        
+        logger.info(f"\n📊 续跑执行完成:")
         logger.info(f"   总任务: {total_tasks}")
         logger.info(f"   成功: {total_success}")
         logger.info(f"   失败: {total_tasks - total_success}")

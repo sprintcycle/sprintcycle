@@ -50,11 +50,20 @@ class CheckpointMixin:  # type: ignore[misc]
         
         task_results = [r.to_dict() for r in sprint_result.task_results]
         
+        # 获取 PRD YAML 用于恢复
+        prd_yaml = None
+        if self._prd:
+            try:
+                prd_yaml = self._prd.to_yaml()
+            except Exception as e:
+                logger.warning(f"无法序列化 PRD 为 YAML: {e}")
+        
         success = self.state_store.create_checkpoint(
             execution_id=self._execution_id,
             sprint_idx=sprint_idx,
             sprint_name=sprint_name,
             task_results=task_results,
+            prd_yaml=prd_yaml,
         )
         
         if success:
