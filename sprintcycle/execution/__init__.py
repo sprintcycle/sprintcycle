@@ -6,7 +6,7 @@ from .engine import ExecutionEngine
 from .strategies import NormalStrategy, EvolutionStrategy as StrategyEvolutionStrategy, ExecutionStrategy, get_strategy
 from .sprint_executor import SprintExecutor, ExecutionStatus, TaskResult, SprintResult
 from .events import EventBus, Event, EventType, get_event_bus
-from .state_store import StateStore, ExecutionState, ExecutionStateStatus, get_state_store
+from .state_store import StateStore, ExecutionState, ExecutionStatus, get_state_store
 from .feedback import FeedbackLoop, ExecutionFeedback, FeedbackLevel, FeedbackCategory
 from .cache import ExecutionCache, CacheEntry, get_cache, set_cache
 from .agents import (
@@ -34,7 +34,7 @@ __all__ = [
     "ExecutionEngine", "SprintExecutor", "NormalStrategy", "EvolutionStrategy", "ExecutionStrategy", "get_strategy",
     "ExecutionStatus", "TaskResult", "SprintResult", "TaskStatus",
     "EventBus", "Event", "EventType", "get_event_bus",
-    "StateStore", "ExecutionState", "ExecutionStateStatus", "get_state_store",
+    "StateStore", "ExecutionState", "ExecutionStatus", "get_state_store",
     "FeedbackLoop", "ExecutionFeedback", "FeedbackLevel", "FeedbackCategory",
     "ExecutionCache", "CacheEntry", "get_cache", "set_cache",
     "AgentType", "AgentContext", "AgentResult", "AgentExecutor", "CoderAgent", "BatchTask", "BatchConfig",

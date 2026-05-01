@@ -25,7 +25,7 @@ from .prd.validator import PRDValidator
 from .scheduler.dispatcher import TaskDispatcher, ExecutionStatus
 from .execution.events import get_event_bus
 from .diagnostic.provider import ProjectDiagnostic
-from .execution.state_store import StateStore, ExecutionStateStatus, get_state_store
+from .execution.state_store import StateStore, get_state_store
 from .execution.rollback import RollbackManager
 
 logger = logging.getLogger(__name__)
@@ -199,7 +199,7 @@ class SprintCycle:
                 status_filter = None
                 if filter_status:
                     try:
-                        status_filter = ExecutionStateStatus(filter_status)
+                        status_filter = ExecutionStatus(filter_status)
                     except ValueError:
                         pass
                 states = store.list_executions(status=status_filter)
@@ -276,7 +276,7 @@ class SprintCycle:
                 )
 
             # 1. 更新 StateStore 状态
-            store.update_status(execution_id, ExecutionStateStatus.CANCELLED)
+            store.update_status(execution_id, ExecutionStatus.CANCELLED)
 
             # 2. 触发 SprintExecutor 的 cancel（如果正在运行）
             if self._dispatcher and hasattr(self._dispatcher, '_executor'):
@@ -400,7 +400,7 @@ class SprintCycle:
             )
 
             # 更新状态为 RUNNING
-            store.update_status(execution_id, ExecutionStateStatus.RUNNING)
+            store.update_status(execution_id, ExecutionStatus.RUNNING)
 
             # 从 PRD YAML 恢复 PRD 对象
             if not prd_yaml:
@@ -440,7 +440,7 @@ class SprintCycle:
             sprint_results = asyncio.run(run_resume())
 
             # 更新状态为 COMPLETED
-            store.update_status(execution_id, ExecutionStateStatus.COMPLETED)
+            store.update_status(execution_id, ExecutionStatus.COMPLETED)
 
             # 构建 RunResult
             success = all(
@@ -501,7 +501,7 @@ class SprintCycle:
         Returns:
             SprintResult 列表
         """
-        from .execution.sprint_types import SprintResult, TaskResult, ExecutionStatus
+        from .execution.sprint_types import ExecutionStatus, SprintResult, TaskResult, ExecutionStatus
         from .prd.models import PRDTask
         
         if not task_results_data:

@@ -14,7 +14,7 @@ from enum import Enum
 from datetime import datetime
 
 from ..prd.models import PRD, PRDSprint, PRDTask, ExecutionMode, PRDEvolutionParams
-from .state_store import StateStore, ExecutionState, ExecutionStateStatus, get_state_store
+from .state_store import StateStore, ExecutionState, get_state_store
 from .checkpoint import CheckpointMixin
 
 logger = logging.getLogger(__name__)
@@ -48,7 +48,7 @@ class SprintExecutor(CheckpointMixin):
         self._evolution_engine = evolution_engine
         self._error_handler = error_handler
         self._state_store = state_store
-        self._execution_id: Optional[str] = None  # type: ignore[assignment]
+        self._execution_id: str = ""
         self._cancelled: bool = False
         self._checkpoint_interval = 1
         self._register_default_executors()
@@ -271,7 +271,7 @@ class SprintExecutor(CheckpointMixin):
             return []
         start_sprint_idx = resume_point.get("current_sprint", 0)
         self._execution_id = execution_id
-        self.state_store.update_status(execution_id, ExecutionStateStatus.RUNNING)
+        self.state_store.update_status(execution_id, ExecutionStatus.RUNNING)
         results = []
         for i, sprint in enumerate(sprints):
             if i < start_sprint_idx:
@@ -326,7 +326,7 @@ class SprintExecutor(CheckpointMixin):
 
     async def _retry_with_feedback(self, sprint: PRDSprint, feedback: Any, decision: Dict[str, Any], context: Optional[Dict[str, Any]]) -> SprintResult:
         """根据反馈重试 Sprint"""
-        sprint._retry_count = getattr(sprint, '_retry_count', 0) + 1  # type: ignore[attr-defined]
+        object.__setattr__(sprint, '_retry_count', getattr(sprint, '_retry_count', 0) + 1)
         if context is None:
             context = {}
         context["retry_feedback"] = feedback.to_dict()

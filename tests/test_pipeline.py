@@ -8,10 +8,11 @@ import pytest
 from unittest.mock import Mock, MagicMock, patch
 from typing import Tuple
 
+from sprintcycle.execution.sprint_types import ExecutionStatus
 from sprintcycle.evolution.pipeline import (
     EvolutionPipeline,
     PipelineResult,
-    PipelineStatus,
+    ExecutionStatus,
     PRDExecutionResult,
     SprintExecutionResult,
 )
@@ -114,7 +115,7 @@ class TestEvolutionPipeline:
         pipeline = EvolutionPipeline(project_path="/test/project")
         
         # Initial status should be IDLE
-        assert pipeline.status == PipelineStatus.IDLE
+        assert pipeline.status == ExecutionStatus.IDLE
     
     def test_pipeline_result_to_dict(self):
         """测试PipelineResult序列化"""

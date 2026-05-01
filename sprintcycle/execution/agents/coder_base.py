@@ -55,11 +55,11 @@ class CoderAgent(AgentExecutor):
         return requirements
 
     async def _generate_code(self, requirements: Dict[str, Any], context: AgentContext) -> Dict[str, Any]:
-        task = requirements.get("task", "")
-        import aiohttp
-        from ..llm_provider import resolve_provider
+        from ..llm_provider import resolve_provider, call_llm_async
         
+        task = requirements.get("task", "")
         config = resolve_provider()
+        
         arch_section = ""
         if requirements.get("architecture_design"):
             arch_section = f"""
@@ -81,20 +81,21 @@ class CoderAgent(AgentExecutor):
         messages = [{"role": "user", "content": prompt}]
         
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    f"{config.api_base}/chat/completions",
-                    headers={"Authorization": f"Bearer {config.api_key}", "Content-Type": "application/json"},
-                    json={"model": config.model, "messages": messages, "temperature": 0.7},
-                    timeout=aiohttp.ClientTimeout(total=120),
-                ) as resp:
-                    data = await resp.json()
-                    if resp.status == 200:
-                        code = data["choices"][0]["message"]["content"]
-                        quality = self._calculate_quality_score(code, context)
-                        return {"success": True, "code": code, "quality": quality, "feedback": f"Generated {requirements.get('language', 'python')} code"}
-                    else:
-                        return {"success": False, "error": data.get('error', {}).get('message', 'API error')}
+            code = await call_llm_async(
+                model=config.model,
+                messages=messages,
+                api_key=config.api_key,
+                api_base=config.api_base,
+                temperature=0.7,
+                max_tokens=4096,
+            )
+            quality = self._calculate_quality_score(code, context)
+            return {
+                "success": True,
+                "code": code,
+                "quality": quality,
+                "feedback": f"Generated {requirements.get('language', 'python')} code"
+            }
         except Exception as e:
             logger.error(f"Code generation failed: {e}")
             return {"success": False, "error": str(e)}

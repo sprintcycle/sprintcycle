@@ -1,11 +1,15 @@
 """
 Config 模块 - 统一配置管理
 
-v0.9.1 拆分结构：
-- runtime_config.py: RuntimeConfig + 工具函数
-- llm_config.py: LLMConfig + 兼容别名
-- sprintcycle_config.py: SprintCycleConfig, CodingConfig, EvolutionRunConfig
+v0.9.2 架构：
+- runtime_config.py: RuntimeConfig（pydantic-settings 或 dataclass）
+- llm_config.py: LLMConfig（pydantic 或 dataclass）
+- sprintcycle_config.py: SprintCycleConfig, CodingConfig, EvolutionRunConfig（dataclass）
 - manager.py: ConfigManager
+
+迁移到 pydantic:
+- pydantic-settings: RuntimeConfig 自动从环境变量加载
+- pydantic: LLMConfig 提供类型安全
 """
 
 from .runtime_config import RuntimeConfig

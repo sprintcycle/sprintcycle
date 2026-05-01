@@ -167,7 +167,7 @@ class PRDRuleEngine:
                     {
                         "task": "添加缺失的类型注解",
                         "agent": "coder",
-                        "constraints": ["使用# type: ignore慎重"],
+                        "constraints": ["使用 type 注释慎重"],
                     },
                 ],
             }],

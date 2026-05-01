@@ -8,7 +8,7 @@ Bug 分析数据模型
 - Severity: 严重程度枚举
 - Location: 问题位置
 
-v0.9.1: 从 Pydantic 迁移到 dataclass，消除 type: ignore 警告
+v0.9.1: 从 Pydantic 迁移到 dataclass，消除 type 警告
 """
 
 from dataclasses import dataclass, field

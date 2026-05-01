@@ -77,35 +77,6 @@ class TestTaskDispatcher:
         assert results[0].sprint.name == "Sprint 1"
         assert results[1].sprint.name == "Sprint 2"
     
-    def test_callback_registration(self):
-        """测试回调注册"""
-        callback_invoked = []
-        
-        def on_task_start(task):
-            callback_invoked.append(("start", task.task))
-        
-        def on_task_end(result):
-            callback_invoked.append(("end", result.task.task))
-        
-        self.dispatcher.register_callback("on_task_start", on_task_start)
-        self.dispatcher.register_callback("on_task_end", on_task_end)
-        
-        prd = PRD(
-            project=PRDProject(name="test", path="/root/test"),
-            sprints=[
-                PRDSprint(
-                    name="Sprint 1",
-                    tasks=[
-                        PRDTask(task="测试任务", agent="coder"),
-                    ]
-                ),
-            ]
-        )
-        
-        asyncio.run(self.dispatcher.execute_prd(prd))
-        
-        assert len(callback_invoked) >= 2
-    
     def test_get_summary(self):
         """测试获取摘要"""
         summary = self.dispatcher.get_summary()

@@ -1,45 +1,47 @@
 """
-Agent 执行结果缓存 - 基于任务哈希的缓存机制
+Agent 执行结果缓存 - 基于 DiskCache 的持久化缓存机制
 
 功能：
 1. 基于任务哈希的缓存机制
 2. 支持缓存失效策略（TTL、手动失效）
 3. 缓存统计和监控
+4. 使用 DiskCache（SQLite）作为后端
 """
 
 import asyncio
 import hashlib
-import json
 import logging
-import pickle
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
-from collections import OrderedDict
-from typing import Any, Dict, List, Optional, TypeVar
+from typing import Any, Dict, Optional, TypeVar
 
-from .sprint_executor import TaskResult
+import diskcache
 
 logger = logging.getLogger(__name__)
 
 T = TypeVar('T')
 
 
+@dataclass
 class CacheEntry:
-    """缓存条目"""
+    """
+    缓存条目（保留用于向后兼容）
     
-    def __init__(
-        self,
-        key: str,
-        value: Any,
-        ttl_hours: int = 24,
-        created_at: Optional[datetime] = None
-    ):
-        self.key = key
-        self.value = value
-        self.created_at = created_at or datetime.now()
-        self.ttl = timedelta(hours=ttl_hours)
-        self.hit_count = 0
-        self.last_accessed = self.created_at
+    内部实现已迁移到 DiskCache，此类仅用于保持 API 兼容
+    """
+    
+    key: str
+    value: Any
+    ttl_hours: int = 24
+    created_at: datetime = field(default_factory=datetime.now)
+    hit_count: int = 0
+    last_accessed: datetime = field(default_factory=datetime.now)
+    
+    @property
+    def ttl(self) -> timedelta:
+        """获取 TTL 时长"""
+        return timedelta(hours=self.ttl_hours)
     
     @property
     def is_expired(self) -> bool:
@@ -60,7 +62,7 @@ class CacheEntry:
         return {
             "key": self.key,
             "created_at": self.created_at.isoformat(),
-            "ttl_hours": self.ttl.total_seconds() / 3600,
+            "ttl_hours": self.ttl_hours,
             "is_expired": self.is_expired,
             "hit_count": self.hit_count,
             "last_accessed": self.last_accessed.isoformat(),
@@ -77,6 +79,8 @@ class ExecutionCache:
     2. 手动失效
     3. LRU 淘汰策略
     4. 缓存统计
+    
+    使用 DiskCache（SQLite）作为后端
     """
     
     def __init__(
@@ -93,15 +97,25 @@ class ExecutionCache:
             cache_dir: 缓存目录
             ttl_hours: 默认 TTL（小时）
             max_entries: 最大缓存条目数
-            enable_persistence: 是否启用持久化
+            enable_persistence: 是否启用持久化（始终持久化）
         """
         self.cache_dir = Path(cache_dir)
-        self.default_ttl = timedelta(hours=ttl_hours)
+        self.default_ttl_hours = ttl_hours
         self.max_entries = max_entries
         self.enable_persistence = enable_persistence
         
-        # 内存缓存 - 使用 OrderedDict 实现高效 LRU
-        self._cache: OrderedDict[str, CacheEntry] = OrderedDict()
+        # 异步锁
+        self._lock = asyncio.Lock()
+        
+        # DiskCache 配置
+        # size_limit: 约 1MB per entry estimate * max_entries
+        cache_size_limit = max_entries * 1024 * 1024
+        self._cache = diskcache.Cache(
+            str(self.cache_dir),
+            size_limit=cache_size_limit,
+            eviction_policy="lru",
+        )
+        logger.info(f"Using DiskCache backend at {cache_dir} (size_limit={cache_size_limit})")
         
         # 统计
         self._stats = {
@@ -112,13 +126,12 @@ class ExecutionCache:
             "evictions": 0,
         }
         
-        # 异步锁
-        self._lock = asyncio.Lock()
+        # 清理任务
+        self._cleanup_task: Optional[asyncio.Task] = None
         
         # 初始化
         if self.enable_persistence:
             self.cache_dir.mkdir(parents=True, exist_ok=True)
-            asyncio.create_task(self._load_persistence())
     
     def _generate_hash(self, task_key: str) -> str:
         """生成任务哈希"""
@@ -165,27 +178,14 @@ class ExecutionCache:
         Returns:
             Optional[Any]: 缓存结果，如果不存在或已过期返回 None
         """
-        entry = self._cache.get(task_hash)
-        
-        if entry is None:
+        value = self._cache.get(task_hash)
+        if value is None:
             self._stats["misses"] += 1
             logger.debug(f"Cache miss: {task_hash[:8]}")
             return None
-        
-        # 检查过期
-        if entry.is_expired:
-            self._stats["misses"] += 1
-            logger.debug(f"Cache expired: {task_hash[:8]}")
-            del self._cache[task_hash]
-            return None
-        
-        # 更新访问统计并移动到末尾（LRU）
-        entry.touch()
-        self._cache.move_to_end(task_hash)
         self._stats["hits"] += 1
-        logger.debug(f"Cache hit: {task_hash[:8]}, hit_count={entry.hit_count}")
-        
-        return entry.value
+        logger.debug(f"Cache hit: {task_hash[:8]}")
+        return value
     
     async def get_async(self, task_hash: str) -> Optional[Any]:
         """异步获取缓存"""
@@ -206,28 +206,13 @@ class ExecutionCache:
             value: 缓存值
             ttl_hours: TTL 小时数（可选）
         """
-        ttl = ttl_hours or int(self.default_ttl.total_seconds() / 3600)
-        entry = CacheEntry(
-            key=task_hash,
-            value=value,
-            ttl_hours=ttl
-        )
+        ttl = ttl_hours if ttl_hours is not None else self.default_ttl_hours
+        ttl_seconds = ttl * 3600
         
-        # 如果键已存在，移动到末尾；否则检查是否需要淘汰
-        if task_hash in self._cache:
-            self._cache.move_to_end(task_hash)
-        else:
-            if len(self._cache) >= self.max_entries:
-                self._evict_lru()
-        
-        self._cache[task_hash] = entry
+        # DiskCache: 直接设置，TTL 通过 expire 参数
+        self._cache.set(task_hash, value, expire=ttl_seconds)
         self._stats["sets"] += 1
-        
-        logger.debug(f"Cache set: {task_hash[:8]}")
-        
-        # 异步持久化
-        if self.enable_persistence:
-            asyncio.create_task(self._persist_entry(task_hash, entry))
+        logger.debug(f"Cache set: {task_hash[:8]} (TTL={ttl}h)")
     
     async def set_async(
         self,
@@ -256,33 +241,18 @@ class ExecutionCache:
             logger.info(f"Cache cleared: {count} entries removed")
             return count
         
-        if task_hash in self._cache:
+        existed = task_hash in self._cache
+        if existed:
             del self._cache[task_hash]
             self._stats["invalidations"] += 1
             logger.debug(f"Cache invalidated: {task_hash[:8]}")
-            
-            # 删除持久化文件
-            if self.enable_persistence:
-                self._delete_persistence(task_hash)
-            
             return 1
-        
         return 0
     
     async def invalidate_async(self, task_hash: Optional[str] = None) -> int:
         """异步失效缓存"""
         async with self._lock:
             return self.invalidate(task_hash)
-    
-    def _evict_lru(self) -> None:
-        """LRU 淘汰 - OrderedDict.popitem(last=False) 移除最旧的条目"""
-        if not self._cache:
-            return
-        
-        # OrderedDict.popitem(last=False) 高效移除最旧的条目
-        lru_key, _ = self._cache.popitem(last=False)
-        self._stats["evictions"] += 1
-        logger.debug(f"Cache evicted (LRU): {lru_key[:8]}")
     
     @property
     def stats(self) -> Dict[str, Any]:
@@ -299,24 +269,24 @@ class ExecutionCache:
         )
         hit_rate_percentage = round(hit_rate, 2)
         
+        cache_size = len(self._cache)
+        
         return {
             **self._stats,
             "total_requests": total_requests,
             "hit_rate": hit_rate_percentage,
-            "cache_size": len(self._cache),
+            "cache_size": cache_size,
             "max_entries": self.max_entries,
             "memory_usage_estimate_mb": self._estimate_memory_usage(),
-            "utilization": round(len(self._cache) / self.max_entries * 100, 2) if self.max_entries > 0 else 0,
+            "utilization": round(cache_size / self.max_entries * 100, 2) if self.max_entries > 0 else 0,
+            "backend": "diskcache",
         }
     
     def _estimate_memory_usage(self) -> float:
         """估算内存使用（MB）"""
         try:
-            import sys
-            total_size = 0
-            for entry in self._cache.values():
-                total_size += sys.getsizeof(pickle.dumps(entry.value))
-            return round(total_size / 1024 / 1024, 2)
+            # DiskCache 在磁盘上，返回磁盘使用量
+            return round(self._cache.volume() / 1024 / 1024, 2)
         except Exception:
             return 0.0
     
@@ -327,79 +297,13 @@ class ExecutionCache:
         Returns:
             int: 清理的条目数
         """
-        expired_keys = [
-            k for k, v in self._cache.items() if v.is_expired
-        ]
-        
-        for key in expired_keys:
-            del self._cache[key]
-        
-        count = len(expired_keys)
-        if count > 0:
-            logger.info(f"Cleaned up {count} expired cache entries")
-        
-        return count
+        # DiskCache 自动处理过期，无需手动清理
+        return 0
     
     async def cleanup_expired_async(self) -> int:
         """异步清理过期缓存"""
         async with self._lock:
             return self.cleanup_expired()
-    
-    def _persist_path(self, task_hash: str) -> Path:
-        """获取持久化文件路径"""
-        return self.cache_dir / f"{task_hash}.pkl"
-    
-    async def _persist_entry(self, task_hash: str, entry: CacheEntry) -> None:
-        """持久化缓存条目"""
-        try:
-            persist_path = self._persist_path(task_hash)
-            data = {
-                "entry": entry,
-                "persisted_at": datetime.now().isoformat(),
-            }
-            with open(persist_path, "wb") as f:
-                pickle.dump(data, f)
-        except Exception as e:
-            logger.warning(f"Failed to persist cache entry: {e}")
-    
-    async def _load_persistence(self) -> None:
-        """加载持久化缓存"""
-        try:
-            if not self.cache_dir.exists():
-                return
-            
-            for pkl_file in self.cache_dir.glob("*.pkl"):
-                try:
-                    with open(pkl_file, "rb") as f:
-                        data = pickle.load(f)
-                    
-                    entry: CacheEntry = data["entry"]
-                    
-                    # 跳过过期的
-                    if entry.is_expired:
-                        pkl_file.unlink()
-                        continue
-                    
-                    self._cache[entry.key] = entry
-                    
-                except Exception as e:
-                    logger.warning(f"Failed to load cache entry {pkl_file}: {e}")
-            
-            loaded = len(self._cache)
-            if loaded > 0:
-                logger.info(f"Loaded {loaded} cache entries from persistence")
-                
-        except Exception as e:
-            logger.warning(f"Failed to load cache persistence: {e}")
-    
-    def _delete_persistence(self, task_hash: str) -> None:
-        """删除持久化文件"""
-        try:
-            persist_path = self._persist_path(task_hash)
-            if persist_path.exists():
-                persist_path.unlink()
-        except Exception as e:
-            logger.warning(f"Failed to delete persistence: {e}")
     
     async def start_cleanup_task(self, interval_hours: int = 1) -> None:
         """
@@ -414,8 +318,12 @@ class ExecutionCache:
                 async with self._lock:
                     self.cleanup_expired()
         
-        asyncio.create_task(cleanup_loop())
+        self._cleanup_task = asyncio.create_task(cleanup_loop())
         logger.info(f"Started cache cleanup task (interval={interval_hours}h)")
+    
+    def __len__(self) -> int:
+        """返回缓存条目数"""
+        return len(self._cache)
 
 
 # 全局缓存实例

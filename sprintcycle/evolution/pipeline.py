@@ -9,24 +9,19 @@ v0.9.1: 删除空壳 run() 方法，保留 execute() 方法
 import logging
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional, TYPE_CHECKING
-from enum import Enum
 from datetime import datetime
 
 if TYPE_CHECKING:
     from ..config.manager import RuntimeConfig
 
+from ..execution.sprint_types import ExecutionStatus
 from .prd_source import PRDSource, EvolutionPRD, ManualPRDSource
 from .memory_store import MemoryStore, EvolutionMemory
 
 logger = logging.getLogger(__name__)
 
 
-class PipelineStatus(Enum):
-    IDLE = "idle"
-    RUNNING = "running"
-    SUCCESS = "success"
-    FAILED = "failed"
-    PARTIAL = "partial"
+
 
 
 
@@ -109,7 +104,7 @@ class EvolutionPipeline:
         memory_dir = getattr(config, 'evolution_cache_dir', './evolution_cache/memory') if config else './evolution_cache/memory'
         self._memory_store = memory_store or MemoryStore(storage_path=memory_dir)
         self._prd_source = prd_source or ManualPRDSource()
-        self._status = PipelineStatus.IDLE
+        self._status = ExecutionStatus.IDLE
         self._current_prd: Optional[EvolutionPRD] = None
     
     def execute(self, prd: EvolutionPRD) -> PRDExecutionResult:
@@ -122,7 +117,7 @@ class EvolutionPipeline:
         Returns:
             PRDExecutionResult
         """
-        self._status = PipelineStatus.RUNNING
+        self._status = ExecutionStatus.RUNNING
         self._current_prd = prd
         
         result = PRDExecutionResult(prd=prd)
@@ -140,12 +135,12 @@ class EvolutionPipeline:
             result.success = all(r.success for r in result.sprint_results)
             result.final_fitness = self._calculate_fitness(result)
             result.improvement = result.final_fitness - result.baseline_fitness
-            self._status = PipelineStatus.SUCCESS if result.success else PipelineStatus.PARTIAL
+            self._status = ExecutionStatus.SUCCESS if result.success else ExecutionStatus.PARTIAL
             
         except Exception as e:
             logger.error(f"Pipeline execution failed: {e}")
             result.error = str(e)
-            self._status = PipelineStatus.FAILED
+            self._status = ExecutionStatus.FAILED
         
         return result
     
@@ -178,7 +173,7 @@ class EvolutionPipeline:
         return success_rate
     
     @property
-    def status(self) -> PipelineStatus:
+    def status(self) -> ExecutionStatus:
         return self._status
     
     def get_memory(self) -> MemoryStore:

@@ -16,7 +16,8 @@ from sprintcycle.results import (
     PlanResult, RunResult, DiagnoseResult,
     StatusResult, RollbackResult, StopResult,
 )
-from sprintcycle.execution.state_store import StateStore, ExecutionState, ExecutionStateStatus
+from sprintcycle.execution.sprint_types import ExecutionStatus
+from sprintcycle.execution.state_store import StateStore, ExecutionState
 
 
 class TestAPIPlan:
@@ -135,7 +136,7 @@ class TestAPIRun:
             ]
 
             from sprintcycle.prd.models import PRD, PRDProject, PRDSprint, PRDTask, ExecutionMode
-            from sprintcycle.execution.sprint_types import SprintResult, TaskResult, ExecutionStatus
+            from sprintcycle.execution.sprint_types import SprintResult, TaskResult
 
             mock_prd = PRD(
                 project=PRDProject(name="TestProject", path=self.temp_dir),
@@ -251,7 +252,7 @@ class TestAPIStatus:
                 execution_id="exec-123",
                 prd_name="TestProject",
                 mode="normal",
-                status=ExecutionStateStatus.RUNNING,
+                status=ExecutionStatus.RUNNING,
                 current_sprint=1,
                 total_sprints=3,
                 total_tasks=5,
@@ -281,7 +282,7 @@ class TestAPIStatus:
                     execution_id=f"exec-{i}",
                     prd_name="TestProject",
                     mode="normal",
-                    status=ExecutionStateStatus.COMPLETED,
+                    status=ExecutionStatus.COMPLETED,
                     current_sprint=3,
                     total_sprints=3,
                     total_tasks=5,
@@ -336,7 +337,7 @@ class TestAPIStop:
                 execution_id="exec-stop-test",
                 prd_name="TestProject",
                 mode="normal",
-                status=ExecutionStateStatus.RUNNING,
+                status=ExecutionStatus.RUNNING,
                 current_sprint=1,
                 total_sprints=3,
                 total_tasks=5,
@@ -352,7 +353,7 @@ class TestAPIStop:
             assert result.cancelled is True
             mock_store.update_status.assert_called_once_with(
                 "exec-stop-test",
-                ExecutionStateStatus.CANCELLED
+                ExecutionStatus.CANCELLED
             )
 
     def test_stop_not_found(self):
@@ -458,7 +459,7 @@ class TestAPIRollback:
                 execution_id="exec-rollback-test",
                 prd_name="TestProject",
                 mode="normal",
-                status=ExecutionStateStatus.COMPLETED,
+                status=ExecutionStatus.COMPLETED,
                 current_sprint=3,
                 total_sprints=3,
                 total_tasks=5,
@@ -490,7 +491,7 @@ class TestAPIRollback:
                 execution_id="exec-no-git",
                 prd_name="TestProject",
                 mode="normal",
-                status=ExecutionStateStatus.COMPLETED,
+                status=ExecutionStatus.COMPLETED,
                 current_sprint=3,
                 total_sprints=3,
                 total_tasks=5,
@@ -549,7 +550,7 @@ sprints:
                 execution_id="exec-resume-test",
                 prd_name="ResumeProject",
                 mode="normal",
-                status=ExecutionStateStatus.PAUSED,
+                status=ExecutionStatus.PAUSED,
                 current_sprint=1,
                 total_sprints=2,
                 total_tasks=2,
@@ -572,7 +573,6 @@ sprints:
             )
             mock_parser.return_value.parse_string.return_value = mock_prd
 
-            from sprintcycle.execution.sprint_types import SprintResult, ExecutionStatus
             mock_sprint_result = MagicMock()
             mock_sprint_result.status = ExecutionStatus.SUCCESS
             mock_sprint_result.success_count = 1
@@ -595,7 +595,7 @@ sprints:
                 assert result.execution_id == "exec-resume-test"
                 mock_store.update_status.assert_any_call(
                     "exec-resume-test",
-                    ExecutionStateStatus.RUNNING
+                    ExecutionStatus.RUNNING
                 )
 
     def test_resume_cannot_resume(self):

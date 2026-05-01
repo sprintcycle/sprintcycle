@@ -18,7 +18,8 @@ from sprintcycle.results import (
     PlanResult, RunResult, DiagnoseResult,
     StatusResult, RollbackResult, StopResult,
 )
-from sprintcycle.execution.state_store import ExecutionState, ExecutionStateStatus
+from sprintcycle.execution.sprint_types import ExecutionStatus
+from sprintcycle.execution.state_store import ExecutionState
 
 
 @pytest.fixture

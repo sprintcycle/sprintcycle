@@ -78,7 +78,16 @@ class EvolutionRollbackManager(GitRollbackMixin):
             auto_cleanup=auto_cleanup,
             max_branches=max_branches,
         )
-        GitRollbackMixin.__init__(self, git_runner=git_runner, config=config)
+        GitRollbackMixin.__init__(
+            self,
+            git_branch_mode=git_branch_mode,
+            repo_path=repo_path,
+            branch_prefix=branch_prefix,
+            backup_dir=backup_dir,
+            auto_cleanup=auto_cleanup,
+            max_branches=max_branches,
+            git_runner=git_runner,
+        )
         
         self._git_runner = git_runner or _run_git
 

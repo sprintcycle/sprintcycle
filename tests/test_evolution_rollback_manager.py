@@ -182,9 +182,11 @@ class TestGitBranchMode:
 
 class TestFileBackupMode:
     def test_init_file_backup_mode(self, temp_dir):
+        # When git is not available, manager falls back to file_backup mode
         config = RollbackConfig(git_branch_mode=False, backup_dir=temp_dir + "/backups")
-        manager = EvolutionRollbackManager()
-        assert manager.mode == "file_backup"
+        with patch('sprintcycle.evolution.rollback_manager._is_git_repo', return_value=False):
+            manager = EvolutionRollbackManager(git_branch_mode=False, backup_dir=temp_dir + "/backups")
+            assert manager.mode == "file_backup"
 
     def test_prepare_file_backup_returns_string(self, temp_dir):
         config = RollbackConfig(git_branch_mode=False, repo_path=temp_dir, backup_dir=temp_dir + "/backups")
@@ -226,9 +228,11 @@ class TestModeSwitching:
             assert manager.mode == "file_backup"
 
     def test_explicit_file_backup_mode(self, temp_dir):
+        # When git_branch_mode=False, should use file_backup mode regardless of git availability
         config = RollbackConfig(git_branch_mode=False, repo_path=temp_dir, backup_dir=temp_dir + "/bk")
-        manager = EvolutionRollbackManager()
-        assert manager.mode == "file_backup"
+        with patch('sprintcycle.evolution.rollback_manager._is_git_repo', return_value=True):
+            manager = EvolutionRollbackManager(git_branch_mode=False, backup_dir=temp_dir + "/bk")
+            assert manager.mode == "file_backup"
 
 
 # =============================================================================
@@ -237,31 +241,36 @@ class TestModeSwitching:
 
 class TestPublicAPI:
     def test_prepare_variant_routes_correctly(self, temp_dir):
+        # With git_branch_mode=False, prepare_variant should call _prepare_file_backup
         config = RollbackConfig(git_branch_mode=False, repo_path=temp_dir, backup_dir=temp_dir + "/bk")
-        mock_runner = make_mock_runner()
-        manager = EvolutionRollbackManager(git_runner=mock_runner)
+        with patch('sprintcycle.evolution.rollback_manager._is_git_repo', return_value=False):
+            manager = EvolutionRollbackManager(git_branch_mode=False, backup_dir=temp_dir + "/bk")
 
-        with patch.object(manager, '_prepare_file_backup', return_value="backup_id_123") as mock_prep:
-            result = manager.prepare_variant("test_var")
-            mock_prep.assert_called_once_with("test_var")
+            with patch.object(manager, '_prepare_file_backup', return_value="backup_id_123") as mock_prep:
+                result = manager.prepare_variant("test_var")
+                mock_prep.assert_called_once_with("test_var")
 
     def test_commit_variant_routes_correctly(self, temp_dir):
-        config = RollbackConfig(git_branch_mode=False, repo_path=temp_dir)
-        manager = EvolutionRollbackManager()
+        # With git_branch_mode=False, commit_variant should call _commit_file_backup
+        config = RollbackConfig(git_branch_mode=False, repo_path=temp_dir, backup_dir=temp_dir + "/bk")
+        with patch('sprintcycle.evolution.rollback_manager._is_git_repo', return_value=False):
+            manager = EvolutionRollbackManager(git_branch_mode=False, backup_dir=temp_dir + "/bk")
 
-        with patch.object(manager, '_commit_file_backup', return_value=True) as mock_commit:
-            result = manager.commit_variant("test_var")
-            mock_commit.assert_called_once_with("test_var")
-            assert result is True
+            with patch.object(manager, '_commit_file_backup', return_value=True) as mock_commit:
+                result = manager.commit_variant("test_var")
+                mock_commit.assert_called_once_with("test_var")
+                assert result is True
 
     def test_rollback_variant_routes_correctly(self, temp_dir):
-        config = RollbackConfig(git_branch_mode=False, repo_path=temp_dir)
-        manager = EvolutionRollbackManager()
+        # With git_branch_mode=False, rollback_variant should call _rollback_file_backup
+        config = RollbackConfig(git_branch_mode=False, repo_path=temp_dir, backup_dir=temp_dir + "/bk")
+        with patch('sprintcycle.evolution.rollback_manager._is_git_repo', return_value=False):
+            manager = EvolutionRollbackManager(git_branch_mode=False, backup_dir=temp_dir + "/bk")
 
-        with patch.object(manager, '_rollback_file_backup', return_value=True) as mock_rb:
-            result = manager.rollback_variant("test_var")
-            mock_rb.assert_called_once_with("test_var")
-            assert result is True
+            with patch.object(manager, '_rollback_file_backup', return_value=True) as mock_rb:
+                result = manager.rollback_variant("test_var")
+                mock_rb.assert_called_once_with("test_var")
+                assert result is True
 
     def test_merge_winner_git_mode(self, temp_dir):
         config = RollbackConfig(git_branch_mode=True, repo_path=temp_dir, auto_cleanup=True)
@@ -277,10 +286,17 @@ class TestPublicAPI:
         assert record.merged is True
 
     def test_merge_winner_file_mode(self, temp_dir):
-        config = RollbackConfig(git_branch_mode=False, repo_path=temp_dir)
-        manager = EvolutionRollbackManager()
-        success = manager.merge_winner("any_var", "main")
-        assert success is True
+        # In file_backup mode, merge_winner requires a record to return True
+        config = RollbackConfig(git_branch_mode=False, repo_path=temp_dir, backup_dir=temp_dir + "/bk")
+        with patch('sprintcycle.evolution.rollback_manager._is_git_repo', return_value=False):
+            manager = EvolutionRollbackManager(git_branch_mode=False, backup_dir=temp_dir + "/bk")
+            
+            # First prepare the variant to create a record
+            manager._prepare_file_backup("any_var")
+            
+            # In file_backup mode without git, merge_winner returns True (winner auto-confirmed)
+            success = manager.merge_winner("any_var", "main")
+            assert success is True
 
     def test_list_active_branches(self, temp_dir):
         config = RollbackConfig(git_branch_mode=True, repo_path=temp_dir)
@@ -298,12 +314,14 @@ class TestPublicAPI:
         assert active[0].variant_id == "v1"
 
     def test_get_stats(self, temp_dir):
-        config = RollbackConfig(git_branch_mode=False, repo_path=temp_dir)
-        manager = EvolutionRollbackManager()
-        stats = manager.get_stats()
-        assert "mode" in stats
-        assert stats["mode"] == "file_backup"
-        assert "total_variants" in stats
+        # The implementation uses a `stats` property, not a `get_stats()` method
+        config = RollbackConfig(git_branch_mode=False, repo_path=temp_dir, backup_dir=temp_dir + "/bk")
+        with patch('sprintcycle.evolution.rollback_manager._is_git_repo', return_value=False):
+            manager = EvolutionRollbackManager(git_branch_mode=False, backup_dir=temp_dir + "/bk")
+            stats = manager.stats  # Use property, not method
+            assert "mode" in stats
+            assert stats["mode"] == "file_backup"
+            assert "total_variants" in stats
 
     def test_get_branch_record(self, temp_dir):
         config = RollbackConfig(git_branch_mode=True, repo_path=temp_dir)
@@ -357,18 +375,24 @@ class TestExceptions:
 class TestBoundaryConditions:
     def test_prepare_variant_max_branches(self, temp_dir):
         config = RollbackConfig(git_branch_mode=True, repo_path=temp_dir, max_branches=3)
-        mock_runner = make_mock_runner()
-        manager = EvolutionRollbackManager(git_runner=mock_runner)
+        responses = {
+            "rev-parse --git-dir": (0, "/git/dir", ""),
+            "rev-parse HEAD": (0, "abc123", ""),
+        }
+        mock_runner = make_mock_runner(responses)
+        manager = EvolutionRollbackManager(git_runner=mock_runner, max_branches=3)
         manager._git_available = True
 
         with patch.object(manager, '_cleanup_old_branches', return_value=2) as mock_cleanup:
             with patch.object(manager, '_create_branch_name', return_value="evo/v0"):
+                # Create 5 branches, cleanup should be called when exceeding max_branches
                 for i in range(5):
                     try:
                         manager._prepare_git_branch(f"max_test_{i}")
                     except RollbackError:
                         pass
-            mock_cleanup.assert_called()
+            # cleanup should be called when we exceed max_branches (at index 3, when len >= 3)
+            assert mock_cleanup.call_count >= 1
 
     def test_rollback_nonexistent_variant(self, temp_dir):
         config = RollbackConfig(git_branch_mode=True, repo_path=temp_dir)

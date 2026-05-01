@@ -290,7 +290,7 @@ class SprintCycleMCPServer:
         async def sse_handler(scope: Any, receive: Any, send: Any) -> None:
             """Handle incoming SSE connections"""
             async with sse_transport.connect_sse(scope, receive, send) as streams:
-                await server.run(  # type: ignore[union-attr]
+                await server.run(
                     streams[0],
                     streams[1],
                     server.create_initialization_options(),  # type: ignore[union-attr]

@@ -12,20 +12,11 @@ from dataclasses import dataclass, field
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 from pathlib import Path
-from enum import Enum
+
+from .sprint_types import ExecutionStatus
 import logging
 
 logger = logging.getLogger(__name__)
-
-
-class ExecutionStateStatus(Enum):
-    """执行状态枚举"""
-    PENDING = "pending"
-    RUNNING = "running"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    PAUSED = "paused"
-    CANCELLED = "cancelled"
 
 
 @dataclass
@@ -58,7 +49,7 @@ class ExecutionState:
     execution_id: str
     prd_name: str
     mode: str
-    status: ExecutionStateStatus
+    status: ExecutionStatus
     current_sprint: int = 0
     total_sprints: int = 0
     completed_tasks: int = 0
@@ -96,7 +87,7 @@ class ExecutionState:
     def from_dict(cls, data: Dict[str, Any]) -> "ExecutionState":
         """从字典创建"""
         data = data.copy()
-        data['status'] = ExecutionStateStatus(data['status'])
+        data['status'] = ExecutionStatus(data['status'])
         return cls(**data)
 
 
@@ -186,7 +177,7 @@ class StateStore:
     
     def list_executions(
         self, 
-        status: Optional[ExecutionStateStatus] = None,
+        status: Optional[ExecutionStatus] = None,
         limit: int = 50
     ) -> List[ExecutionState]:
         """
@@ -261,7 +252,7 @@ class StateStore:
         state = self.load(execution_id)
         return (
             state is not None and 
-            state.status in (ExecutionStateStatus.PAUSED, ExecutionStateStatus.FAILED, ExecutionStateStatus.CANCELLED) and
+            state.status in (ExecutionStatus.PAUSED, ExecutionStatus.FAILED, ExecutionStatus.CANCELLED) and
             state.checkpoint is not None
         )
     
@@ -288,7 +279,7 @@ class StateStore:
     def update_status(
         self, 
         execution_id: str, 
-        status: ExecutionStateStatus,
+        status: ExecutionStatus,
         error: Optional[str] = None
     ) -> bool:
         """

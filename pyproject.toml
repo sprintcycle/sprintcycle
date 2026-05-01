@@ -8,8 +8,14 @@ version = "0.9.2"
 description = "PRD驱动的自我进化敏捷开发框架"
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = ["mcp>=1.0.0"]
-license = {text = "MIT"}
+dependencies = [
+    "mcp>=1.0.0",
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
+    "litellm>=1.0.0",
+    "diskcache>=5.0.0",
+    "tenacity>=8.0.0",
+]
 
 [project.optional-dependencies]
 # SSE transport for remote agent access (uvicorn for HTTP server, starlette for ASGI)
@@ -24,7 +30,7 @@ sprintcycle = "sprintcycle.cli:cli"
 include = ["sprintcycle*"]
 
 [tool.mypy]
-ignore-missing-imports = true
+ignore_missing_imports = true
 python_version = "3.13"
 
 [tool.pytest.ini_options]

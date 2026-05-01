@@ -1,4 +1,3 @@
-# mypy: disable-error-code=attr-defined
 """
 Checkpoint Mixin - 断点续传功能
 
@@ -10,14 +9,21 @@ import uuid
 from typing import Dict, Any, Optional
 
 from ..prd.models import PRD
-from .state_store import ExecutionState, ExecutionStateStatus
-from .sprint_types import SprintResult
+from .state_store import ExecutionState, StateStore
+from .sprint_types import ExecutionStatus, SprintResult
 
 logger = logging.getLogger(__name__)
 
 
-class CheckpointMixin:  # type: ignore[misc]
+class CheckpointMixin:
     """断点续传 Mixin，需与拥有 state_store / _execution_id / _prd 属性的类配合使用"""
+
+    _execution_id: str
+    _prd: Optional["PRD"]
+
+    @property
+    def state_store(self) -> "StateStore":
+        raise NotImplementedError  # provided by SprintExecutor
 
     def _init_execution_state(self, prd: Optional[PRD] = None) -> str:
         if self._execution_id is None:
@@ -30,7 +36,7 @@ class CheckpointMixin:  # type: ignore[misc]
             execution_id=self._execution_id,
             prd_name=prd.project.name if prd and prd.project else (self._prd.project.name if self._prd else "unknown"),
             mode="normal",
-            status=ExecutionStateStatus.RUNNING,
+            status=ExecutionStatus.RUNNING,
             total_sprints=total_sprints,
             total_tasks=total_tasks,
         )
@@ -88,15 +94,15 @@ class CheckpointMixin:  # type: ignore[misc]
             return False
         return self.state_store.update_status(
             execution_id=self._execution_id,
-            status=ExecutionStateStatus.PAUSED,
+            status=ExecutionStatus.PAUSED,
         )
     
     def resume_execution(self, execution_id: str) -> bool:
         state = self.load_execution_state(execution_id)
-        if not state or state.status != ExecutionStateStatus.PAUSED:
+        if not state or state.status != ExecutionStatus.PAUSED:
             return False
         self._execution_id = execution_id
         return self.state_store.update_status(
             execution_id=execution_id,
-            status=ExecutionStateStatus.RUNNING,
+            status=ExecutionStatus.RUNNING,
         )

@@ -14,7 +14,7 @@ from ..prd.models import PRDTask, PRDSprint
 
 
 class ExecutionStatus(Enum):
-    """统一执行状态枚举"""
+    """统一执行状态枚举（v0.9.2: 合并 ExecutionStateStatus + PipelineStatus）"""
     PENDING = "pending"
     RUNNING = "running"
     SUCCESS = "success"
@@ -22,10 +22,18 @@ class ExecutionStatus(Enum):
     SKIPPED = "skipped"
     TIMEOUT = "timeout"
     CANCELLED = "cancelled"
+    # 从 ExecutionStateStatus 合并
+    COMPLETED = "completed"
+    PAUSED = "paused"
+    # 从 PipelineStatus 合并
+    IDLE = "idle"
+    PARTIAL = "partial"
 
 
-# Backward compat alias — will be removed in v1.0
+# Backward compat aliases — will be removed in v1.0
 TaskStatus = ExecutionStatus
+ExecutionStateStatus = ExecutionStatus
+PipelineStatus = ExecutionStatus
 
 
 @dataclass
