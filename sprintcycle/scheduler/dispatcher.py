@@ -133,8 +133,22 @@ class TaskDispatcher:
         
         return results
     
+    @staticmethod
+    def _infer_evolution_strategy(goals: List[str]) -> str:
+        """根据进化目标推断最优策略"""
+        goals_text = " ".join(goals).lower()
+        if any(kw in goals_text for kw in ["性能", "速度", "performance", "latency", "吞吐"]):
+            return "performance"
+        elif any(kw in goals_text for kw in ["可读", "可维护", "readability", "maintainability", "文档"]):
+            return "readability"
+        elif any(kw in goals_text for kw in ["重构", "拆分", "refactor", "架构"]):
+            return "refactoring"
+        elif any(kw in goals_text for kw in ["质量", "quality", "健壮", "鲁棒"]):
+            return "quality"
+        return "quality"  # 默认策略
+
     async def _execute_evolution_mode(self, prd: PRD) -> List[SprintResult]:
-        """自进化模式执行"""
+        """自进化模式执行 - 根据目标差异化选择优化策略"""
         results: List[SprintResult] = []
         
         if not prd.evolution:
@@ -145,26 +159,51 @@ class TaskDispatcher:
         if not self.evolution_pipeline:
             self.evolution_pipeline = EvolutionPipeline(".",  prd_source=DiagnosticPRDSource())
         
+        # 根据进化目标推断策略
+        strategy = self._infer_evolution_strategy(prd.evolution.goals)
+        logger.info(f"🧬 自进化策略: {strategy} (基于目标: {prd.evolution.goals})")
+        
         # 创建 Sprint 上下文
         context = SprintContext(
             sprint_id=f"evo-{int(time.time())}",
             sprint_number=1,
             goal="; ".join(prd.evolution.goals) if prd.evolution.goals else "优化代码",
-            constraints={"dimensions": getattr(self.config, "eval_dimensions", ["correctness", "performance"])},
+            constraints={
+                "dimensions": getattr(self.config, "eval_dimensions", ["correctness", "performance"]),
+                "strategy": strategy,
+            },
         )
         
-        # 对每个目标执行进化
+        # 对每个目标执行进化，使用差异化任务链
         for target in prd.evolution.targets:
+            # 自进化模式使用完整任务链：architect → evolver → tester → regression_tester
+            tasks = [
+                PRDTask(
+                    task=f"架构设计: {target}",
+                    agent="architect",
+                    target=target,
+                ),
+                PRDTask(
+                    task=f"进化 {target}",
+                    agent="evolver",
+                    target=target,
+                ),
+                PRDTask(
+                    task=f"验证进化结果: {target}",
+                    agent="tester",
+                    target=target,
+                ),
+                PRDTask(
+                    task=f"回归测试: {target}",
+                    agent="regression_tester",
+                    target=target,
+                ),
+            ]
+            
             sprint = PRDSprint(
                 name=f"进化: {target}",
                 goals=prd.evolution.goals,
-                tasks=[
-                    PRDTask(
-                        task=f"进化 {target}",
-                        agent="evolver",
-                        target=target,
-                    )
-                ],
+                tasks=tasks,
             )
             
             sprint_result = await self._execute_evolution_task(

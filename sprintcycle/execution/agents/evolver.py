@@ -42,7 +42,12 @@ class EvolverAgent(AgentExecutor):
     
     async def _do_execute(self, task: str, context: AgentContext) -> AgentResult:
         """执行代码进化任务"""
-        logger.info(f"🔄 Evolver 执行: {task[:50]}...")
+        # 自进化模式可能通过 context 传入差异化策略
+        context_strategy = context.get_dependency("strategy") or context.codebase_context.get("strategy")
+        if context_strategy and context_strategy != self._strategy:
+            logger.info(f"🔄 策略切换: {self._strategy} → {context_strategy}")
+            self._strategy = context_strategy
+        logger.info(f"🔄 Evolver 执行 (策略={self._strategy}): {task[:50]}...")
         
         original_code = context.get_dependency("code") or context.codebase_context.get("code", "")
         
