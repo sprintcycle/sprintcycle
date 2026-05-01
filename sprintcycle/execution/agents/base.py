@@ -20,6 +20,7 @@ class AgentType(Enum):
     TESTER = "tester"
     REVIEWER = "reviewer"
     ARCHITECT = "architect"
+    REGRESSION_TESTER = "regression_tester"
     CUSTOM = "custom"
 
 

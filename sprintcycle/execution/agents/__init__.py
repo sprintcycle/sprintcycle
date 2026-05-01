@@ -7,6 +7,7 @@ Agent 执行器模块
 - TesterAgent: 测试验证
 - BugAnalyzerAgent: Bug 分析与修复
 - ArchitectureAgent: 架构设计
+- RegressionTestAgent: 回归测试
 
 使用方式：
 ```python
@@ -42,6 +43,7 @@ from .evolver import EvolverAgent, EvolutionStrategy
 from .tester import TesterAgent, TestCase, TestType, TestResult
 from .analyzer import BugAnalyzerAgent
 from .architect import ArchitectureAgent
+from .regression_tester import RegressionTestAgent
 from .bug_models import (
     BugReport,
     Severity,
@@ -73,6 +75,8 @@ __all__ = [
     "TestResult",
     # Architecture Agent
     "ArchitectureAgent",
+    # Regression Test Agent
+    "RegressionTestAgent",
     # Bug Analyzer Agent
     "BugAnalyzerAgent",
     # Bug 分析数据模型

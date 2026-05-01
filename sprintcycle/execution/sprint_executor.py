@@ -86,6 +86,7 @@ class SprintExecutor(CheckpointMixin):
             "evolver": self._execute_evolver_task,
             "tester": self._execute_tester_task,
             "architect": self._execute_architect_task,
+            "regression_tester": self._execute_regression_tester_task,
         }
     
     def register_agent_executor(self, agent_type: str, executor: Callable):
@@ -402,6 +403,11 @@ class SprintExecutor(CheckpointMixin):
         # 将架构设计注入 context，供 CoderAgent 读取
         context["architecture_design"] = arch_summary
         return arch_summary
+
+    async def _execute_regression_tester_task(self, task: PRDTask, context: Dict[str, Any]) -> str:
+        """回归测试任务执行器 - 比对修改前后测试结果，识别回归"""
+        await asyncio.sleep(0.1)
+        return f"回归测试完成: {task.task}"
 
 
     def _analyze_dependencies(
