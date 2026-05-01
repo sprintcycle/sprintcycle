@@ -316,11 +316,30 @@ def serve(ctx: click.Context, host: str, port: int, transport: str) -> None:
             asyncio.run(server.run())
         else:
             click.echo(f"🚀 MCP Server 启动 (SSE {host}:{port})", err=True)
-            # SSE 模式将在 P2 实现
-            click.echo("❌ SSE 模式将在 P2 阶段实现")
+            # SSE 模式将在后续实现
+            click.echo("❌ SSE 模式尚未实现")
             sys.exit(1)
     except ImportError:
         click.echo("❌ MCP 模块未找到")
+        sys.exit(1)
+
+
+@cli.command()
+@click.option("--host", default="0.0.0.0", help="监听地址")
+@click.option("--port", default=8080, type=int, help="监听端口")
+@click.pass_context
+def dashboard(ctx: click.Context, host: str, port: int) -> None:
+    """启动 Dashboard (Web UI)"""
+    try:
+        import uvicorn
+        from sprintcycle.dashboard.app import create_app
+
+        app = create_app(project_path=ctx.obj["sc"].project_path)
+        click.echo(f"🚀 Dashboard 启动: http://{host}:{port}")
+        uvicorn.run(app, host=host, port=port, log_level="info")
+    except ImportError as e:
+        click.echo(f"❌ 依赖缺失: {e}")
+        click.echo("   安装命令: pip install fastapi uvicorn")
         sys.exit(1)
 
 
