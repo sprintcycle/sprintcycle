@@ -1,20 +1,26 @@
 # SprintCycle - 自进化敏捷开发框架
 
-[![Version](https://img.shields.io/badge/version-v0.7.0-blue.svg)](sprintcycle/__init__.py)
+[![Version](https://img.shields.io/badge/version-v0.9.2-blue.svg)](sprintcycle/__init__.py)
 [![Python](https://img.shields.io/badge/python-3.10+-green.svg)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-MIT-orange.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-183%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-50%20passed-brightgreen.svg)]()
 
 **SprintCycle** 是一个 PRD 驱动的自我进化敏捷开发框架，通过统一进化管道实现代码生成、测试验证与持续优化的闭环。
 
 ## 核心特性
 
-- **统一进化管道** - EvolutionPipeline 驱动的诊断→PRD→执行→验证闭环
-- **多源 PRD** - 支持 ManualPRDSource（产品迭代）和 DiagnosticPRDSource（自进化诊断）
+- **统一 API 层** - plan/run/diagnose/status/rollback/stop 六大操作
+- **三端入口** - CLI / MCP（stdio + SSE 双传输）/ Dashboard Web UI
+- **7 个 Agent** - analyzer/architect/coder/evolver/tester/regression_tester/traceback_parser
+- **Dashboard 四面板** - PRD 编辑器 / 执行历史 / 诊断 / 实时事件（EventBus→SSE）
+- **FeedbackLoop 反馈闭环** - 进化管道的持续优化机制
+- **断点续跑** - resume 安全恢复执行状态
+- **安全取消** - stop 优雅停止 sprint
+- **执行结果持久化** - StateStore + Checkpoint 状态存储
+- **差异化进化策略** - 根据问题类型自动选择进化路径
 - **智能错误路由** - LEVEL_1_STATIC → LEVEL_2_PATTERN → LEVEL_3_LLM 三级路由
 - **多编码引擎** - 支持 cursor、llm、claude 等编码引擎
 - **统一配置** - RuntimeConfig 统一管理所有配置项
-- **诊断系统** - 代码/架构/文档/历史四维度体检
 
 ## 快速开始
 
@@ -179,9 +185,9 @@ ruff check sprintcycle/
 
 ### 状态
 
-- **版本**: 0.7.0
+- **版本**: 0.9.2
 - **代码行数**: ~15000
-- **测试**: 183 passed
+- **测试**: 50 passed (集成测试)
 - **mypy**: 0 errors
 
 ## License

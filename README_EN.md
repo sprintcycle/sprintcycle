@@ -1,20 +1,26 @@
 # SprintCycle - Self-Evolving Agile Development Framework
 
-[![Version](https://img.shields.io/badge/version-v0.7.0-blue.svg)](sprintcycle/__init__.py)
+[![Version](https://img.shields.io/badge/version-v0.9.2-blue.svg)](sprintcycle/__init__.py)
 [![Python](https://img.shields.io/badge/python-3.10+-green.svg)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-MIT-orange.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-183%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-50%20passed-brightgreen.svg)]()
 
 **SprintCycle** is a PRD-driven self-evolving agile development framework that implements a closed loop of code generation, test verification, and continuous optimization through a unified evolution pipeline.
 
 ## Key Features
 
-- **Unified Evolution Pipeline** - EvolutionPipeline-driven diagnosis→PRD→execution→verification loop
-- **Multi-Source PRD** - Supports ManualPRDSource (product iteration) and DiagnosticPRDSource (self-evolving diagnosis)
+- **Unified API Layer** - 6 operations: plan/run/diagnose/status/rollback/stop
+- **Three Entry Points** - CLI / MCP (stdio + SSE dual transport) / Dashboard Web UI
+- **7 Agents** - analyzer/architect/coder/evolver/tester/regression_tester/traceback_parser
+- **Dashboard Four Panels** - PRD Editor / Execution History / Diagnostics / Live Events (EventBus→SSE)
+- **FeedbackLoop Feedback Loop** - Continuous optimization mechanism for evolution pipeline
+- **Resume Support** - Safely resume execution from checkpoint
+- **Safe Stop** - Gracefully stop sprint execution
+- **Execution State Persistence** - StateStore + Checkpoint state storage
+- **Differentiated Evolution Strategies** - Auto-select evolution path based on problem type
 - **Intelligent Error Routing** - Three-level routing: LEVEL_1_STATIC → LEVEL_2_PATTERN → LEVEL_3_LLM
 - **Multi-Engine Coding** - Supports cursor, llm, claude and other coding engines
 - **Unified Configuration** - RuntimeConfig manages all configuration items
-- **Diagnostic System** - Code/architecture/documentation/history four-dimensional health check
 
 ## Quick Start
 
@@ -181,7 +187,7 @@ ruff check sprintcycle/
 
 - **Version**: 0.7.0
 - **Lines of Code**: ~15000
-- **Tests**: 183 passed
+- **Tests**: 50 passed (integration tests)
 - **mypy**: 0 errors
 
 ## License
