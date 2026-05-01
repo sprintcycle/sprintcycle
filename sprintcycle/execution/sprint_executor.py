@@ -49,6 +49,7 @@ class SprintExecutor(CheckpointMixin):
         self._error_handler = error_handler
         self._state_store = state_store
         self._execution_id: Optional[str] = None  # type: ignore[assignment]
+        self._cancelled: bool = False
         self._checkpoint_interval = 1
         self._register_default_executors()
     
@@ -91,6 +92,16 @@ class SprintExecutor(CheckpointMixin):
     
     def register_agent_executor(self, agent_type: str, executor: Callable):
         self._agent_executors[agent_type] = executor
+
+    def cancel(self) -> None:
+        """标记执行为取消状态，SprintExecutor 在下一个 Sprint 边界停止"""
+        self._cancelled = True
+        logger.info("🛑 SprintExecutor 已收到取消信号，将在下一个 Sprint 边界停止")
+
+    @property
+    def is_cancelled(self) -> bool:
+        """检查是否已被取消"""
+        return self._cancelled
     
     TASK_SPLIT_THRESHOLD = 500
     MAX_SUBTASKS = 5
@@ -242,6 +253,7 @@ class SprintExecutor(CheckpointMixin):
         execution_id: Optional[str] = None,
         resume: bool = False,
     ) -> List[SprintResult]:
+        self._cancelled = False  # 重置取消标志
         if resume and execution_id:
             return await self._resume_execution(execution_id, sprints, context)
         self._execution_id = execution_id or self._init_execution_state()
@@ -273,6 +285,11 @@ class SprintExecutor(CheckpointMixin):
     async def _execute_normal_sprints(self, sprints: List[PRDSprint], context: Optional[Dict[str, Any]] = None) -> List[SprintResult]:
         results = []
         for i, sprint in enumerate(sprints):
+            # 检查取消信号
+            if self._cancelled:
+                logger.info(f"🛑 执行已取消，跳过剩余 Sprint (已完成 {i}/{len(sprints)})")
+                break
+
             result = await self.execute_sprint(sprint, context, save_checkpoint=True)
             results.append(result)
 

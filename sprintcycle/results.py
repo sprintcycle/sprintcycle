@@ -40,7 +40,9 @@ class RunResult(ResultBase):
     completed_tasks: int = 0
     total_sprints: int = 0
     total_tasks: int = 0
+    current_sprint: int = 0
     sprint_results: List[Dict[str, Any]] = field(default_factory=list)
+    message: str = ""
 
 
 @dataclass

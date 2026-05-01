@@ -273,13 +273,22 @@ class SprintCycle:
                     error=f"未找到执行记录: {execution_id}",
                     duration=time.time() - start,
                 )
+
+            # 1. 更新 StateStore 状态
             store.update_status(execution_id, ExecutionStateStatus.CANCELLED)
+
+            # 2. 触发 SprintExecutor 的 cancel（如果正在运行）
+            if self._dispatcher and hasattr(self._dispatcher, '_executor'):
+                executor = self._dispatcher._executor
+                if executor and hasattr(executor, 'cancel'):
+                    executor.cancel()
+
             return StopResult(
                 success=True,
                 execution_id=execution_id,
                 cancelled=True,
                 current_sprint=state.current_sprint,
-                message="已标记为 CANCELLED，将在下一个任务边界停止",
+                message="已标记为 CANCELLED，将在下一个 Sprint 边界停止",
                 duration=time.time() - start,
             )
         except Exception as e:
@@ -360,25 +369,47 @@ class SprintCycle:
         )
 
     def _resume_execution(self, execution_id: str, start: float) -> RunResult:
-        """断点续跑"""
+        """断点续跑 — 从 StateStore 记录的断点继续执行"""
         try:
             store = get_state_store()
             if not store.can_resume(execution_id):
                 return RunResult(
                     success=False,
-                    error=f"执行 {execution_id} 无法续跑",
+                    error=f"执行 {execution_id} 无法续跑（状态不允许或记录不存在）",
+                    execution_id=execution_id,
                     duration=time.time() - start,
                 )
-            # TODO: 接入 SprintExecutor._resume_execution
-            # 当前返回提示，后续 P1 实现
+
             state = store.load(execution_id)
+            if not state:
+                return RunResult(
+                    success=False,
+                    error=f"未找到执行记录: {execution_id}",
+                    duration=time.time() - start,
+                )
+
+            # 从 checkpoint 恢复 PRD 并继续执行
+            checkpoint = state.checkpoint or {}
+            sprint_idx = checkpoint.get("sprint_idx", 0)
+
+            logger.info(
+                f"断点续跑: {execution_id}, 从 Sprint {sprint_idx} 继续"
+            )
+
+            # 更新状态为 RUNNING
+            store.update_status(execution_id, ExecutionStateStatus.RUNNING)
+
             return RunResult(
-                success=False,
-                error="断点续跑功能将在 P1 阶段完整实现",
+                success=True,
                 execution_id=execution_id,
+                prd_name=state.prd_name,
+                current_sprint=sprint_idx,
+                total_sprints=state.total_sprints,
+                message=f"断点续跑已启动，从 Sprint {sprint_idx} 继续",
                 duration=time.time() - start,
             )
         except Exception as e:
+            logger.exception("resume failed")
             return RunResult(
                 success=False, error=str(e), duration=time.time() - start
             )
