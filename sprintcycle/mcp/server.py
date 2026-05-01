@@ -73,6 +73,11 @@ from sprintcycle.api import SprintCycle
 logger = logging.getLogger(__name__)
 
 
+
+def _text_response(text: str) -> List[Any]:
+    """Create a TextContent response list - consolidates type: ignore to one place."""
+    return [TextContent(type="text", text=text)]  # type: ignore[call-arg]
+
 class SprintCycleMCPServer:
     """
     SprintCycle MCP Server 实现
@@ -185,12 +190,12 @@ class SprintCycleMCPServer:
             }.get(name)
 
             if handler is None:
-                return [TextContent(type="text", text=f"未知工具: {name}")]  # type: ignore[call-arg]
+                return _text_response(f"未知工具: {name}")
 
             try:
                 return await handler(arguments)
             except Exception as e:
-                return [TextContent(type="text", text=json.dumps({"success": False, "error": str(e)}, ensure_ascii=False))]  # type: ignore[call-arg]
+                return _text_response(json.dumps({"success": False, "error": str(e)}, ensure_ascii=False))
 
     # ─── 6 个 handler ───
 
@@ -201,7 +206,7 @@ class SprintCycleMCPServer:
             target=args.get("target"),
             prd_path=args.get("prd_path"),
         )
-        return [TextContent(type="text", text=json.dumps(result.to_dict(), ensure_ascii=False, indent=2))]  # type: ignore[call-arg]
+        return _text_response(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
 
     async def _handle_run(self, args: Dict[str, Any]) -> List[TextContent]:
         result = self.sc.run(
@@ -213,23 +218,23 @@ class SprintCycleMCPServer:
             execution_id=args.get("execution_id"),
             resume=args.get("resume", False),
         )
-        return [TextContent(type="text", text=json.dumps(result.to_dict(), ensure_ascii=False, indent=2))]  # type: ignore[call-arg]
+        return _text_response(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
 
     async def _handle_diagnose(self, args: Dict[str, Any]) -> List[TextContent]:
         result = self.sc.diagnose()
-        return [TextContent(type="text", text=json.dumps(result.to_dict(), ensure_ascii=False, indent=2))]  # type: ignore[call-arg]
+        return _text_response(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
 
     async def _handle_status(self, args: Dict[str, Any]) -> List[TextContent]:
         result = self.sc.status(execution_id=args.get("execution_id"))
-        return [TextContent(type="text", text=json.dumps(result.to_dict(), ensure_ascii=False, indent=2))]  # type: ignore[call-arg]
+        return _text_response(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
 
     async def _handle_rollback(self, args: Dict[str, Any]) -> List[TextContent]:
         result = self.sc.rollback(execution_id=args["execution_id"])
-        return [TextContent(type="text", text=json.dumps(result.to_dict(), ensure_ascii=False, indent=2))]  # type: ignore[call-arg]
+        return _text_response(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
 
     async def _handle_stop(self, args: Dict[str, Any]) -> List[TextContent]:
         result = self.sc.stop(execution_id=args["execution_id"])
-        return [TextContent(type="text", text=json.dumps(result.to_dict(), ensure_ascii=False, indent=2))]  # type: ignore[call-arg]
+        return _text_response(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
 
     # ─── Server 生命周期 ───
 
