@@ -19,6 +19,7 @@ class AgentType(Enum):
     EVOLVER = "evolver"
     TESTER = "tester"
     REVIEWER = "reviewer"
+    ARCHITECT = "architect"
     CUSTOM = "custom"
 
 

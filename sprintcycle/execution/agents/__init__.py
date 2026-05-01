@@ -6,6 +6,7 @@ Agent 执行器模块
 - EvolverAgent: 代码进化优化
 - TesterAgent: 测试验证
 - BugAnalyzerAgent: Bug 分析与修复
+- ArchitectureAgent: 架构设计
 
 使用方式：
 ```python
@@ -40,6 +41,7 @@ from .coder_types import BatchTask, BatchConfig
 from .evolver import EvolverAgent, EvolutionStrategy
 from .tester import TesterAgent, TestCase, TestType, TestResult
 from .analyzer import BugAnalyzerAgent
+from .architect import ArchitectureAgent
 from .bug_models import (
     BugReport,
     Severity,
@@ -69,6 +71,8 @@ __all__ = [
     "TestCase",
     "TestType",
     "TestResult",
+    # Architecture Agent
+    "ArchitectureAgent",
     # Bug Analyzer Agent
     "BugAnalyzerAgent",
     # Bug 分析数据模型

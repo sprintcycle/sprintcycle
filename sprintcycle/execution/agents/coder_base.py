@@ -48,6 +48,10 @@ class CoderAgent(AgentExecutor):
             requirements["language"] = "javascript"
         elif "rust" in task.lower():
             requirements["language"] = "rust"
+        # 读取 ArchitectureAgent 产出的架构设计
+        arch_design = context.get_dependency("architecture_design") or context.codebase_context.get("architecture_design")
+        if arch_design:
+            requirements["architecture_design"] = arch_design
         return requirements
 
     async def _generate_code(self, requirements: Dict[str, Any], context: AgentContext) -> Dict[str, Any]:
@@ -56,15 +60,23 @@ class CoderAgent(AgentExecutor):
         from ..llm_provider import resolve_provider
         
         config = resolve_provider()
+        arch_section = ""
+        if requirements.get("architecture_design"):
+            arch_section = f"""
+
+架构设计指导：
+{requirements["architecture_design"]}
+"""
         prompt = f"""请为以下任务生成高质量的 {requirements.get('language', 'python')} 代码：
 
-任务：{task}
+任务：{task}{arch_section}
 
 要求：
 1. 代码应遵循最佳实践
 2. 包含必要的错误处理
 3. 添加清晰的注释
 4. 保持代码简洁和可读性
+5. 如有架构设计指导，请严格遵循
 """
         messages = [{"role": "user", "content": prompt}]
         
