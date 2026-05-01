@@ -189,44 +189,13 @@ class TaskDispatcher:
             for goal in sprint.goals:
                 logger.info(f"   🎯 目标: {goal}")
         
-        # 使用信号量控制并发
-        semaphore = asyncio.Semaphore(max_concurrent)
-        
-        async def execute_with_semaphore(task: PRDTask) -> TaskResult:
-            async with semaphore:
-                return await self._execute_task(task, sprint.name, prd)
-        
         # 并发执行任务
-        task_coroutines = [execute_with_semaphore(t) for t in sprint.tasks]
-        task_results = await asyncio.gather(*task_coroutines, return_exceptions=True)
+        processed_results = await self._run_tasks_concurrent(sprint, prd, max_concurrent)
         
-        # 处理异常结果
-        processed_results: List[TaskResult] = []
-        for i, result in enumerate(task_results):
-            if isinstance(result, Exception):
-                processed_results.append(TaskResult(
-                    task=sprint.tasks[i],
-                    sprint_name=sprint.name,
-                    status=ExecutionStatus.FAILED,
-                    error=str(result),
-                ))
-            else:
-                processed_results.append(result)  # type: ignore[arg-type]  # else branch guarantees TaskResult
-        
+        # 计算结果
         end_time = datetime.now()
         duration = (end_time - start_time).total_seconds()
-        
-        # 确定 Sprint 状态
-        if all(r.status == ExecutionStatus.SUCCESS for r in processed_results):
-            status = ExecutionStatus.SUCCESS
-        elif all(r.status in (ExecutionStatus.SKIPPED, ExecutionStatus.SUCCESS) for r in processed_results):
-            status = ExecutionStatus.SUCCESS
-        else:
-            failed = sum(1 for r in processed_results if r.status == ExecutionStatus.FAILED)
-            if failed > len(processed_results) / 2:
-                status = ExecutionStatus.FAILED
-            else:
-                status = ExecutionStatus.SUCCESS
+        status = self._determine_sprint_status(processed_results)
         
         sprint_result = SprintResult(
             sprint=sprint,
@@ -242,6 +211,55 @@ class TaskDispatcher:
         logger.info(f"   完成: {sprint_result.success_count}/{len(sprint.tasks)} 成功 ({duration:.2f}s)")
         
         return sprint_result
+    
+    async def _run_tasks_concurrent(
+        self,
+        sprint: PRDSprint,
+        prd: PRD,
+        max_concurrent: int,
+    ) -> List[TaskResult]:
+        """并发执行任务"""
+        semaphore = asyncio.Semaphore(max_concurrent)
+        
+        async def execute_with_semaphore(task: PRDTask) -> TaskResult:
+            async with semaphore:
+                return await self._execute_task(task, sprint.name, prd)
+        
+        task_coroutines = [execute_with_semaphore(t) for t in sprint.tasks]
+        task_results = await asyncio.gather(*task_coroutines, return_exceptions=True)
+        
+        return self._process_task_results(sprint, task_results)
+    
+    def _process_task_results(
+        self,
+        sprint: PRDSprint,
+        task_results: List[Any],
+    ) -> List[TaskResult]:
+        """处理任务结果"""
+        processed_results: List[TaskResult] = []
+        for i, result in enumerate(task_results):
+            if isinstance(result, Exception):
+                processed_results.append(TaskResult(
+                    task=sprint.tasks[i],
+                    sprint_name=sprint.name,
+                    status=ExecutionStatus.FAILED,
+                    error=str(result),
+                ))
+            else:
+                processed_results.append(result)  # type: ignore[arg-type]
+        return processed_results
+    
+    def _determine_sprint_status(self, results: List[TaskResult]) -> ExecutionStatus:
+        """确定 Sprint 状态"""
+        if all(r.status == ExecutionStatus.SUCCESS for r in results):
+            return ExecutionStatus.SUCCESS
+        if all(r.status in (ExecutionStatus.SKIPPED, ExecutionStatus.SUCCESS) for r in results):
+            return ExecutionStatus.SUCCESS
+        
+        failed = sum(1 for r in results if r.status == ExecutionStatus.FAILED)
+        if failed > len(results) / 2:
+            return ExecutionStatus.FAILED
+        return ExecutionStatus.SUCCESS
     
     async def _execute_evolution_task(
         self,

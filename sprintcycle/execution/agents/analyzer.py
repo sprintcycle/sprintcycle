@@ -287,105 +287,126 @@ class BugAnalyzerAgent(AgentExecutor):
     async def suggest_fix(self, report: BugReport) -> List[FixSuggestion]:
         """生成修复建议"""
         suggestions: List[FixSuggestion] = []
-        error_type = report.error_type
         location = report.location or Location()
-        
-        # NameError 修复
-        if error_type == "NameError":
-            match = re.search(r"name '(\w+)'", report.error_message)
-            if match:
-                var_name = match.group(1)
-                suggestions.append(FixSuggestion(
-                    file_path=location.file_path or "unknown",
-                    old_code=var_name,
-                    new_code=f"# TODO: Define {var_name}\n{var_name}",
-                    explanation=f"变量 {var_name} 未定义，请在使用前定义该变量",
-                    confidence=0.8,
-                ))
-        
-        # ImportError 修复
-        elif error_type == "ImportError":
-            match = re.search(r"No module named '(.+)'", report.error_message)
-            if match:
-                module_name = match.group(1)
-                suggestions.append(FixSuggestion(
-                    file_path=location.file_path or "unknown",
-                    old_code=f"# import {module_name}",
-                    new_code=f"# pip install {module_name}\nimport {module_name}",
-                    explanation=f"安装缺失的模块: pip install {module_name}",
-                    confidence=0.95,
-                    is_automated=True,
-                ))
-        
-        # KeyError 修复
-        elif error_type == "KeyError":
-            match = re.search(r"KeyError: '?(\w+)'?", report.error_message)
-            if match:
-                key_name = match.group(1)
-                suggestions.append(FixSuggestion(
-                    file_path=location.file_path or "unknown",
-                    old_code=f"dict['{key_name}']",
-                    new_code=f"dict.get('{key_name}', default_value)",
-                    explanation=f"使用 dict.get() 安全获取键 {key_name}",
-                    confidence=0.85,
-                ))
-        
-        # AttributeError 修复
-        elif error_type == "AttributeError":
-            match = re.search(r"has no attribute '(\w+)'", report.error_message)
-            if match:
-                attr_name = match.group(1)
-                suggestions.append(FixSuggestion(
-                    file_path=location.file_path or "unknown",
-                    old_code=f"obj.{attr_name}",
-                    new_code=f"getattr(obj, '{attr_name}', default_value)",
-                    explanation=f"使用 getattr() 安全获取属性 {attr_name}",
-                    confidence=0.75,
-                ))
-        
-        # TypeError 修复
-        elif error_type == "TypeError":
-            suggestions.append(FixSuggestion(
-                file_path=location.file_path or "unknown",
-                old_code="# existing code",
-                new_code="# Add type check\nif isinstance(value, expected_type):\n    # existing code",
-                explanation="添加类型检查以避免类型错误",
-                confidence=0.7,
-                line_start=location.line_number,
-            ))
-        
-        # ZeroDivisionError 修复
-        elif error_type == "ZeroDivisionError":
-            suggestions.append(FixSuggestion(
-                file_path=location.file_path or "unknown",
-                old_code="# denominator",
-                new_code="# Add zero check\nif denominator != 0:\n    result = numerator / denominator",
-                explanation="在除法前检查除数是否为零",
-                confidence=0.9,
-            ))
-        
-        # IndexError 修复
-        elif error_type == "IndexError":
-            suggestions.append(FixSuggestion(
-                file_path=location.file_path or "unknown",
-                old_code="# list[index]",
-                new_code="# Add bounds check\nif 0 <= index < len(list):\n    item = list[index]",
-                explanation="在访问索引前检查边界",
-                confidence=0.8,
-            ))
-        
+        file_path = location.file_path or "unknown"
+
+        # 使用字典映射错误类型到处理函数
+        fix_handlers = {
+            "NameError": lambda: self._fix_name_error(report.error_message, file_path),
+            "ImportError": lambda: self._fix_import_error(report.error_message, file_path),
+            "KeyError": lambda: self._fix_key_error(report.error_message, file_path),
+            "AttributeError": lambda: self._fix_attribute_error(report.error_message, file_path),
+            "TypeError": lambda: self._fix_type_error(file_path, location.line_number),
+            "ZeroDivisionError": lambda: self._fix_zero_division_error(file_path),
+            "IndexError": lambda: self._fix_index_error(file_path),
+        }
+
+        handler = fix_handlers.get(report.error_type)
+        if handler:
+            suggestion = handler()
+            if suggestion:
+                suggestions.append(suggestion)
+
         # 添加来自报告的建议
-        for suggestion in report.suggestions[:2]:
-            if not any(s.explanation == suggestion for s in suggestions):
+        for report_suggestion in report.suggestions[:2]:
+            if not any(s.explanation == report_suggestion for s in suggestions):
                 suggestions.append(FixSuggestion(
-                    file_path=str(location.file_path or "unknown"),
+                    file_path=file_path,
                     old_code="",
                     new_code="",
-                    explanation=suggestion,
+                    explanation=report_suggestion,
                     confidence=0.6,
                 ))
-        
+
         return suggestions
+
+    def _fix_name_error(self, error_message: str, file_path: str) -> Optional[FixSuggestion]:
+        """修复 NameError"""
+        match = re.search(r"name '(\w+)'", error_message)
+        if match:
+            var_name = match.group(1)
+            return FixSuggestion(
+                file_path=file_path,
+                old_code=var_name,
+                new_code=f"# TODO: Define {var_name}\n{var_name}",
+                explanation=f"变量 {var_name} 未定义，请在使用前定义该变量",
+                confidence=0.8,
+            )
+        return None
+
+    def _fix_import_error(self, error_message: str, file_path: str) -> Optional[FixSuggestion]:
+        """修复 ImportError"""
+        match = re.search(r"No module named '(.+)'", error_message)
+        if match:
+            module_name = match.group(1)
+            return FixSuggestion(
+                file_path=file_path,
+                old_code=f"# import {module_name}",
+                new_code=f"# pip install {module_name}\nimport {module_name}",
+                explanation=f"安装缺失的模块: pip install {module_name}",
+                confidence=0.95,
+                is_automated=True,
+            )
+        return None
+
+    def _fix_key_error(self, error_message: str, file_path: str) -> Optional[FixSuggestion]:
+        """修复 KeyError"""
+        match = re.search(r"KeyError: '?(\w+)'?", error_message)
+        if match:
+            key_name = match.group(1)
+            return FixSuggestion(
+                file_path=file_path,
+                old_code=f"dict['{key_name}']",
+                new_code=f"dict.get('{key_name}', default_value)",
+                explanation=f"使用 dict.get() 安全获取键 {key_name}",
+                confidence=0.85,
+            )
+        return None
+
+    def _fix_attribute_error(self, error_message: str, file_path: str) -> Optional[FixSuggestion]:
+        """修复 AttributeError"""
+        match = re.search(r"has no attribute '(\w+)'", error_message)
+        if match:
+            attr_name = match.group(1)
+            return FixSuggestion(
+                file_path=file_path,
+                old_code=f"obj.{attr_name}",
+                new_code=f"getattr(obj, '{attr_name}', default_value)",
+                explanation=f"使用 getattr() 安全获取属性 {attr_name}",
+                confidence=0.75,
+            )
+        return None
+
+    def _fix_type_error(self, file_path: str, line_number: Optional[int]) -> FixSuggestion:
+        """修复 TypeError"""
+        return FixSuggestion(
+            file_path=file_path,
+            old_code="# existing code",
+            new_code="# Add type check\nif isinstance(value, expected_type):\n    # existing code",
+            explanation="添加类型检查以避免类型错误",
+            confidence=0.7,
+            line_start=line_number,
+        )
+
+    def _fix_zero_division_error(self, file_path: str) -> FixSuggestion:
+        """修复 ZeroDivisionError"""
+        return FixSuggestion(
+            file_path=file_path,
+            old_code="# denominator",
+            new_code="# Add zero check\nif denominator != 0:\n    result = numerator / denominator",
+            explanation="在除法前检查除数是否为零",
+            confidence=0.9,
+        )
+
+    def _fix_index_error(self, file_path: str) -> FixSuggestion:
+        """修复 IndexError"""
+        return FixSuggestion(
+            file_path=file_path,
+            old_code="# list[index]",
+            new_code="# Add bounds check\nif 0 <= index < len(list):\n    item = list[index]",
+            explanation="在访问索引前检查边界",
+            confidence=0.8,
+        )
 
 
     async def apply_fix(self, suggestion: FixSuggestion) -> FixResult:

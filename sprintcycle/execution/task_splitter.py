@@ -258,37 +258,10 @@ class TaskSplitter:
     
     def _create_task_from_text(self, text: str) -> Dict[str, Any]:
         """从文本创建任务"""
-        # 检测优先级
-        priority = "medium"
-        for prio, keywords in self.PRIORITY_MAP.items():
-            for keyword in keywords:
-                if keyword in text:
-                    priority = prio
-                    break
-        
-        # 检测预估时间
-        estimated_time = "1-2h"
-        for pattern, replacement in self.TIME_PATTERNS:
-            if re.search(pattern, text):
-                match = re.search(pattern, text)
-                if match:
-                    estimated_time = match.group(0)
-                    break
-        
-        # 检测依赖
-        dependencies = []
-        dep_keywords = ["依赖", "前置", "需要先", "before", "after"]
-        for keyword in dep_keywords:
-            if keyword in text.lower():
-                dependencies.append(keyword)
-        
-        # 提取标签
-        tags = []
-        for module, keywords in self.MODULE_KEYWORDS.items():
-            for keyword in keywords:
-                if keyword.lower() in text.lower():
-                    tags.append(module)
-                    break
+        priority = self._detect_priority(text)
+        estimated_time = self._detect_time(text)
+        dependencies = self._detect_dependencies(text)
+        tags = self._extract_tags(text)
         
         return {
             "title": text[:50] + "..." if len(text) > 50 else text,
@@ -298,6 +271,43 @@ class TaskSplitter:
             "dependencies": dependencies,
             "tags": list(set(tags)) if tags else ["general"],
         }
+    
+    def _detect_priority(self, text: str) -> str:
+        """检测优先级"""
+        for prio, keywords in self.PRIORITY_MAP.items():
+            for keyword in keywords:
+                if keyword in text:
+                    return prio
+        return "medium"
+    
+    def _detect_time(self, text: str) -> str:
+        """检测预估时间"""
+        for pattern, replacement in self.TIME_PATTERNS:
+            match = re.search(pattern, text)
+            if match:
+                return match.group(0)
+        return "1-2h"
+    
+    def _detect_dependencies(self, text: str) -> List[str]:
+        """检测依赖"""
+        dependencies = []
+        dep_keywords = ["依赖", "前置", "需要先", "before", "after"]
+        text_lower = text.lower()
+        for keyword in dep_keywords:
+            if keyword in text_lower:
+                dependencies.append(keyword)
+        return dependencies
+    
+    def _extract_tags(self, text: str) -> List[str]:
+        """提取标签"""
+        tags = []
+        text_lower = text.lower()
+        for module, keywords in self.MODULE_KEYWORDS.items():
+            for keyword in keywords:
+                if keyword.lower() in text_lower:
+                    tags.append(module)
+                    break
+        return tags
     
     def _deduplicate_tasks(self, tasks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """去重任务"""
