@@ -1,12 +1,21 @@
 """
-SprintCycle CLI - 单一意图参数入口
+SprintCycle CLI — 子命令式入口
 
-核心原则：一切皆 PRD
-用户意图 → IntentParser → PRDGenerator → 执行引擎
+命令结构:
+  sprintcycle "意图"          → 快捷执行 (= run)
+  sprintcycle plan "意图"     → 生成计划
+  sprintcycle run "意图"      → 执行
+  sprintcycle diagnose        → 体检
+  sprintcycle status [id]     → 查状态
+  sprintcycle rollback <id>   → 回滚
+  sprintcycle stop <id>       → 停止
+  sprintcycle serve           → 启动 MCP Server
+  sprintcycle dashboard       → 启动 Dashboard (P2)
+  sprintcycle init [path]     → 初始化项目
 """
 
+import json
 import sys
-import os
 import asyncio
 import logging
 from logging.handlers import RotatingFileHandler
@@ -15,305 +24,327 @@ from typing import Any, Optional
 
 import click
 
-from sprintcycle.intent.parser import IntentParser, ActionType
-from sprintcycle.prd.generator import IntentPRDGenerator
-from sprintcycle.prd.parser import PRDParser, PRDParseError, YAMLError
-from sprintcycle.scheduler.dispatcher import TaskDispatcher, ExecutionStatus
-from sprintcycle.intent.base import IntentResult
+from sprintcycle.api import SprintCycle
+from sprintcycle.results import (
+    PlanResult, RunResult, DiagnoseResult,
+    StatusResult, RollbackResult, StopResult,
+)
 
 
 def setup_logging(
     log_file: str = ".sprintcycle/logs/sprintcycle.log",
     level: int = logging.INFO,
-    max_bytes: int = 10 * 1024 * 1024,  # 10MB
-    backup_count: int = 5
+    max_bytes: int = 10 * 1024 * 1024,
+    backup_count: int = 5,
 ) -> logging.Logger:
-    """
-    配置日志系统，支持文件轮转
-    """
     log_path = Path(log_file)
     log_path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     formatter = logging.Formatter(
         "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
-    
     root_logger = logging.getLogger()
     root_logger.setLevel(level)
-    
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(level)
-    console_handler.setFormatter(formatter)
-    root_logger.addHandler(console_handler)
-    
-    file_handler = RotatingFileHandler(
-        log_file,
-        maxBytes=max_bytes,
-        backupCount=backup_count,
-        encoding='utf-8'
-    )
-    file_handler.setLevel(level)
-    file_handler.setFormatter(formatter)
-    root_logger.addHandler(file_handler)
-    
+
+    if not root_logger.handlers:
+        console = logging.StreamHandler()
+        console.setLevel(level)
+        console.setFormatter(formatter)
+        root_logger.addHandler(console)
+
+        file_h = RotatingFileHandler(
+            log_file, maxBytes=max_bytes, backupCount=backup_count, encoding="utf-8"
+        )
+        file_h.setLevel(level)
+        file_h.setFormatter(formatter)
+        root_logger.addHandler(file_h)
+
     return logging.getLogger(__name__)
 
 
 logger = setup_logging()
 
 
-def _resolve_intent(intent: Optional[str], args: tuple) -> str:
-    """解析意图来源：--intent 参数或位置参数"""
-    if not intent and args:
-        intent = ' '.join(args)
-    if not intent:
-        click.echo(click.get_current_context().get_help())
-        sys.exit(0)
-    return intent
-
-
-def _parse_and_show(intent: str, project: Optional[str], target: Optional[str],
-                    mode: str, constraints: tuple) -> Any:
-    """解析意图并显示结果"""
-    parser = IntentParser()
-    parsed = parser.parse(
-        intent,
-        project=project,
-        target=target,
-        mode=mode,
-        constraints=list(constraints),
-    )
-    click.echo(f"📋 解析意图: {parsed.action.value}")
-    if parsed.target:
-        click.echo(f"   目标: {parsed.target}")
-    if parsed.project:
-        click.echo(f"   项目: {parsed.project}")
-    return parsed
-
-
-def _handle_run_action(parsed, dry_run: bool, verbose: bool):
-    """处理 RUN action：直接执行 PRD 文件"""
-    prd_file = parsed.prd_file or parsed.target
-    if not prd_file:
-        click.echo("❌ 未指定 PRD 文件")
-        sys.exit(1)
-    _run_prd_file(prd_file, dry_run, verbose)
-
-
-def _generate_and_execute(parsed, dry_run: bool):
-    """生成 PRD 并执行（非 RUN action）"""
-    generator = IntentPRDGenerator()
-    prd = generator.generate(parsed)
-    
-    if dry_run:
-        click.echo("\n📄 生成的 PRD:")
-        click.echo(prd.to_yaml())
+def _print_result(result: Any, fmt: str) -> None:
+    """统一输出：text 格式人类友好，json 格式机器友好"""
+    if fmt == "json":
+        click.echo(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
         return
-    
-    click.echo(f"\n🚀 开始执行...")
-    result = _execute_prd(prd)
-    
-    if result.success:
-        click.echo(f"\n✅ 执行成功")
-        click.echo(f"   完成 Sprint: {result.completed_sprints}/{result.total_sprints}")
-        click.echo(f"   完成任务: {result.completed_tasks}/{result.total_tasks}")
+
+    # text 格式
+    if isinstance(result, PlanResult):
+        _print_plan(result)
+    elif isinstance(result, RunResult):
+        _print_run(result)
+    elif isinstance(result, DiagnoseResult):
+        _print_diagnose(result)
+    elif isinstance(result, StatusResult):
+        _print_status(result)
+    elif isinstance(result, RollbackResult):
+        _print_rollback(result)
+    elif isinstance(result, StopResult):
+        _print_stop(result)
     else:
-        click.echo(f"\n❌ 执行失败: {result.error}")
+        click.echo(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
+
+    if not result.success and result.error:
+        click.echo(f"\n❌ 错误: {result.error}")
         sys.exit(1)
 
 
-def _mcp_server(project_path: str) -> None:
+def _print_plan(r: PlanResult) -> None:
+    click.echo(f"📋 Sprint 计划 (mode={r.mode})")
+    click.echo(f"   项目: {r.prd_name}")
+    click.echo(f"   Sprint 数: {len(r.sprints)}")
+    for i, s in enumerate(r.sprints, 1):
+        click.echo(f"\n   Sprint {i}: {s.get('name', '')}")
+        for t in s.get("tasks", []):
+            click.echo(f"     · {t}")
+    click.echo(f"\n💡 使用 run(prd_yaml=...) 可直接执行此计划")
+
+
+def _print_run(r: RunResult) -> None:
+    status_icon = "✅" if r.success else "❌"
+    click.echo(f"\n{status_icon} 执行{'成功' if r.success else '失败'}")
+    click.echo(f"   项目: {r.prd_name}")
+    click.echo(f"   Sprint: {r.completed_sprints}/{r.total_sprints}")
+    click.echo(f"   任务: {r.completed_tasks}/{r.total_tasks}")
+    if r.execution_id:
+        click.echo(f"   执行ID: {r.execution_id}")
+    click.echo(f"   耗时: {r.duration:.1f}s")
+
+    for sr in r.sprint_results:
+        sprint_status = "✅" if sr.get("status") in ("success", "skipped") else "❌"
+        click.echo(
+            f"\n   📦 {sr.get('sprint_name', '?')} {sprint_status} "
+            f"({sr.get('success_count', 0)}/{sr.get('task_count', 0)} 任务, {sr.get('duration', 0):.1f}s)"
+        )
+
+
+def _print_diagnose(r: DiagnoseResult) -> None:
+    click.echo(f"🏥 项目体检")
+    click.echo(f"   健康度: {r.health_score:.0f}/100")
+    click.echo(f"   覆盖率: {r.coverage:.1%}")
+    if r.issues:
+        click.echo(f"   问题: {len(r.issues)}")
+        for issue in r.issues[:5]:
+            click.echo(f"     · [{issue.get('severity', '?')}] {issue.get('message', '')}")
+    else:
+        click.echo("   问题: 无")
+
+
+def _print_status(r: StatusResult) -> None:
+    if r.executions:
+        click.echo(f"📜 执行历史 ({len(r.executions)} 条)")
+        for e in r.executions[:10]:
+            click.echo(
+                f"   · {e.get('execution_id', '?')} [{e.get('status', '?')}] "
+                f"{e.get('prd_name', '')} Sprint {e.get('current_sprint', 0)}/{e.get('total_sprints', 0)}"
+            )
+    else:
+        click.echo(f"📜 执行状态: {r.execution_id}")
+        click.echo(f"   状态: {r.status}")
+        click.echo(f"   Sprint: {r.current_sprint}/{r.total_sprints}")
+        if r.sprint_history:
+            click.echo(f"   历史:")
+            for h in r.sprint_history[-3:]:
+                click.echo(f"     · {h.get('sprint_name', '?')} → {h.get('status', '?')}")
+
+
+def _print_rollback(r: RollbackResult) -> None:
+    icon = "✅" if r.success else "❌"
+    click.echo(f"{icon} 回滚 (→ {r.rollback_point})")
+    if r.files_restored:
+        click.echo(f"   恢复文件: {len(r.files_restored)}")
+
+
+def _print_stop(r: StopResult) -> None:
+    icon = "✅" if r.cancelled else "❌"
+    click.echo(f"{icon} 停止执行: {r.execution_id}")
+    click.echo(f"   {r.message}")
+
+
+# ─── CLI 入口 ───
+
+
+@click.group(invoke_without_command=True)
+@click.option("-p", "--project", default=".", help="项目路径")
+@click.option("--format", "fmt", type=click.Choice(["text", "json"]), default="text", help="输出格式")
+@click.option("-v", "--verbose", is_flag=True, help="详细输出")
+@click.version_option(version="0.9.1", prog_name="sprintcycle")
+@click.pass_context
+def cli(ctx: click.Context, project: str, fmt: str, verbose: bool) -> None:
+    """SprintCycle - PRD 驱动的自进化框架
+
+    一切皆 PRD: 意图 → PRD 生成器 → 执行引擎
+
+    \b
+    快捷用法:
+      sprintcycle "优化性能"              # 等同于 sprintcycle run
+    """
+    ctx.ensure_object(dict)
+    ctx.obj["sc"] = SprintCycle(project_path=project)
+    ctx.obj["fmt"] = fmt
+    ctx.obj["verbose"] = verbose
+
+    if verbose:
+        logging.getLogger().setLevel(logging.DEBUG)
+
+    # 无子命令时，将参数当作 run
+    if ctx.invoked_subcommand is None:
+        args = ctx.args
+        if args:
+            result = ctx.obj["sc"].run(intent=" ".join(args))
+            _print_result(result, fmt)
+        else:
+            click.echo(ctx.get_help())
+
+
+# ─── plan ───
+
+
+@cli.command()
+@click.argument("intent")
+@click.option("-m", "--mode", default="auto", type=click.Choice(["auto", "evolution", "normal", "fix", "test"]))
+@click.option("-t", "--target", default=None, help="目标文件/模块")
+@click.option("--prd", "prd_path", default=None, help="已有 PRD 文件路径")
+@click.pass_context
+def plan(ctx: click.Context, intent: str, mode: str, target: Optional[str], prd_path: Optional[str]) -> None:
+    """生成 Sprint 执行计划（不执行）"""
+    result = ctx.obj["sc"].plan(intent=intent, mode=mode, target=target, prd_path=prd_path)
+    _print_result(result, ctx.obj["fmt"])
+
+
+# ─── run ───
+
+
+@cli.command()
+@click.argument("intent", required=False)
+@click.option("-m", "--mode", default="auto", type=click.Choice(["auto", "evolution", "normal", "fix", "test"]))
+@click.option("-t", "--target", default=None, help="目标文件/模块")
+@click.option("--prd", "prd_path", default=None, help="PRD 文件路径")
+@click.option("--prd-yaml", "prd_yaml", default=None, help="PRD YAML 内容")
+@click.option("--resume", is_flag=True, help="断点续跑")
+@click.option("--execution-id", default=None, help="执行 ID（resume 时使用）")
+@click.pass_context
+def run(
+    ctx: click.Context,
+    intent: Optional[str],
+    mode: str,
+    target: Optional[str],
+    prd_path: Optional[str],
+    prd_yaml: Optional[str],
+    resume: bool,
+    execution_id: Optional[str],
+) -> None:
+    """执行 Sprint"""
+    result = ctx.obj["sc"].run(
+        intent=intent, mode=mode, target=target,
+        prd_path=prd_path, prd_yaml=prd_yaml,
+        resume=resume, execution_id=execution_id,
+    )
+    _print_result(result, ctx.obj["fmt"])
+
+
+# ─── diagnose ───
+
+
+@cli.command()
+@click.pass_context
+def diagnose(ctx: click.Context) -> None:
+    """诊断项目健康状态"""
+    result = ctx.obj["sc"].diagnose()
+    _print_result(result, ctx.obj["fmt"])
+
+
+# ─── status ───
+
+
+@cli.command()
+@click.argument("execution_id", required=False)
+@click.pass_context
+def status(ctx: click.Context, execution_id: Optional[str]) -> None:
+    """查询执行状态（不传 ID 则列出所有记录）"""
+    result = ctx.obj["sc"].status(execution_id=execution_id)
+    _print_result(result, ctx.obj["fmt"])
+
+
+# ─── rollback ───
+
+
+@cli.command()
+@click.argument("execution_id")
+@click.pass_context
+def rollback(ctx: click.Context, execution_id: str) -> None:
+    """回滚到执行前的状态"""
+    result = ctx.obj["sc"].rollback(execution_id=execution_id)
+    _print_result(result, ctx.obj["fmt"])
+
+
+# ─── stop ───
+
+
+@cli.command()
+@click.argument("execution_id")
+@click.pass_context
+def stop(ctx: click.Context, execution_id: str) -> None:
+    """停止正在执行的 Sprint"""
+    result = ctx.obj["sc"].stop(execution_id=execution_id)
+    _print_result(result, ctx.obj["fmt"])
+
+
+# ─── serve (MCP Server) ───
+
+
+@cli.command()
+@click.option("--host", default="0.0.0.0", help="MCP Server host")
+@click.option("--port", default=8080, type=int, help="MCP Server port")
+@click.option("--transport", type=click.Choice(["stdio", "sse"]), default="stdio", help="传输方式")
+@click.pass_context
+def serve(ctx: click.Context, host: str, port: int, transport: str) -> None:
     """启动 MCP Server"""
     try:
         from sprintcycle.mcp.server import SprintCycleMCPServer, MCP_AVAILABLE
-    except ImportError:
-        click.echo("❌ MCP SDK 未安装")
-        click.echo("   安装命令: pip install mcp")
-        sys.exit(1)
 
-    if not MCP_AVAILABLE:
-        click.echo("❌ MCP SDK 未安装")
-        click.echo("   安装命令: pip install mcp")
-        sys.exit(1)
-
-    click.echo(f"🚀 启动 MCP Server (project: {project_path})")
-    click.echo("   按 Ctrl+C 停止")
-
-    server = SprintCycleMCPServer(project_path=project_path)
-    asyncio.run(server.run())
-
-
-def _show_status():
-    """显示状态信息"""
-    click.echo("📊 SprintCycle 状态")
-    
-    state_dir = Path(".sprintcycle/state")
-    if not state_dir.exists():
-        click.echo("   状态目录不存在")
-        return
-    
-    click.echo(f"   状态目录: {state_dir}")
-
-
-def _init_project(init_path: str):
-    """初始化项目"""
-    click.echo(f"🚀 初始化项目: {init_path}")
-    
-    path = Path(init_path)
-    if path.exists():
-        click.echo(f"   目录已存在: {path}")
-    else:
-        path.mkdir(parents=True)
-        click.echo(f"   创建目录: {path}")
-    
-    state_dir = path / ".sprintcycle" / "state"
-    state_dir.mkdir(parents=True, exist_ok=True)
-    click.echo(f"   创建状态目录: {state_dir}")
-    
-    click.echo("\n✅ 项目初始化完成")
-
-
-def _run_prd_file(prd_file: str, dry_run: bool, verbose: bool):
-    """执行 PRD 文件"""
-    try:
-        parser = PRDParser()
-        prd = parser.parse_file(prd_file)
-        
-        click.echo(f"📄 PRD 文件: {prd_file}")
-        click.echo(f"   项目: {prd.project.name}")
-        click.echo(f"   模式: {prd.mode.value}")
-        click.echo(f"   Sprint 数: {len(prd.sprints)}")
-        click.echo(f"   任务数: {prd.total_tasks}")
-        
-        if dry_run:
-            click.echo("\n✅ PRD 验证通过（dry-run 模式）")
-            return
-        
-        click.echo(f"\n🚀 开始执行...")
-        result = _execute_prd(prd)
-        
-        if result.success:
-            click.echo(f"\n✅ 执行成功")
-            click.echo(f"   完成 Sprint: {result.completed_sprints}/{result.total_sprints}")
-            click.echo(f"   完成任务: {result.completed_tasks}/{result.total_tasks}")
-        else:
-            click.echo(f"\n❌ 执行失败: {result.error}")
+        if not MCP_AVAILABLE:
+            click.echo("❌ MCP SDK 未安装，请执行: pip install mcp")
             sys.exit(1)
 
-    except PRDParseError as e:
-        click.echo(f"❌ PRD 解析错误: {e}")
-        sys.exit(1)
-    except YAMLError as e:
-        click.echo(f"❌ YAML 错误: {e}")
-        sys.exit(1)
-
-
-def _execute_prd(prd) -> IntentResult:
-    """执行 PRD"""
-    dispatcher = TaskDispatcher()
-    sprint_results = asyncio.run(dispatcher.execute_prd(prd, max_concurrent=3))
-    
-    success = all(
-        r.status in (ExecutionStatus.SUCCESS, ExecutionStatus.SKIPPED)
-        for r in sprint_results
-    )
-    
-    completed_sprints = sum(
-        1 for r in sprint_results 
-        if r.status in (ExecutionStatus.SUCCESS, ExecutionStatus.SKIPPED)
-    )
-    completed_tasks = sum(r.success_count for r in sprint_results)
-    
-    return IntentResult(
-        success=success,
-        prd=prd,
-        completed_sprints=completed_sprints,
-        completed_tasks=completed_tasks,
-        total_sprints=len(sprint_results),
-        total_tasks=prd.total_tasks,
-        error=None if success else "部分任务失败",
-        sprint_results=sprint_results,
-    )
-
-
-# CLI 入口点 - 使用 click 装饰器
-@click.command()
-@click.option('--intent', '-i', type=str, help='用户意图描述')
-@click.option('--project', '-p', type=str, help='项目路径')
-@click.option('--target', '-t', type=str, help='目标文件')
-@click.option('--mode', '-m', type=click.Choice(['auto', 'evolution', 'normal', 'fix', 'test']),
-              default='auto', help='执行模式')
-@click.option('--constraints', '-c', multiple=True, help='约束条件')
-@click.option('--dry-run', is_flag=True, help='仅生成 PRD，不执行')
-@click.option('--status', is_flag=True, help='查看状态')
-@click.option('--init', 'init_path', type=click.Path(), help='初始化项目')
-@click.option('--mcp', 'mcp_path', type=click.Path(), help='启动 MCP Server')
-@click.option('--verbose', '-v', is_flag=True, help='详细输出')
-@click.argument('args', nargs=-1)  # 捕获所有剩余参数作为意图
-@click.version_option(version='0.7.0', prog_name='sprintcycle')
-def cli(
-    intent: Optional[str],
-    project: Optional[str],
-    target: Optional[str],
-    mode: str,
-    constraints: tuple,
-    dry_run: bool,
-    status: bool,
-    init_path: Optional[str],
-    mcp_path: Optional[str],
-    verbose: bool,
-    args: tuple,
-):
-    """
-    SprintCycle - PRD 驱动的自我进化框架
-    
-    一切皆 PRD: 意图 → PRD 生成器 → PRD 文件 → 执行引擎
-    
-    \b
-    示例：
-        sprintcycle "优化 engine.py 的性能"
-        sprintcycle -i "优化 engine.py" -t engine.py -m evolution --dry-run
-        sprintcycle --status
-        sprintcycle --init ./my-project
-    """
-    if verbose:
-        logging.getLogger().setLevel(logging.DEBUG)
-    
-    if mcp_path:
-        _mcp_server(mcp_path)
-        return
-
-    if status:
-        _show_status()
-        return
-    
-    if init_path:
-        _init_project(init_path)
-        return
-    
-    intent = _resolve_intent(intent, args)
-    
-    try:
-        parsed = _parse_and_show(intent, project, target, mode, constraints)
-        
-        if parsed.action == ActionType.RUN:
-            _handle_run_action(parsed, dry_run, verbose)
+        server = SprintCycleMCPServer(project_path=ctx.obj["sc"].project_path)
+        if transport == "stdio":
+            click.echo("🚀 MCP Server 启动 (stdio)", err=True)
+            asyncio.run(server.run())
         else:
-            _generate_and_execute(parsed, dry_run)
-            
-    except YAMLError as e:
-        click.echo(f"❌ YAML 解析错误: {e}")
-        sys.exit(1)
-    except PRDParseError as e:
-        click.echo(f"❌ PRD 解析错误: {e}")
-        sys.exit(1)
-    except Exception as e:
-        click.echo(f"❌ 执行错误: {e}")
-        if verbose:
-            import traceback
-            traceback.print_exc()
+            click.echo(f"🚀 MCP Server 启动 (SSE {host}:{port})", err=True)
+            # SSE 模式将在 P2 实现
+            click.echo("❌ SSE 模式将在 P2 阶段实现")
+            sys.exit(1)
+    except ImportError:
+        click.echo("❌ MCP 模块未找到")
         sys.exit(1)
 
 
-if __name__ == '__main__':
-    cli()  # Use click's auto-discovery
+# ─── init ───
+
+
+@cli.command()
+@click.argument("path", default=".")
+@click.pass_context
+def init(ctx: click.Context, path: str) -> None:
+    """初始化项目"""
+    project_path = Path(path)
+    project_path.mkdir(parents=True, exist_ok=True)
+
+    state_dir = project_path / ".sprintcycle" / "state"
+    state_dir.mkdir(parents=True, exist_ok=True)
+
+    log_dir = project_path / ".sprintcycle" / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+
+    click.echo(f"✅ 项目初始化完成: {project_path}")
+    click.echo(f"   状态目录: {state_dir}")
+    click.echo(f"   日志目录: {log_dir}")
+
+
+if __name__ == "__main__":
+    cli()
