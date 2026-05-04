@@ -83,6 +83,13 @@ pnpm-lock.yaml
 # SprintCycle
 .sprintcycle/
 
+# Local / CI artifacts (do not commit)
+coverage.json
+coverage.xml
+evolution_log.json
+knowledge_base.json
+reports/
+
 # Development docs (not for submission)
 docs-dev/
 

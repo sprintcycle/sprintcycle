@@ -45,16 +45,18 @@ from .rollback_manager import (
 __version__ = "0.9.1"
 
 __all__ = [
-    # Core Types
-    "Gene", "Variation",
-    "SprintContext", "EvolutionResult", "EvolutionStage",
-    "EvolutionMetrics",
-    "FitnessScore",
-    # Unified Pipeline
-    "EvolutionPipeline", "PipelineResult",
-    "PRDSource", "ManualPRDSource", "DiagnosticPRDSource", "EvolutionPRD",
-    # Components
-    "MeasurementProvider", "MeasurementResult",
-    "MemoryStore", "EvolutionMemory",
-    "EvolutionRollbackManager", "VariantBranch", "RollbackError",
+    "SprintContext",
+    "EvolutionPipeline",
+    "PipelineResult",
+    "PRDSource",
+    "ManualPRDSource",
+    "DiagnosticPRDSource",
+    "EvolutionPRD",
+    "MeasurementProvider",
+    "MeasurementResult",
+    "MemoryStore",
+    "EvolutionMemory",
+    "EvolutionRollbackManager",
+    "VariantBranch",
+    "RollbackError",
 ]

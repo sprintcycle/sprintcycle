@@ -17,7 +17,7 @@ from .results import (
     PlanResult, RunResult, DiagnoseResult,
     StatusResult, RollbackResult, StopResult,
 )
-from .config.runtime_config import RuntimeConfig
+from .config import RuntimeConfig
 from .intent.parser import IntentParser
 from .prd.generator import IntentPRDGenerator
 from .prd.parser import PRDParser
@@ -501,7 +501,7 @@ class SprintCycle:
         Returns:
             SprintResult 列表
         """
-        from .execution.sprint_types import ExecutionStatus, SprintResult, TaskResult, ExecutionStatus
+        from .execution.sprint_types import ExecutionStatus, SprintResult, TaskResult
         from .prd.models import PRDTask
         
         if not task_results_data:

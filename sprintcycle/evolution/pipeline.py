@@ -12,7 +12,7 @@ from typing import List, Dict, Any, Optional, TYPE_CHECKING
 from datetime import datetime
 
 if TYPE_CHECKING:
-    from ..config.manager import RuntimeConfig
+    from ..config import RuntimeConfig
 
 from ..execution.sprint_types import ExecutionStatus
 from .prd_source import PRDSource, EvolutionPRD, ManualPRDSource

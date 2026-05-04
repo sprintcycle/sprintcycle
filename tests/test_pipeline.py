@@ -23,7 +23,7 @@ from sprintcycle.evolution.prd_source import (
     PRDSourceType,
 )
 
-from sprintcycle.config.runtime_config import RuntimeConfig
+from sprintcycle.config import RuntimeConfig
 
 
 class TestEvolutionPipeline:

@@ -14,7 +14,7 @@ from pathlib import Path
 from ..prd.models import PRD, PRDSprint, PRDTask
 from ..evolution.pipeline import EvolutionPipeline
 from ..evolution.prd_source import DiagnosticPRDSource
-from ..config.manager import RuntimeConfig
+from ..config import RuntimeConfig
 from ..evolution.types import SprintContext
 from ..execution.events import EventBus, EventType, Event, get_event_bus, create_event
 from ..execution.sprint_types import ExecutionStatus, TaskResult, SprintResult

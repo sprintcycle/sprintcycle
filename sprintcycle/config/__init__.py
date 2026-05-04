@@ -1,6 +1,10 @@
 """
 Config 模块 - 统一配置管理
 
+推荐导入（对外稳定入口）::
+
+    from sprintcycle.config import RuntimeConfig
+
 v0.9.2 架构：
 - runtime_config.py: RuntimeConfig（pydantic-settings 或 dataclass）
 - llm_config.py: LLMConfig（pydantic 或 dataclass）
