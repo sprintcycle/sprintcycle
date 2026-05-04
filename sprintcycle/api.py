@@ -25,7 +25,11 @@ from .prd.validator import PRDValidator
 from .scheduler.dispatcher import TaskDispatcher, ExecutionStatus
 from .execution.events import get_event_bus
 from .diagnostic.provider import ProjectDiagnostic
-from .execution.state_store import StateStore, get_state_store
+from .execution.state_store import (
+    StateStore,
+    configure_default_store,
+    get_state_store,
+)
 from .execution.rollback import RollbackManager
 
 logger = logging.getLogger(__name__)
@@ -40,13 +44,19 @@ class SprintCycle:
         config: Optional[RuntimeConfig] = None,
     ):
         self.project_path = os.path.abspath(project_path)
-        self.config = config or RuntimeConfig.from_env()
+        base_cfg = config or RuntimeConfig.from_project(self.project_path)
+        self.config = base_cfg.merge(base_cfg, {"project_path": self.project_path})
+        configure_default_store(self.project_path, self.config)
         self._dispatcher: Optional[TaskDispatcher] = None
 
     @property
     def dispatcher(self) -> TaskDispatcher:
         if self._dispatcher is None:
-            self._dispatcher = TaskDispatcher(config=self.config, event_bus=get_event_bus())
+            self._dispatcher = TaskDispatcher(
+                config=self.config,
+                event_bus=get_event_bus(),
+                project_path=self.project_path,
+            )
         return self._dispatcher
 
     # ─── 1. plan — 看计划，不干活 ───
@@ -295,6 +305,22 @@ class SprintCycle:
         except Exception as e:
             logger.exception("stop failed")
             return StopResult(success=False, error=str(e), duration=time.time() - start)
+
+    # ─── 知识卡片（P1）───
+
+    def knowledge_search(
+        self,
+        query: str = "",
+        tags: Optional[List[str]] = None,
+        limit: int = 50,
+    ) -> Dict[str, Any]:
+        """按关键词与标签检索知识卡片（SQLite）。"""
+        from .execution.knowledge_hook import resolve_knowledge_db_path
+        from .persistence.knowledge_repository import KnowledgeCardRepository
+
+        repo = KnowledgeCardRepository(resolve_knowledge_db_path(self.project_path, self.config))
+        cards = repo.search(query=query, tags=tags or [], limit=limit)
+        return {"success": True, "count": len(cards), "cards": [c.to_dict() for c in cards]}
 
     # ─── 内部方法 ───
 

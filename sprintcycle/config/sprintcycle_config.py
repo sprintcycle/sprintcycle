@@ -12,7 +12,7 @@ from .llm_config import LLMConfig
 @dataclass
 class CodingConfig:
     """编码引擎配置"""
-    engine: str = "cursor"
+    engine: str = "aider"
     llm: Optional[LLMConfig] = None
     claude: Optional[LLMConfig] = None
 
@@ -49,7 +49,7 @@ class SprintCycleConfig:
     evolution_crossover_rate: float = 0.8
     evolution_mutation_rate: float = 0.1
     # Coding fields (inlined from CodingConfig)
-    coding_engine: str = "cursor"
+    coding_engine: str = "aider"
     coding_llm: Optional[LLMConfig] = None
     coding_claude: Optional[LLMConfig] = None
     # Backward compat
@@ -80,7 +80,7 @@ class SprintCycleConfig:
                 claude_cfg = LLMConfig(**coding_data["claude"])
             
             coding = CodingConfig(
-                engine=coding_data.get("engine", "cursor"),
+                engine=coding_data.get("engine", "aider"),
                 llm=llm_cfg,
                 claude=claude_cfg,
             )
@@ -109,12 +109,15 @@ def load_config_from_env() -> SprintCycleConfig:
     
     evolution = EvolutionRunConfig(llm=evolution_llm)
     
-    coding_engine = os.getenv("CODING_ENGINE", "cursor")
+    coding_engine = os.getenv("CODING_ENGINE", "aider")
     coding = None
     if coding_engine == "llm":
         coding = CodingConfig(engine="llm", llm=LLMConfig(provider="deepseek", api_key=api_key))
     elif coding_engine == "claude":
         coding = CodingConfig(engine="claude", claude=LLMConfig(api_key=os.getenv("ANTHROPIC_API_KEY")))
+    elif coding_engine == "aider":
+        llm_a = LLMConfig(provider="deepseek", api_key=api_key) if api_key else None
+        coding = CodingConfig(engine="aider", llm=llm_a)
     
     return SprintCycleConfig(evolution=evolution, coding=coding)
 

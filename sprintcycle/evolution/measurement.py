@@ -8,6 +8,12 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+from sprintcycle.config.quality import (
+    normalize_quality_level,
+    runs_coverage_gate,
+    runs_pytest,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -59,19 +65,26 @@ class MeasurementProvider:
         runtime_config=None,
         runner: Optional[Callable[..., Tuple[int, str, str]]] = None,
     ):
-        # 支持从 RuntimeConfig 构造
+        # 支持从 RuntimeConfig 构造；无 RuntimeConfig 时保持旧行为（等价 L2：仍跑 pytest）
+        self._quality_level = "L2"
+        self.repo_path = repo_path
         if runtime_config is not None:
-            self.repo_path = getattr(runtime_config, 'state_dir', '.')
-            self.test_command = getattr(runtime_config, 'test_command', test_command)
-            self.quality_gate_enabled = getattr(runtime_config, 'quality_gate_enabled', quality_gate_enabled)
-            self.measurement_timeout = getattr(runtime_config, 'diagnostic_timeout', measurement_timeout)
+            self.test_command = getattr(runtime_config, "test_command", test_command)
+            self.quality_gate_enabled = getattr(runtime_config, "quality_gate_enabled", quality_gate_enabled)
+            self.measurement_timeout = getattr(runtime_config, "diagnostic_timeout", measurement_timeout)
             self.coverage_threshold = coverage_threshold
+            self._quality_level = normalize_quality_level(
+                getattr(runtime_config, "quality_level", "L1")
+            )
+            self._min_coverage_percent = float(
+                getattr(runtime_config, "min_coverage_percent", 80.0)
+            )
         else:
-            self.repo_path = repo_path
             self.test_command = test_command
             self.quality_gate_enabled = quality_gate_enabled
             self.measurement_timeout = measurement_timeout
             self.coverage_threshold = coverage_threshold
+            self._min_coverage_percent = 80.0
         self._runner = runner or self._default_runner
         self._history: List[MeasurementResult] = []
         
@@ -87,13 +100,29 @@ class MeasurementProvider:
             return -1, "", str(e)
     
     def measure_all(self) -> MeasurementResult:
+        if self._quality_level == "L0":
+            result = MeasurementResult(
+                correctness=1.0,
+                performance=1.0,
+                stability=1.0,
+                code_quality=1.0,
+                overall=1.0,
+                details={
+                    "skipped": "L0",
+                    "correctness_details": {},
+                    "quality_details": {},
+                },
+            )
+            self._history.append(result)
+            return result
+
         correctness = self._measure_correctness()
         performance = self._measure_performance()
         stability = self._measure_stability()
         code_quality = self._measure_code_quality()
-        
+
         overall = correctness * 0.3 + performance * 0.2 + stability * 0.2 + code_quality * 0.3
-        
+
         result = MeasurementResult(
             correctness=correctness,
             performance=performance,
@@ -101,6 +130,7 @@ class MeasurementProvider:
             code_quality=code_quality,
             overall=overall,
             details={
+                "quality_level": self._quality_level,
                 "correctness_details": self._get_correctness_details(),
                 "quality_details": self._get_quality_details(),
             },
@@ -109,6 +139,8 @@ class MeasurementProvider:
         return result
     
     def _measure_correctness(self) -> float:
+        if not runs_pytest(self._quality_level):
+            return 1.0
         try:
             rc, stdout, stderr = self._runner(
                 self.test_command,
@@ -144,8 +176,14 @@ class MeasurementProvider:
         return 1.0 - (failures / max(1, len(recent))) * 0.5
     
     def _measure_code_quality(self) -> float:
+        if self._quality_level == "L0":
+            return 1.0
         try:
-            self._runner("python -m mypy sprintcycle --ignore-missing-imports 2>&1 || true", cwd=self.repo_path, timeout=60)
+            self._runner(
+                "python -m mypy sprintcycle --ignore-missing-imports 2>&1 || true",
+                cwd=self.repo_path,
+                timeout=60,
+            )
             return 0.7
         except Exception:
             return 0.5
@@ -157,12 +195,18 @@ class MeasurementProvider:
         return {}
     
     def check_quality_gate(self, result: MeasurementResult) -> bool:
+        if self._quality_level == "L0":
+            return True
         if not self.quality_gate_enabled:
             return True
         if result.correctness < 0.5:
             return False
         if result.overall < self.coverage_threshold:
             return False
+        if runs_coverage_gate(self._quality_level):
+            pct = float(result.details.get("line_coverage_percent") or 0.0)
+            if pct > 0 and pct + 1e-6 < self._min_coverage_percent:
+                return False
         return True
     
     def get_history(self) -> List[MeasurementResult]:

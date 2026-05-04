@@ -12,6 +12,8 @@ SprintCycle CLI — 子命令式入口
   sprintcycle serve           → 启动 MCP Server
   sprintcycle dashboard       → 启动 Dashboard (P2)
   sprintcycle init [path]     → 初始化项目
+  sprintcycle import-state    → JSON 状态目录导入 SQLite
+  sprintcycle knowledge search → 检索知识卡片
 """
 
 import json
@@ -291,6 +293,56 @@ def stop(ctx: click.Context, execution_id: str) -> None:
     """停止正在执行的 Sprint"""
     result = ctx.obj["sc"].stop(execution_id=execution_id)
     _print_result(result, ctx.obj["fmt"])
+
+
+# ─── import-state（JSON → SQLite）───
+
+
+@cli.command("import-state")
+@click.option(
+    "--json-dir",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    required=True,
+    help="原 JSON StateStore 目录（含 *.json）",
+)
+@click.option(
+    "--sqlite",
+    "sqlite_db",
+    type=click.Path(path_type=Path),
+    required=True,
+    help="目标 SQLite 数据库文件路径",
+)
+@click.pass_context
+def import_state(ctx: click.Context, json_dir: Path, sqlite_db: Path) -> None:
+    """将 JSON 执行状态导入 SQLite（与 storage.backend=sqlite 共用库）"""
+    from sprintcycle.persistence.import_json_state import import_json_executions_to_sqlite
+
+    n = import_json_executions_to_sqlite(json_dir, sqlite_db)
+    click.echo(f"✅ 已导入 {n} 条执行记录 → {sqlite_db}")
+
+
+# ─── knowledge ───
+
+
+@cli.group("knowledge")
+def knowledge_group() -> None:
+    """知识卡片检索（P1）"""
+
+
+@knowledge_group.command("search")
+@click.option("-q", "--query", default="", help="关键词（匹配 domain/body/outcome）")
+@click.option("--tag", multiple=True, help="标签（可重复，全部匹配）")
+@click.option("--limit", default=50, type=int)
+@click.pass_context
+def knowledge_search(ctx: click.Context, query: str, tag: tuple[str, ...], limit: int) -> None:
+    """检索知识卡片"""
+    data = ctx.obj["sc"].knowledge_search(query=query, tags=list(tag), limit=limit)
+    if ctx.obj["fmt"] == "json":
+        click.echo(json.dumps(data, ensure_ascii=False, indent=2))
+        return
+    click.echo(f"📚 知识卡片 ({data.get('count', 0)} 条)")
+    for c in data.get("cards", [])[:20]:
+        click.echo(f"   · [{c.get('id', '')[:8]}…] {c.get('domain', '')} — {(c.get('body') or '')[:80]}")
 
 
 # ─── serve (MCP Server) ───

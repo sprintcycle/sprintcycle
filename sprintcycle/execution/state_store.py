@@ -7,16 +7,31 @@
 - 状态恢复
 """
 
+from __future__ import annotations
+
 import json
 from dataclasses import dataclass, field
-from typing import Optional, Dict, Any, List
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 from datetime import datetime
 from pathlib import Path
 
 from .sprint_types import ExecutionStatus
 import logging
 
+if TYPE_CHECKING:
+    from ..config.runtime_config import RuntimeConfig
+
 logger = logging.getLogger(__name__)
+
+
+def resolve_sqlite_database_path(project_path: str, config: "RuntimeConfig") -> str:
+    """将 ``sqlite_path`` 解析为绝对路径（相对路径相对项目根）。"""
+    raw = getattr(config, "sqlite_path", None) or ".sprintcycle/data/sprintcycle.db"
+    p = Path(str(raw).strip())
+    if not p.is_absolute():
+        p = Path(project_path).resolve() / p
+    p.parent.mkdir(parents=True, exist_ok=True)
+    return str(p.resolve())
 
 
 @dataclass
@@ -330,12 +345,40 @@ class StateStore:
         return True
 
 
-# 全局默认状态存储实例
-_default_store: Optional[StateStore] = None
+# 全局默认状态存储实例（JSON StateStore 或 SqliteExecutionStore）
+_default_store: Optional[Any] = None
 
 
-def get_state_store(store_dir: Optional[str] = None) -> StateStore:
-    """获取默认状态存储实例"""
+def reset_default_state_store() -> None:
+    """测试或切换项目时重置全局 store。"""
+    global _default_store
+    _default_store = None
+
+
+def configure_default_store(project_path: str, config: "RuntimeConfig") -> None:
+    """
+    按 ``RuntimeConfig.storage_backend`` 初始化全局 store。
+    应在 ``SprintCycle`` 构造末尾调用一次。
+    """
+    global _default_store
+    backend = (getattr(config, "storage_backend", None) or "json").strip().lower()
+    if backend == "sqlite":
+        from .sqlite_state_store import SqliteExecutionStore
+
+        db_path = resolve_sqlite_database_path(project_path, config)
+        _default_store = SqliteExecutionStore(db_path)
+        logger.debug("State store: sqlite %s", db_path)
+        return
+    state_dir = getattr(config, "state_dir", None) or ".sprintcycle/state"
+    sd = Path(state_dir)
+    if not sd.is_absolute():
+        sd = Path(project_path).resolve() / sd
+    _default_store = StateStore(str(sd))
+    logger.debug("State store: json %s", sd)
+
+
+def get_state_store(store_dir: Optional[str] = None) -> Union[StateStore, Any]:
+    """获取默认状态存储实例（未 configure 时退回 JSON ``StateStore``）。"""
     global _default_store
     if _default_store is None:
         _default_store = StateStore(store_dir)

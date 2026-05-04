@@ -1,0 +1,23 @@
+# SprintCycle 本仓库默认配置（可被环境变量 SPRINTCYCLE_* 覆盖）
+
+[project]
+path = "."
+parallel_tasks = 3
+max_sprints = 10
+
+[quality]
+level = "L1"
+min_coverage_percent = 80.0
+
+[execution]
+max_verify_fix_rounds = 3
+
+[engine]
+name = "aider"
+
+[llm]
+provider = "deepseek"
+model = "deepseek-reasoner"
+
+[storage]
+state_dir = ".sprintcycle/state"

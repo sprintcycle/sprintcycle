@@ -19,7 +19,7 @@
 - **执行结果持久化** - StateStore + Checkpoint 状态存储
 - **差异化进化策略** - 根据问题类型自动选择进化路径
 - **智能错误路由** - LEVEL_1_STATIC → LEVEL_2_PATTERN → LEVEL_3_LLM 三级路由
-- **多编码引擎** - 支持 cursor、llm、claude 等编码引擎
+- **多编码引擎** - `aider` / **Claude Code** (`claude_code`) / **Cursor Cookbook** (`cursor_cookbook`)，未就绪时回退 LiteLLM（详见 [`docs/CODING_ENGINES_CLAUDE_CURSOR.md`](docs/CODING_ENGINES_CLAUDE_CURSOR.md)）
 - **统一配置** - RuntimeConfig 统一管理所有配置项
 
 ## 快速开始
@@ -116,7 +116,18 @@ result = await engine.execute(prd)
 | `SPRINTCYCLE_MAX_SPRINTS` | 最大 Sprint 数 | 10 |
 | `SPRINTCYCLE_PARALLEL_TASKS` | 并行任务数 | 3 |
 | `SPRINTCYCLE_LOG_LEVEL` | 日志级别 | INFO |
-| `CODING_ENGINE` | 编码引擎 | cursor |
+| `SPRINTCYCLE_CODING_ENGINE` | Coder 编码引擎（覆盖 toml） | `aider` |
+| `SPRINTCYCLE_CLAUDE_BIN` | Claude Code 可执行文件 | `claude` |
+| `SPRINTCYCLE_CURSOR_USE_CLI` | Cursor Cookbook 是否再调 `agent` CLI | 未设置 |
+
+更多环境变量见 [`docs/CODING_ENGINES_CLAUDE_CURSOR.md`](docs/CODING_ENGINES_CLAUDE_CURSOR.md)。
+
+### Claude Code 与 Cursor Cookbook
+
+- **Claude Code**：本机安装官方 CLI 后，在 `sprintcycle.toml` 的 `[engine]` 中设置 `name = "claude_code"`（或 `SPRINTCYCLE_CODING_ENGINE=claude_code`）。SprintCycle 使用非交互 `claude -p` 调用。
+- **Cursor Cookbook**：`name = "cursor_cookbook"` 时会在项目下生成 `.sprintcycle/cursor-cookbook/*.md` 食谱文件，便于在 Cursor 中打开并粘贴到 Agent；可选 `SPRINTCYCLE_CURSOR_USE_CLI=1` 触发本机 `agent -p` 一轮。
+
+完整说明与中英对照见 **[`docs/CODING_ENGINES_CLAUDE_CURSOR.md`](docs/CODING_ENGINES_CLAUDE_CURSOR.md)**。
 
 ## 项目结构
 

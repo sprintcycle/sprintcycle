@@ -17,6 +17,15 @@ v0.9.2 架构：
 """
 
 from .runtime_config import RuntimeConfig
+from .quality import (
+    QUALITY_LEVELS,
+    normalize_quality_level,
+    runs_architecture_guard,
+    runs_coverage_gate,
+    runs_pytest,
+    runs_static_gate,
+)
+from .toml_loader import flatten_sprintcycle_toml, load_sprintcycle_toml
 from .llm_config import LLMConfig, CodingLLMConfig, CodingClaudeConfig, EvolutionLLMConfig
 from .sprintcycle_config import (
     CodingConfig,
@@ -29,6 +38,14 @@ from .manager import ConfigManager, get_config_manager, reset_config_manager
 
 __all__ = [
     "RuntimeConfig",
+    "QUALITY_LEVELS",
+    "normalize_quality_level",
+    "runs_architecture_guard",
+    "runs_coverage_gate",
+    "runs_pytest",
+    "runs_static_gate",
+    "flatten_sprintcycle_toml",
+    "load_sprintcycle_toml",
     "ConfigManager",
     "get_config_manager",
     "reset_config_manager",

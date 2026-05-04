@@ -100,8 +100,10 @@ class NormalStrategy(ExecutionStrategy):
         start_time = time.time()
         logger.info(f"📋 Normal 策略执行: {prd.project.name}")
         
-        # 直接执行所有 Sprint
-        sprint_results = await self.sprint_executor.execute_sprints(prd.sprints)
+        self.sprint_executor.set_prd(prd)
+        sprint_results = await self.sprint_executor.execute_sprints(
+            prd.sprints, mode="normal", prd=prd, sprint_index_offset=0
+        )
         
         # 判断整体成功
         success = all(r.status == ExecutionStatus.SUCCESS for r in sprint_results)
@@ -153,10 +155,13 @@ class EvolutionStrategy(ExecutionStrategy):
         
         # 调用 SprintExecutor 的 evolution 模式
         # EvolutionEngine 已在 SprintExecutor 内部，通过 _execute_evolution_sprints 调用
+        self.sprint_executor.set_prd(prd)
         sprint_results = await self.sprint_executor.execute_sprints(
             sprints=prd.sprints,
             mode="evolution",
             evolution_config=prd.evolution,
+            prd=prd,
+            sprint_index_offset=0,
         )
         
         success = all(r.status == ExecutionStatus.SUCCESS for r in sprint_results)

@@ -16,6 +16,7 @@ from datetime import datetime
 from ..prd.models import PRD, PRDSprint, PRDTask, ExecutionMode, PRDEvolutionParams
 from .state_store import StateStore, ExecutionState, get_state_store
 from .checkpoint import CheckpointMixin
+from .sprint_hooks import NoOpSprintLifecycleHooks, SprintLifecycleHooks
 
 logger = logging.getLogger(__name__)
 
@@ -30,17 +31,23 @@ class SprintExecutor(CheckpointMixin):
     """
     
     def __init__(
-        self, 
+        self,
         max_parallel: int = 3,
         feedback_loop: Optional[Any] = None,
         prd: Optional[PRD] = None,
         evolution_engine: Optional[Any] = None,
         error_handler: Optional[Any] = None,
         state_store: Optional[StateStore] = None,
+        max_verify_fix_rounds: int = 3,
+        runtime_config: Optional[Any] = None,
+        sprint_hooks: Optional[SprintLifecycleHooks] = None,
     ):
         self._agent_executors: Dict[str, Callable] = {}
         self._callbacks: Dict[str, Callable] = {}
         self._max_parallel = max_parallel
+        self._max_verify_fix_rounds = max(1, int(max_verify_fix_rounds))
+        self._runtime_config = runtime_config
+        self._sprint_hooks: SprintLifecycleHooks = sprint_hooks or NoOpSprintLifecycleHooks()
         self._event_bus = None
         self._feedback_loop = feedback_loop
         self._prd = prd
@@ -74,6 +81,10 @@ class SprintExecutor(CheckpointMixin):
     
     def set_error_handler(self, error_handler) -> None:
         self._error_handler = error_handler
+
+    def set_sprint_hooks(self, sprint_hooks: Optional[SprintLifecycleHooks]) -> None:
+        """注册 Sprint 生命周期钩子（None 表示使用无操作实现）。"""
+        self._sprint_hooks = sprint_hooks or NoOpSprintLifecycleHooks()
     
     def get_feedback_history(self) -> List[Any]:
         if self._feedback_loop:
@@ -81,14 +92,47 @@ class SprintExecutor(CheckpointMixin):
         return []
     
     
-    def _register_default_executors(self):
+    def _register_default_executors(self) -> None:
         self._agent_executors = {
             "coder": self._execute_coder_task,
+            "implement": self._execute_coder_task,
             "evolver": self._execute_evolver_task,
             "tester": self._execute_tester_task,
             "architect": self._execute_architect_task,
             "regression_tester": self._execute_regression_tester_task,
         }
+
+    def _dry_run(self) -> bool:
+        return bool(self._runtime_config and getattr(self._runtime_config, "dry_run", False))
+
+    def _build_agent_context(self, task: PRDTask, sprint_name: str, context: Dict[str, Any]):
+        from .agents.base import AgentContext
+
+        deps = dict(context.get("dependencies") or {})
+        cb: Dict[str, Any] = {
+            "project_path": str(context.get("project_path", ".")),
+        }
+        for key in ("architecture_design", "modules", "tech_stack", "issues", "code"):
+            if key in context:
+                cb[key] = context[key]
+        if context.get("task_guidance"):
+            cb["task_guidance"] = context["task_guidance"]
+        if context.get("prd_overlay_yaml"):
+            cb["prd_overlay"] = context["prd_overlay_yaml"]
+        return AgentContext(
+            prd_id=str(context.get("prd_id", "")),
+            prd_name=str(context.get("prd_name", "")),
+            project_goals=str(context.get("project_goals", "")),
+            sprint_name=str(context.get("sprint_name", sprint_name)),
+            sprint_index=int(context.get("sprint_index", 0)),
+            dependencies=deps,
+            codebase_context=cb,
+            metadata={
+                "coding_engine": context.get("coding_engine", "aider"),
+                "quality_level": context.get("quality_level", "L1"),
+                "constraints": task.constraints or [],
+            },
+        )
     
     def register_agent_executor(self, agent_type: str, executor: Callable):
         self._agent_executors[agent_type] = executor
@@ -163,10 +207,19 @@ class SprintExecutor(CheckpointMixin):
         start_time = time.time()
         result = SprintResult(sprint=sprint, status=ExecutionStatus.RUNNING)
         logger.info(f"开始执行 Sprint: {sprint.name}")
-        
+
+        ctx_acc: Dict[str, Any] = dict(context or {})
+        ctx_acc.setdefault("sprint_name", sprint.name)
+
         for task in sprint.tasks:
-            task_result = await self._execute_task(task, sprint.name, context or {})
+            task_result = await self._execute_task(task, sprint.name, ctx_acc)
             result.task_results.append(task_result)
+            if task_result.status == ExecutionStatus.SUCCESS:
+                deps = ctx_acc.setdefault("dependencies", {})
+                if task.agent in ("coder", "implement"):
+                    deps["code"] = task_result.output
+                if task.agent == "architect":
+                    ctx_acc["architecture_design"] = task_result.output
         
         if all(r.status == ExecutionStatus.SUCCESS for r in result.task_results):
             result.status = ExecutionStatus.SUCCESS
@@ -247,21 +300,36 @@ class SprintExecutor(CheckpointMixin):
         )
     
     async def execute_sprints(
-        self, sprints: List[PRDSprint], mode: str = "normal",
+        self,
+        sprints: List[PRDSprint],
+        mode: str = "normal",
         evolution_config: Optional[PRDEvolutionParams] = None,
         context: Optional[Dict[str, Any]] = None,
         execution_id: Optional[str] = None,
         resume: bool = False,
+        prd: Optional[PRD] = None,
+        sprint_index_offset: int = 0,
     ) -> List[SprintResult]:
         self._cancelled = False  # 重置取消标志
         if resume and execution_id:
-            return await self._resume_execution(execution_id, sprints, context)
+            return await self._resume_execution(
+                execution_id, sprints, context, prd=prd, sprint_index_offset=sprint_index_offset
+            )
         self._execution_id = execution_id or self._init_execution_state()
         if mode == "evolution" and self._evolution_engine:
             return await self._execute_evolution_sprints(sprints, evolution_config, context or {})
-        return await self._execute_normal_sprints(sprints, context or {})
-    
-    async def _resume_execution(self, execution_id: str, sprints: List[PRDSprint], context: Optional[Dict[str, Any]] = None) -> List[SprintResult]:
+        return await self._execute_normal_sprints(
+            sprints, context or {}, prd=prd, sprint_index_offset=sprint_index_offset
+        )
+
+    async def _resume_execution(
+        self,
+        execution_id: str,
+        sprints: List[PRDSprint],
+        context: Optional[Dict[str, Any]] = None,
+        prd: Optional[PRD] = None,
+        sprint_index_offset: int = 0,
+    ) -> List[SprintResult]:
         logger.info(f"从断点恢复执行: {execution_id}")
         state = self.load_execution_state(execution_id)
         if not state:
@@ -272,57 +340,90 @@ class SprintExecutor(CheckpointMixin):
         start_sprint_idx = resume_point.get("current_sprint", 0)
         self._execution_id = execution_id
         self.state_store.update_status(execution_id, ExecutionStatus.RUNNING)
-        results = []
+        results: List[SprintResult] = []
+        ctx = context or {}
         for i, sprint in enumerate(sprints):
             if i < start_sprint_idx:
                 continue
-            result = await self.execute_sprint(sprint, context, save_checkpoint=True)
+            ctx["sprint_index"] = sprint_index_offset + i
+            ctx["sprint_name"] = sprint.name
+            ctx["project_goals"] = " ".join(sprint.goals)
+            try:
+                await self._sprint_hooks.on_before_sprint(ctx["sprint_index"], sprint, ctx, prd)
+            except Exception as e:
+                logger.warning("on_before_sprint hook failed: %s", e)
+            result = await self.execute_sprint(sprint, ctx, save_checkpoint=True)
             results.append(result)
+            try:
+                await self._sprint_hooks.on_after_sprint(ctx["sprint_index"], sprint, result, ctx, prd)
+            except Exception as e:
+                logger.warning("on_after_sprint hook failed: %s", e)
             if result.status == ExecutionStatus.FAILED:
                 break
         return results
-    
-    async def _execute_normal_sprints(self, sprints: List[PRDSprint], context: Optional[Dict[str, Any]] = None) -> List[SprintResult]:
-        results = []
+
+    async def _execute_normal_sprints(
+        self,
+        sprints: List[PRDSprint],
+        context: Dict[str, Any],
+        prd: Optional[PRD] = None,
+        sprint_index_offset: int = 0,
+    ) -> List[SprintResult]:
+        results: List[SprintResult] = []
+        ctx = context
         for i, sprint in enumerate(sprints):
-            # 检查取消信号
             if self._cancelled:
                 logger.info(f"🛑 执行已取消，跳过剩余 Sprint (已完成 {i}/{len(sprints)})")
                 break
 
-            result = await self.execute_sprint(sprint, context, save_checkpoint=True)
+            global_idx = sprint_index_offset + i
+            ctx["sprint_index"] = global_idx
+            ctx["sprint_name"] = sprint.name
+            ctx["project_goals"] = " ".join(sprint.goals)
+
+            try:
+                await self._sprint_hooks.on_before_sprint(global_idx, sprint, ctx, prd)
+            except Exception as e:
+                logger.warning("on_before_sprint hook failed: %s", e)
+
+            result = await self.execute_sprint(sprint, ctx, save_checkpoint=True)
             results.append(result)
 
             if result.status == ExecutionStatus.FAILED:
                 logger.warning(f"Sprint 失败: {sprint.name}")
-                # 反馈闭环：分析失败原因，决定是否重试
                 if self._feedback_loop:
                     feedback = self._get_feedback_for_sprint(sprint, result)
                     if feedback:
                         decision = self._feedback_loop.decide(feedback)
                         if decision["action"] == "retry" and self._should_retry(sprint):
                             logger.info(f"Sprint {sprint.name} 根据反馈重试: {decision['reason']}")
-                            result = await self._retry_with_feedback(sprint, feedback, decision, context)
+                            result = await self._retry_with_feedback(sprint, feedback, decision, ctx)
                             results[-1] = result
                         elif decision["action"] == "abort":
                             logger.warning(f"Sprint {sprint.name} 反馈决策中止: {decision['reason']}")
+                            try:
+                                await self._sprint_hooks.on_after_sprint(global_idx, sprint, result, ctx, prd)
+                            except Exception as e:
+                                logger.warning("on_after_sprint hook failed: %s", e)
                             break
 
-            # 将反馈传递给下一个 Sprint
             if self._feedback_loop and i < len(sprints) - 1:
                 feedback = self._get_feedback_for_sprint(sprint, result)
                 if feedback:
-                    if context is None:
-                        context = {}
-                    context["previous_feedback"] = feedback.to_dict()
-                    context["improvement_suggestions"] = self._feedback_loop.analyze(feedback)
+                    ctx["previous_feedback"] = feedback.to_dict()
+                    ctx["improvement_suggestions"] = self._feedback_loop.analyze(feedback)
+
+            try:
+                await self._sprint_hooks.on_after_sprint(global_idx, sprint, result, ctx, prd)
+            except Exception as e:
+                logger.warning("on_after_sprint hook failed: %s", e)
 
         return results
 
     def _should_retry(self, sprint: PRDSprint) -> bool:
-        """判断是否应该重试 Sprint（最多1次）"""
-        retry_count = getattr(sprint, '_retry_count', 0)
-        return retry_count < 1
+        """Sprint 失败后反馈闭环重试次数上限（与 max_verify_fix_rounds 对齐，默认 3）"""
+        retry_count = getattr(sprint, "_retry_count", 0)
+        return retry_count < self._max_verify_fix_rounds
 
     async def _retry_with_feedback(self, sprint: PRDSprint, feedback: Any, decision: Dict[str, Any], context: Optional[Dict[str, Any]]) -> SprintResult:
         """根据反馈重试 Sprint"""
@@ -431,6 +532,14 @@ class SprintExecutor(CheckpointMixin):
         try:
             # 注入反馈闭环信息到 task context
             enriched_context = dict(context)
+            enriched_context.setdefault("sprint_name", sprint_name)
+            if self._runtime_config is not None:
+                enriched_context["coding_engine"] = getattr(
+                    self._runtime_config, "coding_engine", "aider"
+                )
+                enriched_context["quality_level"] = getattr(
+                    self._runtime_config, "quality_level", "L1"
+                )
             if "improvement_suggestions" in context:
                 suggestions = context["improvement_suggestions"]
                 if suggestions:
@@ -450,29 +559,57 @@ class SprintExecutor(CheckpointMixin):
             return TaskResult(task=task, sprint_name=sprint_name, status=ExecutionStatus.FAILED, error=str(e), duration=time.time() - start_time)
     
     async def _execute_coder_task(self, task: PRDTask, context: Dict[str, Any]) -> str:
-        await asyncio.sleep(0.1)
-        return f"完成: {task.task}"
-    
+        if self._dry_run():
+            return f"[dry_run] 完成: {task.task[:120]}"
+        from .agents.coder_base import CoderAgent
+
+        ctx = self._build_agent_context(task, context.get("sprint_name", ""), context)
+        agent = CoderAgent()
+        res = await agent.execute(task.task, ctx)
+        if not res.success:
+            raise RuntimeError(res.error or "CoderAgent 执行失败")
+        return res.output or ""
+
     async def _execute_evolver_task(self, task: PRDTask, context: Dict[str, Any]) -> str:
-        await asyncio.sleep(0.1)
-        return f"进化完成: {task.task}"
-    
+        if self._dry_run():
+            return f"[dry_run] 进化完成: {task.task[:80]}"
+        await asyncio.sleep(0.05)
+        return f"进化完成: {task.task[:80]}"
+
     async def _execute_tester_task(self, task: PRDTask, context: Dict[str, Any]) -> str:
-        await asyncio.sleep(0.1)
-        return f"测试完成: {task.task}"
+        if self._dry_run():
+            return f"[dry_run] 测试完成: {task.task[:80]}"
+        from .agents.tester import TesterAgent
+
+        ctx = self._build_agent_context(task, context.get("sprint_name", ""), context)
+        agent = TesterAgent()
+        res = await agent.execute(task.task, ctx)
+        if not res.success:
+            raise RuntimeError(res.error or "TesterAgent 执行失败")
+        return res.output or ""
 
     async def _execute_architect_task(self, task: PRDTask, context: Dict[str, Any]) -> str:
-        """架构设计任务执行器 - 产出 architecture_design 供后续 CoderAgent 使用"""
-        await asyncio.sleep(0.1)
-        arch_summary = f"架构设计完成: {task.task}"
-        # 将架构设计注入 context，供 CoderAgent 读取
-        context["architecture_design"] = arch_summary
-        return arch_summary
+        if self._dry_run():
+            summary = f"[dry_run] 架构设计: {task.task[:80]}"
+            context["architecture_design"] = summary
+            return summary
+        from .agents.architect import ArchitectureAgent
+
+        ctx = self._build_agent_context(task, context.get("sprint_name", ""), context)
+        agent = ArchitectureAgent()
+        res = await agent.execute(task.task, ctx)
+        if not res.success:
+            raise RuntimeError(res.error or "ArchitectureAgent 执行失败")
+        arch = ctx.codebase_context.get("architecture_design") or res.output or ""
+        if arch:
+            context["architecture_design"] = arch
+        return str(arch)
 
     async def _execute_regression_tester_task(self, task: PRDTask, context: Dict[str, Any]) -> str:
-        """回归测试任务执行器 - 比对修改前后测试结果，识别回归"""
-        await asyncio.sleep(0.1)
-        return f"回归测试完成: {task.task}"
+        if self._dry_run():
+            return f"[dry_run] 回归测试完成: {task.task[:80]}"
+        await asyncio.sleep(0.05)
+        return f"回归测试完成: {task.task[:80]}"
 
 
     def _analyze_dependencies(

@@ -9,7 +9,10 @@ import logging
 from typing import Optional, Dict, Any, Union
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import model_validator
+from pydantic import field_validator, model_validator
+
+from .quality import normalize_quality_level
+from .toml_loader import flatten_sprintcycle_toml, load_sprintcycle_toml
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +34,13 @@ _DEFAULT_CONFIG: Dict[str, Any] = {
     "coverage_command": "python -m pytest --cov --cov-report=json",
     "complexity_threshold": 10, "diagnostic_timeout": 300,
     "dry_run": False, "verbose": False, "quiet": False,
+    "quality_level": "L1",
+    "max_verify_fix_rounds": 3,
+    "coding_engine": "aider",
+    "min_coverage_percent": 80.0,
+    "project_path": ".",
+    "storage_backend": "json",
+    "knowledge_injection_enabled": True,
 }
 
 
@@ -118,6 +128,22 @@ class RuntimeConfig(BaseSettings):
     dry_run: bool = False
     verbose: bool = False
     quiet: bool = False
+    # 项目根（用于 Agent / 测量工作目录；SprintCycle API 会写入与 project_path 一致）
+    project_path: str = "."
+    # V4.0 P0: 质量档位 L0–L3、验证修复轮次、编码引擎（与 sprintcycle.toml 对齐）
+    quality_level: str = "L1"
+    max_verify_fix_rounds: int = 3
+    coding_engine: str = "aider"
+    min_coverage_percent: float = 80.0
+    # P1：存储后端 json | sqlite；知识库与 sqlite 执行记录默认共用 sqlite_path
+    storage_backend: str = "json"
+    sqlite_path: Optional[str] = None
+    knowledge_injection_enabled: bool = True
+
+    @field_validator("quality_level")
+    @classmethod
+    def _normalize_quality_level(cls, v: str) -> str:
+        return normalize_quality_level(v or "L1")
 
     @model_validator(mode="before")
     @classmethod
@@ -172,6 +198,23 @@ class RuntimeConfig(BaseSettings):
     def from_env(cls) -> "RuntimeConfig":
         """从环境变量加载配置（pydantic-settings 自动处理）"""
         return cls()
+
+    @classmethod
+    def from_project(cls, project_path: str = ".") -> "RuntimeConfig":
+        """
+        从环境变量 + ``<project_path>/sprintcycle.toml`` 加载配置。
+        同一字段在两者均存在时，**环境变量优先**（后者 merge 覆盖前者）。
+        """
+        env_based = cls()
+        nested = load_sprintcycle_toml(project_path)
+        if not nested:
+            return env_based
+        flat = flatten_sprintcycle_toml(nested)
+        allowed = set(cls.model_fields.keys())
+        filtered = {k: v for k, v in flat.items() if k in allowed}
+        if not filtered:
+            return env_based
+        return cls.merge(filtered, env_based)
 
     @classmethod
     def merge(cls, *configs: Union["RuntimeConfig", Dict[str, Any], None]) -> "RuntimeConfig":

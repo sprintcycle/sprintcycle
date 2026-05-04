@@ -128,10 +128,10 @@ class TestEvolutionRunConfig:
 class TestCodingConfig:
     """CodingConfig 测试"""
 
-    def test_cursor_engine_default(self):
-        """测试 Cursor 引擎默认配置"""
+    def test_aider_engine_default(self):
+        """测试 Aider 引擎默认配置（V4.0 P0）"""
         config = CodingConfig()
-        assert config.engine == "cursor"
+        assert config.engine == "aider"
 
     def test_llm_engine_requires_config(self):
         """测试 LLM 引擎需要配置"""

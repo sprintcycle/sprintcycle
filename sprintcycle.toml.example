@@ -1,0 +1,31 @@
+# SprintCycle 项目配置示例（复制为 sprintcycle.toml 后按需修改）
+# 环境变量 SPRINTCYCLE_* 可覆盖同名字段
+
+[project]
+path = "."
+parallel_tasks = 3
+max_sprints = 10
+
+[quality]
+level = "L1"
+min_coverage_percent = 80.0
+
+[execution]
+max_verify_fix_rounds = 3
+
+[engine]
+# 编码引擎: aider | claude_code | cursor_cookbook | 其他字符串回退 LiteLLM
+# Claude Code: 本机需 ``claude`` CLI，见 docs/CODING_ENGINES_CLAUDE_CURSOR.md
+# Cursor Cookbook: 写 .sprintcycle/cursor-cookbook/*.md；可选 SPRINTCYCLE_CURSOR_USE_CLI=1 调 agent
+name = "aider"
+
+[llm]
+provider = "deepseek"
+model = "deepseek-reasoner"
+
+[storage]
+# 执行状态：json（默认，每执行一个 JSON 文件）或 sqlite
+# backend = "sqlite"
+state_dir = ".sprintcycle/state"
+# sqlite 时 executions + knowledge_cards 共用此文件（相对路径相对项目根）
+# sqlite_path = ".sprintcycle/data/sprintcycle.db"

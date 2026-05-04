@@ -5,6 +5,7 @@
 import pytest
 import asyncio
 
+from sprintcycle.config import RuntimeConfig
 from sprintcycle.scheduler.dispatcher import (
     TaskDispatcher, TaskResult, SprintResult,
     ExecutionStatus
@@ -18,8 +19,8 @@ class TestTaskDispatcher:
     """任务调度器测试"""
     
     def setup_method(self):
-        """测试前准备"""
-        self.dispatcher = TaskDispatcher()
+        """测试前准备（dry_run 避免真实 LLM / Aider 调用）"""
+        self.dispatcher = TaskDispatcher(config=RuntimeConfig(dry_run=True, quality_level="L1"))
     
     def test_dispatcher_initialization(self):
         """测试调度器初始化"""

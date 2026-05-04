@@ -6,6 +6,7 @@
 
 import asyncio
 import logging
+import os
 import time
 from typing import List, Dict, Any, Optional, Callable
 from datetime import datetime
@@ -18,15 +19,84 @@ from ..config import RuntimeConfig
 from ..evolution.types import SprintContext
 from ..execution.events import EventBus, EventType, Event, get_event_bus, create_event
 from ..execution.sprint_types import ExecutionStatus, TaskResult, SprintResult
+from ..execution.sprint_executor import SprintExecutor
+from ..execution.feedback import FeedbackLoop
+from ..execution.knowledge_hook import KnowledgeInjectionHook
+from ..execution.sprint_hooks import ChainedSprintHooks, SprintLifecycleHooks
 
 logger = logging.getLogger(__name__)
+
+
+class _DispatcherSprintHooks(SprintLifecycleHooks):
+    """将 Sprint 边界事件、回调与测量挂到 SprintExecutor 钩子链上。"""
+
+    def __init__(self, dispatcher: "TaskDispatcher", prd: PRD):
+        self._dispatcher = dispatcher
+        self._prd = prd
+
+    async def on_before_sprint(
+        self,
+        sprint_index: int,
+        sprint: PRDSprint,
+        context: Dict[str, Any],
+        prd: Optional[PRD],
+    ) -> None:
+        self._dispatcher._callbacks["on_sprint_start"](sprint)
+        await self._dispatcher._emit(
+            create_event(
+                EventType.SPRINT_START,
+                sprint_number=sprint_index + 1,
+                sprint_name=sprint.name,
+                message=f"开始 Sprint: {sprint.name}",
+            )
+        )
+
+    async def on_after_sprint(
+        self,
+        sprint_index: int,
+        sprint: PRDSprint,
+        result: SprintResult,
+        context: Dict[str, Any],
+        prd: Optional[PRD],
+    ) -> None:
+        p = prd if prd is not None else self._prd
+        self._dispatcher._callbacks["on_sprint_end"](result)
+        if result.status == ExecutionStatus.FAILED:
+            await self._dispatcher._emit(
+                create_event(
+                    EventType.SPRINT_FAILED,
+                    sprint_number=sprint_index + 1,
+                    sprint_name=sprint.name,
+                    status="failed",
+                    duration=result.duration,
+                )
+            )
+        else:
+            await self._dispatcher._emit(
+                create_event(
+                    EventType.SPRINT_COMPLETE,
+                    sprint_number=sprint_index + 1,
+                    sprint_name=sprint.name,
+                    status="success",
+                    duration=result.duration,
+                )
+            )
+        if p is not None:
+            await self._dispatcher._post_sprint_measurement(p)
 
 
 class TaskDispatcher:
     """任务调度器 - 解析 PRD、分配任务、跟踪状态"""
     
-    def __init__(self, config: Optional[RuntimeConfig] = None, evolution_pipeline: Optional[EvolutionPipeline] = None, event_bus: Optional[EventBus] = None):
+    def __init__(
+        self,
+        config: Optional[RuntimeConfig] = None,
+        evolution_pipeline: Optional[EvolutionPipeline] = None,
+        event_bus: Optional[EventBus] = None,
+        project_path: Optional[str] = None,
+    ):
         self.config = config or RuntimeConfig()
+        self._project_root = os.path.abspath(project_path or ".")
         self.evolution_pipeline = evolution_pipeline
         self.event_bus = event_bus
         self._callbacks: Dict[str, Callable] = {
@@ -46,6 +116,66 @@ class TaskDispatcher:
             await self._get_event_bus().emit(event)
         except Exception as e:
             logger.warning(f"Failed to emit event: {e}")
+
+    def _make_sprint_executor(self, max_concurrent: int) -> SprintExecutor:
+        feedback_loop: Optional[FeedbackLoop] = None
+        if not getattr(self.config, "dry_run", False):
+            feedback_loop = FeedbackLoop()
+        ex = SprintExecutor(
+            max_parallel=max_concurrent,
+            max_verify_fix_rounds=int(self.config.max_verify_fix_rounds),
+            runtime_config=self.config,
+            feedback_loop=feedback_loop,
+        )
+        ex.set_event_bus(self._get_event_bus())
+        return ex
+
+    def _build_sprint_hooks(self, prd: PRD) -> SprintLifecycleHooks:
+        return ChainedSprintHooks(
+            (
+                KnowledgeInjectionHook(self._project_root, self.config),
+                _DispatcherSprintHooks(self, prd),
+            )
+        )
+
+    def _base_runner_context(self, prd: PRD) -> Dict[str, Any]:
+        """每 Sprint 的索引/目标由 SprintExecutor 在编排循环内写入 context。"""
+        raw = (prd.project.path or self._project_root or ".").strip()
+        try:
+            proj = str(Path(raw).resolve())
+        except Exception:
+            proj = raw or "."
+        meta = getattr(prd, "metadata", None) or {}
+        return {
+            "project_path": proj,
+            "prd_name": prd.project.name,
+            "prd_id": str(meta.get("id", "")),
+            "coding_engine": self.config.coding_engine,
+            "quality_level": self.config.quality_level,
+        }
+
+    async def _post_sprint_measurement(self, prd: PRD) -> None:
+        """每个 Sprint 结束后按 quality_level 运行测量（与 RuntimeConfig 一致）。"""
+        from ..config.quality import runs_pytest
+        from ..evolution.measurement import MeasurementProvider
+
+        if not runs_pytest(self.config.quality_level):
+            return
+        raw_root = prd.project.path or self._project_root
+        try:
+            repo = str(Path(raw_root).resolve())
+        except Exception:
+            repo = raw_root or "."
+        prov = MeasurementProvider(repo_path=repo, runtime_config=self.config)
+        m = prov.measure_all()
+        if not prov.check_quality_gate(m):
+            logger.warning(
+                "Sprint 后质量测量未通过: level=%s overall=%.2f correctness=%.2f details=%s",
+                self.config.quality_level,
+                m.overall,
+                m.correctness,
+                m.details,
+            )
     
     async def execute_prd(self, prd: PRD, max_concurrent: int = 3) -> List[SprintResult]:
         await self._emit(create_event(EventType.EXECUTION_START, execution_id=getattr(prd, 'execution_id', None), message=f"开始执行 PRD: {prd.project.name}", sprint_name=prd.project.name, sprint_number=0))
@@ -62,25 +192,37 @@ class TaskDispatcher:
         await self._emit(create_event(EventType.EXECUTION_START, execution_id=getattr(prd, 'execution_id', None), message=f"断点续跑: 从 Sprint {resume_from_idx} 继续", sprint_name=prd.project.name, sprint_number=resume_from_idx))
         logger.info(f"🔄 断点续跑: 从 Sprint {resume_from_idx} 继续 | PRD: {prd.project.name} | 已有: {len(previous_results)} | 待执行: {len(prd.sprints) - resume_from_idx}")
         results = list(previous_results)
-        for i, sprint in enumerate(prd.sprints[resume_from_idx:], start=resume_from_idx):
-            sprint_result = await self._execute_sprint(sprint, prd, max_concurrent)
-            results.append(sprint_result)
+        ex = self._make_sprint_executor(max_concurrent)
+        ex.set_prd(prd)
+        ex.set_sprint_hooks(self._build_sprint_hooks(prd))
+        ctx = self._base_runner_context(prd)
+        tail = await ex.execute_sprints(
+            prd.sprints[resume_from_idx:],
+            mode="normal",
+            context=ctx,
+            prd=prd,
+            sprint_index_offset=resume_from_idx,
+        )
+        results.extend(tail)
+        for sprint_result in tail:
             if sprint_result.status == ExecutionStatus.FAILED and sprint_result.failed_count > sprint_result.success_count:
-                logger.warning(f"⚠️  Sprint '{sprint.name}' 失败率较高")
+                logger.warning(f"⚠️  Sprint '{sprint_result.sprint.name}' 失败率较高")
         success = all(r.status in (ExecutionStatus.SUCCESS, ExecutionStatus.SKIPPED) for r in results)
         await self._emit(create_event(EventType.EXECUTION_COMPLETE if success else EventType.EXECUTION_FAILED, execution_id=getattr(prd, 'execution_id', None), message="断点续跑完成", sprint_name=prd.project.name, sprint_number=len(results), status="success" if success else "failed"))
         return results
     
     async def _execute_normal_mode(self, prd: PRD, max_concurrent: int) -> List[SprintResult]:
-        results: List[SprintResult] = []
-        for sprint_idx, sprint in enumerate(prd.sprints):
-            sprint_result = await self._execute_sprint(sprint, prd, max_concurrent, sprint_idx + 1)
-            results.append(sprint_result)
-            if sprint_result.status == ExecutionStatus.FAILED:
-                await self._emit(create_event(EventType.SPRINT_FAILED, sprint_number=sprint_idx + 1, sprint_name=sprint.name, status="failed", duration=sprint_result.duration))
-            else:
-                await self._emit(create_event(EventType.SPRINT_COMPLETE, sprint_number=sprint_idx + 1, sprint_name=sprint.name, status="success", duration=sprint_result.duration))
-        return results
+        ex = self._make_sprint_executor(max_concurrent)
+        ex.set_prd(prd)
+        ex.set_sprint_hooks(self._build_sprint_hooks(prd))
+        ctx = self._base_runner_context(prd)
+        return await ex.execute_sprints(
+            prd.sprints,
+            mode="normal",
+            context=ctx,
+            prd=prd,
+            sprint_index_offset=0,
+        )
     
     @staticmethod
     def _infer_evolution_strategy(goals: List[str]) -> str:

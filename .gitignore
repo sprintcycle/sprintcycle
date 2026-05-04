@@ -82,6 +82,8 @@ pnpm-lock.yaml
 
 # SprintCycle
 .sprintcycle/
+# Knowledge-injection overlay (auto-generated; do not commit)
+prd_overlay.yaml
 
 # Local / CI artifacts (do not commit)
 coverage.json
@@ -90,7 +92,7 @@ evolution_log.json
 knowledge_base.json
 reports/
 
-# Development docs (not for submission)
+# 开发用脚本/说明：不提交，仅本地保留（勿 git add -f）
 docs-dev/
 
 # PRD output

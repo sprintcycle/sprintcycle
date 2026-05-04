@@ -19,7 +19,7 @@
 - **Execution State Persistence** - StateStore + Checkpoint state storage
 - **Differentiated Evolution Strategies** - Auto-select evolution path based on problem type
 - **Intelligent Error Routing** - Three-level routing: LEVEL_1_STATIC → LEVEL_2_PATTERN → LEVEL_3_LLM
-- **Multi-Engine Coding** - Supports cursor, llm, claude and other coding engines
+- **Multi-Engine Coding** - `aider`, **Claude Code** (`claude_code`), **Cursor Cookbook** (`cursor_cookbook`), with LiteLLM fallback ([`docs/CODING_ENGINES_CLAUDE_CURSOR.md`](docs/CODING_ENGINES_CLAUDE_CURSOR.md))
 - **Unified Configuration** - RuntimeConfig manages all configuration items
 
 ## Quick Start
@@ -116,7 +116,18 @@ result = await engine.execute(prd)
 | `SPRINTCYCLE_MAX_SPRINTS` | Max sprints | 10 |
 | `SPRINTCYCLE_PARALLEL_TASKS` | Parallel tasks | 3 |
 | `SPRINTCYCLE_LOG_LEVEL` | Log level | INFO |
-| `CODING_ENGINE` | Coding engine | cursor |
+| `SPRINTCYCLE_CODING_ENGINE` | Coder engine (overrides toml) | `aider` |
+| `SPRINTCYCLE_CLAUDE_BIN` | Claude Code executable | `claude` |
+| `SPRINTCYCLE_CURSOR_USE_CLI` | Also run Cursor `agent` CLI for cookbook | unset |
+
+See [`docs/CODING_ENGINES_CLAUDE_CURSOR.md`](docs/CODING_ENGINES_CLAUDE_CURSOR.md) for the full list.
+
+### Claude Code & Cursor Cookbook
+
+- **Claude Code**: set `[engine] name = "claude_code"` (or `SPRINTCYCLE_CODING_ENGINE=claude_code`) after installing the official `claude` CLI. SprintCycle invokes non-interactive `claude -p`.
+- **Cursor Cookbook**: with `name = "cursor_cookbook"`, writes markdown recipes under `.sprintcycle/cursor-cookbook/` for use in Cursor Agent / Chat; set `SPRINTCYCLE_CURSOR_USE_CLI=1` to optionally run `agent -p` once per task.
+
+Full bilingual notes: **[`docs/CODING_ENGINES_CLAUDE_CURSOR.md`](docs/CODING_ENGINES_CLAUDE_CURSOR.md)**.
 
 ## Project Structure
 
