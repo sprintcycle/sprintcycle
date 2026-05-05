@@ -12,8 +12,8 @@ v0.9.1: 从 Pydantic 迁移到 dataclass，消除 type 警告
 """
 
 from dataclasses import dataclass, field
-from typing import List, Optional, Dict, Any
 from enum import Enum
+from typing import Dict, List, Optional
 
 from sprintcycle.exceptions import Severity
 
@@ -64,20 +64,20 @@ class BugReport:
     error_type: str = ""
     error_message: str = ""
     category: ErrorCategory = ErrorCategory.UNKNOWN
-    
+
     # 位置信息 - 支持 None
     location: Optional[Location] = None
-    
+
     # 分析结果
     severity: Severity = Severity.MEDIUM
     root_cause: str = ""
     suggestions: List[str] = field(default_factory=list)
-    
+
     # 上下文
     stack_trace: Optional[str] = None
     code_snippet: Optional[str] = None
     related_files: List[str] = field(default_factory=list)
-    
+
     # 元数据
     confidence: float = 1.0
     llm_used: bool = False
@@ -101,11 +101,11 @@ class FixSuggestion:
     new_code: str = ""
     explanation: str = ""
     confidence: float = 0.8
-    
+
     # 修复位置
     line_start: Optional[int] = None
     line_end: Optional[int] = None
-    
+
     # 额外信息
     is_automated: bool = False
     warnings: List[str] = field(default_factory=list)
@@ -126,14 +126,14 @@ class FixResult:
     """修复结果"""
     success: bool = False
     file_path: str = ""
-    
+
     # 变更信息
     diff: Optional[str] = None
     lines_changed: int = 0
-    
+
     # 错误信息（如有）
     error: Optional[str] = None
-    
+
     # 验证信息
     verified: bool = False
     backup_path: Optional[str] = None
@@ -152,11 +152,11 @@ class AnalysisRequest:
     error_log: str = ""
     code_context: Optional[Dict[str, str]] = None
     file_paths: List[str] = field(default_factory=list)
-    
+
     # 分析选项
     use_llm: bool = True
     max_depth: Optional[int] = 3
-    
+
     # 语言
     language: Optional[str] = "python"
 
@@ -166,13 +166,13 @@ class AnalysisResult:
     """完整分析结果"""
     # 原始请求
     request: AnalysisRequest = field(default_factory=AnalysisRequest)
-    
+
     # 分析报告
     report: BugReport = field(default_factory=BugReport)
-    
+
     # 修复建议（可能为空）
     suggestions: List[FixSuggestion] = field(default_factory=list)
-    
+
     # 执行信息
     execution_time: float = 0.0
     patterns_matched: List[str] = field(default_factory=list)

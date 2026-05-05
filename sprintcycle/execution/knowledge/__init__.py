@@ -2,10 +2,10 @@
 
 from .knowledge_hook import KnowledgeInjectionHook, resolve_knowledge_db_path
 from .knowledge_injector import (
-    KnowledgeInjector,
-    KnowledgeInjectionResult,
-    knowledge_injection_is_material,
     RELEASE_PLAN_OVERLAY_FILENAME,
+    KnowledgeInjectionResult,
+    KnowledgeInjector,
+    knowledge_injection_is_material,
 )
 from .sprint_knowledge_card import persist_sprint_outcome_card
 

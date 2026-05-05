@@ -3,14 +3,13 @@ Coder Agent Base - 核心执行逻辑
 """
 
 import hashlib
-import logging
 import os
 from typing import Any, Dict, Optional
 
-from .base import AgentExecutor, AgentContext, AgentResult, AgentType
-from .coder_types import BatchConfig
+from loguru import logger
 
-logger = logging.getLogger(__name__)
+from .base import AgentContext, AgentExecutor, AgentResult, AgentType
+from .coder_types import BatchConfig
 
 
 class CoderAgent(AgentExecutor):
@@ -29,7 +28,7 @@ class CoderAgent(AgentExecutor):
     async def _do_execute(self, task: str, context: AgentContext) -> AgentResult:
         requirements = self._parse_requirements(task, context)
         result = await self._generate_code(requirements, context)
-        
+
         if result["success"]:
             return AgentResult(
                 success=True,
@@ -88,7 +87,7 @@ class CoderAgent(AgentExecutor):
         return str(context.codebase_context.get("project_path") or ".")
 
     async def _generate_code(self, requirements: Dict[str, Any], context: AgentContext) -> Dict[str, Any]:
-        from ..llm_provider import resolve_provider, call_llm_async
+        from ..llm_provider import call_llm_async, resolve_provider
 
         task = requirements.get("task", "")
         engine = self._resolve_coding_engine(context)
@@ -117,7 +116,7 @@ class CoderAgent(AgentExecutor):
                         "quality": quality,
                         "feedback": "Generated via Aider CLI",
                     }
-                logger.warning("Aider 退出码 %s，回退 LiteLLM: %s", rc, err[:500] if err else "")
+                logger.warning("Aider 退出码 {}，回退 LiteLLM: {}", rc, err[:500] if err else "")
             else:
                 logger.warning("未检测到 aider 命令，回退 LiteLLM 直调")
 
@@ -137,7 +136,7 @@ class CoderAgent(AgentExecutor):
                         "quality": quality,
                         "feedback": "Generated via Claude Code CLI (-p)",
                     }
-                logger.warning("Claude Code 退出码 %s，回退 LiteLLM: %s", rc, err[:500] if err else "")
+                logger.warning("Claude Code 退出码 {}，回退 LiteLLM: {}", rc, err[:500] if err else "")
             else:
                 logger.warning("未检测到 claude 命令（Claude Code），回退 LiteLLM 直调")
 
@@ -169,13 +168,13 @@ class CoderAgent(AgentExecutor):
                     "quality": quality,
                     "feedback": "Cursor Cookbook file (+ optional agent CLI)",
                 }
-            logger.warning("Cursor Cookbook / Agent 退出码 %s，回退 LiteLLM: %s", rc, err[:500] if err else "")
+            logger.warning("Cursor Cookbook / Agent 退出码 {}，回退 LiteLLM: {}", rc, err[:500] if err else "")
 
         config = resolve_provider()
-        
+
         prompt = self._build_generation_prompt(requirements, context)
         messages = [{"role": "user", "content": prompt}]
-        
+
         try:
             code = await call_llm_async(
                 model=config.model,
@@ -218,6 +217,5 @@ class CoderAgent(AgentExecutor):
         self._cache_enabled = False
 
     def _get_task_hash(self, task: str, context: AgentContext) -> str:
-        import hashlib
-        key = f"{task}:{context.prd_id}:{context.sprint_index}"
+        key = f"{task}:{context.release_plan_id}:{context.sprint_index}"
         return hashlib.md5(key.encode()).hexdigest()

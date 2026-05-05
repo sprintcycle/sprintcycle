@@ -2,13 +2,12 @@
 Evolver Agent 执行器 - 负责代码进化优化
 """
 
-import logging
 from enum import Enum
 from typing import Any, Dict, List
 
-from .base import AgentContext, AgentExecutor, AgentResult, AgentType
+from loguru import logger
 
-logger = logging.getLogger(__name__)
+from .base import AgentContext, AgentExecutor, AgentResult, AgentType
 
 
 class EvolutionPath(Enum):

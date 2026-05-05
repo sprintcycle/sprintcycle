@@ -3,8 +3,8 @@ Rollback Types - 回滚相关的数据类型和配置
 """
 
 from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional
 from datetime import datetime
+from typing import Any, Dict
 
 
 @dataclass
@@ -19,14 +19,14 @@ class BackupRecord:
     description: str = ""
     operation: str = "modify"
     metadata: Dict[str, Any] = field(default_factory=dict)
-    
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "backup_id": self.backup_id, "file_path": self.file_path, "backup_path": self.backup_path,
             "timestamp": self.timestamp.isoformat(), "file_hash": self.file_hash, "file_size": self.file_size,
             "description": self.description, "operation": self.operation, "metadata": self.metadata,
         }
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "BackupRecord":
         data = data.copy()

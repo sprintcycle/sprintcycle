@@ -3,7 +3,7 @@ Coder Agent Types - 数据类型定义
 """
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Dict, Any, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 if TYPE_CHECKING:
     from .base import AgentContext

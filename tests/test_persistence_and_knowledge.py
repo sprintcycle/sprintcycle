@@ -34,7 +34,7 @@ def test_sqlite_execution_store_roundtrip(tmp_path: Path) -> None:
     store = get_state_store()
     st = ExecutionState(
         execution_id="e1",
-        prd_name="p",
+        release_plan_name="p",
         mode="normal",
         status=ExecutionStatus.RUNNING,
         current_sprint=0,
@@ -60,7 +60,7 @@ def test_import_json_executions(tmp_path: Path) -> None:
     jdir.mkdir()
     st = ExecutionState(
         execution_id="imp-1",
-        prd_name="x",
+        release_plan_name="x",
         mode="normal",
         status=ExecutionStatus.PAUSED,
         current_sprint=1,

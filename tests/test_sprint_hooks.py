@@ -15,12 +15,21 @@ class CountingHooks(SprintLifecycleHooks):
         self.after: List[int] = []
 
     async def on_before_sprint(
-        self, sprint_index: int, sprint: PRDSprint, context: Dict[str, Any], prd: Optional[PRD]
+        self,
+        sprint_index: int,
+        sprint: PRDSprint,
+        context: Dict[str, Any],
+        release_plan: Optional[PRD],
     ) -> None:
         self.before.append(sprint_index)
 
     async def on_after_sprint(
-        self, sprint_index: int, sprint: PRDSprint, result, context: Dict[str, Any], prd: Optional[PRD]
+        self,
+        sprint_index: int,
+        sprint: PRDSprint,
+        result,
+        context: Dict[str, Any],
+        release_plan: Optional[PRD],
     ) -> None:
         self.after.append(sprint_index)
 
@@ -40,16 +49,18 @@ def test_execute_sprints_invokes_hooks_once_per_sprint():
             PRDSprint(name="S2", tasks=[PRDTask(description="t2", agent="coder")]),
         ],
     )
-    ex.set_prd(prd)
+    ex.set_release_plan(prd)
     ctx: Dict[str, Any] = {
         "project_path": ".",
-        "prd_name": "p",
+        "release_plan_name": "p",
         "coding_engine": "aider",
         "quality_level": "L1",
     }
 
     async def _run() -> None:
-        results = await ex.execute_sprints(prd.sprints, mode="normal", context=ctx, prd=prd)
+        results = await ex.execute_sprints(
+            prd.sprints, mode="normal", context=ctx, release_plan=prd
+        )
         assert len(results) == 2
 
     asyncio.run(_run())
@@ -61,17 +72,17 @@ def test_chained_sprint_hooks_invokes_in_order():
     order: list[str] = []
 
     class H1(SprintLifecycleHooks):
-        async def on_before_sprint(self, sprint_index, sprint, context, prd):
+        async def on_before_sprint(self, sprint_index, sprint, context, release_plan):
             order.append("1b")
 
-        async def on_after_sprint(self, sprint_index, sprint, result, context, prd):
+        async def on_after_sprint(self, sprint_index, sprint, result, context, release_plan):
             order.append("1a")
 
     class H2(SprintLifecycleHooks):
-        async def on_before_sprint(self, sprint_index, sprint, context, prd):
+        async def on_before_sprint(self, sprint_index, sprint, context, release_plan):
             order.append("2b")
 
-        async def on_after_sprint(self, sprint_index, sprint, result, context, prd):
+        async def on_after_sprint(self, sprint_index, sprint, result, context, release_plan):
             order.append("2a")
 
     chain = ChainedSprintHooks((H1(), H2()))
@@ -118,5 +129,5 @@ def test_orchestrator_uses_execute_sprints_not_per_sprint_loop():
 
     fake.assert_awaited_once()
     kwargs = fake.await_args.kwargs
-    assert kwargs.get("prd") is prd
+    assert kwargs.get("release_plan") is prd
     assert kwargs.get("sprint_index_offset") == 0

@@ -21,10 +21,11 @@ SprintCycle MCP Server
 
 from __future__ import annotations
 
-import json
 import asyncio
-import logging
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+import json
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
+from loguru import logger
 
 # MCP SDK imports - graceful fallback if not installed
 MCP_AVAILABLE = False
@@ -36,13 +37,13 @@ SseServerTransport: Any = None
 
 if TYPE_CHECKING:
     from mcp.server import Server
-    from mcp.types import Tool, TextContent
+    from mcp.types import TextContent, Tool
 
 try:
     from mcp.server import Server
-    from mcp.server.stdio import stdio_server
     from mcp.server.sse import SseServerTransport
-    from mcp.types import Tool, TextContent
+    from mcp.server.stdio import stdio_server
+    from mcp.types import TextContent, Tool
 
     MCP_AVAILABLE = True
     SSE_AVAILABLE = True
@@ -55,9 +56,9 @@ except ImportError:
 try:
     import uvicorn
     from starlette.applications import Starlette
-    from starlette.routing import Route, Mount
     from starlette.middleware import Middleware
     from starlette.middleware.cors import CORSMiddleware
+    from starlette.routing import Mount, Route
     HTTP_AVAILABLE = True
 except ImportError:
     uvicorn = None  # type: ignore[assignment]
@@ -69,9 +70,6 @@ except ImportError:
     HTTP_AVAILABLE = False
 
 from sprintcycle.api import SprintCycle
-
-logger = logging.getLogger(__name__)
-
 
 
 def _text_response(text: str) -> List[Any]:
@@ -108,14 +106,18 @@ class SprintCycleMCPServer:
             return [
                 Tool(
                     name="sprintcycle_plan",
-                    description="根据用户意图生成 Sprint 执行计划（不执行）。返回 prd_yaml（多 Sprint 执行计划 YAML），确认后可传给 sprintcycle_run。",
+                    description="根据用户意图生成 Sprint 执行计划（不执行）。返回 release_plan_yaml（多 Sprint 执行计划 YAML），确认后可传给 sprintcycle_run。",
                     inputSchema={
                         "type": "object",
                         "properties": {
                             "intent": {"type": "string", "description": "用户意图描述"},
                             "mode": {"type": "string", "enum": ["auto", "evolution", "normal", "fix", "test"], "description": "执行模式"},
                             "target": {"type": "string", "description": "目标文件/模块"},
-                            "prd_path": {"type": "string", "description": "已有执行计划 YAML 文件路径"},
+                            "release_plan_path": {"type": "string", "description": "已有执行计划 YAML 文件路径"},
+                            "product": {
+                                "type": "string",
+                                "description": "非自进化时英文产品 slug；等价于意图中 product: Name",
+                            },
                         },
                         "required": ["intent"],
                     },
@@ -127,10 +129,14 @@ class SprintCycleMCPServer:
                         "type": "object",
                         "properties": {
                             "intent": {"type": "string", "description": "用户意图描述"},
-                            "prd_yaml": {"type": "string", "description": "执行计划 YAML（来自 plan 的 prd_yaml）"},
-                            "prd_path": {"type": "string", "description": "执行计划 YAML 文件路径"},
+                            "release_plan_yaml": {"type": "string", "description": "执行计划 YAML（来自 plan 的 release_plan_yaml）"},
+                            "release_plan_path": {"type": "string", "description": "执行计划 YAML 文件路径"},
                             "mode": {"type": "string", "enum": ["auto", "evolution", "normal", "fix", "test"], "description": "执行模式"},
                             "target": {"type": "string", "description": "目标文件/模块"},
+                            "product": {
+                                "type": "string",
+                                "description": "非自进化进化模式下的英文产品 slug",
+                            },
                             "execution_id": {"type": "string", "description": "断点续跑的执渡 ID"},
                             "resume": {"type": "boolean", "description": "是否断点续跑", "default": False},
                             "confirm_knowledge": {
@@ -209,7 +215,8 @@ class SprintCycleMCPServer:
             intent=args["intent"],
             mode=args.get("mode", "auto"),
             target=args.get("target"),
-            prd_path=args.get("prd_path"),
+            release_plan_path=args.get("release_plan_path") or args.get("prd_path"),
+            product=args.get("product"),
         )
         return _text_response(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
 
@@ -218,8 +225,9 @@ class SprintCycleMCPServer:
             intent=args.get("intent"),
             mode=args.get("mode", "auto"),
             target=args.get("target"),
-            prd_yaml=args.get("prd_yaml"),
-            prd_path=args.get("prd_path"),
+            release_plan_yaml=args.get("release_plan_yaml") or args.get("prd_yaml"),
+            release_plan_path=args.get("release_plan_path") or args.get("prd_path"),
+            product=args.get("product"),
             execution_id=args.get("execution_id"),
             resume=args.get("resume", False),
             confirm_knowledge=bool(args.get("confirm_knowledge", False)),
@@ -346,10 +354,9 @@ def main() -> None:
     """MCP Server 入口点"""
     import sys
 
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    )
+    from sprintcycle.logging_setup import configure_sprintcycle_logging
+
+    configure_sprintcycle_logging(stderr_level="INFO")
 
     project_path = sys.argv[1] if len(sys.argv) > 1 else "."
     transport = sys.argv[2] if len(sys.argv) > 2 else "stdio"

@@ -10,25 +10,20 @@ EvolutionRollbackManager - 进化回滚管理
 核心逻辑已移至 sprintcycle.execution.rollback，此文件为 thin wrapper。
 """
 
-import asyncio
-import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from loguru import logger
+
 # Re-export all shared types from execution/rollback for backward compatibility
 from sprintcycle.execution.rollback import (
-    BackupRecord,
-    RollbackConfig,
     GitRollbackMixin,
-    get_rollback_manager,
+    RollbackConfig,
     RollbackError,
-    RollbackResult,
     VariantBranch,
     _is_git_repo,
     _run_git,
 )
-
-logger = logging.getLogger(__name__)
 
 
 class EvolutionRollbackManager(GitRollbackMixin):
@@ -68,7 +63,7 @@ class EvolutionRollbackManager(GitRollbackMixin):
         """
         # 直接使用父类 __init__，传递配置参数
         self._rollback_manager = rollback_manager
-        
+
         # 使用 RollbackConfig 兼容方式初始化
         config = RollbackConfig(
             git_branch_mode=git_branch_mode,
@@ -88,7 +83,7 @@ class EvolutionRollbackManager(GitRollbackMixin):
             max_branches=max_branches,
             git_runner=git_runner,
         )
-        
+
         self._git_runner = git_runner or _run_git
 
         # 检查 git 模式是否可用

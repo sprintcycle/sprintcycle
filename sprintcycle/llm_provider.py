@@ -14,10 +14,7 @@ LLM Provider Registry - 统一LLM提供者管理
 """
 
 import os
-import logging
-from typing import Optional, Dict, List
-
-logger = logging.getLogger(__name__)
+from typing import Dict, List, Optional
 
 # 预定义 Provider 端点
 PROVIDER_DEFAULTS: Dict[str, Dict[str, str]] = {

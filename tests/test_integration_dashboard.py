@@ -56,10 +56,10 @@ class TestDashboardPlan:
             mock_sc.return_value = mock_instance
             mock_instance.plan.return_value = PlanResult(
                 success=True,
-                prd_yaml="# PRD content",
+                release_plan_yaml="# PRD content",
                 sprints=[{"name": "Sprint 1", "tasks": ["Task 1"]}],
                 mode="auto",
-                prd_name="TestProject",
+                release_plan_name="TestProject",
                 duration=0.5,
             )
 
@@ -72,8 +72,8 @@ class TestDashboardPlan:
             assert response.status_code == 200
             data = response.json()
             assert data['success'] is True
-            assert 'prd_yaml' in data
-            assert data['prd_name'] == "TestProject"
+            assert 'release_plan_yaml' in data
+            assert data['release_plan_name'] == "TestProject"
 
     def test_dashboard_plan_with_mode(self, temp_project):
         """test_dashboard_plan_with_mode: plan respects mode parameter"""
@@ -82,10 +82,10 @@ class TestDashboardPlan:
             mock_sc.return_value = mock_instance
             mock_instance.plan.return_value = PlanResult(
                 success=True,
-                prd_yaml="# PRD",
+                release_plan_yaml="# PRD",
                 sprints=[],
                 mode="evolution",
-                prd_name="Test",
+                release_plan_name="Test",
                 duration=0.1,
             )
 
@@ -114,7 +114,7 @@ class TestDashboardRun:
             mock_instance.run.return_value = RunResult(
                 success=True,
                 execution_id="exec-123",
-                prd_name="TestProject",
+                release_plan_name="TestProject",
                 completed_sprints=2,
                 completed_tasks=5,
                 total_sprints=2,
@@ -133,9 +133,9 @@ class TestDashboardRun:
             assert data['success'] is True
             assert data['execution_id'] == "exec-123"
 
-    def test_dashboard_run_with_prd_yaml(self, temp_project):
-        """test_dashboard_run_with_prd_yaml: run accepts prd_yaml"""
-        prd_yaml = """
+    def test_dashboard_run_with_release_plan_yaml(self, temp_project):
+        """run accepts release_plan_yaml (legacy prd_yaml alias)"""
+        release_plan_yaml = """
 project:
   name: "YAMLProject"
   path: "."
@@ -158,11 +158,13 @@ sprints:
             app = create_app(project_path=temp_project)
             client = TestClient(app)
             
-            response = client.post("/api/run", json={"prd_yaml": prd_yaml})
+            response = client.post(
+                "/api/run", json={"release_plan_yaml": release_plan_yaml}
+            )
 
             assert response.status_code == 200
             call_kwargs = mock_instance.run.call_args[1]
-            assert call_kwargs['prd_yaml'] == prd_yaml
+            assert call_kwargs["release_plan_yaml"] == release_plan_yaml
 
     def test_dashboard_run_failure(self, temp_project):
         """test_dashboard_run_failure: run returns error on failure"""
@@ -201,7 +203,7 @@ class TestDashboardStatus:
                     {
                         "execution_id": "exec-1",
                         "status": "completed",
-                        "prd_name": "Project 1",
+                        "release_plan_name": "Project 1",
                         "current_sprint": 3,
                         "total_sprints": 3,
                     }

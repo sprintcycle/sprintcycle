@@ -20,11 +20,10 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import List, Dict, Any, Optional
-import yaml
-import logging
+from typing import Any, Dict, List, Optional
 
-logger = logging.getLogger(__name__)
+import yaml
+from loguru import logger
 
 
 class EvolutionPlanSourceType(Enum):
@@ -189,14 +188,14 @@ class DiagnosticPRDSource(EvolutionPlanSource):
         try:
             health_report = self._diagnostic.diagnose(project_path)
         except Exception as e:
-            logger.error(f"项目诊断失败: {e}", exc_info=True)
+            logger.opt(exception=True).error("项目诊断失败: {}", e)
             return []
 
         logger.info("生成进化计划…")
         try:
             raw_plans = self._generator.generate(health_report, project_path)
         except Exception as e:
-            logger.error(f"计划生成失败: {e}", exc_info=True)
+            logger.opt(exception=True).error("计划生成失败: {}", e)
             return []
 
         filtered = self._filter_plans(raw_plans)

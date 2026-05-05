@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import json
-import logging
 from pathlib import Path
 from typing import Union
 
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 def import_json_executions_to_sqlite(
@@ -25,7 +24,7 @@ def import_json_executions_to_sqlite(
 
     src = Path(json_state_dir).expanduser().resolve()
     if not src.is_dir():
-        logger.warning("import_json: 不是目录: %s", src)
+        logger.warning("import_json: 不是目录: {}", src)
         return 0
     store = SqliteExecutionStore(str(Path(sqlite_db).expanduser().resolve()))
     n = 0
@@ -36,5 +35,5 @@ def import_json_executions_to_sqlite(
             store.save(state)
             n += 1
         except Exception as e:
-            logger.warning("跳过 %s: %s", path.name, e)
+            logger.warning("跳过 {}: {}", path.name, e)
     return n

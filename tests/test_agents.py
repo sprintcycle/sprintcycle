@@ -36,8 +36,8 @@ class TestAgentContext:
     """AgentContext tests"""
 
     def test_basic_creation(self):
-        ctx = AgentContext(prd_id="test", sprint_name="Sprint 1")
-        assert ctx.prd_id == "test"
+        ctx = AgentContext(release_plan_id="test", sprint_name="Sprint 1")
+        assert ctx.release_plan_id == "test"
         assert ctx.sprint_name == "Sprint 1"
         assert ctx.iteration == 1
         assert isinstance(ctx.created_at, datetime)

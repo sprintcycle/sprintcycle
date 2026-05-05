@@ -4,15 +4,12 @@ PRD Rule Engine - PRD 规则引擎
 规则优先层：基于诊断报告的规则匹配和 PRD 生成。
 """
 
-import logging
-from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional
+from dataclasses import dataclass
 from enum import Enum
+from typing import Any, List
 
-from .health_report import ProjectHealthReport, Severity
-from ..evolution.evolution_plan_source import EvolutionReleasePlan, EvolutionPlanSourceType
-
-logger = logging.getLogger(__name__)
+from ..evolution.evolution_plan_source import EvolutionPlanSourceType, EvolutionReleasePlan
+from .health_report import ProjectHealthReport
 
 
 class PRDRulePriority(Enum):
@@ -46,7 +43,7 @@ class PRDRuleEngine:
     4. Complexity: 复杂度规则
     5. CircularDep: 循环依赖规则
     """
-    
+
     def __init__(self):
         self._rules: List[PRDRule] = [
             # 规则1: 测试失败
@@ -90,7 +87,7 @@ class PRDRuleEngine:
                 threshold=0,
             ),
         ]
-    
+
     def evaluate(self, report: ProjectHealthReport) -> List[EvolutionReleasePlan]:
         """
         评估报告并生成PRD
@@ -102,7 +99,7 @@ class PRDRuleEngine:
             EvolutionReleasePlan列表
         """
         prds = []
-        
+
         for rule in self._rules:
             try:
                 if rule.check(report):
@@ -110,10 +107,10 @@ class PRDRuleEngine:
                     if prd:
                         prds.append(prd)
             except Exception as e:
-                logger.warning(f"规则 {rule.name} 执行失败: {e}", exc_info=True)
-        
+                logger.opt(exception=True).warning("规则 {} 执行失败: {}", rule.name, e)
+
         return prds
-    
+
     def _gen_fix_tests_prd(
         self, report: ProjectHealthReport, project_path: str
     ) -> EvolutionReleasePlan:
@@ -145,7 +142,7 @@ class PRDRuleEngine:
             expected_benefit=10.0,
             priority=90,
         )
-    
+
     def _gen_fix_types_prd(
         self, report: ProjectHealthReport, project_path: str
     ) -> EvolutionReleasePlan:
@@ -177,20 +174,20 @@ class PRDRuleEngine:
             expected_benefit=8.0,
             priority=85,
         )
-    
+
     def _gen_coverage_prd(
         self, report: ProjectHealthReport, project_path: str
     ) -> EvolutionReleasePlan:
         """生成提升覆盖率的PRD"""
         target_coverage = max(report.coverage_total + 15, 80)
-        
+
         # 找出覆盖率最低的模块
         low_modules = [
             (m, c) for m, c in report.coverage_modules.items()
             if c < 50
         ]
         low_modules.sort(key=lambda x: x[1])
-        
+
         tasks = [
             {
                 "description": f"为模块添加单元测试，目标覆盖率: {target_coverage}%",
@@ -198,14 +195,14 @@ class PRDRuleEngine:
                 "constraints": ["测试必须有实际断言"],
             },
         ]
-        
+
         if low_modules:
             tasks.append({
                 "description": f"优先提升 {low_modules[0][0]} 模块覆盖率（当前: {low_modules[0][1]:.1f}%）",
                 "agent": "tester",
                 "constraints": ["从核心功能开始"],
             })
-        
+
         return EvolutionReleasePlan(
             name="提升测试覆盖率",
             version="v1.0.0",
@@ -229,7 +226,7 @@ class PRDRuleEngine:
             expected_benefit=15.0,
             priority=70,
         )
-    
+
     def _gen_refactor_prd(
         self, report: ProjectHealthReport, project_path: str
     ) -> EvolutionReleasePlan:
@@ -264,7 +261,7 @@ class PRDRuleEngine:
             expected_benefit=5.0,
             priority=50,
         )
-    
+
     def _gen_fix_circular_prd(
         self, report: ProjectHealthReport, project_path: str
     ) -> EvolutionReleasePlan:

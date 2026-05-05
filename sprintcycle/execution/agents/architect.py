@@ -6,13 +6,11 @@ ArchitectureAgent - 负责架构设计步骤
 供后续 CoderAgent 读取。
 """
 
-import asyncio
-import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
-from .base import AgentExecutor, AgentContext, AgentResult, AgentType
+from loguru import logger
 
-logger = logging.getLogger(__name__)
+from .base import AgentContext, AgentExecutor, AgentResult, AgentType
 
 
 class ArchitectureAgent(AgentExecutor):

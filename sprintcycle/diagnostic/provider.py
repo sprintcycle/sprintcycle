@@ -2,15 +2,13 @@
 ProjectDiagnostic - 项目诊断提供者
 """
 
-import logging
-import subprocess
 import re
-from pathlib import Path
-from typing import Dict, Any, List, Optional, Tuple, Callable
+import subprocess
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from .health_report import ProjectHealthReport, CodeIssue, Severity
+from loguru import logger
 
-logger = logging.getLogger(__name__)
+from .health_report import CodeIssue, ProjectHealthReport, Severity
 
 
 class ProjectDiagnostic:
@@ -38,7 +36,7 @@ class ProjectDiagnostic:
             self.complexity_threshold = complexity_threshold
             self.timeout = timeout
         self._runner = runner or self._default_runner
-    
+
     def _default_runner(self, cmd: str, cwd: str = ".", timeout: int = 300) -> Tuple[int, str, str]:
         try:
             result = subprocess.run(
@@ -49,37 +47,37 @@ class ProjectDiagnostic:
             return -1, "", "Command timed out"
         except Exception as e:
             return -1, "", str(e)
-    
+
     def run_tests(self) -> Dict[str, Any]:
         rc, stdout, stderr = self._runner(self.test_command, cwd=self.project_path, timeout=self.timeout)
-        
+
         passed = 0
         failed = 0
         errors = 0
-        
+
         if "passed" in stdout:
             match = re.search(r'(\d+) passed', stdout)
             if match:
                 passed = int(match.group(1))
-        
+
         if "failed" in stdout:
             match = re.search(r'(\d+) failed', stdout)
             if match:
                 failed = int(match.group(1))
-        
+
         return {"returncode": rc, "passed": passed, "failed": failed, "errors": errors, "stdout": stdout, "stderr": stderr}
-    
+
     def check_coverage(self) -> Dict[str, Any]:
         rc, stdout, stderr = self._runner(self.coverage_command, cwd=self.project_path, timeout=self.timeout)
-        
+
         coverage = 0.0
         if "TOTAL" in stdout:
             match = re.search(r'TOTAL\s+\d+\s+\d+\s+(\d+)%', stdout)
             if match:
                 coverage = float(match.group(1))
-        
+
         return {"coverage": coverage, "returncode": rc}
-    
+
     def check_complexity(self) -> List[Dict[str, Any]]:
         issues = []
         try:
@@ -94,21 +92,21 @@ class ProjectDiagnostic:
                         issues.append({"file": parts[0], "line": parts[1] if len(parts) > 1 else "0", "message": parts[2] if len(parts) > 2 else ""})
         except Exception as e:
             logger.warning(f"Complexity check failed: {e}")
-        
+
         return issues
-    
+
     def diagnose(self) -> ProjectHealthReport:
         report = ProjectHealthReport()
         report.target = self.project_path
-        
+
         test_results = self.run_tests()
         total_tests = test_results["passed"] + test_results["failed"]
         report.test_failures = test_results["failed"]
         report.mypy_errors = len(self.check_complexity())
-        
+
         coverage_results = self.check_coverage()
         report.coverage_total = coverage_results["coverage"]
-        
+
         complexity_issues = self.check_complexity()
         for issue in complexity_issues[:10]:
             code_issue = CodeIssue(
@@ -118,5 +116,5 @@ class ProjectDiagnostic:
                 message=issue["message"],
             )
             report.code_issues.append(code_issue)
-        
+
         return report

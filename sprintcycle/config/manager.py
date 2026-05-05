@@ -11,15 +11,14 @@ v0.9.2: 适配 pydantic-settings 化的 RuntimeConfig
   - 保留 yaml/json 配置文件加载能力
 """
 
-from typing import Optional, Dict, Any
 from pathlib import Path
-import logging
+from typing import Any, Dict, Optional
 
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 # 重新导出（向后兼容）
-from .runtime_config import RuntimeConfig
 from .llm_config import LLMConfig
+from .runtime_config import RuntimeConfig
 
 
 class ConfigManager:
@@ -48,8 +47,9 @@ class ConfigManager:
 
     def _load_file_config(self) -> None:
         """从文件加载配置"""
-        import yaml
         import json
+
+        import yaml
 
         assert self.config_file is not None
         path = Path(self.config_file)
@@ -194,3 +194,12 @@ def reset_config_manager() -> ConfigManager:
     global _default_manager
     _default_manager = ConfigManager()
     return _default_manager
+
+
+__all__ = [
+    "ConfigManager",
+    "LLMConfig",
+    "RuntimeConfig",
+    "get_config_manager",
+    "reset_config_manager",
+]

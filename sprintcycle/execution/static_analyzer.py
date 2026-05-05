@@ -4,14 +4,13 @@
 
 import asyncio
 import json
-import logging
 import re
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 @dataclass
@@ -106,12 +105,12 @@ class AnalysisConfig:
 
 class StaticAnalyzer:
     """静态代码分析器"""
-    
+
     def __init__(self, project_path: str, config: Optional[AnalysisConfig] = None):
         self.project_path = Path(project_path).resolve()
         self.config = config or AnalysisConfig()
         self._tool_cache: Dict[str, bool] = {}
-    
+
     def _is_tool_available(self, tool: str) -> bool:
         if tool in self._tool_cache:
             return self._tool_cache[tool]
@@ -123,40 +122,40 @@ class StaticAnalyzer:
         except Exception:
             self._tool_cache[tool] = False
             return False
-    
+
     async def analyze_python(self, files: Optional[List[str]] = None) -> List[AnalysisResult]:
         """分析 Python 文件"""
         results = []
-        
+
         if self.config.ruff_enabled and self._is_tool_available("ruff"):
             results.extend(await self._analyze_with_ruff(files))
-        
+
         if self.config.mypy_enabled and self._is_tool_available("mypy"):
             results.extend(await self._analyze_with_mypy(files))
-        
+
         return results
-    
+
     async def _analyze_with_ruff(self, files: Optional[List[str]] = None) -> List[AnalysisResult]:
         """使用 Ruff 分析"""
         cmd = ["ruff", "check", "--output-format=json"]
-        
+
         if self.config.ruff_rules:
             cmd.extend(["--select", ",".join(self.config.ruff_rules)])
-        
+
         if self.config.ruff_ignore:
             cmd.extend(["--ignore", ",".join(self.config.ruff_ignore)])
-        
+
         if self.config.ruff_fix:
             cmd.append("--fix")
-        
+
         if files:
             cmd.extend(files)
         else:
             cmd.append(str(self.project_path))
-        
+
         try:
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-            
+
             if result.stdout:
                 try:
                     data = json.loads(result.stdout)
@@ -165,27 +164,27 @@ class StaticAnalyzer:
                     logger.warning("Failed to parse ruff output")
         except Exception as e:
             logger.warning(f"Ruff analysis failed: {e}")
-        
+
         return []
-    
+
     async def _analyze_with_mypy(self, files: Optional[List[str]] = None) -> List[AnalysisResult]:
         """使用 MyPy 分析"""
         cmd = ["python", "-m", "mypy", "--no-error-summary", "--output-format=json"]
-        
+
         if self.config.mypy_ignore_missing_imports:
             cmd.append("--ignore-missing-imports")
-        
+
         if self.config.mypy_strict:
             cmd.append("--strict")
-        
+
         if files:
             cmd.extend(files)
         else:
             cmd.append(str(self.project_path))
-        
+
         try:
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
-            
+
             if result.stdout:
                 try:
                     data = json.loads(result.stdout)
@@ -202,13 +201,13 @@ class StaticAnalyzer:
                     logger.warning("Failed to parse mypy output")
         except Exception as e:
             logger.warning(f"MyPy analysis failed: {e}")
-        
+
         return []
-    
+
     async def analyze_file(self, file_path: str) -> List[AnalysisResult]:
         """分析单个文件"""
         return await self.analyze_python([file_path])
-    
+
     async def auto_fix(self, result: AnalysisResult) -> bool:
         """自动修复问题"""
         if result.tool == "ruff" and self.config.ruff_fix:

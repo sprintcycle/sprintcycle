@@ -5,20 +5,12 @@ v0.9.0: 统一进化管道 — ``EvolutionPipeline`` + ``EvolutionPlanSource`` +
 """
 
 # ========== Core Types ==========
-from .types import SprintContext
-
-# ========== Unified Pipeline (v0.9.0) ==========
-from .pipeline import (
-    EvolutionPipeline,
-    EvolutionReleasePlanResult,
-    SprintExecutionResult,
-)
 from .evolution_plan_source import (
-    EvolutionPlanSource,
-    ManualPRDSource,
     DiagnosticPRDSource,
-    EvolutionReleasePlan,
+    EvolutionPlanSource,
     EvolutionPlanSourceType,
+    EvolutionReleasePlan,
+    ManualPRDSource,
 )
 
 # ========== Components (retained) ==========
@@ -26,17 +18,23 @@ from .measurement import (
     MeasurementProvider,
     MeasurementResult,
 )
-
 from .memory_store import (
-    MemoryStore,
     EvolutionMemory,
+    MemoryStore,
 )
 
+# ========== Unified Pipeline (v0.9.0) ==========
+from .pipeline import (
+    EvolutionPipeline,
+    EvolutionReleasePlanResult,
+    SprintExecutionResult,
+)
 from .rollback_manager import (
     EvolutionRollbackManager,
-    VariantBranch,
     RollbackError,
+    VariantBranch,
 )
+from .types import SprintContext
 
 __version__ = "0.9.1"
 

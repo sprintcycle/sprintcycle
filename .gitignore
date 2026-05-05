@@ -82,6 +82,8 @@ pnpm-lock.yaml
 
 # SprintCycle
 .sprintcycle/
+# 意图进化生成的产品代码目录（默认不提交；路径可通过 product_layout 配置）
+products/
 # Knowledge-injection overlay (auto-generated; do not commit)
 release_plan_overlay.yaml
 

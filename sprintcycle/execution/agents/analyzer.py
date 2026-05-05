@@ -3,29 +3,26 @@ Bug Analyzer Agent - Bug 分析执行器
 """
 
 import re
-import logging
 import time
-from typing import List, Optional, Dict, Any, Callable, TYPE_CHECKING
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
-from .base import AgentExecutor, AgentContext, AgentResult, AgentType, AgentConfig
+from loguru import logger
+
+from .base import AgentConfig, AgentContext, AgentExecutor, AgentResult, AgentType
 from .bug_models import (
-    BugReport,
-    Severity,
-    ErrorCategory,
-    Location,
-    FixSuggestion,
-    FixResult,
     AnalysisRequest,
     AnalysisResult,
-    StackFrame,
+    BugReport,
+    ErrorCategory,
+    FixResult,
+    FixSuggestion,
+    Location,
     ParsedTraceback,
     PatternMatch,
+    Severity,
+    StackFrame,
 )
-
-logger = logging.getLogger(__name__)
-
-
 from .patterns import ROOT_CAUSE_PATTERNS
 from .traceback_parser import parse_traceback
 
@@ -41,33 +38,33 @@ class BugAnalyzerAgent(AgentExecutor):
     @property
     def agent_type(self) -> AgentType:
         return AgentType.CUSTOM
-    
+
     async def _do_execute(self, task: str, context: AgentContext) -> AgentResult:
         logger.info("BugAnalyzer 开始分析任务...")
         start_time = time.time()
-        
+
         try:
             error_log = self._extract_error_log(task, context)
-            
+
             if not error_log:
                 return AgentResult(
                     success=False,
                     error="未找到可分析的的错误日志",
                     agent_type=self.agent_type,
                 )
-            
+
             request = AnalysisRequest(
                 error_log=error_log,
                 file_paths=context.codebase_context.get("file_paths", []),
                 use_llm=self._llm_client is not None,
             )
-            
+
             analysis_result = await self.analyze(request)
             suggestions = await self.suggest_fix(analysis_result.report)
             analysis_result.suggestions = suggestions
-            
+
             duration = time.time() - start_time
-            
+
             return AgentResult(
                 success=True,
                 output=analysis_result.report.to_summary(),
@@ -84,11 +81,11 @@ class BugAnalyzerAgent(AgentExecutor):
                 feedback=f"分析了 {analysis_result.report.error_type} 错误，置信度 {analysis_result.report.confidence:.1%}",
                 agent_type=self.agent_type,
             )
-            
+
         except Exception as e:
             logger.error(f"BugAnalyzer 分析失败: {e}")
             return AgentResult.from_error(str(e), self.agent_type)
-    
+
     def _extract_error_log(self, task: str, context: AgentContext) -> Optional[str]:
         if "Traceback" in task or "Error" in task:
             return task
@@ -97,13 +94,13 @@ class BugAnalyzerAgent(AgentExecutor):
         if context.codebase_context.get("error_log"):
             return context.codebase_context["error_log"]
         return None
-    
+
     async def analyze(self, request: AnalysisRequest) -> AnalysisResult:
         start_time = time.time()
-        
+
         parsed = parse_traceback(request.error_log or "", request.language or "python")
         pattern_match = self._match_pattern(parsed.error_type, parsed.error_message)
-        
+
         # 创建 BugReport，location 可能为 None
         loc = parsed.location or Location()
         report = BugReport(
@@ -118,7 +115,7 @@ class BugAnalyzerAgent(AgentExecutor):
             code_snippet=parsed.code_snippet,
             confidence=pattern_match.confidence,
         )
-        
+
         if request.use_llm and self._llm_client:
             llm_report = await self._llm_analyze(request.error_log, request.code_context or {})
             if llm_report:
@@ -127,17 +124,17 @@ class BugAnalyzerAgent(AgentExecutor):
                 else:
                     report.suggestions.extend(llm_report.suggestions)
                 report.llm_used = True
-        
+
         execution_time = time.time() - start_time
-        
+
         return AnalysisResult(
             request=request,
             report=report,
             execution_time=execution_time,
             patterns_matched=pattern_match.matched_patterns,
         )
-    
-    
+
+
     def _match_pattern(self, error_type: str, error_message: str) -> PatternMatch:
         # 第一轮：精确匹配 error_type 与 pattern key
         for pattern_type, pattern_info in ROOT_CAUSE_PATTERNS.items():
@@ -150,7 +147,7 @@ class BugAnalyzerAgent(AgentExecutor):
                     confidence=0.9,
                     matched_patterns=[pattern_type],
                 )
-        
+
         # 第二轮：通过 regex pattern 匹配错误消息
         for pattern_type, pattern_info in ROOT_CAUSE_PATTERNS.items():
             for regex_pattern in pattern_info.get("patterns", []):
@@ -163,7 +160,7 @@ class BugAnalyzerAgent(AgentExecutor):
                         confidence=0.85,
                         matched_patterns=[pattern_type, regex_pattern],
                     )
-        
+
         return PatternMatch(
             category=ErrorCategory.UNKNOWN,
             severity=Severity.MEDIUM,
@@ -172,7 +169,7 @@ class BugAnalyzerAgent(AgentExecutor):
             confidence=0.3,
             matched_patterns=[],
         )
-    
+
     def _type_to_category(self, error_type: str) -> ErrorCategory:
         mapping = {
             "NameError": ErrorCategory.NAME,
@@ -190,15 +187,15 @@ class BugAnalyzerAgent(AgentExecutor):
             "MemoryError": ErrorCategory.MEMORY,
         }
         return mapping.get(error_type, ErrorCategory.UNKNOWN)
-    
+
     async def _llm_analyze(self, error_log: str, code_context: Dict[str, str]) -> Optional[BugReport]:
         if not self._llm_client:
             return None
-        
+
         try:
             import json
             context_str = "\n".join([f"=== {k} ===\n{v[:1000]}" for k, v in code_context.items()])
-            
+
             prompt = f"""你是专业的 Bug 分析专家。请分析以下错误并生成修复报告。
 错误日志：
 {error_log}
@@ -215,10 +212,10 @@ class BugAnalyzerAgent(AgentExecutor):
     "confidence": 0.0-1.0
 }}
 只输出 JSON，不要有其他内容。"""
-            
+
             response = await self._llm_client.chat(prompt)
             data = json.loads(response)
-            
+
             return BugReport(
                 error_type=data.get("error_type", "Unknown"),
                 error_message=error_log[:200],
@@ -230,24 +227,24 @@ class BugAnalyzerAgent(AgentExecutor):
                 confidence=data.get("confidence", 0.8),
                 llm_used=True,
             )
-            
+
         except Exception as e:
             logger.warning(f"LLM 分析失败: {e}")
             return None
-    
+
     async def locate(self, report: BugReport, file_paths: List[str]) -> List[Location]:
         locations = []
         search_keywords = self._build_search_keywords(report)
-        
+
         for file_path in file_paths:
             try:
                 path = Path(file_path)
                 if not path.exists() or not path.is_file():
                     continue
-                
+
                 with open(path, "r", encoding="utf-8") as f:
                     lines = f.readlines()
-                
+
                 for i, line in enumerate(lines, 1):
                     if self._line_matches(line, search_keywords):
                         locations.append(Location(
@@ -255,12 +252,12 @@ class BugAnalyzerAgent(AgentExecutor):
                             line_number=i,
                             code_snippet=line.strip(),
                         ))
-                
+
             except Exception as e:
                 logger.warning(f"定位文件 {file_path} 失败: {e}")
-        
+
         return locations
-    
+
     def _build_search_keywords(self, report: BugReport) -> List[str]:
         keywords = []
         message = report.error_message
@@ -268,14 +265,14 @@ class BugAnalyzerAgent(AgentExecutor):
             part = match.group(1)
             if part and len(part) > 2:
                 keywords.append(part)
-        
+
         if report.error_type == "NameError":
             name_match = re.search(r"name '(\w+)'", message)
             if name_match:
                 keywords.append(name_match.group(1))
-        
+
         return keywords
-    
+
     def _line_matches(self, line: str, keywords: List[str]) -> bool:
         if not keywords:
             return False
@@ -411,7 +408,7 @@ class BugAnalyzerAgent(AgentExecutor):
 
     async def apply_fix(self, suggestion: FixSuggestion) -> FixResult:
         file_path = Path(suggestion.file_path)
-        
+
         if not file_path.exists():
             try:
                 file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -425,14 +422,14 @@ class BugAnalyzerAgent(AgentExecutor):
                 )
             except Exception as e:
                 return FixResult(success=False, file_path=str(file_path), error=str(e))
-        
+
         try:
             content = file_path.read_text(encoding="utf-8")
             lines = content.split("\n")
-            
+
             backup_path = file_path.with_suffix(file_path.suffix + ".bak")
             backup_path.write_text(content, encoding="utf-8")
-            
+
             if suggestion.old_code and suggestion.old_code in content:
                 new_content = content.replace(suggestion.old_code, suggestion.new_code, 1)
             elif suggestion.line_start:
@@ -445,13 +442,13 @@ class BugAnalyzerAgent(AgentExecutor):
                     raise ValueError(f"行号 {suggestion.line_start} 超出文件范围")
             else:
                 new_content = content + "\n" + suggestion.new_code
-            
+
             file_path.write_text(new_content, encoding="utf-8")
-            
+
             old_lines = len(content.split("\n"))
             new_lines = len(new_content.split("\n"))
             lines_changed = abs(new_lines - old_lines)
-            
+
             return FixResult(
                 success=True,
                 file_path=str(file_path),
@@ -460,7 +457,7 @@ class BugAnalyzerAgent(AgentExecutor):
                 verified=False,
                 backup_path=str(backup_path),
             )
-            
+
         except Exception as e:
             return FixResult(success=False, file_path=str(file_path), error=str(e))
 

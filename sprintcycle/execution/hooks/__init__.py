@@ -2,8 +2,8 @@
 
 from .sprint_hooks import (
     ChainedSprintHooks,
-    SprintLifecycleHooks,
     NoOpSprintLifecycleHooks,
+    SprintLifecycleHooks,
 )
 
 __all__ = [

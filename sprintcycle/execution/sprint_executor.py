@@ -8,21 +8,18 @@ Scrum 命名对照见 ``docs/DESIGN_SCRUM_NAMING_MIGRATION.md``。
 """
 
 import asyncio
-import logging
 import re
 import time
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional, Set
 
+from loguru import logger
+
 from ..release_plan.models import PRD, PRDEvolutionParams, PRDSprint, PRDTask
-from .state.checkpoint import CheckpointMixin
 from .hooks.sprint_hooks import NoOpSprintLifecycleHooks, SprintLifecycleHooks
-from .state.state_store import StateStore, get_state_store
-
-logger = logging.getLogger(__name__)
-
-
 from .sprint_types import ExecutionStatus, SprintResult, TaskResult
+from .state.checkpoint import CheckpointMixin
+from .state.state_store import StateStore, get_state_store
 
 
 class SprintExecutor(CheckpointMixin):
@@ -34,7 +31,7 @@ class SprintExecutor(CheckpointMixin):
         self,
         max_parallel: int = 3,
         feedback_loop: Optional[Any] = None,
-        prd: Optional[PRD] = None,
+        release_plan: Optional[PRD] = None,
         evolution_engine: Optional[Any] = None,
         error_handler: Optional[Any] = None,
         state_store: Optional[StateStore] = None,
@@ -50,7 +47,7 @@ class SprintExecutor(CheckpointMixin):
         self._sprint_hooks: SprintLifecycleHooks = sprint_hooks or NoOpSprintLifecycleHooks()
         self._event_bus = None
         self._feedback_loop = feedback_loop
-        self._prd = prd
+        self._release_plan = release_plan
         self._sprint_count = 0
         self._evolution_engine = evolution_engine
         self._error_handler = error_handler
@@ -73,8 +70,8 @@ class SprintExecutor(CheckpointMixin):
     def set_feedback_loop(self, feedback_loop) -> None:
         self._feedback_loop = feedback_loop
 
-    def set_prd(self, prd: PRD) -> None:
-        self._prd = prd
+    def set_release_plan(self, release_plan: PRD) -> None:
+        self._release_plan = release_plan
 
     def set_evolution_engine(self, evolution_engine) -> None:
         self._evolution_engine = evolution_engine
@@ -129,8 +126,10 @@ class SprintExecutor(CheckpointMixin):
             context.get("_sprint_coding_engine") or context.get("coding_engine", "aider")
         )
         return AgentContext(
-            prd_id=str(context.get("prd_id", "")),
-            prd_name=str(context.get("prd_name", "")),
+            release_plan_id=str(context.get("release_plan_id", context.get("prd_id", ""))),
+            release_plan_name=str(
+                context.get("release_plan_name", context.get("prd_name", ""))
+            ),
             project_goals=str(context.get("project_goals", "")),
             sprint_name=str(context.get("sprint_name", sprint_name)),
             sprint_index=int(context.get("sprint_index", 0)),
@@ -255,8 +254,8 @@ class SprintExecutor(CheckpointMixin):
             return
         try:
             self._sprint_count += 1
-            if self._prd:
-                feedback = self._feedback_loop.collect(self._prd, [result])
+            if self._release_plan:
+                feedback = self._feedback_loop.collect(self._release_plan, [result])
             else:
                 class SimplePRD:
                     def __init__(self):
@@ -320,19 +319,19 @@ class SprintExecutor(CheckpointMixin):
         context: Optional[Dict[str, Any]] = None,
         execution_id: Optional[str] = None,
         resume: bool = False,
-        prd: Optional[PRD] = None,
+        release_plan: Optional[PRD] = None,
         sprint_index_offset: int = 0,
     ) -> List[SprintResult]:
         self._cancelled = False  # 重置取消标志
         if resume and execution_id:
             return await self._resume_execution(
-                execution_id, sprints, context, prd=prd, sprint_index_offset=sprint_index_offset
+                execution_id, sprints, context, release_plan=release_plan, sprint_index_offset=sprint_index_offset
             )
         self._execution_id = execution_id or self._init_execution_state()
         if mode == "evolution" and self._evolution_engine:
             return await self._execute_evolution_sprints(sprints, evolution_config, context or {})
         return await self._execute_normal_sprints(
-            sprints, context or {}, prd=prd, sprint_index_offset=sprint_index_offset
+            sprints, context or {}, release_plan=release_plan, sprint_index_offset=sprint_index_offset
         )
 
     async def _resume_execution(
@@ -340,7 +339,7 @@ class SprintExecutor(CheckpointMixin):
         execution_id: str,
         sprints: List[PRDSprint],
         context: Optional[Dict[str, Any]] = None,
-        prd: Optional[PRD] = None,
+        release_plan: Optional[PRD] = None,
         sprint_index_offset: int = 0,
     ) -> List[SprintResult]:
         logger.info(f"从断点恢复执行: {execution_id}")
@@ -362,15 +361,15 @@ class SprintExecutor(CheckpointMixin):
             ctx["sprint_name"] = sprint.name
             ctx["project_goals"] = " ".join(sprint.goals)
             try:
-                await self._sprint_hooks.on_before_sprint(ctx["sprint_index"], sprint, ctx, prd)
+                await self._sprint_hooks.on_before_sprint(ctx["sprint_index"], sprint, ctx, release_plan)
             except Exception as e:
-                logger.warning("on_before_sprint hook failed: %s", e)
+                logger.warning("on_before_sprint hook failed: {}", e)
             result = await self.execute_sprint(sprint, ctx, save_checkpoint=True)
             results.append(result)
             try:
-                await self._sprint_hooks.on_after_sprint(ctx["sprint_index"], sprint, result, ctx, prd)
+                await self._sprint_hooks.on_after_sprint(ctx["sprint_index"], sprint, result, ctx, release_plan)
             except Exception as e:
-                logger.warning("on_after_sprint hook failed: %s", e)
+                logger.warning("on_after_sprint hook failed: {}", e)
             if result.status == ExecutionStatus.FAILED:
                 break
         return results
@@ -379,7 +378,7 @@ class SprintExecutor(CheckpointMixin):
         self,
         sprints: List[PRDSprint],
         context: Dict[str, Any],
-        prd: Optional[PRD] = None,
+        release_plan: Optional[PRD] = None,
         sprint_index_offset: int = 0,
     ) -> List[SprintResult]:
         results: List[SprintResult] = []
@@ -395,9 +394,9 @@ class SprintExecutor(CheckpointMixin):
             ctx["project_goals"] = " ".join(sprint.goals)
 
             try:
-                await self._sprint_hooks.on_before_sprint(global_idx, sprint, ctx, prd)
+                await self._sprint_hooks.on_before_sprint(global_idx, sprint, ctx, release_plan)
             except Exception as e:
-                logger.warning("on_before_sprint hook failed: %s", e)
+                logger.warning("on_before_sprint hook failed: {}", e)
 
             result = await self.execute_sprint(sprint, ctx, save_checkpoint=True)
             results.append(result)
@@ -415,9 +414,9 @@ class SprintExecutor(CheckpointMixin):
                         elif decision["action"] == "abort":
                             logger.warning(f"Sprint {sprint.name} 反馈决策中止: {decision['reason']}")
                             try:
-                                await self._sprint_hooks.on_after_sprint(global_idx, sprint, result, ctx, prd)
+                                await self._sprint_hooks.on_after_sprint(global_idx, sprint, result, ctx, release_plan)
                             except Exception as e:
-                                logger.warning("on_after_sprint hook failed: %s", e)
+                                logger.warning("on_after_sprint hook failed: {}", e)
                             break
 
             if self._feedback_loop and i < len(sprints) - 1:
@@ -427,9 +426,9 @@ class SprintExecutor(CheckpointMixin):
                     ctx["improvement_suggestions"] = self._feedback_loop.analyze(feedback)
 
             try:
-                await self._sprint_hooks.on_after_sprint(global_idx, sprint, result, ctx, prd)
+                await self._sprint_hooks.on_after_sprint(global_idx, sprint, result, ctx, release_plan)
             except Exception as e:
-                logger.warning("on_after_sprint hook failed: %s", e)
+                logger.warning("on_after_sprint hook failed: {}", e)
 
         return results
 
@@ -455,8 +454,8 @@ class SprintExecutor(CheckpointMixin):
         if not self._feedback_loop:
             return None
         try:
-            if self._prd:
-                return self._feedback_loop.collect(self._prd, [result])
+            if self._release_plan:
+                return self._feedback_loop.collect(self._release_plan, [result])
             else:
                 class SimplePRD:
                     def __init__(self):

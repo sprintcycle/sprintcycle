@@ -8,12 +8,9 @@ Claude Code CLI 适配（非交互 ``-p`` / ``--print``）。
 from __future__ import annotations
 
 import asyncio
-import logging
 import os
 import shutil
-from typing import List, Optional, Tuple
-
-logger = logging.getLogger(__name__)
+from typing import List, Tuple
 
 
 def _claude_executable() -> str:

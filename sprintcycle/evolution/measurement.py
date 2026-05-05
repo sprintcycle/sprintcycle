@@ -2,7 +2,6 @@
 MeasurementProvider - 测量提供者
 """
 
-import logging
 import subprocess
 import time
 from dataclasses import dataclass, field
@@ -13,8 +12,6 @@ from sprintcycle.config.quality import (
     runs_coverage_gate,
     runs_pytest,
 )
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass

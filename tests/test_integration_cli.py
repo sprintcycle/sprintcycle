@@ -48,10 +48,10 @@ class TestCLIPlan:
 
             mock_instance.plan.return_value = PlanResult(
                 success=True,
-                prd_yaml="# PRD YAML content",
+                release_plan_yaml="# PRD YAML content",
                 sprints=[{"name": "Sprint 1", "tasks": ["Task 1"]}],
                 mode="auto",
-                prd_name="TestProject",
+                release_plan_name="TestProject",
                 duration=0.5,
             )
 
@@ -70,10 +70,10 @@ class TestCLIPlan:
 
             mock_instance.plan.return_value = PlanResult(
                 success=True,
-                prd_yaml="# PRD",
+                release_plan_yaml="# PRD",
                 sprints=[],
                 mode="auto",
-                prd_name="Test",
+                release_plan_name="Test",
                 duration=0.1,
             )
 
@@ -120,7 +120,7 @@ class TestCLIRun:
             mock_instance.run.return_value = RunResult(
                 success=True,
                 execution_id="exec-123",
-                prd_name="TestProject",
+                release_plan_name="TestProject",
                 completed_sprints=2,
                 completed_tasks=5,
                 total_sprints=2,
@@ -194,7 +194,7 @@ class TestCLIStatus:
                     {
                         "execution_id": "exec-1",
                         "status": "completed",
-                        "prd_name": "Project 1",
+                        "release_plan_name": "Project 1",
                         "current_sprint": 3,
                         "total_sprints": 3,
                     }
@@ -367,6 +367,22 @@ class TestCLIRollback:
             mock_instance.rollback.assert_called_once_with(execution_id="exec-to-rollback")
 
 
+class TestCLIWizard:
+    """Test wizard subcommand (non-interactive / guard rails)"""
+
+    def test_cli_wizard_requires_tty(self, cli_runner, temp_project):
+        """wizard exits when stdin is not a TTY (e.g. CliRunner)."""
+        result = cli_runner.invoke(cli, ['-p', temp_project, 'wizard'])
+        assert result.exit_code == 1
+        assert 'TTY' in result.output or 'tty' in result.output.lower()
+
+    def test_cli_wizard_rejects_json_format(self, cli_runner, temp_project):
+        result = cli_runner.invoke(
+            cli, ['-p', temp_project, '--format', 'json', 'wizard'], catch_exceptions=False
+        )
+        assert result.exit_code != 0
+
+
 class TestCLIInit:
     """Test init subcommand"""
 
@@ -408,6 +424,7 @@ class TestCLIHelp:
         assert 'run' in result.output
         assert 'diagnose' in result.output
         assert 'status' in result.output
+        assert 'wizard' in result.output
 
     def test_cli_subcommand_help(self, cli_runner):
         """test_cli_subcommand_help: subcommand --help works"""

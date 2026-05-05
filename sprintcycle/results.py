@@ -5,7 +5,7 @@ SprintCycle 统一返回值类型
 支持 to_dict() 序列化，确保 CLI / MCP / Dashboard 输出一致。
 """
 
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Optional
 
 
@@ -24,25 +24,25 @@ class ResultBase:
 
 @dataclass
 class PlanResult(ResultBase):
-    """plan() 返回 — 意图→PRD 计划（不执行）"""
-    prd_yaml: str = ""
+    """plan() 返回 — 意图 → Release Plan（执行计划 YAML，不执行）"""
+    release_plan_yaml: str = ""
     sprints: List[Dict[str, Any]] = field(default_factory=list)
     mode: str = ""
-    prd_name: str = ""
+    release_plan_name: str = ""
 
 
 @dataclass
 class RunResult(ResultBase):
     """run() 返回 — 执行结果"""
     execution_id: str = ""
-    prd_name: str = ""
+    release_plan_name: str = ""
     completed_sprints: int = 0
     completed_tasks: int = 0
     total_sprints: int = 0
     total_tasks: int = 0
     current_sprint: int = 0
     sprint_results: List[Dict[str, Any]] = field(default_factory=list)
-    # V4.0：知识注入需用户确认时返回；此时 success=False 且未执行 PRD
+    # V4.0：知识注入需用户确认时返回；此时 success=False 且未执行 Release Plan
     pending_knowledge_confirmation: bool = False
     knowledge_injection_preview: Dict[str, Any] = field(default_factory=dict)
     message: str = ""

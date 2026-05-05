@@ -2,40 +2,58 @@
 Execution 模块 - 统一执行引擎
 """
 
+# Use execution.engine.ExecutionEngine._get_evolution_engine() instead
+from ..evolution.types import SprintContext
+from .agents import (
+    AgentContext,
+    AgentExecutor,
+    AgentResult,
+    AgentType,
+    BatchConfig,
+    BatchTask,
+    CoderAgent,
+    EvolverAgent,
+    TestCase,
+    TesterAgent,
+    TestResult,
+    TestType,
+)
+from .cache import CacheEntry, ExecutionCache, get_cache, set_cache
 from .engine import ExecutionEngine
-from .strategies import NormalStrategy, EvolutionStrategy as StrategyEvolutionStrategy, ExecutionStrategy, get_strategy
-from .sprint_executor import SprintExecutor, ExecutionStatus, TaskResult, SprintResult
-from .events import EventBus, Event, EventType, get_event_bus
+from .error_handler import ErrorContext, ErrorHandler, FixResult, get_error_handler, reset_error_handler
+
+# 错误处理组件 (新增)
+from .error_knowledge import (
+    ErrorKnowledgeBase,
+    ErrorPattern,
+    PatternMatch,
+    get_error_knowledge_base,
+    reset_error_knowledge_base,
+)
+from .error_router import ErrorRouter, RoutingContext, RoutingLevel, RoutingResult, get_error_router
+from .events import Event, EventBus, EventType, get_event_bus
+from .feedback import ExecutionFeedback, FeedbackCategory, FeedbackLevel, FeedbackLoop
+from .hooks.sprint_hooks import ChainedSprintHooks, NoOpSprintLifecycleHooks, SprintLifecycleHooks
+from .rollback import BackupRecord, RollbackConfig, RollbackManager, RollbackResult, get_rollback_manager
+from .sprint_executor import ExecutionStatus, SprintExecutor, SprintResult, TaskResult
+from .state.sqlite_state_store import SqliteExecutionStore
 from .state.state_store import (
-    StateStore,
     ExecutionState,
+    StateStore,
     configure_default_store,
     get_state_store,
     reset_default_state_store,
 )
-from .state.sqlite_state_store import SqliteExecutionStore
-from .feedback import FeedbackLoop, ExecutionFeedback, FeedbackLevel, FeedbackCategory
-from .hooks.sprint_hooks import ChainedSprintHooks, SprintLifecycleHooks, NoOpSprintLifecycleHooks
-from .cache import ExecutionCache, CacheEntry, get_cache, set_cache
-from .agents import (
-    AgentType, AgentContext, AgentResult, AgentExecutor, CoderAgent, BatchTask, BatchConfig,
-    EvolverAgent, TesterAgent, TestCase, TestType, TestResult,
-)
-# 错误处理组件 (新增)
-from .error_knowledge import ErrorKnowledgeBase, ErrorPattern, PatternMatch, get_error_knowledge_base, reset_error_knowledge_base
-from .error_router import ErrorRouter, RoutingLevel, RoutingContext, RoutingResult, get_error_router
-from .rollback import RollbackManager, BackupRecord, RollbackResult, get_rollback_manager, RollbackConfig
-from .error_handler import ErrorHandler, ErrorContext, FixResult, get_error_handler, reset_error_handler
-# Use execution.engine.ExecutionEngine._get_evolution_engine() instead
-from ..evolution.types import SprintContext
+from .strategies import EvolutionStrategy as StrategyEvolutionStrategy
+from .strategies import ExecutionStrategy, NormalStrategy, get_strategy
 
 EvolutionStrategy = StrategyEvolutionStrategy
 
 
 def _get_evolution_pipeline():
     """Lazy import to avoid circular dependency with evolution module"""
+    from ..evolution.evolution_plan_source import DiagnosticPRDSource, ManualPRDSource
     from ..evolution.pipeline import EvolutionPipeline
-    from ..evolution.evolution_plan_source import ManualPRDSource, DiagnosticPRDSource
     return EvolutionPipeline, ManualPRDSource, DiagnosticPRDSource
 
 __all__ = [

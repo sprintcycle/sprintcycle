@@ -14,14 +14,13 @@
 - evolution_candidate: 发现进化候选
 """
 
-from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Any, Optional
-from enum import Enum
-from datetime import datetime
-import logging
 import json
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+from typing import Any, Callable, Dict, List, Optional
 
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 class EventType(Enum):
@@ -44,15 +43,15 @@ class Event:
     type: EventType
     data: Dict[str, Any] = field(default_factory=dict)
     timestamp: Optional[datetime] = None
-    
+
     def __post_init__(self) -> None:
         if self.timestamp is None:
             self.timestamp = datetime.now()
-    
+
     def __str__(self) -> str:
         ts = self.timestamp.isoformat() if self.timestamp else "none"
         return f"Event({self.type.value}, {ts})"
-    
+
     def to_sse_dict(self) -> Dict[str, Any]:
         """转换为适合SSE推送的字典"""
         return {
@@ -60,7 +59,7 @@ class Event:
             "timestamp": self.timestamp.isoformat() if self.timestamp else None,
             **self.data,
         }
-    
+
     def to_sse_message(self) -> str:
         """转换为SSE格式的消息"""
         event_name = self.type.value
@@ -75,11 +74,11 @@ class EventBus:
     提供事件注册、触发机制，支持同步/异步事件处理。
     采用发布-订阅模式，事件处理器错误不会影响主流程。
     """
-    
+
     def __init__(self) -> None:
         self._handlers: Dict[EventType, List[Callable]] = {}
         self._once_handlers: Dict[EventType, List[Callable]] = {}
-    
+
     def on(self, event_type: EventType, handler: Callable) -> "EventBus":
         """
         注册事件处理器
@@ -96,7 +95,7 @@ class EventBus:
         if handler not in self._handlers[event_type]:
             self._handlers[event_type].append(handler)
         return self
-    
+
     def once(self, event_type: EventType, handler: Callable) -> "EventBus":
         """
         注册一次性事件处理器（触发后自动移除）
@@ -113,7 +112,7 @@ class EventBus:
         if handler not in self._once_handlers[event_type]:
             self._once_handlers[event_type].append(handler)
         return self
-    
+
     def off(self, event_type: EventType, handler: Optional[Callable] = None) -> "EventBus":
         """
         移除事件处理器
@@ -141,7 +140,7 @@ class EventBus:
                 except ValueError:
                     pass
         return self
-    
+
     async def emit(self, event: Event) -> None:
         """
         异步触发事件
@@ -153,13 +152,13 @@ class EventBus:
         handlers = self._handlers.get(event.type, [])
         for handler in handlers:
             await self._safe_call(handler, event)
-        
+
         # 再执行一次性处理器，并移除
         once_handlers = self._once_handlers.get(event.type, [])
         for handler in once_handlers:
             await self._safe_call(handler, event)
         self._once_handlers[event.type] = []
-    
+
     def emit_sync(self, event: Event) -> None:
         """
         同步触发事件（用于非异步场景）
@@ -170,12 +169,12 @@ class EventBus:
         handlers = self._handlers.get(event.type, [])
         for handler in handlers:
             self._safe_call_sync(handler, event)
-        
+
         once_handlers = self._once_handlers.get(event.type, [])
         for handler in once_handlers:
             self._safe_call_sync(handler, event)
         self._once_handlers[event.type] = []
-    
+
     async def _safe_call(self, handler: Callable, event: Event) -> None:
         """安全调用异步处理器"""
         try:
@@ -184,23 +183,23 @@ class EventBus:
                 await result
         except Exception as e:
             logger.error(f"Event handler error for {event.type.value}: {e}")
-    
+
     def _safe_call_sync(self, handler: Callable, event: Event) -> None:
         """安全调用同步处理器"""
         try:
             handler(event)
         except Exception as e:
             logger.error(f"Event handler error for {event.type.value}: {e}")
-    
+
     def clear(self) -> None:
         """清除所有事件处理器"""
         self._handlers.clear()
         self._once_handlers.clear()
-    
+
     def has_listeners(self, event_type: EventType) -> bool:
         """检查是否有监听器"""
         return bool(
-            self._handlers.get(event_type, []) or 
+            self._handlers.get(event_type, []) or
             self._once_handlers.get(event_type, [])
         )
 

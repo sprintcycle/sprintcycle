@@ -7,11 +7,8 @@ Aider CLI 最小集成：非交互单轮消息。
 from __future__ import annotations
 
 import asyncio
-import logging
 import shutil
 from typing import Optional, Tuple
-
-logger = logging.getLogger(__name__)
 
 
 def check_aider_cli() -> bool:

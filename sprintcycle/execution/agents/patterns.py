@@ -4,7 +4,8 @@ Root Cause Patterns for Bug Analysis
 Error pattern database used by BugAnalyzerAgent.
 """
 
-from typing import Dict, Any
+from typing import Any, Dict
+
 from ...exceptions import Severity
 
 ROOT_CAUSE_PATTERNS: Dict[str, Dict[str, Any]] = {

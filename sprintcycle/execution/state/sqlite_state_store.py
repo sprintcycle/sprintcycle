@@ -4,11 +4,11 @@
 
 from __future__ import annotations
 
-import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from loguru import logger
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -16,8 +16,6 @@ from ...persistence.models import ExecutionRow
 from ...persistence.session import create_engine_for_path, init_db
 from ..sprint_types import ExecutionStatus
 from .state_store import ExecutionState
-
-logger = logging.getLogger(__name__)
 
 
 class SqliteExecutionStore:
@@ -36,7 +34,7 @@ class SqliteExecutionStore:
     def _to_state(row: ExecutionRow) -> ExecutionState:
         return ExecutionState(
             execution_id=row.execution_id,
-            prd_name=row.prd_name,
+            release_plan_name=row.release_plan_name,
             mode=row.mode,
             status=ExecutionStatus(row.status),
             current_sprint=row.current_sprint,
@@ -54,7 +52,7 @@ class SqliteExecutionStore:
         state.updated_at = datetime.now().isoformat()
         payload = {
             "execution_id": state.execution_id,
-            "prd_name": state.prd_name,
+            "release_plan_name": state.release_plan_name,
             "mode": state.mode,
             "status": state.status.value if hasattr(state.status, "value") else str(state.status),
             "current_sprint": state.current_sprint,
@@ -128,18 +126,18 @@ class SqliteExecutionStore:
         sprint_idx: int,
         sprint_name: str,
         task_results: List[Dict[str, Any]],
-        prd_yaml: Optional[str] = None,
+        release_plan_yaml: Optional[str] = None,
     ) -> bool:
         state = self.load(execution_id)
         if state is None:
-            logger.warning("Cannot create checkpoint: state %s not found", execution_id)
+            logger.warning("Cannot create checkpoint: state {} not found", execution_id)
             return False
         state.checkpoint = {
             "sprint_idx": sprint_idx,
             "sprint_name": sprint_name,
             "task_results": task_results,
             "timestamp": datetime.now().isoformat(),
-            "prd_yaml": prd_yaml,
+            "release_plan_yaml": release_plan_yaml,
         }
         self.save(state)
         return True
@@ -156,11 +154,15 @@ class SqliteExecutionStore:
     def get_resume_point(self, execution_id: str) -> Optional[Dict[str, Any]]:
         state = self.load(execution_id)
         if state and state.checkpoint:
+            cp = state.checkpoint
+            yml = cp.get("release_plan_yaml")
+            if yml is None:
+                yml = cp.get("prd_yaml")
             return {
-                "current_sprint": state.checkpoint.get("sprint_idx", 0),
-                "sprint_name": state.checkpoint.get("sprint_name", ""),
-                "task_results": state.checkpoint.get("task_results", []),
-                "prd_yaml": state.checkpoint.get("prd_yaml"),
+                "current_sprint": cp.get("sprint_idx", 0),
+                "sprint_name": cp.get("sprint_name", ""),
+                "task_results": cp.get("task_results", []),
+                "release_plan_yaml": yml,
             }
         return None
 

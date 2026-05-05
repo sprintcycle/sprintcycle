@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
+from loguru import logger
 
 if TYPE_CHECKING:
     from ...config.runtime_config import RuntimeConfig
@@ -11,14 +12,13 @@ if TYPE_CHECKING:
     from ...release_plan.models import PRD, PRDSprint
     from ..sprint_types import SprintResult
 
-logger = logging.getLogger(__name__)
 
 
 def persist_sprint_outcome_card(
     *,
     project_path: str,
     config: "RuntimeConfig",
-    prd: "PRD",
+    release_plan: "PRD",
     sprint_index: int,
     sprint: "PRDSprint",
     sprint_result: "SprintResult",
@@ -32,17 +32,17 @@ def persist_sprint_outcome_card(
     if not getattr(config, "persist_sprint_knowledge_cards", True):
         return None
     try:
-        from .knowledge_hook import resolve_knowledge_db_path
         from ...persistence.knowledge_repository import KnowledgeCardRepository
+        from .knowledge_hook import resolve_knowledge_db_path
     except Exception as e:  # pragma: no cover
-        logger.debug("knowledge card deps unavailable: %s", e)
+        logger.debug("knowledge card deps unavailable: {}", e)
         return None
 
     try:
         db_path = resolve_knowledge_db_path(project_path, config)
         repo = KnowledgeCardRepository(db_path)
     except Exception as e:
-        logger.warning("Sprint 知识卡片跳过（无法打开知识库）: %s", e)
+        logger.warning("Sprint 知识卡片跳过（无法打开知识库）: {}", e)
         return None
 
     ok = sprint_result.status.value in ("success", "skipped") if hasattr(
@@ -77,7 +77,7 @@ def persist_sprint_outcome_card(
             "code_quality": measurement.code_quality,
         }
 
-    domain = getattr(prd.project, "name", "") or "sprint"
+    domain = getattr(release_plan.project, "name", "") or "sprint"
     outcome = "success" if ok else "failed"
     body_lines = [
         f"Sprint「{sprint.name}」完成于项目 {domain}。",
@@ -87,7 +87,7 @@ def persist_sprint_outcome_card(
         body_lines.append("失败摘要: " + "; ".join(errors[:3]))
     body = "\n".join(body_lines)
 
-    sprint_id = f"{getattr(prd, 'execution_id', None) or 'run'}:{sprint_index}:{sprint.name}"
+    sprint_id = f"{getattr(release_plan, 'execution_id', None) or 'run'}:{sprint_index}:{sprint.name}"
 
     try:
         card = repo.add(
@@ -100,8 +100,8 @@ def persist_sprint_outcome_card(
             tags=["sprint_outcome", "auto"],
             scores=scores,
         )
-        logger.info("已写入 Sprint 结果知识卡片 id=%s sprint_id=%s", card.id, sprint_id)
+        logger.info("已写入 Sprint 结果知识卡片 id={} sprint_id={}", card.id, sprint_id)
         return card.id
     except Exception as e:
-        logger.warning("写入 Sprint 知识卡片失败: %s", e)
+        logger.warning("写入 Sprint 知识卡片失败: {}", e)
         return None

@@ -5,19 +5,19 @@ Runner 意图处理器
 与 ``SprintCycle.run`` 共用知识门、并发度（``parallel_tasks``）与编排器配置。
 """
 
-import logging
 import time
 from typing import TYPE_CHECKING, Optional
 
-from .base import IntentHandler, IntentResult
+from loguru import logger
+
 from ..release_plan.parser import ReleasePlanParser
+from .base import IntentHandler, IntentResult
 
 if TYPE_CHECKING:
     from ..api import SprintCycle
     from ..config import RuntimeConfig
     from ..release_plan.models import PRD
 
-logger = logging.getLogger(__name__)
 
 
 class RunnerHandler(IntentHandler):
@@ -40,7 +40,7 @@ class RunnerHandler(IntentHandler):
 
     def execute(self, release_plan: "PRD") -> IntentResult:
         """执行已解析计划（经 ``SprintCycle`` 统一路径）。"""
-        logger.info("🚀 开始执行 Release Plan: %s", release_plan.project.name)
+        logger.info("🚀 开始执行 Release Plan: {}", release_plan.project.name)
 
         if not self.validate_release_plan(release_plan):
             return IntentResult(

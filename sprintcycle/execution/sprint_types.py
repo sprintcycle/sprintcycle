@@ -24,11 +24,11 @@ v0.9.1: TaskResult/SprintResult 并入本模块；执行状态统一为 ``Execut
 """
 
 from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional
-from enum import Enum
 from datetime import datetime
+from enum import Enum
+from typing import Any, Dict, List, Optional
 
-from ..release_plan.models import PRDTask, PRDSprint
+from ..release_plan.models import PRDSprint, PRDTask
 
 
 class ExecutionStatus(Enum):
@@ -64,7 +64,7 @@ class TaskResult:
     duration: float = 0.0
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
-    
+
     def to_dict(self) -> Dict[str, Any]:
         desc = self.work_item.description
         return {
@@ -87,21 +87,21 @@ class SprintResult:
     duration: float = 0.0
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
-    
+
     @property
     def success_count(self) -> int:
         return sum(1 for r in self.task_results if r.status == ExecutionStatus.SUCCESS)
-    
+
     @property
     def failed_count(self) -> int:
         return sum(1 for r in self.task_results if r.status == ExecutionStatus.FAILED)
-    
+
     @property
     def success_rate(self) -> float:
         if not self.task_results:
             return 0.0
         return self.success_count / len(self.task_results)
-    
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "sprint_name": self.sprint.name,

@@ -9,19 +9,16 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 import uuid
-from typing import Any, Dict, List, Optional, AsyncGenerator
+from typing import Any, AsyncGenerator, Dict, Optional
 
 from fastapi import FastAPI, Request
-from fastapi.responses import StreamingResponse, HTMLResponse
-from pydantic import BaseModel
+from fastapi.responses import HTMLResponse, StreamingResponse
+from loguru import logger
+from pydantic import AliasChoices, BaseModel, Field
 
 from sprintcycle.api import SprintCycle
-from sprintcycle.execution.events import EventBus, EventType, Event, get_event_bus
-
-logger = logging.getLogger(__name__)
-
+from sprintcycle.execution.events import Event, EventType, get_event_bus
 
 # ─── SSE 客户端管理 ───
 
@@ -30,12 +27,12 @@ class SSEClient:
     def __init__(self, client_id: str, queue: asyncio.Queue):
         self.client_id = client_id
         self.queue = queue
-    
+
     async def send(self, event: Event) -> None:
         """发送事件到客户端"""
         message = event.to_sse_message()
         await self.queue.put(message)
-    
+
     async def send_raw(self, message: str) -> None:
         """发送原始消息到客户端"""
         await self.queue.put(message)
@@ -46,7 +43,7 @@ class SSEClientManager:
     def __init__(self):
         self._clients: Dict[str, SSEClient] = {}
         self._lock = asyncio.Lock()
-    
+
     async def create_client(self) -> SSEClient:
         """创建新的客户端"""
         client_id = str(uuid.uuid4())
@@ -56,36 +53,36 @@ class SSEClientManager:
             self._clients[client_id] = client
         logger.info(f"SSE client connected: {client_id}")
         return client
-    
+
     async def remove_client(self, client_id: str) -> None:
         """移除客户端"""
         async with self._lock:
             if client_id in self._clients:
                 del self._clients[client_id]
                 logger.info(f"SSE client disconnected: {client_id}")
-    
+
     async def broadcast(self, event: Event) -> None:
         """广播事件到所有客户端"""
         async with self._lock:
             clients = list(self._clients.values())
-        
+
         if not clients:
             return
-        
+
         message = event.to_sse_message()
         disconnected = []
-        
+
         for client in clients:
             try:
                 client.queue.put_nowait(message)
             except asyncio.QueueFull:
                 logger.warning(f"SSE client queue full: {client.client_id}")
                 disconnected.append(client.client_id)
-        
+
         # 清理断开的客户端
         for client_id in disconnected:
             await self.remove_client(client_id)
-    
+
     def get_client_count(self) -> int:
         """获取当前客户端数量"""
         return len(self._clients)
@@ -107,20 +104,20 @@ def get_client_manager() -> SSEClientManager:
 
 class SSEEventHandler:
     """SSE 事件处理器 - 将 EventBus 事件转发到 SSE 客户端"""
-    
+
     def __init__(self, client_manager: SSEClientManager):
         self._client_manager = client_manager
         self._is_running = False
-    
+
     async def handle_event(self, event: Event) -> None:
         """处理事件并广播到所有 SSE 客户端"""
         if self._is_running:
             await self._client_manager.broadcast(event)
-    
+
     def start(self) -> None:
         """启动处理器"""
         self._is_running = True
-    
+
     def stop(self) -> None:
         """停止处理器"""
         self._is_running = False
@@ -133,15 +130,26 @@ class PlanRequest(BaseModel):
     intent: str
     mode: str = "auto"
     target: Optional[str] = None
-    prd_path: Optional[str] = None
+    release_plan_path: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices("release_plan_path", "prd_path"),
+    )
+    product: Optional[str] = None
 
 
 class RunRequest(BaseModel):
     intent: Optional[str] = None
     mode: str = "auto"
     target: Optional[str] = None
-    prd_yaml: Optional[str] = None
-    prd_path: Optional[str] = None
+    release_plan_yaml: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices("release_plan_yaml", "prd_yaml"),
+    )
+    release_plan_path: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices("release_plan_path", "prd_path"),
+    )
+    product: Optional[str] = None
     execution_id: Optional[str] = None
     resume: bool = False
 
@@ -182,12 +190,12 @@ def create_app(project_path: str = ".") -> FastAPI:
 
     # 初始化 SSE 客户端管理器
     client_manager = get_client_manager()
-    
+
     # 初始化并启动 SSE 事件处理器
     global _event_handler
     _event_handler = SSEEventHandler(client_manager)
     _event_handler.start()
-    
+
     # 注册全局事件处理器到 EventBus
     # 监听所有事件类型
     for event_type in EventType:
@@ -197,14 +205,22 @@ def create_app(project_path: str = ".") -> FastAPI:
 
     @app.post("/api/plan")
     async def api_plan(req: PlanRequest) -> Dict[str, Any]:
-        result = sc.plan(intent=req.intent, mode=req.mode, target=req.target, prd_path=req.prd_path)
+        result = sc.plan(
+            intent=req.intent,
+            mode=req.mode,
+            target=req.target,
+            release_plan_path=req.release_plan_path,
+            product=req.product,
+        )
         return result.to_dict()
 
     @app.post("/api/run")
     async def api_run(req: RunRequest) -> Dict[str, Any]:
         result = sc.run(
             intent=req.intent, mode=req.mode, target=req.target,
-            prd_yaml=req.prd_yaml, prd_path=req.prd_path,
+            release_plan_yaml=req.release_plan_yaml,
+            release_plan_path=req.release_plan_path,
+            product=req.product,
             execution_id=req.execution_id, resume=req.resume,
         )
         return result.to_dict()
@@ -249,12 +265,12 @@ def create_app(project_path: str = ".") -> FastAPI:
         """
         client = await client_manager.create_client()
         client_id = client.client_id
-        
+
         async def event_stream() -> AsyncGenerator[str, None]:
             try:
                 # 发送连接成功消息
                 yield f"event: connected\ndata: {json.dumps({'client_id': client_id, 'message': 'SSE connected'})}\n\n"
-                
+
                 # 持续发送事件直到客户端断开
                 while True:
                     try:
@@ -271,7 +287,7 @@ def create_app(project_path: str = ".") -> FastAPI:
                         break
             finally:
                 await client_manager.remove_client(client_id)
-        
+
         return StreamingResponse(
             event_stream(),
             media_type="text/event-stream",
@@ -588,11 +604,11 @@ function escHtml(s){var d=document.createElement('div');d.textContent=s;return d
 $('btnClear').addEventListener('click',function(){$('prdEditor').value='';$('planResult').innerHTML='<div style="color:var(--text-muted);text-align:center;padding:40px 0;font-size:13px">已清空，点击 <b>Plan</b> 预览执行计划</div>';$('planMeta').textContent=''});
 $('prdEditor').addEventListener('keydown',function(e){if(e.key==='Enter'&&(e.ctrlKey||e.metaKey))doRun()});
 function setButtonsDisabled(disabled){$('btnPlan').disabled=disabled;$('btnRun').disabled=disabled}
-function renderPlanResult(data){if(!data.success&&data.error)return'<div class="error-text">❌ '+escHtml(data.error)+'</div>';if(!data.sprints||data.sprints.length===0)return'<div class="ok-text">✅ 计划为空</div>';var meta=[];if(data.prd_name)meta.push('📦 '+escHtml(data.prd_name));if(data.mode)meta.push('⚙ '+escHtml(data.mode));if(data.sprints)meta.push('📦 '+data.sprints.length+' Sprint');if(data.duration!==undefined)meta.push('⏱ '+data.duration.toFixed(2)+'s');if(meta.length)$('planMeta').textContent=meta.join(' · ');var html='<div class="plan-header">📋 执行计划预览</div>';if(meta.length)html+='<div class="prd-meta">'+meta.map(function(m){return'<span>'+m+'</span>'}).join('')+'</div>';data.sprints.forEach(function(sp,i){var tasks=Array.isArray(sp.tasks)?sp.tasks:[];html+='<div class="sprint-item"><div class="sprint-name">Sprint '+(i+1)+': '+escHtml(sp.name||'Unnamed')+'</div><div class="task-list">'+tasks.map(function(t){return'<div class="task-item">'+escHtml(t)+'</div>'}).join('')+'</div></div>'});return html}
-async function doPlan(){var input=$('prdEditor').value.trim();if(!input){alert('请输入执行计划 YAML 或意图描述');return}setButtonsDisabled(true);$('planResult').innerHTML='<div class="loading">⏳ 正在规划...</div>';try{var body=input.match(/^(project|sprints|mode|name|version)\\s*:/im)?{prd_yaml:input}:{intent:input};var data=await apiPost('plan',body);$('planResult').innerHTML=renderPlanResult(data)}catch(e){$('planResult').innerHTML='<div class="error-text">请求失败: '+escHtml(e.message)+'</div>'}finally{setButtonsDisabled(false)}}
-async function doRun(){var input=$('prdEditor').value.trim();if(!input){alert('请输入执行计划 YAML 或意图描述');return}setButtonsDisabled(true);$('planResult').innerHTML='<div class="loading">🚀 正在执行... 请关注「实时事件」面板</div>';try{var body=input.match(/^(project|sprints|mode|name|version)\\s*:/im)?{prd_yaml:input}:{intent:input};var data=await apiPost('run',body);$('planResult').innerHTML=renderPlanResult(data);loadHistory()}catch(e){$('planResult').innerHTML='<div class="error-text">请求失败: '+escHtml(e.message)+'</div>'}finally{setButtonsDisabled(false)}}
+function renderPlanResult(data){if(!data.success&&data.error)return'<div class="error-text">❌ '+escHtml(data.error)+'</div>';if(!data.sprints||data.sprints.length===0)return'<div class="ok-text">✅ 计划为空</div>';var pn=data.release_plan_name||data.prd_name;var meta=[];if(pn)meta.push('📦 '+escHtml(pn));if(data.mode)meta.push('⚙ '+escHtml(data.mode));if(data.sprints)meta.push('📦 '+data.sprints.length+' Sprint');if(data.duration!==undefined)meta.push('⏱ '+data.duration.toFixed(2)+'s');if(meta.length)$('planMeta').textContent=meta.join(' · ');var html='<div class="plan-header">📋 执行计划预览</div>';if(meta.length)html+='<div class="prd-meta">'+meta.map(function(m){return'<span>'+m+'</span>'}).join('')+'</div>';data.sprints.forEach(function(sp,i){var tasks=Array.isArray(sp.tasks)?sp.tasks:[];html+='<div class="sprint-item"><div class="sprint-name">Sprint '+(i+1)+': '+escHtml(sp.name||'Unnamed')+'</div><div class="task-list">'+tasks.map(function(t){return'<div class="task-item">'+escHtml(t)+'</div>'}).join('')+'</div></div>'});return html}
+async function doPlan(){var input=$('prdEditor').value.trim();if(!input){alert('请输入执行计划 YAML 或意图描述');return}setButtonsDisabled(true);$('planResult').innerHTML='<div class="loading">⏳ 正在规划...</div>';try{var body=input.match(/^(project|sprints|mode|name|version)\\s*:/im)?{release_plan_yaml:input}:{intent:input};var data=await apiPost('plan',body);$('planResult').innerHTML=renderPlanResult(data)}catch(e){$('planResult').innerHTML='<div class="error-text">请求失败: '+escHtml(e.message)+'</div>'}finally{setButtonsDisabled(false)}}
+async function doRun(){var input=$('prdEditor').value.trim();if(!input){alert('请输入执行计划 YAML 或意图描述');return}setButtonsDisabled(true);$('planResult').innerHTML='<div class="loading">🚀 正在执行... 请关注「实时事件」面板</div>';try{var body=input.match(/^(project|sprints|mode|name|version)\\s*:/im)?{release_plan_yaml:input}:{intent:input};var data=await apiPost('run',body);$('planResult').innerHTML=renderPlanResult(data);loadHistory()}catch(e){$('planResult').innerHTML='<div class="error-text">请求失败: '+escHtml(e.message)+'</div>'}finally{setButtonsDisabled(false)}}
 async function loadHistory(){var list=$('executionsList');list.innerHTML='<div style="color:var(--text-muted);padding:20px 0;text-align:center">⏳ 加载中...</div>';try{var data=await apiPost('status',{});if(!data.success){list.innerHTML='<div class="error-text">加载失败: '+escHtml(data.error||'unknown')+'</div>';return}executionsCache=data.executions||[];renderExecutions(executionsCache)}catch(e){list.innerHTML='<div class="error-text">请求失败: '+escHtml(e.message)+'</div>'}}
-function renderExecutions(execs){var list=$('executionsList');if(!execs||execs.length===0){list.innerHTML='<div class="exec-empty">📭 暂无执行历史<br><br><button class="btn btn-secondary btn-sm" onclick="loadHistory()">🔄 刷新</button></div>';$('historyBadge').style.display='none';return}$('historyBadge').textContent=execs.length;$('historyBadge').style.display='';var html='';execs.forEach(function(ex){var status=ex.status||'unknown';var progress=ex.total_sprints>0?'Sprint '+(ex.current_sprint||0)+'/'+ex.total_sprints:'';var tasks=ex.completed_tasks!==undefined?ex.completed_tasks+'/'+(ex.total_tasks||'?')+' 任务':'';var created=ex.created_at?new Date(ex.created_at).toLocaleString('zh-CN',{hour12:false}):'';var canResume=['cancelled','failed','paused'].indexOf(status)!==-1&&ex.checkpoint;var execId=ex.execution_id||'';var shortId=execId.length>8?execId.substring(0,8):execId;html+='<div class="exec-card"><div class="exec-card-header" onclick="toggleExec(''+execId+'')"><span class="exec-id">'+escHtml(shortId)+'</span><span class="exec-status '+status+'">'+status+'</span><div class="exec-info">'+(ex.prd_name?'<span>📦 '+escHtml(ex.prd_name)+'</span>':'')+(ex.mode?'<span>⚙ '+escHtml(ex.mode)+'</span>':'')+(progress?'<span>📦 '+progress+'</span>':'')+(tasks?'<span>📋 '+tasks+'</span>':'')+(created?'<span>🕐 '+created+'</span>':'')+(ex.error?'<span style="color:var(--red)">❌ '+escHtml(ex.error.substring(0,50))+'</span>':'')+'</div><div class="exec-actions">'+(canResume?'<button class="btn btn-sm btn-primary" onclick="event.stopPropagation();resumeExec(''+execId+'')">▶ Resume</button>':'')+'<button class="btn btn-sm btn-secondary" onclick="event.stopPropagation();stopExec(''+execId+'')" title="停止">⏹</button></div><span class="chevron" id="chev-'+execId+'">▶</span></div><div class="exec-detail" id="detail-'+execId+'">'+renderExecDetail(ex)+'</div></div>'});list.innerHTML=html}
+function renderExecutions(execs){var list=$('executionsList');if(!execs||execs.length===0){list.innerHTML='<div class="exec-empty">📭 暂无执行历史<br><br><button class="btn btn-secondary btn-sm" onclick="loadHistory()">🔄 刷新</button></div>';$('historyBadge').style.display='none';return}$('historyBadge').textContent=execs.length;$('historyBadge').style.display='';var html='';execs.forEach(function(ex){var status=ex.status||'unknown';var progress=ex.total_sprints>0?'Sprint '+(ex.current_sprint||0)+'/'+ex.total_sprints:'';var tasks=ex.completed_tasks!==undefined?ex.completed_tasks+'/'+(ex.total_tasks||'?')+' 任务':'';var created=ex.created_at?new Date(ex.created_at).toLocaleString('zh-CN',{hour12:false}):'';var canResume=['cancelled','failed','paused'].indexOf(status)!==-1&&ex.checkpoint;var execId=ex.execution_id||'';var shortId=execId.length>8?execId.substring(0,8):execId;html+='<div class="exec-card"><div class="exec-card-header" onclick="toggleExec(''+execId+'')"><span class="exec-id">'+escHtml(shortId)+'</span><span class="exec-status '+status+'">'+status+'</span><div class="exec-info">'+((ex.release_plan_name||ex.prd_name)?'<span>📦 '+escHtml(ex.release_plan_name||ex.prd_name)+'</span>':'')+(ex.mode?'<span>⚙ '+escHtml(ex.mode)+'</span>':'')+(progress?'<span>📦 '+progress+'</span>':'')+(tasks?'<span>📋 '+tasks+'</span>':'')+(created?'<span>🕐 '+created+'</span>':'')+(ex.error?'<span style="color:var(--red)">❌ '+escHtml(ex.error.substring(0,50))+'</span>':'')+'</div><div class="exec-actions">'+(canResume?'<button class="btn btn-sm btn-primary" onclick="event.stopPropagation();resumeExec(''+execId+'')">▶ Resume</button>':'')+'<button class="btn btn-sm btn-secondary" onclick="event.stopPropagation();stopExec(''+execId+'')" title="停止">⏹</button></div><span class="chevron" id="chev-'+execId+'">▶</span></div><div class="exec-detail" id="detail-'+execId+'">'+renderExecDetail(ex)+'</div></div>'});list.innerHTML=html}
 function renderExecDetail(ex){var sprints=(ex.metadata&&ex.metadata.sprint_history)||(ex.checkpoint&&ex.checkpoint.sprint_history)||[];if(!sprints.length)return'<div style="padding:14px 0;color:var(--text-muted);font-size:12px">暂无详细信息</div>';var html='<div class="sprint-section">';sprints.forEach(function(sp,i){var tasks=Array.isArray(sp.task_results)?sp.task_results:(Array.isArray(sp.tasks)?sp.tasks:[]);var spStatus=sp.status||'unknown';var dotClass={success:'success',failed:'failed',running:'running',skipped:'skipped'}[spStatus]||'success';var spLabel=sp.sprint_name||sp.name||('Sprint '+(i+1));html+='<div class="sprint-card"><div class="sprint-card-header"><span class="sprint-status-dot '+dotClass+'"></span><span class="sprint-name-label">'+escHtml(spLabel)+'</span><span class="sprint-meta">'+spStatus+'</span>'+(sp.duration!==undefined?'<span class="sprint-meta">⏱ '+sp.duration.toFixed(1)+'s</span>':'')+'</div><div class="task-result-list">';tasks.forEach(function(t){var icon=t.status==='success'?'✅':t.status==='failed'?'❌':'⏳';var color=t.status==='failed'?'var(--red)':t.status==='success'?'var(--green)':'var(--text-dim)';var line=typeof t==='string'?t:(t.description||'');html+='<div class="task-result-item"><span class="task-status-icon" style="color:'+color+'">'+icon+'</span><span>'+escHtml(line||'unnamed')+'</span><span style="margin-left:auto;color:var(--text-muted);font-size:11px">'+escHtml(t.agent||'')+'</span>'+(t.error?'<span style="color:var(--red);font-size:11px;margin-left:6px">⚠</span>':'')+'</div>'});html+='</div></div>'});html+='</div>';return html}
 function toggleExec(execId){var detail=$('detail-'+execId);var chev=$('chev-'+execId);if(!detail)return;if(detail.classList.contains('open')){detail.classList.remove('open');chev.classList.remove('open')}else {detail.classList.add('open');chev.classList.add('open')}}
 async function resumeExec(execId){if(!confirm('确认恢复执行 '+execId.substring(0,8)+' ?'))return;try{var data=await apiPost('run',{execution_id:execId,resume:true});if(data.success){loadHistory();switchTab('events')}else{alert('Resume 失败: '+(data.error||'unknown'))}}catch(e){alert('请求失败: '+e.message)}}

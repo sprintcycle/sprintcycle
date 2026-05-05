@@ -4,7 +4,6 @@ RuntimeConfig - 运行时核心配置
 v0.9.2: 使用 pydantic-settings BaseSettings 自动从环境变量加载
 """
 
-import logging
 import os
 from typing import Any, Dict, Optional, Union
 
@@ -13,9 +12,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from .quality import normalize_quality_level, normalize_quality_profile, resolve_effective_quality_level
 from .toml_loader import flatten_sprintcycle_toml, load_sprintcycle_toml
-
-logger = logging.getLogger(__name__)
-
 
 # ============================================================
 # Default config values
@@ -44,6 +40,9 @@ _DEFAULT_CONFIG: Dict[str, Any] = {
     "knowledge_injection_enabled": True,
     "require_knowledge_injection_confirm": False,
     "persist_sprint_knowledge_cards": True,
+    # 非自进化时：产品代码根（相对 SprintCycle project_path 解析）与 products 子目录名
+    "product_code_root": ".",
+    "products_subdir": "products",
 }
 
 
@@ -148,6 +147,10 @@ class RuntimeConfig(BaseSettings):
     require_knowledge_injection_confirm: bool = False
     # Sprint 结束后将结构化摘要写入 knowledge_cards（SQLite）；关闭则只记录日志/事件
     persist_sprint_knowledge_cards: bool = True
+    # 意图进化（非 SprintCycle 自进化）：产品代码放在 <product_code_root>/<products_subdir>/<product>/
+    # product_code_root 为相对路径时，相对于 SprintCycle 构造时的 project_path（代码根）
+    product_code_root: str = "."
+    products_subdir: str = "products"
 
     @field_validator("quality_level")
     @classmethod

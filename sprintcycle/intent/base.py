@@ -4,12 +4,12 @@ Intent 基类
 """
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Dict, Any, Optional, List, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 # 使用 TYPE_CHECKING 避免循环导入
 if TYPE_CHECKING:
-    from ..release_plan.models import PRD
     from ..orchestration.sprint_orchestrator import SprintResult
+    from ..release_plan.models import PRD
 
 
 @dataclass
@@ -24,7 +24,7 @@ class IntentResult:
     error: Optional[str] = None
     details: Dict[str, Any] = field(default_factory=dict)
     sprint_results: List["SprintResult"] = field(default_factory=list)
-    
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "success": self.success,

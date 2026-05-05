@@ -6,7 +6,7 @@
 - FeedbackLoop: 反馈收集、分析、应用、持久化
 
 学习循环：
-意图 → PRD → 执行 → 结果 → 反馈 → 下次迭代优化
+意图 → Release Plan → 执行 → 结果 → 反馈 → 下次迭代优化
 
 使用方式：
 ```python
@@ -14,7 +14,7 @@
 feedback_loop = FeedbackLoop()
 
 # 收集反馈
-feedback = feedback_loop.collect(prd, sprint_results)
+feedback = feedback_loop.collect(release_plan, sprint_results)
 
 # 持久化反馈
 feedback_loop.save(feedback)
@@ -26,22 +26,20 @@ all_feedbacks = feedback_loop.get_all_feedbacks()
 suggestions = feedback_loop.analyze(feedback)
 
 # 应用到下次迭代
-updated_prd = feedback_loop.apply_to_prd(prd, feedback)
+updated_plan = feedback_loop.apply_to_release_plan(release_plan, feedback)
 ```
 """
 
+import json
 from dataclasses import dataclass, field
-from typing import Dict, Any, List, Optional, Callable
 from datetime import datetime
 from enum import Enum
-import json
-import logging
-import re
 from pathlib import Path
-import logging
-from .error_knowledge import ErrorPattern
+from typing import Any, Callable, Dict, List, Optional
 
-logger = logging.getLogger(__name__)
+from loguru import logger
+
+from .error_knowledge import ErrorPattern
 
 
 class FeedbackLevel(Enum):
@@ -66,8 +64,8 @@ class FeedbackCategory(Enum):
 @dataclass
 class ExecutionFeedback:
     """执行反馈数据类"""
-    prd_id: str = ""
-    prd_name: str = ""
+    release_plan_id: str = ""
+    release_plan_name: str = ""
     iteration: int = 1
     sprint_name: str = ""
     total_tasks: int = 0
@@ -116,8 +114,8 @@ class ExecutionFeedback:
     
     def to_dict(self) -> Dict[str, Any]:
         return {
-            "prd_id": self.prd_id,
-            "prd_name": self.prd_name,
+            "release_plan_id": self.release_plan_id,
+            "release_plan_name": self.release_plan_name,
             "iteration": self.iteration,
             "sprint_name": self.sprint_name,
             "total_tasks": self.total_tasks,
@@ -135,10 +133,18 @@ class ExecutionFeedback:
         }
     
     @classmethod
-    def from_results(cls, prd_id: str, prd_name: str, sprint_name: str,
-                     iteration: int, task_results: List[Any]) -> "ExecutionFeedback":
+    def from_results(
+        cls,
+        release_plan_id: str,
+        release_plan_name: str,
+        sprint_name: str,
+        iteration: int,
+        task_results: List[Any],
+    ) -> "ExecutionFeedback":
         feedback = cls(
-            prd_id=prd_id, prd_name=str(prd_name), sprint_name=sprint_name,
+            release_plan_id=release_plan_id,
+            release_plan_name=str(release_plan_name),
+            sprint_name=sprint_name,
             iteration=iteration, total_tasks=len(task_results),
         )
         
@@ -234,20 +240,18 @@ class FeedbackLoop:
     
     def save(self, feedback: ExecutionFeedback) -> None:
         """持久化反馈到文件"""
-        filepath = self._storage_dir / f"{feedback.prd_id}.json"
+        filepath = self._storage_dir / f"{feedback.release_plan_id}.json"
         try:
             with open(filepath, "w", encoding="utf-8") as f:
                 json.dump(feedback.to_dict(), f, ensure_ascii=False, indent=2)
-            logger = logging.getLogger(__name__)
             logger.debug(f"💾 反馈已保存: {filepath}")
         except Exception as e:
-            logger = logging.getLogger(__name__)
             logger.error(f"❌ 保存反馈失败: {e}")
             raise
     
-    def load_history(self, prd_id: str) -> List[ExecutionFeedback]:
-        """加载指定 PRD 的历史反馈"""
-        filepath = self._storage_dir / f"{prd_id}.json"
+    def load_history(self, release_plan_id: str) -> List[ExecutionFeedback]:
+        """加载指定 Release Plan 的历史反馈"""
+        filepath = self._storage_dir / f"{release_plan_id}.json"
         if not filepath.exists():
             return []
         try:
@@ -257,9 +261,12 @@ class FeedbackLoop:
             data_copy = data.copy()
             data_copy.pop("success_rate", None)
             data_copy.pop("overall_score", None)
+            if "release_plan_id" not in data_copy and "prd_id" in data_copy:
+                data_copy["release_plan_id"] = data_copy.pop("prd_id")
+            if "release_plan_name" not in data_copy and "prd_name" in data_copy:
+                data_copy["release_plan_name"] = data_copy.pop("prd_name")
             return [ExecutionFeedback(**data_copy)]
         except Exception as e:
-            logger = logging.getLogger(__name__)
             logger.error(f"❌ 加载历史反馈失败: {e}")
             return []
     
@@ -271,7 +278,6 @@ class FeedbackLoop:
                 with open(filepath, "r", encoding="utf-8") as f:
                     feedbacks.append(json.load(f))
         except Exception as e:
-            logger = logging.getLogger(__name__)
             logger.error(f"❌ 读取历史反馈失败: {e}")
         return feedbacks
     
@@ -306,12 +312,12 @@ class FeedbackLoop:
             self._analyze_issues,
         ]
     
-    def collect(self, prd: Any, results: List[Any]) -> ExecutionFeedback:
+    def collect(self, release_plan: Any, results: List[Any]) -> ExecutionFeedback:
         """收集反馈"""
-        prd_id = getattr(prd, "id", "") or ""
-        prd_name = getattr(prd, "project", type("obj", (), {"name": ""})) or ""
-        if hasattr(prd_name, "name"):
-            prd_name = prd_name.name
+        rp_id = getattr(release_plan, "id", "") or ""
+        rp_name = getattr(release_plan, "project", type("obj", (), {"name": ""})) or ""
+        if hasattr(rp_name, "name"):
+            rp_name = rp_name.name
         
         task_results = []
         for result in results:
@@ -327,8 +333,11 @@ class FeedbackLoop:
             sprint_name = results[0].sprint.name
         
         feedback = ExecutionFeedback.from_results(
-            prd_id=prd_id, prd_name=str(prd_name), sprint_name=sprint_name,
-            iteration=1, task_results=task_results,
+            release_plan_id=rp_id,
+            release_plan_name=str(rp_name),
+            sprint_name=sprint_name,
+            iteration=1,
+            task_results=task_results,
         )
         
         self._history.append(feedback)
@@ -388,21 +397,22 @@ class FeedbackLoop:
             suggestions.append(f"性能评分较低({perf})，建议进行性能优化")
         return suggestions
     
-    def apply_to_prd(self, prd: Any, feedback: ExecutionFeedback) -> Any:
-        """将反馈应用到 PRD"""
+    def apply_to_release_plan(self, release_plan: Any, feedback: ExecutionFeedback) -> Any:
+        """将反馈应用到 Release Plan（内存模型）。"""
         import copy
-        updated_prd = copy.deepcopy(prd)
-        if hasattr(updated_prd, "metadata"):
-            if updated_prd.metadata is None:
-                updated_prd.metadata = {}
-            updated_prd.metadata["last_feedback"] = feedback.to_dict()
-            updated_prd.metadata["iterations"] = updated_prd.metadata.get("iterations", 0) + 1
+
+        updated = copy.deepcopy(release_plan)
+        if hasattr(updated, "metadata"):
+            if updated.metadata is None:
+                updated.metadata = {}
+            updated.metadata["last_feedback"] = feedback.to_dict()
+            updated.metadata["iterations"] = updated.metadata.get("iterations", 0) + 1
         suggestions = self.analyze(feedback)
-        if hasattr(updated_prd, "config"):
-            if updated_prd.config is None:
-                updated_prd.config = {}
-            updated_prd.config["improvement_suggestions"] = suggestions
-        return updated_prd
+        if hasattr(updated, "config"):
+            if updated.config is None:
+                updated.config = {}
+            updated.config["improvement_suggestions"] = suggestions
+        return updated
     
     def get_improvements(self, feedback: ExecutionFeedback) -> List[Dict[str, Any]]:
         """获取改进建议详情"""
@@ -515,7 +525,15 @@ class FeedbackLoop:
         """从文件导入反馈历史"""
         with open(filepath, "r", encoding="utf-8") as f:
             data = json.load(f)
-            self._history = [ExecutionFeedback(**d) for d in data]
+        out: List[ExecutionFeedback] = []
+        for d in data:
+            dc = dict(d)
+            if "release_plan_id" not in dc and "prd_id" in dc:
+                dc["release_plan_id"] = dc.pop("prd_id")
+            if "release_plan_name" not in dc and "prd_name" in dc:
+                dc["release_plan_name"] = dc.pop("prd_name")
+            out.append(ExecutionFeedback(**dc))
+        self._history = out
 
 
 __all__ = [

@@ -3,14 +3,13 @@ MemoryStore - 进化记忆存储
 """
 
 import json
-import logging
 import time
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 @dataclass
@@ -26,7 +25,7 @@ class EvolutionMemory:
     accessed_at: float = field(default_factory=time.time)
     access_count: int = 0
     metadata: Dict[str, Any] = field(default_factory=dict)
-    
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "id": self.id,
@@ -41,7 +40,7 @@ class EvolutionMemory:
             "access_count": self.access_count,
             "metadata": self.metadata,
         }
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "EvolutionMemory":
         return cls(
@@ -74,18 +73,18 @@ class MemoryStore:
             self.storage_path = storage_path or f"{cache_dir}/memory"
         else:
             self.storage_path = storage_path or "./evolution_cache/memory"
-        
+
         self.max_memories = max_memories
         self.retention_days = retention_days
         self.enable_compression = enable_compression
-        
+
         self._storage_path = Path(self.storage_path)
         self._storage_path.mkdir(parents=True, exist_ok=True)
         self._memories: Dict[str, EvolutionMemory] = {}
         self._index_by_type: Dict[str, List[str]] = {}
         self._index_by_tag: Dict[str, List[str]] = {}
         self._load_from_disk()
-    
+
     def _load_from_disk(self) -> None:
         try:
             index_file = self._storage_path / "index.json"
@@ -102,7 +101,7 @@ class MemoryStore:
                 logger.info(f"Loaded {len(self._memories)} memories from disk")
         except Exception as e:
             logger.warning(f"Failed to load memories from disk: {e}")
-    
+
     def _save_to_disk(self, memory: EvolutionMemory) -> None:
         try:
             memory_file = self._storage_path / f"{memory.id}.json"
@@ -114,7 +113,7 @@ class MemoryStore:
                 json.dump(index_data, f, ensure_ascii=False, indent=2)
         except Exception as e:
             logger.warning(f"Failed to save memory to disk: {e}")
-    
+
     def _update_indices(self, memory: EvolutionMemory) -> None:
         if memory.memory_type not in self._index_by_type:
             self._index_by_type[memory.memory_type] = []
@@ -125,7 +124,7 @@ class MemoryStore:
                 self._index_by_tag[tag] = []
             if memory.id not in self._index_by_tag[tag]:
                 self._index_by_tag[tag].append(memory.id)
-    
+
     def store(
         self,
         memory_type: str,
@@ -151,14 +150,14 @@ class MemoryStore:
         self._save_to_disk(memory)
         self._cleanup_old_memories()
         return memory
-    
+
     def get(self, memory_id: str) -> Optional[EvolutionMemory]:
         memory = self._memories.get(memory_id)
         if memory:
             memory.access_count += 1
             memory.accessed_at = time.time()
         return memory
-    
+
     def search(
         self,
         memory_type: Optional[str] = None,
@@ -183,13 +182,13 @@ class MemoryStore:
             results.append(memory)
         results.sort(key=lambda m: (m.score, m.created_at), reverse=True)
         return results[:limit]
-    
+
     def get_successful_patterns(self, memory_type: str = "gene", min_score: float = 0.7, limit: int = 20) -> List[EvolutionMemory]:
         return self.search(memory_type=memory_type, success=True, min_score=min_score, limit=limit)
-    
+
     def get_failed_attempts(self, limit: int = 20) -> List[EvolutionMemory]:
         return self.search(memory_type="attempt", success=False, limit=limit)
-    
+
     def update_score(self, memory_id: str, success: bool, delta: float = 0.0) -> bool:
         memory = self._memories.get(memory_id)
         if not memory:
@@ -199,7 +198,7 @@ class MemoryStore:
         memory.accessed_at = time.time()
         self._save_to_disk(memory)
         return True
-    
+
     def delete(self, memory_id: str) -> bool:
         if memory_id not in self._memories:
             return False
@@ -216,7 +215,7 @@ class MemoryStore:
         if memory_file.exists():
             memory_file.unlink()
         return True
-    
+
     def _cleanup_old_memories(self) -> int:
         if len(self._memories) <= self.max_memories:
             return 0
@@ -225,14 +224,14 @@ class MemoryStore:
         for memory in to_delete:
             self.delete(memory.id)
         return len(to_delete)
-    
+
     @property
     def stats(self) -> Dict[str, Any]:
         total = len(self._memories)
         by_type = {mtype: len(mids) for mtype, mids in self._index_by_type.items()}
         by_success = {"success": sum(1 for m in self._memories.values() if m.success), "failed": sum(1 for m in self._memories.values() if not m.success)}
         return {"total_memories": total, "by_type": by_type, "by_success": by_success, "unique_tags": len(self._index_by_tag), "storage_path": str(self._storage_path)}
-    
+
     def clear(self) -> int:
         count = len(self._memories)
         for memory_id in list(self._memories.keys()):

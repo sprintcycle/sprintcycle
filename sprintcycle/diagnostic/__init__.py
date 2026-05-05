@@ -8,19 +8,17 @@ Diagnostic Module - 项目诊断模块
 """
 
 from .health_report import (
-    ProjectHealthReport,
     CodeIssue,
+    ProjectHealthReport,
     Severity,
 )
-
 from .provider import (
     ProjectDiagnostic,
 )
-
 from .release_plan_generator import (
     DiagnosticPRDGenerator,
-    PRDRuleEngine,
     LLMPRDGenerator,
+    PRDRuleEngine,
     PRDRulePriority,
 )
 

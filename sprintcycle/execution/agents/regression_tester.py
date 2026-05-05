@@ -5,13 +5,11 @@ RegressionTestAgent - 负责回归测试步骤
 确保代码修改没有破坏已有功能。比对修改前后的测试结果，识别回归问题。
 """
 
-import asyncio
-import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
-from .base import AgentExecutor, AgentContext, AgentResult, AgentType
+from loguru import logger
 
-logger = logging.getLogger(__name__)
+from .base import AgentContext, AgentExecutor, AgentResult, AgentType
 
 
 class RegressionTestAgent(AgentExecutor):

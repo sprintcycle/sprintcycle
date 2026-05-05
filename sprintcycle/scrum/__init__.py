@@ -10,11 +10,11 @@ from __future__ import annotations
 
 from ..release_plan.models import (
     PRD,
-    PRDProject,
+    ExecutionMode,
     PRDEvolutionParams,
+    PRDProject,
     PRDSprint,
     PRDTask,
-    ExecutionMode,
 )
 
 # --- Scrum 对等名（类型别名）---

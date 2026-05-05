@@ -4,11 +4,10 @@
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 from typing import Any, Dict
 
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 def _as_dict(value: Any) -> Dict[str, Any]:
@@ -33,7 +32,7 @@ def load_sprintcycle_toml(project_path: str | Path) -> Dict[str, Any]:
             data = tomllib.load(f)
         return data if isinstance(data, dict) else {}
     except Exception as e:
-        logger.warning("无法解析 sprintcycle.toml: %s", e)
+        logger.warning("无法解析 sprintcycle.toml: {}", e)
         return {}
 
 
@@ -94,5 +93,11 @@ def flatten_sprintcycle_toml(nested: Dict[str, Any]) -> Dict[str, Any]:
         out["persist_sprint_knowledge_cards"] = bool(
             behavior["persist_sprint_knowledge_cards"]
         )
+
+    product_layout = _as_dict(nested.get("product_layout"))
+    if "code_root" in product_layout:
+        out["product_code_root"] = str(product_layout["code_root"]).strip()
+    if "subdir" in product_layout:
+        out["products_subdir"] = str(product_layout["subdir"]).strip()
 
     return out

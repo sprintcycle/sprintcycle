@@ -5,44 +5,42 @@
 Evolution 作为 Sprint 的增强能力，由 SprintExecutor 内部调用。
 """
 
-import asyncio
-import logging
 import time
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
+
+from loguru import logger
 
 from ..release_plan.models import PRD, ExecutionMode
-from .sprint_executor import SprintExecutor, SprintResult, ExecutionStatus
-
-logger = logging.getLogger(__name__)
+from .sprint_executor import ExecutionStatus, SprintExecutor, SprintResult
 
 
 @dataclass
 class ExecutionResult:
     """执行结果"""
     success: bool
-    prd: PRD
+    release_plan: PRD
     sprint_results: List[SprintResult] = field(default_factory=list)
     duration: float = 0.0
     error: Optional[str] = None
-    
+
     @property
     def completed_sprints(self) -> int:
         return sum(1 for r in self.sprint_results if r.status == ExecutionStatus.SUCCESS)
-    
+
     @property
     def total_sprints(self) -> int:
         return len(self.sprint_results)
-    
+
     @property
     def completed_tasks(self) -> int:
         return sum(r.success_count for r in self.sprint_results)
-    
+
     @property
     def total_tasks(self) -> int:
         return sum(len(r.task_results) for r in self.sprint_results)
-    
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "success": self.success,
@@ -61,7 +59,7 @@ class ExecutionStrategy(ABC):
     
     所有策略都必须实现 execute 方法，并共享 SprintExecutor。
     """
-    
+
     def __init__(self, sprint_executor: SprintExecutor):
         """
         初始化策略
@@ -70,14 +68,14 @@ class ExecutionStrategy(ABC):
             sprint_executor: 共享的 Sprint 执行器
         """
         self.sprint_executor = sprint_executor
-    
+
     @abstractmethod
-    async def execute(self, prd: PRD) -> ExecutionResult:
+    async def execute(self, release_plan: PRD) -> ExecutionResult:
         """
         执行 PRD
         
         Args:
-            prd: PRD 对象
+            release_plan: PRD 对象
             
         Returns:
             ExecutionResult: 执行结果
@@ -94,26 +92,26 @@ class NormalStrategy(ExecutionStrategy):
     流程：
     Sprint 1 → Sprint 2 → Sprint 3 → ... → 完成
     """
-    
-    async def execute(self, prd: PRD) -> ExecutionResult:
+
+    async def execute(self, release_plan: PRD) -> ExecutionResult:
         """执行普通任务"""
         start_time = time.time()
-        logger.info(f"📋 Normal 策略执行: {prd.project.name}")
-        
-        self.sprint_executor.set_prd(prd)
+        logger.info(f"📋 Normal 策略执行: {release_plan.project.name}")
+
+        self.sprint_executor.set_release_plan(release_plan)
         sprint_results = await self.sprint_executor.execute_sprints(
-            prd.sprints, mode="normal", prd=prd, sprint_index_offset=0
+            release_plan.sprints, mode="normal", release_plan=release_plan, sprint_index_offset=0
         )
-        
+
         # 判断整体成功
         success = all(r.status == ExecutionStatus.SUCCESS for r in sprint_results)
-        
+
         duration = time.time() - start_time
         logger.info(f"{'✅' if success else '❌'} Normal 策略完成 ({duration:.2f}s)")
-        
+
         return ExecutionResult(
             success=success,
-            prd=prd,
+            release_plan=release_plan,
             sprint_results=sprint_results,
             duration=duration,
             error=None if success else "部分 Sprint 失败",
@@ -134,9 +132,9 @@ class EvolutionStrategy(ExecutionStrategy):
     
     关键：EvolutionEngine 通过 SprintExecutor 间接使用
     """
-    
+
     def __init__(
-        self, 
+        self,
         sprint_executor: SprintExecutor,
     ):
         """
@@ -147,31 +145,31 @@ class EvolutionStrategy(ExecutionStrategy):
         """
         super().__init__(sprint_executor)
         # 不再直接持有 evolution_engine，而是通过 SprintExecutor 使用
-    
-    async def execute(self, prd: PRD) -> ExecutionResult:
+
+    async def execute(self, release_plan: PRD) -> ExecutionResult:
         """执行自进化 - 统一走 SprintExecutor"""
         start_time = time.time()
-        logger.info(f"🔄 Evolution 策略执行: {prd.project.name}")
-        
+        logger.info(f"🔄 Evolution 策略执行: {release_plan.project.name}")
+
         # 调用 SprintExecutor 的 evolution 模式
         # EvolutionEngine 已在 SprintExecutor 内部，通过 _execute_evolution_sprints 调用
-        self.sprint_executor.set_prd(prd)
+        self.sprint_executor.set_release_plan(release_plan)
         sprint_results = await self.sprint_executor.execute_sprints(
-            sprints=prd.sprints,
+            sprints=release_plan.sprints,
             mode="evolution",
-            evolution_config=prd.evolution,
-            prd=prd,
+            evolution_config=release_plan.evolution,
+            release_plan=release_plan,
             sprint_index_offset=0,
         )
-        
+
         success = all(r.status == ExecutionStatus.SUCCESS for r in sprint_results)
         duration = time.time() - start_time
-        
+
         logger.info(f"{'✅' if success else '❌'} Evolution 策略完成 ({duration:.2f}s)")
-        
+
         return ExecutionResult(
             success=success,
-            prd=prd,
+            release_plan=release_plan,
             sprint_results=sprint_results,
             duration=duration,
         )
@@ -179,7 +177,7 @@ class EvolutionStrategy(ExecutionStrategy):
 
 # 策略工厂
 def get_strategy(
-    mode: ExecutionMode, 
+    mode: ExecutionMode,
     sprint_executor: SprintExecutor,
 ) -> ExecutionStrategy:
     """

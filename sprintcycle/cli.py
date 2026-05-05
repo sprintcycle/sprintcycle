@@ -5,6 +5,7 @@ SprintCycle CLI — 子命令式入口
   sprintcycle "意图"          → 快捷执行 (= run)
   sprintcycle plan "意图"     → 生成计划
   sprintcycle run "意图"      → 执行
+  sprintcycle wizard          → 交互式向导（questionary）
   sprintcycle diagnose        → 体检
   sprintcycle status [id]     → 查状态
   sprintcycle rollback <id>   → 回滚
@@ -16,55 +17,53 @@ SprintCycle CLI — 子命令式入口
   sprintcycle knowledge search → 检索知识卡片
 """
 
+from __future__ import annotations
+
+import asyncio
 import json
 import sys
-import asyncio
-import logging
-from logging.handlers import RotatingFileHandler
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any, Optional
 
 import click
+import questionary
+from questionary import Choice
+from rich.console import Console
+from rich.markup import escape
+from rich.panel import Panel
+from rich.table import Table
+from rich.traceback import install as install_rich_traceback
 
 from sprintcycle.api import SprintCycle
+from sprintcycle.logging_setup import configure_sprintcycle_logging
 from sprintcycle.results import (
-    PlanResult, RunResult, DiagnoseResult,
-    StatusResult, RollbackResult, StopResult,
+    DiagnoseResult,
+    PlanResult,
+    RollbackResult,
+    RunResult,
+    StatusResult,
+    StopResult,
 )
 
-
-def setup_logging(
-    log_file: str = ".sprintcycle/logs/sprintcycle.log",
-    level: int = logging.INFO,
-    max_bytes: int = 10 * 1024 * 1024,
-    backup_count: int = 5,
-) -> logging.Logger:
-    log_path = Path(log_file)
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-
-    formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    )
-    root_logger = logging.getLogger()
-    root_logger.setLevel(level)
-
-    if not root_logger.handlers:
-        console = logging.StreamHandler()
-        console.setLevel(level)
-        console.setFormatter(formatter)
-        root_logger.addHandler(console)
-
-        file_h = RotatingFileHandler(
-            log_file, maxBytes=max_bytes, backupCount=backup_count, encoding="utf-8"
-        )
-        file_h.setLevel(level)
-        file_h.setFormatter(formatter)
-        root_logger.addHandler(file_h)
-
-    return logging.getLogger(__name__)
+console = Console()
+err_console = Console(stderr=True)
+_rich_traceback_installed = False
 
 
-logger = setup_logging()
+def _package_version() -> str:
+    try:
+        return version("sprintcycle")
+    except PackageNotFoundError:
+        return "0.0.0"
+
+
+def _ensure_rich_traceback() -> None:
+    global _rich_traceback_installed
+    if _rich_traceback_installed:
+        return
+    install_rich_traceback(show_locals=False, suppress=[click])
+    _rich_traceback_installed = True
 
 
 def _print_result(result: Any, fmt: str) -> None:
@@ -77,7 +76,6 @@ def _print_result(result: Any, fmt: str) -> None:
             sys.exit(3)
         return
 
-    # text 格式
     if isinstance(result, PlanResult):
         _print_plan(result)
     elif isinstance(result, RunResult):
@@ -96,91 +94,178 @@ def _print_result(result: Any, fmt: str) -> None:
         click.echo(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
 
     if not result.success and result.error:
-        click.echo(f"\n❌ 错误: {result.error}")
+        err_console.print(f"\n[bold red]错误:[/bold red] {escape(str(result.error))}")
         sys.exit(1)
 
 
 def _print_plan(r: PlanResult) -> None:
-    click.echo(f"📋 Sprint 计划 (mode={r.mode})")
-    click.echo(f"   项目: {r.prd_name}")
-    click.echo(f"   Sprint 数: {len(r.sprints)}")
+    table = Table(title=f"Sprint 计划 [dim](mode={escape(r.mode)})[/dim]", show_lines=True)
+    table.add_column("#", style="cyan", justify="right", width=3)
+    table.add_column("Sprint", style="bold")
+    table.add_column("任务", style="white")
+
     for i, s in enumerate(r.sprints, 1):
-        click.echo(f"\n   Sprint {i}: {s.get('name', '')}")
-        for t in s.get("tasks", []):
-            click.echo(f"     · {t}")
-    click.echo(f"\n💡 使用 run(prd_yaml=...) 可直接执行此计划")
+        tasks = s.get("tasks") or []
+        task_lines = "\n".join(f"· {escape(str(t))}" for t in tasks) or "—"
+        table.add_row(str(i), escape(str(s.get("name", ""))), task_lines)
+
+    console.print(
+        Panel(
+            table,
+            title="[bold magenta]📋 Release Plan[/bold magenta]",
+            subtitle=f"项目: {escape(r.release_plan_name)}  ·  {len(r.sprints)} 个 Sprint",
+        )
+    )
+    console.print(
+        "[dim]使用[/dim] [bold]run[/bold][dim](release_plan_yaml=...) 可直接执行此计划[/dim]"
+    )
 
 
 def _print_run(r: RunResult) -> None:
     if getattr(r, "pending_knowledge_confirmation", False):
-        click.echo("\n⏸ 知识注入待确认（尚未执行 Sprint）")
-        click.echo(f"   项目: {r.prd_name}")
+        body_lines = [
+            f"项目: [bold]{escape(r.release_plan_name)}[/bold]",
+        ]
         pv = r.knowledge_injection_preview or {}
         cu = pv.get("cards_used") or []
         if cu:
-            click.echo(f"   引用知识卡片: {len(cu)} 条")
+            body_lines.append(f"引用知识卡片: [yellow]{len(cu)}[/yellow] 条")
         if r.message:
-            click.echo(f"   {r.message}")
-        click.echo("   再次执行时请加上 --yes 以确认并落盘 release_plan_overlay.yaml")
-        return
-    status_icon = "✅" if r.success else "❌"
-    click.echo(f"\n{status_icon} 执行{'成功' if r.success else '失败'}")
-    click.echo(f"   项目: {r.prd_name}")
-    click.echo(f"   Sprint: {r.completed_sprints}/{r.total_sprints}")
-    click.echo(f"   任务: {r.completed_tasks}/{r.total_tasks}")
-    if r.execution_id:
-        click.echo(f"   执行ID: {r.execution_id}")
-    click.echo(f"   耗时: {r.duration:.1f}s")
-
-    for sr in r.sprint_results:
-        sprint_status = "✅" if sr.get("status") in ("success", "skipped") else "❌"
-        click.echo(
-            f"\n   📦 {sr.get('sprint_name', '?')} {sprint_status} "
-            f"({sr.get('success_count', 0)}/{sr.get('task_count', 0)} 任务, {sr.get('duration', 0):.1f}s)"
+            body_lines.append(escape(str(r.message)))
+        body_lines.append(
+            "[dim]再次执行时请加上[/dim] [bold]--yes[/bold] [dim]以确认并落盘 release_plan_overlay.yaml[/dim]"
         )
+        console.print(
+            Panel(
+                "\n".join(body_lines),
+                title="[bold yellow]⏸ 知识注入待确认[/bold yellow]",
+                subtitle="尚未执行 Sprint",
+                border_style="yellow",
+            )
+        )
+        return
+
+    ok = r.success
+    status_style = "bold green" if ok else "bold red"
+    status_text = "执行成功" if ok else "执行失败"
+    summary = Table.grid(padding=(0, 2))
+    summary.add_column(style="dim", justify="right")
+    summary.add_column()
+    summary.add_row("项目", escape(r.release_plan_name))
+    summary.add_row("Sprint", f"{r.completed_sprints}/{r.total_sprints}")
+    summary.add_row("任务", f"{r.completed_tasks}/{r.total_tasks}")
+    if r.execution_id:
+        summary.add_row("执行ID", escape(r.execution_id))
+    summary.add_row("耗时", f"{r.duration:.1f}s")
+
+    console.print(
+        Panel.fit(
+            summary,
+            title=f"[{status_style}]{status_text}[/{status_style}]",
+            border_style="green" if ok else "red",
+        )
+    )
+
+    if r.sprint_results:
+        st = Table(title="Sprint 明细", show_header=True, header_style="bold")
+        st.add_column("Sprint")
+        st.add_column("状态", justify="center")
+        st.add_column("任务", justify="right")
+        st.add_column("耗时", justify="right")
+        for sr in r.sprint_results:
+            sprint_status = "✅" if sr.get("status") in ("success", "skipped") else "❌"
+            st.add_row(
+                escape(str(sr.get("sprint_name", "?"))),
+                sprint_status,
+                f"{sr.get('success_count', 0)}/{sr.get('task_count', 0)}",
+                f"{float(sr.get('duration', 0)):.1f}s",
+            )
+        console.print(st)
 
 
 def _print_diagnose(r: DiagnoseResult) -> None:
-    click.echo(f"🏥 项目体检")
-    click.echo(f"   健康度: {r.health_score:.0f}/100")
-    click.echo(f"   覆盖率: {r.coverage:.1%}")
+    grid = Table.grid(padding=(0, 2))
+    grid.add_column(style="dim", justify="right")
+    grid.add_column()
+    grid.add_row("健康度", f"[bold]{r.health_score:.0f}[/bold]/100")
+    grid.add_row("覆盖率", f"{r.coverage:.1%}")
+    issues_n = len(r.issues)
+    grid.add_row("问题数", str(issues_n) if issues_n else "[green]0[/green]")
+
+    console.print(
+        Panel.fit(grid, title="[bold blue]🏥 项目体检[/bold blue]", border_style="blue")
+    )
+
     if r.issues:
-        click.echo(f"   问题: {len(r.issues)}")
+        it = Table(title="问题（最多 5 条）", show_lines=False)
+        it.add_column("级别", style="yellow", width=10)
+        it.add_column("说明")
         for issue in r.issues[:5]:
-            click.echo(f"     · [{issue.get('severity', '?')}] {issue.get('message', '')}")
-    else:
-        click.echo("   问题: 无")
+            it.add_row(
+                escape(str(issue.get("severity", "?"))),
+                escape(str(issue.get("message", ""))),
+            )
+        console.print(it)
 
 
 def _print_status(r: StatusResult) -> None:
     if r.executions:
-        click.echo(f"📜 执行历史 ({len(r.executions)} 条)")
+        t = Table(title=f"执行历史 [dim]({len(r.executions)} 条，展示前 10 条)[/dim]")
+        t.add_column("执行ID", style="cyan")
+        t.add_column("状态")
+        t.add_column("项目")
+        t.add_column("Sprint", justify="right")
         for e in r.executions[:10]:
-            click.echo(
-                f"   · {e.get('execution_id', '?')} [{e.get('status', '?')}] "
-                f"{e.get('prd_name', '')} Sprint {e.get('current_sprint', 0)}/{e.get('total_sprints', 0)}"
+            t.add_row(
+                escape(str(e.get("execution_id", "?"))),
+                escape(str(e.get("status", "?"))),
+                escape(str(e.get("release_plan_name") or e.get("prd_name", ""))),
+                f"{e.get('current_sprint', 0)}/{e.get('total_sprints', 0)}",
             )
+        console.print(t)
     else:
-        click.echo(f"📜 执行状态: {r.execution_id}")
-        click.echo(f"   状态: {r.status}")
-        click.echo(f"   Sprint: {r.current_sprint}/{r.total_sprints}")
+        lines = [
+            f"执行ID: [bold]{escape(r.execution_id)}[/bold]",
+            f"状态: {escape(r.status)}",
+            f"Sprint: {r.current_sprint}/{r.total_sprints}",
+        ]
         if r.sprint_history:
-            click.echo(f"   历史:")
-            for h in r.sprint_history[-3:]:
-                click.echo(f"     · {h.get('sprint_name', '?')} → {h.get('status', '?')}")
+            hist = "\n".join(
+                f"  · {escape(str(h.get('sprint_name', '?')))} → {escape(str(h.get('status', '?')))}"
+                for h in r.sprint_history[-3:]
+            )
+            lines.append("历史:\n" + hist)
+        console.print(Panel("\n".join(lines), title="[bold]📜 执行状态[/bold]", border_style="magenta"))
 
 
 def _print_rollback(r: RollbackResult) -> None:
-    icon = "✅" if r.success else "❌"
-    click.echo(f"{icon} 回滚 (→ {r.rollback_point})")
+    ok = r.success
+    title = "[bold green]✅ 回滚成功[/bold green]" if ok else "[bold red]❌ 回滚失败[/bold red]"
+    msg = f"回滚点: [bold]{escape(r.rollback_point)}[/bold]"
     if r.files_restored:
-        click.echo(f"   恢复文件: {len(r.files_restored)}")
+        msg += f"\n恢复文件: {len(r.files_restored)} 个"
+    console.print(Panel(msg, title=title, border_style="green" if ok else "red"))
 
 
 def _print_stop(r: StopResult) -> None:
-    icon = "✅" if r.cancelled else "❌"
-    click.echo(f"{icon} 停止执行: {r.execution_id}")
-    click.echo(f"   {r.message}")
+    ok = r.cancelled
+    title = "[bold green]✅ 已停止[/bold green]" if ok else "[bold red]❌ 停止失败[/bold red]"
+    console.print(
+        Panel(
+            f"{escape(r.execution_id)}\n{escape(r.message)}",
+            title=title,
+            border_style="green" if ok else "red",
+        )
+    )
+
+
+def _require_tty_for_interactive(cmd: str) -> None:
+    if not sys.stdin.isatty():
+        err_console.print(
+            f"[red]{cmd} 需要在交互式终端（TTY）中运行；"
+            f"或在脚本中直接使用子命令与参数。[/red]"
+        )
+        raise SystemExit(1)
 
 
 # ─── CLI 入口 ───
@@ -190,33 +275,137 @@ def _print_stop(r: StopResult) -> None:
 @click.option("-p", "--project", default=".", help="项目路径")
 @click.option("--format", "fmt", type=click.Choice(["text", "json"]), default="text", help="输出格式")
 @click.option("-v", "--verbose", is_flag=True, help="详细输出")
-@click.version_option(version="0.9.1", prog_name="sprintcycle")
+@click.version_option(version=_package_version(), prog_name="sprintcycle")
 @click.pass_context
 def cli(ctx: click.Context, project: str, fmt: str, verbose: bool) -> None:
     """SprintCycle — 意图驱动 + 敏捷 Sprint 闭环（执行计划 YAML，Scrum 对齐见文档）
 
-    意图 → 执行计划（工程内仍称 prd_yaml）→ 编排执行
+    意图 → Release Plan（YAML）→ 编排执行
 
     \b
     快捷用法:
       sprintcycle "优化性能"              # 等同于 sprintcycle run
     """
+    _ensure_rich_traceback()
+    configure_sprintcycle_logging(
+        stderr_level="DEBUG" if verbose else "INFO",
+    )
     ctx.ensure_object(dict)
     ctx.obj["sc"] = SprintCycle(project_path=project)
     ctx.obj["fmt"] = fmt
     ctx.obj["verbose"] = verbose
 
-    if verbose:
-        logging.getLogger().setLevel(logging.DEBUG)
-
-    # 无子命令时，将参数当作 run
     if ctx.invoked_subcommand is None:
         args = ctx.args
         if args:
             result = ctx.obj["sc"].run(intent=" ".join(args))
             _print_result(result, fmt)
         else:
-            click.echo(ctx.get_help())
+            console.print(ctx.get_help())
+
+
+# ─── wizard ───
+
+
+@cli.command("wizard")
+@click.pass_context
+def wizard(ctx: click.Context) -> None:
+    """交互式向导：多步选择后执行 plan / run / diagnose / status"""
+    if ctx.obj["fmt"] == "json":
+        raise click.UsageError("wizard 不支持 --format json（交互仅面向人类可读终端）")
+    _require_tty_for_interactive("wizard")
+
+    questionary.print("SprintCycle — 交互式向导\n", style="bold")
+
+    action = questionary.select(
+        "要执行的操作？",
+        choices=[
+            Choice("生成执行计划（不执行）", value="plan"),
+            Choice("执行 Sprint（run）", value="run"),
+            Choice("项目体检（diagnose）", value="diagnose"),
+            Choice("查看执行状态 / 历史（status）", value="status"),
+        ],
+    ).ask()
+
+    if action is None:
+        raise SystemExit(1)
+
+    sc: SprintCycle = ctx.obj["sc"]
+    fmt = ctx.obj["fmt"]
+
+    if action == "diagnose":
+        _print_result(sc.diagnose(), fmt)
+        return
+
+    if action == "status":
+        eid = questionary.text(
+            "执行 ID（留空列出全部历史）:",
+            default="",
+        ).ask()
+        if eid is None:
+            raise SystemExit(1)
+        eid = (eid or "").strip() or None
+        _print_result(sc.status(execution_id=eid), fmt)
+        return
+
+    intent = questionary.text(
+        "意图描述（自然语言）:",
+        validate=lambda t: bool(str(t).strip()) or "请输入非空意图",
+    ).ask()
+    if intent is None:
+        raise SystemExit(1)
+
+    mode = questionary.select(
+        "模式:",
+        choices=["auto", "evolution", "normal", "fix", "test"],
+        default="auto",
+    ).ask()
+    if mode is None:
+        raise SystemExit(1)
+
+    target = questionary.text("目标文件或模块（可选，直接回车跳过）:", default="").ask()
+    if target is None:
+        raise SystemExit(1)
+    target = (target or "").strip() or None
+
+    product = questionary.text(
+        "进化模式产品英文名 -P（可选，直接回车跳过）:",
+        default="",
+    ).ask()
+    if product is None:
+        raise SystemExit(1)
+    product = (product or "").strip() or None
+
+    if not questionary.confirm("确认执行？", default=True).ask():
+        console.print("[dim]已取消。[/dim]")
+        return
+
+    if action == "plan":
+        _print_result(
+            sc.plan(
+                intent=intent.strip(),
+                mode=mode,
+                target=target,
+                product=product,
+                release_plan_path=None,
+            ),
+            fmt,
+        )
+    else:
+        _print_result(
+            sc.run(
+                intent=intent.strip(),
+                mode=mode,
+                target=target,
+                product=product,
+                release_plan_path=None,
+                release_plan_yaml=None,
+                resume=False,
+                execution_id=None,
+                confirm_knowledge=False,
+            ),
+            fmt,
+        )
 
 
 # ─── plan ───
@@ -226,11 +415,35 @@ def cli(ctx: click.Context, project: str, fmt: str, verbose: bool) -> None:
 @click.argument("intent")
 @click.option("-m", "--mode", default="auto", type=click.Choice(["auto", "evolution", "normal", "fix", "test"]))
 @click.option("-t", "--target", default=None, help="目标文件/模块")
-@click.option("--prd", "prd_path", default=None, help="已有执行计划 YAML 文件路径（.yaml/.yml）")
+@click.option(
+    "-P",
+    "--product",
+    default=None,
+    help="进化模式下的英文产品名（与意图中 product: Name 等价）；代码写入 products/<name>/",
+)
+@click.option(
+    "--release-plan",
+    "release_plan_path",
+    default=None,
+    help="已有执行计划 YAML 文件路径（.yaml/.yml）",
+)
 @click.pass_context
-def plan(ctx: click.Context, intent: str, mode: str, target: Optional[str], prd_path: Optional[str]) -> None:
+def plan(
+    ctx: click.Context,
+    intent: str,
+    mode: str,
+    target: Optional[str],
+    product: Optional[str],
+    release_plan_path: Optional[str],
+) -> None:
     """生成 Sprint 执行计划（不执行）"""
-    result = ctx.obj["sc"].plan(intent=intent, mode=mode, target=target, prd_path=prd_path)
+    result = ctx.obj["sc"].plan(
+        intent=intent,
+        mode=mode,
+        target=target,
+        release_plan_path=release_plan_path,
+        product=product,
+    )
     _print_result(result, ctx.obj["fmt"])
 
 
@@ -241,8 +454,24 @@ def plan(ctx: click.Context, intent: str, mode: str, target: Optional[str], prd_
 @click.argument("intent", required=False)
 @click.option("-m", "--mode", default="auto", type=click.Choice(["auto", "evolution", "normal", "fix", "test"]))
 @click.option("-t", "--target", default=None, help="目标文件/模块")
-@click.option("--prd", "prd_path", default=None, help="执行计划 YAML 文件路径")
-@click.option("--prd-yaml", "prd_yaml", default=None, help="执行计划 YAML 文本（与 plan 返回的 prd_yaml 同形）")
+@click.option(
+    "-P",
+    "--product",
+    default=None,
+    help="进化模式下的英文产品名（与意图中 product: Name 等价）",
+)
+@click.option(
+    "--release-plan",
+    "release_plan_path",
+    default=None,
+    help="执行计划 YAML 文件路径",
+)
+@click.option(
+    "--release-plan-yaml",
+    "release_plan_yaml",
+    default=None,
+    help="执行计划 YAML 文本（与 plan 返回的 release_plan_yaml 同形）",
+)
 @click.option("--resume", is_flag=True, help="断点续跑")
 @click.option("--execution-id", default=None, help="执行 ID（resume 时使用）")
 @click.option(
@@ -257,18 +486,24 @@ def run(
     intent: Optional[str],
     mode: str,
     target: Optional[str],
-    prd_path: Optional[str],
-    prd_yaml: Optional[str],
+    product: Optional[str],
+    release_plan_path: Optional[str],
+    release_plan_yaml: Optional[str],
     resume: bool,
     execution_id: Optional[str],
     confirm_knowledge: bool,
 ) -> None:
     """执行 Sprint"""
     result = ctx.obj["sc"].run(
-        intent=intent, mode=mode, target=target,
-        prd_path=prd_path, prd_yaml=prd_yaml,
-        resume=resume, execution_id=execution_id,
+        intent=intent,
+        mode=mode,
+        target=target,
+        release_plan_path=release_plan_path,
+        release_plan_yaml=release_plan_yaml,
+        resume=resume,
+        execution_id=execution_id,
         confirm_knowledge=confirm_knowledge,
+        product=product,
     )
     _print_result(result, ctx.obj["fmt"])
 
@@ -343,7 +578,12 @@ def import_state(ctx: click.Context, json_dir: Path, sqlite_db: Path) -> None:
     from sprintcycle.persistence.import_json_state import import_json_executions_to_sqlite
 
     n = import_json_executions_to_sqlite(json_dir, sqlite_db)
-    click.echo(f"✅ 已导入 {n} 条执行记录 → {sqlite_db}")
+    console.print(
+        Panel.fit(
+            f"已导入 [bold green]{n}[/bold green] 条执行记录\n→ {escape(str(sqlite_db))}",
+            title="[bold green]✅ import-state[/bold green]",
+        )
+    )
 
 
 # ─── knowledge ───
@@ -365,9 +605,18 @@ def knowledge_search(ctx: click.Context, query: str, tag: tuple[str, ...], limit
     if ctx.obj["fmt"] == "json":
         click.echo(json.dumps(data, ensure_ascii=False, indent=2))
         return
-    click.echo(f"📚 知识卡片 ({data.get('count', 0)} 条)")
-    for c in data.get("cards", [])[:20]:
-        click.echo(f"   · [{c.get('id', '')[:8]}…] {c.get('domain', '')} — {(c.get('body') or '')[:80]}")
+
+    cards = data.get("cards", [])[:20]
+    t = Table(title=f"知识卡片 [dim]({data.get('count', 0)} 条，展示前 {len(cards)} 条)[/dim]")
+    t.add_column("ID", style="dim", max_width=12)
+    t.add_column("领域")
+    t.add_column("摘要", max_width=72)
+    for c in cards:
+        cid = str(c.get("id", ""))
+        cid_show = (cid[:8] + "…") if len(cid) > 9 else cid
+        body = (c.get("body") or "")[:80]
+        t.add_row(escape(cid_show), escape(str(c.get("domain", ""))), escape(body))
+    console.print(t)
 
 
 # ─── serve (MCP Server) ───
@@ -398,32 +647,32 @@ def serve(ctx: click.Context, host: str, port: int, transport: str) -> None:
         - POST /messages/ → 发送客户端消息
     """
     try:
-        from sprintcycle.mcp.server import SprintCycleMCPServer, MCP_AVAILABLE, SSE_AVAILABLE, HTTP_AVAILABLE
+        from sprintcycle.mcp.server import HTTP_AVAILABLE, MCP_AVAILABLE, SSE_AVAILABLE, SprintCycleMCPServer
 
         if not MCP_AVAILABLE:
-            click.echo("❌ MCP SDK 未安装，请执行: pip install mcp")
+            err_console.print("[red]MCP SDK 未安装，请执行:[/red] pip install mcp")
             sys.exit(1)
 
         server = SprintCycleMCPServer(project_path=ctx.obj["sc"].project_path)
 
         if transport == "stdio":
-            click.echo("🚀 MCP Server 启动 (stdio)", err=True)
+            err_console.print("[bold]MCP Server[/bold] 启动 [dim](stdio)[/dim]")
             asyncio.run(server.run())
-        else:  # SSE mode
+        else:
             if not SSE_AVAILABLE:
-                click.echo("❌ MCP SSE 支持未安装，请执行: pip install mcp[dev]")
+                err_console.print("[red]MCP SSE 支持未安装，请执行:[/red] pip install mcp[dev]")
                 sys.exit(1)
             if not HTTP_AVAILABLE:
-                click.echo("❌ HTTP 服务器未安装，请执行: pip install uvicorn starlette")
+                err_console.print("[red]HTTP 服务器未安装，请执行:[/red] pip install uvicorn starlette")
                 sys.exit(1)
 
-            click.echo(f"🚀 MCP Server 启动 (SSE {host}:{port})", err=True)
-            click.echo(f"   SSE 端点: http://{host}:{port}/sse", err=True)
-            click.echo(f"   消息端点: http://{host}:{port}/messages/", err=True)
+            err_console.print(f"[bold]MCP Server[/bold] 启动 [dim](SSE {host}:{port})[/dim]")
+            err_console.print(f"   SSE 端点: [link]http://{host}:{port}/sse[/link]")
+            err_console.print(f"   消息端点: [link]http://{host}:{port}/messages/[/link]")
             asyncio.run(server.run_sse(host=host, port=port))
 
     except ImportError as e:
-        click.echo(f"❌ MCP 模块导入失败: {e}")
+        err_console.print(f"[red]MCP 模块导入失败:[/red] {escape(str(e))}")
         sys.exit(1)
 
 
@@ -435,14 +684,15 @@ def dashboard(ctx: click.Context, host: str, port: int) -> None:
     """启动 Dashboard (Web UI)"""
     try:
         import uvicorn
+
         from sprintcycle.dashboard.app import create_app
 
         app = create_app(project_path=ctx.obj["sc"].project_path)
-        click.echo(f"🚀 Dashboard 启动: http://{host}:{port}")
+        console.print(f"[bold]Dashboard[/bold] 启动: [link]http://{host}:{port}[/link]")
         uvicorn.run(app, host=host, port=port, log_level="info")
     except ImportError as e:
-        click.echo(f"❌ 依赖缺失: {e}")
-        click.echo("   安装命令: pip install fastapi uvicorn")
+        err_console.print(f"[red]依赖缺失:[/red] {escape(str(e))}")
+        err_console.print("[dim]安装命令:[/dim] pip install fastapi uvicorn")
         sys.exit(1)
 
 
@@ -451,10 +701,36 @@ def dashboard(ctx: click.Context, host: str, port: int) -> None:
 
 @cli.command()
 @click.argument("path", default=".")
+@click.option(
+    "-i",
+    "--interactive",
+    is_flag=True,
+    help="交互式确认路径与目录结构（需 TTY）",
+)
 @click.pass_context
-def init(ctx: click.Context, path: str) -> None:
+def init(ctx: click.Context, path: str, interactive: bool) -> None:
     """初始化项目"""
-    project_path = Path(path)
+    if interactive:
+        if ctx.obj["fmt"] == "json":
+            raise click.UsageError("init --interactive 不支持 --format json")
+        _require_tty_for_interactive("init --interactive")
+        answered = questionary.text(
+            "项目根目录路径:",
+            default=str(Path(path).resolve()),
+        ).ask()
+        if answered is None:
+            raise SystemExit(1)
+        path = answered.strip() or path
+
+    project_path = Path(path).expanduser().resolve()
+    if interactive:
+        if not questionary.confirm(
+            f"将在 {project_path} 下创建 .sprintcycle 目录，继续？",
+            default=True,
+        ).ask():
+            console.print("[dim]已取消。[/dim]")
+            return
+
     project_path.mkdir(parents=True, exist_ok=True)
 
     state_dir = project_path / ".sprintcycle" / "state"
@@ -463,9 +739,12 @@ def init(ctx: click.Context, path: str) -> None:
     log_dir = project_path / ".sprintcycle" / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
 
-    click.echo(f"✅ 项目初始化完成: {project_path}")
-    click.echo(f"   状态目录: {state_dir}")
-    click.echo(f"   日志目录: {log_dir}")
+    console.print(
+        Panel.fit(
+            f"状态目录: {escape(str(state_dir))}\n日志目录: {escape(str(log_dir))}",
+            title="[bold green]✅ 项目初始化完成[/bold green]",
+        )
+    )
 
 
 if __name__ == "__main__":

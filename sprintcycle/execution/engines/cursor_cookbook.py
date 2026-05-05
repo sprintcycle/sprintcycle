@@ -13,14 +13,13 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import logging
 import os
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 COOKBOOK_REL = Path(".sprintcycle") / "cursor-cookbook"
 
@@ -72,7 +71,7 @@ def write_cookbook_recipe(
 
 """
     path.write_text(header + body.strip() + "\n", encoding="utf-8")
-    logger.info("Cursor Cookbook 已写入: %s", path)
+    logger.info("Cursor Cookbook 已写入: {}", path)
     return path
 
 
@@ -172,6 +171,6 @@ async def run_cursor_cookbook_flow(
         return rc, combined, err or ""
 
     if use_cli and not check_cursor_agent_cli():
-        logger.warning("已设置 SPRINTCYCLE_CURSOR_USE_CLI 但未找到 %s，仅写入 Cookbook", _agent_executable())
+        logger.warning("已设置 SPRINTCYCLE_CURSOR_USE_CLI 但未找到 {}，仅写入 Cookbook", _agent_executable())
 
     return 0, header_out + "(未执行 Cursor CLI；设置 SPRINTCYCLE_CURSOR_USE_CLI=1 并安装 agent 可自动跑一轮)\n", ""

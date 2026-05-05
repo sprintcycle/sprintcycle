@@ -47,7 +47,7 @@ class TestSprintOrchestrator:
         )
         
         # 同步运行
-        results = asyncio.run(self.orchestrator.execute_prd(prd))
+        results = asyncio.run(self.orchestrator.execute_release_plan(prd))
         
         assert len(results) == 1
         assert results[0].sprint.name == "Sprint 1"
@@ -74,7 +74,7 @@ class TestSprintOrchestrator:
             ]
         )
         
-        results = asyncio.run(self.orchestrator.execute_prd(prd))
+        results = asyncio.run(self.orchestrator.execute_release_plan(prd))
         
         assert len(results) == 2
         assert results[0].sprint.name == "Sprint 1"

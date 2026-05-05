@@ -9,9 +9,9 @@ PRD 数据模型（执行计划 / 多 Sprint 交付切片）
 """
 
 from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional
-from enum import Enum
 from datetime import datetime
+from enum import Enum
+from typing import Any, Dict, List, Optional
 
 
 class ExecutionMode(Enum):
@@ -26,7 +26,7 @@ class PRDProject:
     name: str
     path: str
     version: str = "v1.0.0"
-    
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "name": self.name,
@@ -43,7 +43,7 @@ class PRDEvolutionParams:
     constraints: List[str] = field(default_factory=list)
     max_variations: int = 5
     iterations: int = 3
-    
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "targets": self.targets,
@@ -81,7 +81,7 @@ class PRDSprint:
     name: str
     goals: List[str] = field(default_factory=list)
     tasks: List[PRDTask] = field(default_factory=list)
-    
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "name": self.name,
@@ -99,17 +99,17 @@ class PRD:
     sprints: List[PRDSprint] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=datetime.now)
-    
+
     @property
     def is_evolution_mode(self) -> bool:
         """是否自进化模式"""
         return self.mode == ExecutionMode.EVOLUTION
-    
+
     @property
     def total_tasks(self) -> int:
         """总任务数"""
         return sum(len(sprint.tasks) for sprint in self.sprints)
-    
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "project": self.project.to_dict(),
@@ -119,29 +119,30 @@ class PRD:
             "metadata": self.metadata,
             "created_at": self.created_at.isoformat(),
         }
-    
+
     def to_yaml(self) -> str:
         """转换为 YAML 字符串"""
-        import yaml
         from io import StringIO
-        
+
+        import yaml
+
         data: Dict[str, Any] = {
             "project": self.project.to_dict(),
             "mode": self.mode.value,
         }
-        
+
         if self.evolution:
             data["evolution"] = self.evolution.to_dict()
-        
+
         data["sprints"] = [s.to_dict() for s in self.sprints]
-        
+
         if self.metadata:
             data["metadata"] = self.metadata
-        
+
         class SafeDumper(yaml.SafeDumper):
             def increase_indent(self, flow=False, indentless=False):
                 return super().increase_indent(flow, False)
-        
+
         output = StringIO()
         yaml.dump(
             data,
@@ -151,9 +152,9 @@ class PRD:
             indent=2,
             Dumper=SafeDumper,
         )
-        
+
         return output.getvalue()
-    
+
     @classmethod
     def sample_prd(cls) -> str:
         """生成示例 PRD YAML 字符串"""

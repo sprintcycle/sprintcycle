@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, List, Optional
+from typing import List, Optional
 
 from sqlalchemy import DateTime, Integer, String, Text, func
 from sqlalchemy.dialects.sqlite import JSON as SQLiteJSON
@@ -19,7 +19,8 @@ class ExecutionRow(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     execution_id: Mapped[str] = mapped_column(String(256), unique=True, index=True)
-    prd_name: Mapped[str] = mapped_column(String(512), default="")
+    # 列名保持 prd_name 以兼容已有 SQLite 库文件
+    release_plan_name: Mapped[str] = mapped_column("prd_name", String(512), default="")
     mode: Mapped[str] = mapped_column(String(64), default="normal")
     status: Mapped[str] = mapped_column(String(32), index=True, default="pending")
     current_sprint: Mapped[int] = mapped_column(Integer, default=0)

@@ -32,8 +32,8 @@ class TestAPIPlan:
         """Cleanup after each test"""
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    def test_plan_returns_prd_yaml(self):
-        """test_plan_returns_prd_yaml: plan → returns PlanResult containing prd_yaml"""
+    def test_plan_returns_release_plan_yaml(self):
+        """plan → returns PlanResult containing release_plan_yaml"""
         sc = SprintCycle(project_path=self.temp_dir)
 
         # Mock the PRD generation to avoid LLM calls
@@ -53,17 +53,17 @@ class TestAPIPlan:
                     )
                 ]
             )
-            mock_generator.return_value.generate.return_value = mock_prd
+            mock_generator.generate.return_value = mock_prd
 
             result = sc.plan(intent="Test intent")
 
             assert isinstance(result, PlanResult)
             assert result.success is True
-            assert result.prd_yaml is not None
-            assert len(result.prd_yaml) > 0
-            assert "project" in result.prd_yaml
-            assert "Sprint 1" in result.prd_yaml
-            assert result.prd_name == "TestProject"
+            assert result.release_plan_yaml is not None
+            assert len(result.release_plan_yaml) > 0
+            assert "project" in result.release_plan_yaml
+            assert "Sprint 1" in result.release_plan_yaml
+            assert result.release_plan_name == "TestProject"
             assert len(result.sprints) == 1
 
     def test_plan_with_mode(self):
@@ -80,7 +80,7 @@ class TestAPIPlan:
                 mode=ExecutionMode.EVOLUTION,
                 sprints=[]
             )
-            mock_generator.return_value.generate.return_value = mock_prd
+            mock_generator.generate.return_value = mock_prd
             
             # Mock validator
             mock_validator_instance = MagicMock()
@@ -149,7 +149,7 @@ class TestAPIRun:
                     )
                 ]
             )
-            mock_generator.return_value.generate.return_value = mock_prd
+            mock_generator.generate.return_value = mock_prd
 
             # Mock sprint results
             mock_task = MagicMock()
@@ -164,7 +164,9 @@ class TestAPIRun:
 
             # Mock the dispatcher
             mock_dispatcher_instance = MagicMock()
-            mock_dispatcher_instance.execute_prd = AsyncMock(return_value=[mock_sprint_result])
+            mock_dispatcher_instance.execute_release_plan = AsyncMock(
+                return_value=[mock_sprint_result]
+            )
             mock_dispatcher_cls.return_value = mock_dispatcher_instance
 
             # Also need to patch the event_bus
@@ -177,14 +179,14 @@ class TestAPIRun:
                 result = sc2.run(intent="Run test")
 
                 assert isinstance(result, RunResult)
-                assert result.prd_name == "TestProject"
+                assert result.release_plan_name == "TestProject"
                 assert result.total_sprints >= 0
 
-    def test_run_with_prd_yaml(self):
-        """test_run_with_prd_yaml: run accepts prd_yaml parameter"""
+    def test_run_with_release_plan_yaml(self):
+        """run accepts release_plan_yaml parameter"""
         sc = SprintCycle(project_path=self.temp_dir)
 
-        prd_yaml = """
+        release_plan_yaml = """
 project:
   name: "YAMLProject"
   path: "."
@@ -214,7 +216,7 @@ sprints:
 
             # Mock the dispatcher
             mock_dispatcher_instance = MagicMock()
-            mock_dispatcher_instance.execute_prd = AsyncMock(return_value=[])
+            mock_dispatcher_instance.execute_release_plan = AsyncMock(return_value=[])
             mock_dispatcher_cls.return_value = mock_dispatcher_instance
 
             with patch('sprintcycle.execution.events.get_event_bus') as mock_event_bus:
@@ -222,10 +224,12 @@ sprints:
                 mock_event_bus.return_value = mock_event_bus_instance
                 
                 sc2 = SprintCycle(project_path=self.temp_dir)
-                result = sc2.run(prd_yaml=prd_yaml)
+                result = sc2.run(release_plan_yaml=release_plan_yaml)
 
                 assert isinstance(result, RunResult)
-                mock_parser.return_value.parse_string.assert_called_once_with(prd_yaml)
+                mock_parser.return_value.parse_string.assert_called_once_with(
+                    release_plan_yaml
+                )
 
 
 class TestAPIStatus:
@@ -250,7 +254,7 @@ class TestAPIStatus:
             # Mock existing execution
             mock_state = ExecutionState(
                 execution_id="exec-123",
-                prd_name="TestProject",
+                release_plan_name="TestProject",
                 mode="normal",
                 status=ExecutionStatus.RUNNING,
                 current_sprint=1,
@@ -280,7 +284,7 @@ class TestAPIStatus:
             mock_states = [
                 ExecutionState(
                     execution_id=f"exec-{i}",
-                    prd_name="TestProject",
+                    release_plan_name="TestProject",
                     mode="normal",
                     status=ExecutionStatus.COMPLETED,
                     current_sprint=3,
@@ -335,7 +339,7 @@ class TestAPIStop:
             # Mock running execution
             mock_state = ExecutionState(
                 execution_id="exec-stop-test",
-                prd_name="TestProject",
+                release_plan_name="TestProject",
                 mode="normal",
                 status=ExecutionStatus.RUNNING,
                 current_sprint=1,
@@ -457,7 +461,7 @@ class TestAPIRollback:
 
             mock_state = ExecutionState(
                 execution_id="exec-rollback-test",
-                prd_name="TestProject",
+                release_plan_name="TestProject",
                 mode="normal",
                 status=ExecutionStatus.COMPLETED,
                 current_sprint=3,
@@ -489,7 +493,7 @@ class TestAPIRollback:
 
             mock_state = ExecutionState(
                 execution_id="exec-no-git",
-                prd_name="TestProject",
+                release_plan_name="TestProject",
                 mode="normal",
                 status=ExecutionStatus.COMPLETED,
                 current_sprint=3,
@@ -531,7 +535,7 @@ class TestAPIResume:
             mock_get_store.return_value = mock_store
 
             # Mock paused execution with checkpoint
-            prd_yaml = """
+            resume_yaml = """
 project:
   name: "ResumeProject"
   path: "."
@@ -548,7 +552,7 @@ sprints:
 """
             mock_state = ExecutionState(
                 execution_id="exec-resume-test",
-                prd_name="ResumeProject",
+                release_plan_name="ResumeProject",
                 mode="normal",
                 status=ExecutionStatus.PAUSED,
                 current_sprint=1,
@@ -560,7 +564,7 @@ sprints:
                 "sprint_idx": 1,
                 "sprint_name": "Sprint 2",
                 "task_results": [],
-                "prd_yaml": prd_yaml,
+                "release_plan_yaml": resume_yaml,
             }
             mock_store.load.return_value = mock_state
             mock_store.can_resume.return_value = True

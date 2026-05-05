@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
-import logging
 from typing import Dict, Optional
+
+from loguru import logger
 
 from ...config import RuntimeConfig
 from ...release_plan.models import PRD, PRDSprint
-from .knowledge_injector import KnowledgeInjector
 from ..hooks.sprint_hooks import SprintLifecycleHooks
 from ..sprint_types import SprintResult
-
-logger = logging.getLogger(__name__)
+from .knowledge_injector import KnowledgeInjector
 
 
 def resolve_knowledge_db_path(project_path: str, config: RuntimeConfig) -> str:
@@ -36,20 +35,20 @@ class KnowledgeInjectionHook(SprintLifecycleHooks):
         sprint_index: int,
         sprint: PRDSprint,
         context: Dict[str, Any],
-        prd: Optional[PRD],
+        release_plan: Optional[PRD],
     ) -> None:
         if not self._enabled():
             return
         try:
             db_path = resolve_knowledge_db_path(self._project_path, self._config)
             inj = KnowledgeInjector(db_path)
-            res = inj.inject_for_sprint(self._project_path, sprint, prd)
+            res = inj.inject_for_sprint(self._project_path, sprint, release_plan)
             context["release_plan_overlay_yaml"] = res.yaml_text
             context["knowledge_injection_diff"] = res.diff_text
             context["knowledge_card_ids"] = res.cards_used
             context["release_plan_overlay_written"] = res.overlay_written
         except Exception as e:
-            logger.warning("Knowledge injection skipped: %s", e)
+            logger.warning("Knowledge injection skipped: {}", e)
 
     async def on_after_sprint(
         self,
@@ -57,6 +56,6 @@ class KnowledgeInjectionHook(SprintLifecycleHooks):
         sprint: PRDSprint,
         result: SprintResult,
         context: Dict[str, Any],
-        prd: Optional[PRD],
+        release_plan: Optional[PRD],
     ) -> None:
         return None

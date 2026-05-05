@@ -7,7 +7,7 @@ v0.9.2: 删除空壳进化算法类型 (Gene, Variation, FitnessScore, Evolution
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, Any, List
+from typing import Any, Dict, List
 
 
 @dataclass

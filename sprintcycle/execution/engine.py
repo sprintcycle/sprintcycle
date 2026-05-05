@@ -5,14 +5,13 @@ ExecutionEngine - 统一执行引擎
 EvolutionEngine 被注入到 SprintExecutor 中，作为 Sprint 的增强能力。
 """
 
-import logging
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
+
+from loguru import logger
 
 from ..release_plan.models import PRD, ExecutionMode
 from .sprint_executor import SprintExecutor
-from .strategies import ExecutionStrategy, NormalStrategy, EvolutionStrategy, ExecutionResult, get_strategy
-
-logger = logging.getLogger(__name__)
+from .strategies import EvolutionStrategy, ExecutionResult, ExecutionStrategy, NormalStrategy, get_strategy
 
 
 class ExecutionEngine:
@@ -50,7 +49,7 @@ class ExecutionEngine:
     result = await engine.execute(prd)
     ```
     """
-    
+
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         """
         初始化执行引擎
@@ -59,32 +58,32 @@ class ExecutionEngine:
             config: 可选配置
         """
         self.config = config or {}
-        
+
         # v0.9.0: EvolutionPipeline replaces legacy engine
-        from ..evolution.pipeline import EvolutionPipeline
         from ..evolution.evolution_plan_source import ManualPRDSource
+        from ..evolution.pipeline import EvolutionPipeline
         self._evolution_pipeline = EvolutionPipeline(plan_source=ManualPRDSource())
-        
+
         # 创建共享的 SprintExecutor（注入 EvolutionEngine）
         mv = int(self.config.get("max_verify_fix_rounds", 3))
         self.sprint_executor = SprintExecutor(
             evolution_engine=self._evolution_pipeline,
             max_verify_fix_rounds=mv,
         )
-        
+
         # 策略缓存
         self._strategies: Dict[ExecutionMode, ExecutionStrategy] = {}
-        
+
         # 初始化默认策略
         self._init_strategies()
-    
+
     def _init_strategies(self):
         """初始化策略实例"""
         self._strategies = {
             ExecutionMode.NORMAL: NormalStrategy(self.sprint_executor),
             ExecutionMode.EVOLUTION: EvolutionStrategy(self.sprint_executor),
         }
-    
+
     def get_strategy(self, mode: ExecutionMode) -> ExecutionStrategy:
         """
         根据模式获取策略
@@ -96,40 +95,40 @@ class ExecutionEngine:
             ExecutionStrategy: 对应的策略实例
         """
         return get_strategy(mode, self.sprint_executor)
-    
-    async def execute(self, prd: PRD) -> ExecutionResult:
+
+    async def execute(self, release_plan: PRD) -> ExecutionResult:
         """
-        执行 PRD - 统一入口
+        执行 Release Plan - 统一入口
         
         Args:
-            prd: PRD 对象
+            release_plan: Release Plan（内存模型为 ``PRD``）
             
         Returns:
             ExecutionResult: 执行结果
         """
-        logger.info(f"🚀 ExecutionEngine 开始执行: {prd.project.name}")
-        logger.info(f"   模式: {prd.mode.value}")
-        logger.info(f"   Sprint 数: {len(prd.sprints)}")
-        logger.info(f"   任务数: {prd.total_tasks}")
-        
+        logger.info(f"🚀 ExecutionEngine 开始执行: {release_plan.project.name}")
+        logger.info(f"   模式: {release_plan.mode.value}")
+        logger.info(f"   Sprint 数: {len(release_plan.sprints)}")
+        logger.info(f"   任务数: {release_plan.total_tasks}")
+
         # 根据模式选择策略
-        strategy = self.get_strategy(prd.mode)
-        
+        strategy = self.get_strategy(release_plan.mode)
+
         # 执行
-        result = await strategy.execute(prd)
-        
+        result = await strategy.execute(release_plan)
+
         # 记录结果
-        self._record_result(prd, result)
-        
+        self._record_result(release_plan, result)
+
         return result
-    
-    def _record_result(self, prd: PRD, result: ExecutionResult):
+
+    def _record_result(self, release_plan: PRD, result: ExecutionResult):
         """记录执行结果（可用于反馈闭环）"""
         logger.info(f"📊 执行结果: {'成功' if result.success else '失败'}")
         logger.info(f"   完成 Sprint: {result.completed_sprints}/{result.total_sprints}")
         logger.info(f"   完成任务: {result.completed_tasks}/{result.total_tasks}")
         logger.info(f"   耗时: {result.duration:.2f}s")
-    
+
     def register_agent_executor(self, agent_type: str, executor):
         """
         注册自定义 Agent 执行器
@@ -140,7 +139,7 @@ class ExecutionEngine:
         """
         self.sprint_executor.register_agent_executor(agent_type, executor)
         logger.info(f"✅ 注册 Agent 执行器: {agent_type}")
-    
+
     def get_status(self) -> Dict[str, Any]:
         """获取引擎状态"""
         return {

@@ -3,15 +3,15 @@
 from __future__ import annotations
 
 import difflib
-import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, List, Optional
 
+from loguru import logger
+
 if TYPE_CHECKING:
     from ...release_plan.models import PRD, PRDSprint
 
-logger = logging.getLogger(__name__)
 
 RELEASE_PLAN_OVERLAY_FILENAME = "release_plan_overlay.yaml"
 
@@ -64,14 +64,14 @@ class KnowledgeInjector:
         self,
         project_path: str,
         sprint: "PRDSprint",
-        prd: Optional["PRD"],
+        release_plan: Optional["PRD"],
         *,
         max_cards: int = 8,
         persist_overlay: bool = True,
     ) -> KnowledgeInjectionResult:
         query_bits = [sprint.name, " ".join(sprint.goals)]
-        if prd is not None:
-            query_bits.append(getattr(prd.project, "name", "") or "")
+        if release_plan is not None:
+            query_bits.append(getattr(release_plan.project, "name", "") or "")
         query = " ".join(b for b in query_bits if b).strip()
         cards = self._repo.search(query=query, limit=max_cards)
         notes: List[str] = []
@@ -114,7 +114,7 @@ class KnowledgeInjector:
                     e,
                 )
         if diff_text.strip() != "(no textual change)" and diff_text.strip():
-            logger.info("Knowledge injection diff:\n%s", diff_text.rstrip())
+            logger.info("Knowledge injection diff:\n{}", diff_text.rstrip())
         return KnowledgeInjectionResult(
             yaml_text=yaml_text,
             diff_text=diff_text,

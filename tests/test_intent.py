@@ -48,8 +48,9 @@ class TestParsedIntent:
         assert intent.project is None
         assert intent.constraints == []
         assert intent.mode == "auto"
-        assert intent.prd_file is None
+        assert intent.release_plan_file is None
         assert intent.intent == ""
+        assert intent.product is None
 
     def test_construction_with_all_fields(self):
         """测试所有字段构造"""
@@ -58,19 +59,21 @@ class TestParsedIntent:
             description="修复登录bug",
             target="src/auth.py",
             project="myapp",
+            product="myapp",
             constraints=["保持接口不变", "不修改数据库"],
             mode="fix",
-            prd_file="login.yaml",
+            release_plan_file="login.yaml",
             intent="修复 src/auth.py 中的登录问题",
         )
         assert intent.action == ActionType.FIX
         assert intent.description == "修复登录bug"
         assert intent.target == "src/auth.py"
         assert intent.project == "myapp"
+        assert intent.product == "myapp"
         assert len(intent.constraints) == 2
         assert "保持接口不变" in intent.constraints
         assert intent.mode == "fix"
-        assert intent.prd_file == "login.yaml"
+        assert intent.release_plan_file == "login.yaml"
         assert "修复" in intent.intent
 
     def test_constraints_default_empty_list(self):
@@ -161,13 +164,13 @@ class TestIntentParser:
         result3 = parser.parse("test the code")
         assert result3.action == ActionType.TEST
 
-    def test_parse_prd_file_path(self):
-        """测试PRD文件路径识别"""
+    def test_parse_release_plan_file_path(self):
+        """测试执行计划 YAML 路径识别"""
         parser = IntentParser()
         
         result = parser.parse("执行 demo.yaml")
         assert result.action == ActionType.RUN
-        assert result.prd_file == "demo.yaml"
+        assert result.release_plan_file == "demo.yaml"
 
     def test_parse_with_project(self):
         """测试带项目参数的解析"""
@@ -251,3 +254,18 @@ class TestIntentParser:
         
         result = parser.parse(original)
         assert result.intent == original
+
+    def test_parse_extract_product_from_intent(self):
+        """从意图文本提取英文 product slug"""
+        parser = IntentParser()
+        r = parser.parse("进化 product: DemoApp 的模块")
+        assert r.product == "DemoApp"
+
+        r2 = parser.parse("optimize product my-service 性能")
+        assert r2.product == "my-service"
+
+    def test_parse_product_param_overrides_text(self):
+        """显式 product 参数优先于文本中的片段"""
+        parser = IntentParser()
+        r = parser.parse("进化 product: Foo 的模块", product="Bar")
+        assert r.product == "Bar"

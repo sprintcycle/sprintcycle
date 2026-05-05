@@ -5,6 +5,10 @@ __version__ = "0.9.2"
 __author__ = "SprintCycle Team"
 
 # 对外 API：Scrum 对齐命名（计划模型实现类名仍为 release_plan.models 中 PRD*）
+from .execution import SprintExecutor
+from .execution.sprint_types import SprintResult
+from .intent.runner import RunnerHandler
+from .orchestration.sprint_orchestrator import ExecutionStatus, SprintOrchestrator
 from .release_plan import (
     ReleasePlanParseError,
     ReleasePlanParser,
@@ -12,17 +16,13 @@ from .release_plan import (
     ValidationError,
     ValidationResult,
 )
-from .intent.runner import RunnerHandler
-from .orchestration.sprint_orchestrator import ExecutionStatus, SprintOrchestrator
-from .execution.sprint_types import SprintResult
-from .execution import SprintExecutor
 from .scrum import (
-    ReleasePlan,
-    SprintDefinition,
-    SprintBacklogItem,
-    ProductAnchor,
     EvolutionParams,
     ExecutionMode,
+    ProductAnchor,
+    ReleasePlan,
+    SprintBacklogItem,
+    SprintDefinition,
 )
 
 VERSION = __version__

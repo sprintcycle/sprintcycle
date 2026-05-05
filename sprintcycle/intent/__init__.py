@@ -1,8 +1,8 @@
 """
 Intent 模块 - 意图处理器
 """
-from .parser import IntentParser, ParsedIntent, ActionType
 from .base import IntentResult
+from .parser import ActionType, IntentParser, ParsedIntent
 from .runner import RunnerHandler
 
 parse_release_plan_file = RunnerHandler.parse_release_plan_file
