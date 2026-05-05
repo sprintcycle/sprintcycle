@@ -1,12 +1,13 @@
 """
-任务调度器（主生产编排入口之一）
+Sprint 执行编排（主实现模块；类 ``SprintOrchestrator``）
 
-**主执行路径（V4.0）**：``SprintCycle.run`` / 断点续跑经本模块 ``TaskDispatcher.execute_prd``
-（及 ``resume_from_sprint`` 等）编排 PRD；Normal 模式下内部使用 ``SprintExecutor.execute_sprints``
-作为**唯一** Sprint 循环，事件与测量通过生命周期钩子挂载。详见 ``SPRINTCYCLE_PRODUCT_TECH_PLAN.md``
-§4.1、§6.2 与 ``docs/PRODUCT_TECH_V4.md``。
+**Scrum 语境**：本模块负责把 **Release Plan**（``PRD`` YAML）转为按 Sprint 顺序的**交付编排**，
+不是日历「排期」。``execute_prd`` / ``resume_from_sprint`` 即一次 **Sprint 序列的执行**。
 
-根据 PRD 创建 Sprint 任务，分配给对应 agent，跟踪执行状态。
+**主执行路径（V4.0）**：``SprintCycle.run`` / 断点续跑经 ``SprintOrchestrator.execute_prd``；
+Normal 模式下由 ``SprintExecutor.execute_sprints`` 驱动唯一 Sprint 循环；事件与测量经生命周期钩子挂载。
+详见 ``SPRINTCYCLE_PRODUCT_TECH_PLAN.md`` §4.1、§6.2、``docs/PRODUCT_TECH_V4.md``、
+``docs/DESIGN_SCRUM_NAMING_MIGRATION.md``。
 """
 
 import asyncio
@@ -20,7 +21,7 @@ from typing import Any, Callable, Dict, List, Optional
 from ..config import RuntimeConfig
 from ..evolution.measurement import MeasurementResult
 from ..evolution.pipeline import EvolutionPipeline
-from ..evolution.prd_source import DiagnosticPRDSource
+from ..evolution.evolution_plan_source import DiagnosticPRDSource
 from ..evolution.types import SprintContext
 from ..execution.events import Event, EventBus, EventType, create_event, get_event_bus
 from ..execution.feedback import FeedbackLoop
@@ -28,7 +29,7 @@ from ..execution.knowledge_hook import KnowledgeInjectionHook
 from ..execution.sprint_executor import SprintExecutor
 from ..execution.sprint_hooks import ChainedSprintHooks, SprintLifecycleHooks
 from ..execution.sprint_types import ExecutionStatus, SprintResult, TaskResult
-from ..prd.models import PRD, PRDSprint, PRDTask
+from ..release_plan.models import PRD, PRDSprint, PRDTask
 
 logger = logging.getLogger(__name__)
 
@@ -36,8 +37,8 @@ logger = logging.getLogger(__name__)
 class _DispatcherSprintHooks(SprintLifecycleHooks):
     """将 Sprint 边界事件、回调与测量挂到 SprintExecutor 钩子链上。"""
 
-    def __init__(self, dispatcher: "TaskDispatcher", prd: PRD):
-        self._dispatcher = dispatcher
+    def __init__(self, orchestrator: "SprintOrchestrator", prd: PRD):
+        self._orchestrator = orchestrator
         self._prd = prd
 
     async def on_before_sprint(
@@ -47,8 +48,8 @@ class _DispatcherSprintHooks(SprintLifecycleHooks):
         context: Dict[str, Any],
         prd: Optional[PRD],
     ) -> None:
-        self._dispatcher._callbacks["on_sprint_start"](sprint)
-        await self._dispatcher._emit(
+        self._orchestrator._callbacks["on_sprint_start"](sprint)
+        await self._orchestrator._emit(
             create_event(
                 EventType.SPRINT_START,
                 sprint_number=sprint_index + 1,
@@ -66,9 +67,9 @@ class _DispatcherSprintHooks(SprintLifecycleHooks):
         prd: Optional[PRD],
     ) -> None:
         p = prd if prd is not None else self._prd
-        self._dispatcher._callbacks["on_sprint_end"](result)
+        self._orchestrator._callbacks["on_sprint_end"](result)
         if result.status == ExecutionStatus.FAILED:
-            await self._dispatcher._emit(
+            await self._orchestrator._emit(
                 create_event(
                     EventType.SPRINT_FAILED,
                     sprint_number=sprint_index + 1,
@@ -78,7 +79,7 @@ class _DispatcherSprintHooks(SprintLifecycleHooks):
                 )
             )
         else:
-            await self._dispatcher._emit(
+            await self._orchestrator._emit(
                 create_event(
                     EventType.SPRINT_COMPLETE,
                     sprint_number=sprint_index + 1,
@@ -88,12 +89,12 @@ class _DispatcherSprintHooks(SprintLifecycleHooks):
                 )
             )
         if p is not None:
-            m = await self._dispatcher._post_sprint_measurement(p)
+            m = await self._orchestrator._post_sprint_measurement(p)
             from ..execution.sprint_knowledge_card import persist_sprint_outcome_card
 
             persist_sprint_outcome_card(
-                project_path=self._dispatcher._project_root,
-                config=self._dispatcher.config,
+                project_path=self._orchestrator._project_root,
+                config=self._orchestrator.config,
                 prd=p,
                 sprint_index=sprint_index,
                 sprint=sprint,
@@ -102,8 +103,8 @@ class _DispatcherSprintHooks(SprintLifecycleHooks):
             )
 
 
-class TaskDispatcher:
-    """任务调度器 - 解析 PRD、分配任务、跟踪状态"""
+class SprintOrchestrator:
+    """Sprint 交付编排（Scrum：按 Release Plan 顺序执行多个 Sprint）。"""
 
     def __init__(
         self,
@@ -263,10 +264,10 @@ class TaskDispatcher:
         results: List[SprintResult] = []
         for target in prd.evolution.targets:
             sprint = PRDSprint(name=f"进化: {target}", goals=prd.evolution.goals, tasks=[
-                PRDTask(task=f"架构设计: {target}", agent="architect", target=target),
-                PRDTask(task=f"进化 {target}", agent="evolver", target=target),
-                PRDTask(task=f"验证进化结果: {target}", agent="tester", target=target),
-                PRDTask(task=f"回归测试: {target}", agent="regression_tester", target=target),
+                PRDTask(description=f"架构设计: {target}", agent="architect", target=target),
+                PRDTask(description=f"进化 {target}", agent="evolver", target=target),
+                PRDTask(description=f"验证进化结果: {target}", agent="tester", target=target),
+                PRDTask(description=f"回归测试: {target}", agent="regression_tester", target=target),
             ])
             results.append(await self._execute_evolution_task(sprint, prd, SprintContext(sprint_id=f"evo-{int(time.time())}", sprint_number=1, goal="; ".join(prd.evolution.goals) if prd.evolution.goals else "优化代码", constraints={"dimensions": getattr(self.config, "eval_dimensions", ["correctness", "performance"]), "strategy": strategy}), target))
         return results
@@ -297,7 +298,7 @@ class TaskDispatcher:
         processed_results: List[TaskResult] = []
         for i, result in enumerate(task_results):
             if isinstance(result, Exception):
-                processed_results.append(TaskResult(task=sprint.tasks[i], sprint_name=sprint.name, status=ExecutionStatus.FAILED, error=str(result)))
+                processed_results.append(TaskResult(work_item=sprint.tasks[i], sprint_name=sprint.name, status=ExecutionStatus.FAILED, error=str(result)))
             else:
                 processed_results.append(result)  # type: ignore[arg-type]
         return processed_results
@@ -312,14 +313,14 @@ class TaskDispatcher:
         start_time = datetime.now()
         self._callbacks["on_sprint_start"](sprint)
         logger.info(f"\n🧬 开始自进化: {target}")
-        task_result = TaskResult(task=sprint.tasks[0], sprint_name=sprint.name, status=ExecutionStatus.RUNNING, start_time=start_time)
+        task_result = TaskResult(work_item=sprint.tasks[0], sprint_name=sprint.name, status=ExecutionStatus.RUNNING, start_time=start_time)
         try:
             target_path = Path(prd.project.path) / target
             if not target_path.exists(): raise FileNotFoundError(f"目标文件不存在: {target_path}")
             assert self.evolution_pipeline is not None
-            from sprintcycle.evolution.prd_source import EvolutionPRD
+            from sprintcycle.evolution.evolution_plan_source import EvolutionPRD
             evo_prd = EvolutionPRD(name=f"evo-{sprint.tasks[0].agent}", version="1.0", path=prd.project.path)
-            evo_prd.sprints = [{"name": "evolution", "tasks": [sprint.tasks[0].task]}]
+            evo_prd.sprints = [{"name": "evolution", "tasks": [sprint.tasks[0].description]}]
             evo_result = await self.evolution_pipeline.execute_async(evo_prd)
             task_result.status = ExecutionStatus.SUCCESS if evo_result.success else ExecutionStatus.FAILED
             task_result.output = f"进化执行完成: {evo_result.completed_sprints} 个Sprint" if evo_result.success else ""
@@ -338,10 +339,10 @@ class TaskDispatcher:
     async def _execute_task(self, task: PRDTask, sprint_name: str, prd: PRD, task_index: int, sprint_number: int) -> TaskResult:
         start_time = datetime.now()
         self._callbacks["on_task_start"](task)
-        await self._emit(create_event(EventType.TASK_START, sprint_number=sprint_number, sprint_name=sprint_name, agent_type=task.agent, task=task.task, message=f"开始任务: {task.task[:50]}..." if len(task.task) > 50 else f"开始任务: {task.task}"))
-        result = TaskResult(task=task, sprint_name=sprint_name, status=ExecutionStatus.RUNNING, start_time=start_time)
+        await self._emit(create_event(EventType.TASK_START, sprint_number=sprint_number, sprint_name=sprint_name, agent_type=task.agent, description=task.description, message=f"开始任务: {task.description[:50]}..." if len(task.description) > 50 else f"开始任务: {task.description}"))
+        result = TaskResult(work_item=task, sprint_name=sprint_name, status=ExecutionStatus.RUNNING, start_time=start_time)
         try:
-            logger.info(f"   📋 {task.agent}: {task.task[:60]}...")
+            logger.info(f"   📋 {task.agent}: {task.description[:60]}...")
             if task.agent == "evolver": result = await self._execute_evolver_task(task, prd, result)
             elif task.agent == "tester": result = await self._execute_tester_task(task, prd, result)
             else: result = await self._execute_coder_task(task, prd, result)
@@ -356,15 +357,15 @@ class TaskDispatcher:
         result.duration = (result.end_time - result.start_time).total_seconds() if result.start_time else 0.0
         self._callbacks["on_task_end"](result)
         if result.status == ExecutionStatus.FAILED:
-            await self._emit(create_event(EventType.TASK_FAILED, sprint_number=sprint_number, sprint_name=sprint_name, agent_type=task.agent, task=task.task, status="failed", error=result.error, duration=result.duration))
+            await self._emit(create_event(EventType.TASK_FAILED, sprint_number=sprint_number, sprint_name=sprint_name, agent_type=task.agent, description=task.description, status="failed", error=result.error, duration=result.duration))
         else:
-            await self._emit(create_event(EventType.TASK_COMPLETE, sprint_number=sprint_number, sprint_name=sprint_name, agent_type=task.agent, task=task.task, status="success" if result.status == ExecutionStatus.SUCCESS else "skipped", duration=result.duration))
+            await self._emit(create_event(EventType.TASK_COMPLETE, sprint_number=sprint_number, sprint_name=sprint_name, agent_type=task.agent, description=task.description, status="success" if result.status == ExecutionStatus.SUCCESS else "skipped", duration=result.duration))
         return result
 
     async def _execute_coder_task(self, task: PRDTask, prd: PRD, result: TaskResult) -> TaskResult:
         await asyncio.sleep(0.1)
         result.status = ExecutionStatus.SUCCESS
-        result.output = f"Coder 任务完成: {task.task[:50]}..."
+        result.output = f"Coder 任务完成: {task.description[:50]}..."
         return result
 
     async def _execute_evolver_task(self, task: PRDTask, prd: PRD, result: TaskResult) -> TaskResult:
@@ -375,8 +376,25 @@ class TaskDispatcher:
         if not self.evolution_pipeline:
             self.evolution_pipeline = EvolutionPipeline(".", config=self.config, prd_source=DiagnosticPRDSource())
         try:
-            from sprintcycle.evolution.prd_source import EvolutionPRD
-            evo_prd = EvolutionPRD(name=f"evolution-{task.target}", version="1.0", path=".", goals=[task.task], sprints=[{"name": f"evo-{task.target}", "tasks": [{"name": task.target}]}])
+            from sprintcycle.evolution.evolution_plan_source import EvolutionPRD
+            evo_prd = EvolutionPRD(
+                name=f"evolution-{task.target}",
+                version="1.0",
+                path=".",
+                goals=[task.description],
+                sprints=[
+                    {
+                        "name": f"evo-{task.target}",
+                        "tasks": [
+                            {
+                                "description": task.description,
+                                "agent": "evolver",
+                                "target": task.target,
+                            }
+                        ],
+                    }
+                ],
+            )
             evo_result = await self.evolution_pipeline.execute_async(evo_prd)
             result.status = ExecutionStatus.SUCCESS if evo_result.success else ExecutionStatus.FAILED
             result.output = f"进化执行完成: {evo_result.completed_sprints} 个Sprint" if evo_result.success else ""
@@ -389,7 +407,7 @@ class TaskDispatcher:
     async def _execute_tester_task(self, task: PRDTask, prd: PRD, result: TaskResult) -> TaskResult:
         await asyncio.sleep(0.1)
         result.status = ExecutionStatus.SUCCESS
-        result.output = f"Tester 任务完成: {task.task[:50]}..."
+        result.output = f"Tester 任务完成: {task.description[:50]}..."
         return result
 
     def _default_on_task_start(self, task: PRDTask) -> None: pass

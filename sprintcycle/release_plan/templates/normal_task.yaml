@@ -14,7 +14,7 @@ sprints:
       - "完成核心功能开发"
       - "保证代码质量"
     tasks:
-      - task: |
+      - description: |
           实现用户登录功能
           - 支持用户名密码登录
           - 登录失败错误提示
@@ -25,7 +25,7 @@ sprints:
           - "使用现有的错误处理机制"
           - "保持 API 兼容"
 
-      - task: |
+      - description: |
           实现数据导出功能
         agent: "coder"
         target: "src/export/"
@@ -35,14 +35,14 @@ sprints:
     goals:
       - "确保功能正确性"
     tasks:
-      - task: |
+      - description: |
           编写登录功能单元测试
         agent: "tester"
         target: "tests/test_login.py"
         constraints:
           - "测试覆盖率 > 80%"
 
-      - task: |
+      - description: |
           执行集成测试
         agent: "tester"
         timeout: 1800

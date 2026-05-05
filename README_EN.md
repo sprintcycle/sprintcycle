@@ -14,7 +14,18 @@ For external communication and architecture reviews, the **in-repo** documents b
 1. **[`docs/PRODUCT_TECH_V4.md`](docs/PRODUCT_TECH_V4.md)** — canonical entry + primary execution path  
 2. **[`SPRINTCYCLE_PRODUCT_TECH_PLAN.md`](SPRINTCYCLE_PRODUCT_TECH_PLAN.md)** — full revised plan (G1–G4, six phases, §6 roadmap)
 
-**Primary execution path**: `SprintCycle` → `TaskDispatcher` → `SprintExecutor.execute_sprints` (`EvolutionPipeline` is for evolution/diagnostic flows, not a second “only” orchestrator).
+**Primary execution path**: `SprintCycle` → `SprintOrchestrator` → `SprintExecutor.execute_sprints` (`EvolutionPipeline` is for evolution/diagnostic flows, not a second “only” orchestrator).
+
+### Scrum naming alignment
+
+| Code / artifact | Scrum reading |
+|-----------------|---------------|
+| `PRD` / plan YAML | **Executable release plan** (multi-Sprint); type alias `ReleasePlan` (`from sprintcycle import ReleasePlan`) |
+| `PRDSprint`, `sprints[]` | One **Sprint**; `goals` ≈ Sprint Goal; `tasks` ≈ **Sprint Backlog** |
+| `PRDTask`, `description` (YAML uses `description:` only) | **Sprint Backlog Item** narrative |
+| `SprintOrchestrator` | **Sprint execution orchestration** (not calendar scheduling) |
+
+See **[`docs/DESIGN_SCRUM_NAMING_MIGRATION.md`](docs/DESIGN_SCRUM_NAMING_MIGRATION.md)** for phased refactors (P0/P1).
 
 ### Quality gates G1–G4 (vs `quality_level` / `quality_profile`)
 
@@ -65,7 +76,7 @@ echo "DEEPSEEK_API_KEY=your-api-key" > .env
 ### Basic Usage
 
 ```python
-from sprintcycle.prd.models import PRD, PRDProject, PRDSprint, PRDTask, ExecutionMode
+from sprintcycle.release_plan.models import PRD, PRDProject, PRDSprint, PRDTask, ExecutionMode
 from sprintcycle.execution.engine import ExecutionEngine
 
 prd = PRD(
@@ -74,7 +85,7 @@ prd = PRD(
     sprints=[
         PRDSprint(
             name="Sprint 1",
-            tasks=[PRDTask(task="Ship a minimal runnable slice", agent="coder")],
+            tasks=[PRDTask(description="Ship a minimal runnable slice", agent="coder")],
         )
     ],
 )
@@ -82,6 +93,8 @@ prd = PRD(
 engine = ExecutionEngine()
 result = await engine.execute(prd)
 ```
+
+For evolution flows that load YAML from disk, defaults are under **`release_plan/*.yaml`** at the project root (`ManualPRDSource(plan_subdir=...)` is configurable).
 
 ## Architecture Overview
 
@@ -121,7 +134,7 @@ result = await engine.execute(prd)
 | `SprintExecutor` | `sprintcycle/execution/sprint_executor.py` | Sprint executor |
 | `ExecutionEngine` | `sprintcycle/execution/engine.py` | Unified execution engine |
 | `ErrorRouter` | `sprintcycle/execution/error_router.py` | Error routing |
-| `PRDValidator` | `sprintcycle/prd/validator.py` | PRD validator |
+| `PRDValidator` | `sprintcycle/release_plan/validator.py` | Execution plan validator |
 
 ## Configuration
 
@@ -167,7 +180,7 @@ sprintcycle/
 │
 ├── evolution/                 # Evolution system
 │   ├── pipeline.py           # EvolutionPipeline
-│   ├── prd_source.py         # PRD source (Manual/Diagnostic)
+│   ├── evolution_plan_source.py  # Evolution plan source (Manual/Diagnostic)
 │   ├── measurement.py        # Measurement
 │   ├── memory_store.py       # Memory store
 │   └── rollback_manager.py   # Rollback manager
@@ -175,7 +188,7 @@ sprintcycle/
 ├── diagnostic/               # Diagnostic system
 │   ├── provider.py           # Diagnostic provider
 │   ├── health_report.py       # Health report
-│   └── prd_generator.py      # PRD generator
+│   └── release_plan_generator.py  # Generate execution plans from diagnostics
 │
 ├── execution/                 # Execution system
 │   ├── engine.py              # Execution engine
@@ -191,10 +204,13 @@ sprintcycle/
 │   ├── parser.py
 │   └── runner.py
 │
-├── prd/                       # PRD processing
-│   ├── models.py             # PRD models
+├── release_plan/              # Executable multi-sprint plan (types still named PRD*)
+│   ├── models.py             # Data models
 │   ├── parser.py            # Parser
 │   └── validator.py         # Validator
+│
+├── orchestration/             # Sprint orchestration
+│   └── sprint_orchestrator.py # SprintOrchestrator
 │
 └── integrations/              # Integrations
     └── evolution_integration.py

@@ -1,8 +1,11 @@
 """
-Sprint Execution Types - 统一执行状态与结果类型
+Sprint 执行类型 — 与 Scrum **Sprint / Sprint Backlog Item 结果 / Increment 证据** 对齐
 
-v0.9.1: 合并 TaskStatus/ExecutionStatus → ExecutionStatus
-        合并 dispatcher_types 中的 TaskResult/SprintResult
+- ``TaskResult``：单条 Sprint Backlog Item 的执行结果（非完整 Product Backlog Item 生命周期）。
+- ``SprintResult``：一个 **Sprint** 结束后的聚合状态；与 **Increment** 的关系为：Increment 由代码库 +
+  质量门/DoD 体现，本对象承载该 Sprint 内工作项结果与时长等**可检视证据**。
+
+v0.9.1: TaskResult/SprintResult 并入本模块；执行状态统一为 ``ExecutionStatus``。
 """
 
 from dataclasses import dataclass, field
@@ -10,7 +13,7 @@ from typing import List, Dict, Any, Optional
 from enum import Enum
 from datetime import datetime
 
-from ..prd.models import PRDTask, PRDSprint
+from ..release_plan.models import PRDTask, PRDSprint
 
 
 class ExecutionStatus(Enum):
@@ -30,16 +33,10 @@ class ExecutionStatus(Enum):
     PARTIAL = "partial"
 
 
-# Backward compat aliases — will be removed in v1.0
-TaskStatus = ExecutionStatus
-ExecutionStateStatus = ExecutionStatus
-PipelineStatus = ExecutionStatus
-
-
 @dataclass
 class TaskResult:
-    """任务执行结果"""
-    task: PRDTask
+    """单条 Sprint Backlog Item 的执行结果（``work_item`` 为 ``PRDTask`` 工作项定义）。"""
+    work_item: PRDTask
     sprint_name: str
     status: ExecutionStatus
     output: str = ""
@@ -49,10 +46,11 @@ class TaskResult:
     end_time: Optional[datetime] = None
     
     def to_dict(self) -> Dict[str, Any]:
+        desc = self.work_item.description
         return {
-            "task": self.task.task[:100] + "..." if len(self.task.task) > 100 else self.task.task,
-            "agent": self.task.agent,
-            "target": self.task.target,
+            "description": desc[:100] + "..." if len(desc) > 100 else desc,
+            "agent": self.work_item.agent,
+            "target": self.work_item.target,
             "status": self.status.value,
             "output": self.output[:500] if self.output else "",
             "error": self.error,
@@ -62,7 +60,7 @@ class TaskResult:
 
 @dataclass
 class SprintResult:
-    """Sprint 执行结果"""
+    """单个 Sprint 结束后的聚合结果（检视 Increment 时的输入之一：工作项成败与耗时）。"""
     sprint: PRDSprint
     status: ExecutionStatus
     task_results: List[TaskResult] = field(default_factory=list)

@@ -4,8 +4,8 @@ PRD 验证器单元测试
 
 import pytest
 
-from sprintcycle.prd.validator import PRDValidator, ValidationResult
-from sprintcycle.prd.models import (
+from sprintcycle.release_plan.validator import PRDValidator, ValidationResult
+from sprintcycle.release_plan.models import (
     PRD, PRDProject, PRDSprint, PRDTask, ExecutionMode
 )
 
@@ -26,7 +26,7 @@ class TestPRDValidator:
                     name="Sprint 1",
                     goals=["完成开发"],
                     tasks=[
-                        PRDTask(task="实现功能", agent="coder", target="src/main.py"),
+                        PRDTask(description="实现功能", agent="coder", target="src/main.py"),
                     ]
                 ),
             ]
@@ -44,7 +44,7 @@ class TestPRDValidator:
                 PRDSprint(
                     name="Sprint 1",
                     tasks=[
-                        PRDTask(task="实现功能", agent="coder"),
+                        PRDTask(description="实现功能", agent="coder"),
                     ]
                 ),
             ]
@@ -64,7 +64,7 @@ class TestPRDValidator:
                 PRDSprint(
                     name="Sprint 1",
                     tasks=[
-                        PRDTask(task="进化", agent="evolver"),
+                        PRDTask(description="进化", agent="evolver"),
                     ]
                 ),
             ]
@@ -93,7 +93,7 @@ class TestPRDValidator:
                 PRDSprint(
                     name="Sprint 1",
                     tasks=[
-                        PRDTask(task="实现功能", agent="invalid"),
+                        PRDTask(description="实现功能", agent="invalid"),
                     ]
                 ),
             ]
@@ -111,7 +111,7 @@ class TestPRDValidator:
                 PRDSprint(
                     name="Sprint 1",
                     tasks=[
-                        PRDTask(task="实现功能", agent="coder", timeout=0),
+                        PRDTask(description="实现功能", agent="coder", timeout=0),
                     ]
                 ),
             ]

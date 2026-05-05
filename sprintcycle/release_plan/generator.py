@@ -143,7 +143,7 @@ class IntentPRDGenerator:
             goals=[parsed.description],
             tasks=[
                 PRDTask(
-                    task=parsed.description,
+                    description=parsed.description,
                     agent="evolver",
                     target=parsed.target,
                     constraints=parsed.constraints,
@@ -177,7 +177,7 @@ class IntentPRDGenerator:
             goals=[parsed.description],
             tasks=[
                 PRDTask(
-                    task=parsed.description,
+                    description=parsed.description,
                     agent="coder",
                     target=parsed.target,
                     constraints=parsed.constraints,
@@ -229,7 +229,7 @@ class IntentPRDGenerator:
             goals=[fix_goal],
             tasks=[
                 PRDTask(
-                    task=fix_goal,
+                    description=fix_goal,
                     agent="evolver",  # 关键：使用 evolver 而不是 coder
                     target=target_file,
                     constraints=parsed.constraints,
@@ -300,8 +300,8 @@ class IntentPRDGenerator:
             name="Sprint 1",
             goals=["实现基础功能"],
             tasks=[
-                PRDTask(task="实现用户认证", agent="coder"),
-                PRDTask(task="编写单元测试", agent="tester"),
+                PRDTask(description="实现用户认证", agent="coder"),
+                PRDTask(description="编写单元测试", agent="tester"),
             ],
         )
         

@@ -79,7 +79,7 @@ def write_cookbook_recipe(
 def build_cookbook_body(
     task_prompt: str,
     *,
-    prd_overlay_hint: str = "",
+    release_plan_overlay_hint: str = "",
     architecture_hint: str = "",
 ) -> str:
     """组装 Cookbook 正文（供人工在 Cursor 中跟进）。"""
@@ -91,8 +91,10 @@ def build_cookbook_body(
     ]
     if architecture_hint.strip():
         parts.extend(["## 架构上下文", "", architecture_hint.strip(), ""])
-    if prd_overlay_hint.strip():
-        parts.extend(["## PRD / 经验覆盖（摘录）", "", prd_overlay_hint.strip(), ""])
+    if release_plan_overlay_hint.strip():
+        parts.extend(
+            ["## 发布计划 / 经验覆盖（摘录）", "", release_plan_overlay_hint.strip(), ""]
+        )
     parts.extend(
         [
             "## 在 Cursor 中的建议用法",
@@ -143,7 +145,7 @@ async def run_cursor_cookbook_flow(
     cwd: str,
     title: str,
     task_prompt: str,
-    prd_overlay_hint: str = "",
+    release_plan_overlay_hint: str = "",
     architecture_hint: str = "",
     timeout: int = 600,
 ) -> Tuple[int, str, str]:
@@ -155,7 +157,7 @@ async def run_cursor_cookbook_flow(
     """
     body = build_cookbook_body(
         task_prompt,
-        prd_overlay_hint=prd_overlay_hint,
+        release_plan_overlay_hint=release_plan_overlay_hint,
         architecture_hint=architecture_hint,
     )
     path = write_cookbook_recipe(cwd, title=title, body=body)

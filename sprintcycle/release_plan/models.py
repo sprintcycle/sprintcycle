@@ -1,7 +1,11 @@
 """
-PRD 数据模型
+PRD 数据模型（执行计划 / 多 Sprint 交付切片）
 
-定义 PRD 文件的 Python 数据结构
+**Scrum 对照**（详见 ``docs/DESIGN_SCRUM_NAMING_MIGRATION.md``）：
+
+- ``PRD``：持久化计划文档，近似 **Release 内多 Sprint 的交付编排**（非完整 Product Backlog）。
+- ``PRDSprint``：一次 **Sprint** 的边界；``goals`` ≈ Sprint Goal 表述；``tasks`` ≈ Sprint Backlog。
+- ``PRDTask``：Sprint 内单条工作项；YAML 入站字段 **仅** ``description``，近似 **Sprint Backlog Item**。
 """
 
 from dataclasses import dataclass, field
@@ -11,11 +15,9 @@ from datetime import datetime
 
 
 class ExecutionMode(Enum):
-    """执行模式"""
-    NORMAL = "normal"  # 普通任务模式
-    EVOLUTION = "evolution"  # 自进化模式
-
-
+    """计划级执行模式（Scrum：默认即标准 Sprint 交付链）。"""
+    NORMAL = "normal"  # 标准 Sprint Backlog 顺序交付（实现/测试等）
+    EVOLUTION = "evolution"  # 持续改进/实验环（非 Scrum 标准事件；序列化值保持 evolution）
 
 
 @dataclass
@@ -54,17 +56,17 @@ class PRDEvolutionParams:
 
 @dataclass
 class PRDTask:
-    """任务定义"""
-    task: str  # 任务描述
+    """Sprint 内工作项（Scrum：Sprint Backlog Item）；主字段 ``description``。"""
+    description: str
     agent: str = "coder"  # Agent 类型
     target: Optional[str] = None  # 目标文件/目录
     constraints: List[str] = field(default_factory=list)  # 任务约束
     expected_output: Optional[str] = None  # 期望输出
     timeout: int = 600  # 超时时间（秒）
-    
+
     def to_dict(self) -> Dict[str, Any]:
         return {
-            "task": self.task,
+            "description": self.description,
             "agent": self.agent,
             "target": self.target,
             "constraints": self.constraints,
@@ -75,7 +77,7 @@ class PRDTask:
 
 @dataclass
 class PRDSprint:
-    """Sprint 定义"""
+    """单次 Sprint：Sprint Goal（``goals``）+ Sprint Backlog（``tasks``）。"""
     name: str
     goals: List[str] = field(default_factory=list)
     tasks: List[PRDTask] = field(default_factory=list)
@@ -90,7 +92,7 @@ class PRDSprint:
 
 @dataclass
 class PRD:
-    """完整 PRD 文档"""
+    """可执行交付计划（多 Sprint）；对外可选用 ``sprintcycle.scrum.ReleasePlan`` 别名。"""
     project: PRDProject
     mode: ExecutionMode = ExecutionMode.NORMAL
     evolution: Optional[PRDEvolutionParams] = None
@@ -169,7 +171,7 @@ sprints:
     goals:
       - "实现核心功能"
     tasks:
-      - task: |
+      - description: |
           创建主页面
         agent: coder
         target: src/pages/main.vue

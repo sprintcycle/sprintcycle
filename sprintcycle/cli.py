@@ -121,7 +121,7 @@ def _print_run(r: RunResult) -> None:
             click.echo(f"   引用知识卡片: {len(cu)} 条")
         if r.message:
             click.echo(f"   {r.message}")
-        click.echo("   再次执行时请加上 --yes 以确认并落盘 prd_overlay.yaml")
+        click.echo("   再次执行时请加上 --yes 以确认并落盘 release_plan_overlay.yaml")
         return
     status_icon = "✅" if r.success else "❌"
     click.echo(f"\n{status_icon} 执行{'成功' if r.success else '失败'}")
@@ -193,9 +193,9 @@ def _print_stop(r: StopResult) -> None:
 @click.version_option(version="0.9.1", prog_name="sprintcycle")
 @click.pass_context
 def cli(ctx: click.Context, project: str, fmt: str, verbose: bool) -> None:
-    """SprintCycle - PRD 驱动的自进化框架
+    """SprintCycle — 意图驱动 + 敏捷 Sprint 闭环（执行计划 YAML，Scrum 对齐见文档）
 
-    一切皆 PRD: 意图 → PRD 生成器 → 执行引擎
+    意图 → 执行计划（工程内仍称 prd_yaml）→ 编排执行
 
     \b
     快捷用法:
@@ -226,7 +226,7 @@ def cli(ctx: click.Context, project: str, fmt: str, verbose: bool) -> None:
 @click.argument("intent")
 @click.option("-m", "--mode", default="auto", type=click.Choice(["auto", "evolution", "normal", "fix", "test"]))
 @click.option("-t", "--target", default=None, help="目标文件/模块")
-@click.option("--prd", "prd_path", default=None, help="已有 PRD 文件路径")
+@click.option("--prd", "prd_path", default=None, help="已有执行计划 YAML 文件路径（.yaml/.yml）")
 @click.pass_context
 def plan(ctx: click.Context, intent: str, mode: str, target: Optional[str], prd_path: Optional[str]) -> None:
     """生成 Sprint 执行计划（不执行）"""
@@ -241,8 +241,8 @@ def plan(ctx: click.Context, intent: str, mode: str, target: Optional[str], prd_
 @click.argument("intent", required=False)
 @click.option("-m", "--mode", default="auto", type=click.Choice(["auto", "evolution", "normal", "fix", "test"]))
 @click.option("-t", "--target", default=None, help="目标文件/模块")
-@click.option("--prd", "prd_path", default=None, help="PRD 文件路径")
-@click.option("--prd-yaml", "prd_yaml", default=None, help="PRD YAML 内容")
+@click.option("--prd", "prd_path", default=None, help="执行计划 YAML 文件路径")
+@click.option("--prd-yaml", "prd_yaml", default=None, help="执行计划 YAML 文本（与 plan 返回的 prd_yaml 同形）")
 @click.option("--resume", is_flag=True, help="断点续跑")
 @click.option("--execution-id", default=None, help="执行 ID（resume 时使用）")
 @click.option(

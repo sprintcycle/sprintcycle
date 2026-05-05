@@ -5,10 +5,17 @@ __version__ = "0.9.2"
 __author__ = "SprintCycle Team"
 
 # 核心模块导出
-from .prd import PRD, PRDProject, PRDSprint, PRDTask, PRDParser, PRDValidator
+from .release_plan import PRD, PRDProject, PRDSprint, PRDTask, PRDParser, PRDValidator
 from .intent.runner import RunnerHandler
-from .scheduler import TaskDispatcher, SprintResult, ExecutionStatus
+from .orchestration.sprint_orchestrator import ExecutionStatus, SprintOrchestrator
+from .execution.sprint_types import SprintResult
 from .execution import SprintExecutor
+from .scrum import (
+    ReleasePlan,
+    SprintDefinition,
+    SprintBacklogItem,
+    ProductAnchor,
+)
 
 VERSION = __version__
 
@@ -22,8 +29,12 @@ __all__ = [
     "PRDParser",
     "PRDValidator",
     "RunnerHandler",
-    "TaskDispatcher",
+    "SprintOrchestrator",
     "SprintResult",
     "ExecutionStatus",
     "SprintExecutor",
+    "ReleasePlan",
+    "SprintDefinition",
+    "SprintBacklogItem",
+    "ProductAnchor",
 ]

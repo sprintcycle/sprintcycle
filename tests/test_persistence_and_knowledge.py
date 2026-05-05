@@ -89,14 +89,14 @@ def test_knowledge_search_and_injection(tmp_path: Path) -> None:
     tagged = repo.search(query="", tags=["security"], limit=10)
     assert len(tagged) == 1
 
-    from sprintcycle.prd.models import PRD, PRDProject, PRDSprint, PRDTask, ExecutionMode
+    from sprintcycle.release_plan.models import PRD, PRDProject, PRDSprint, PRDTask, ExecutionMode
 
-    sprint = PRDSprint(name="auth sprint", goals=["harden api"], tasks=[PRDTask(task="t", agent="coder")])
+    sprint = PRDSprint(name="auth sprint", goals=["harden api"], tasks=[PRDTask(description="t", agent="coder")])
     prd = PRD(project=PRDProject(name="p", path=str(tmp_path)), mode=ExecutionMode.NORMAL, sprints=[sprint])
     inj = KnowledgeInjector(str(db))
     res = inj.inject_for_sprint(str(tmp_path), sprint, prd, persist_overlay=False)
     assert "JWT" in res.yaml_text or "middleware" in res.yaml_text
-    overlay = tmp_path / "prd_overlay.yaml"
+    overlay = tmp_path / "release_plan_overlay.yaml"
     assert not overlay.is_file()
     res2 = inj.inject_for_sprint(str(tmp_path), sprint, prd, persist_overlay=True)
     assert overlay.is_file()

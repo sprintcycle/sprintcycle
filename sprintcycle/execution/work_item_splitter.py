@@ -1,24 +1,22 @@
 """
-TaskSplitter - 任务拆分模块
-
-将复杂的 PRD（产品需求文档）拆分为可执行的任务列表。
+WorkItemSplitter — 将自然语言意图拆为可编排的工作项草案（Scrum：接近 Sprint Backlog 条目的粗粒度拆分）。
 
 功能：
-1. 意图分析和任务识别
-2. 任务依赖分析
-3. 任务优先级排序
-4. 任务粒度控制
+1. 意图分析与条目识别
+2. 依赖关系
+3. 优先级
+4. 粒度控制
 
 使用方式：
 ```python
-from sprintcycle.execution.task_splitter import TaskSplitter
+from sprintcycle.execution.work_item_splitter import WorkItemSplitter
 
-splitter = TaskSplitter()
-tasks = splitter.split("实现用户认证和权限管理功能")
+splitter = WorkItemSplitter()
+items = splitter.split("实现用户认证和权限管理功能")
 
-for task in tasks:
-    print(f"任务: {task['title']}")
-    print(f"描述: {task['description']}")
+for item in items:
+    print(f"标题: {item['title']}")
+    print(f"描述: {item['description']}")
 ```
 """
 
@@ -28,8 +26,8 @@ from dataclasses import dataclass, field
 
 
 @dataclass
-class Task:
-    """任务数据类"""
+class IntentWorkItem:
+    """从意图文本拆出的一条工作项草案（非运行时 ``PRDTask``）。"""
     title: str                           # 任务标题
     description: str                     # 任务描述
     priority: str = "medium"             # 优先级
@@ -53,11 +51,11 @@ class Task:
         return f"{self.title}: {self.description[:50]}..."
 
 
-class TaskSplitter:
+class WorkItemSplitter:
     """
-    PRD 任务拆分器
+    意图 → 工作项草案拆分器
     
-    将复杂的 PRD 拆分为可管理的子任务。
+    将较长自然语言描述拆为可管理的子条目。
     支持多种拆分策略：
     - 按功能模块拆分
     - 按优先级拆分
@@ -409,4 +407,4 @@ class TaskSplitter:
 
 
 # 导出主要类
-__all__ = ["TaskSplitter", "Task"]
+__all__ = ["WorkItemSplitter", "IntentWorkItem"]

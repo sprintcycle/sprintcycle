@@ -84,20 +84,20 @@ forbidden_modules = [
 ]
 
 [[tool.importlinter.contracts]]
-name = "调度层不得依赖 dashboard"
+name = "编排层不得依赖 dashboard（G4）"
 type = "forbidden"
 source_modules = [
-    "sprintcycle.scheduler",
+    "sprintcycle.orchestration",
 ]
 forbidden_modules = [
     "sprintcycle.dashboard",
 ]
 
 [[tool.importlinter.contracts]]
-name = "PRD 层不得依赖 dashboard（G4）"
+name = "Release plan 层不得依赖 dashboard（G4）"
 type = "forbidden"
 source_modules = [
-    "sprintcycle.prd",
+    "sprintcycle.release_plan",
 ]
 forbidden_modules = [
     "sprintcycle.dashboard",

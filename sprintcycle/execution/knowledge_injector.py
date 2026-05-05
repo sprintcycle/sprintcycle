@@ -1,4 +1,4 @@
-"""Phase 0：按 Sprint 检索知识卡片，写入 prd_overlay.yaml，并生成可展示的 diff。"""
+"""Phase 0：按 Sprint 检索知识卡片，写入项目根 ``release_plan_overlay.yaml``，并生成可展示的 diff。"""
 
 from __future__ import annotations
 
@@ -9,14 +9,16 @@ from pathlib import Path
 from typing import TYPE_CHECKING, List, Optional
 
 if TYPE_CHECKING:
-    from ..prd.models import PRD, PRDSprint
+    from ..release_plan.models import PRD, PRDSprint
 
 logger = logging.getLogger(__name__)
+
+RELEASE_PLAN_OVERLAY_FILENAME = "release_plan_overlay.yaml"
 
 
 def _simple_yaml_overlay(notes: List[str], sprint_name: str) -> str:
     lines = [
-        "# SprintCycle — prd_overlay (auto-generated, Phase 0 knowledge injection)",
+        "# SprintCycle — release_plan_overlay (auto-generated, Phase 0 knowledge injection)",
         f"sprint_name: {_yaml_scalar(sprint_name)}",
         "experience_notes:",
     ]
@@ -40,7 +42,7 @@ class KnowledgeInjectionResult:
     yaml_text: str
     diff_text: str
     cards_used: List[str]
-    # 是否已成功写入项目根 prd_overlay.yaml（失败时 yaml_text 仍供内存上下文）
+    # 是否已成功写入项目根 release_plan_overlay.yaml（失败时 yaml_text 仍供内存上下文）
     overlay_written: bool = True
 
 
@@ -80,7 +82,7 @@ class KnowledgeInjector:
                 notes.append(snippet)
                 ids.append(c.id)
         yaml_text = _simple_yaml_overlay(notes, sprint.name)
-        overlay_path = Path(project_path) / "prd_overlay.yaml"
+        overlay_path = Path(project_path) / RELEASE_PLAN_OVERLAY_FILENAME
         previous = ""
         if overlay_path.is_file():
             try:
@@ -91,8 +93,8 @@ class KnowledgeInjector:
             difflib.unified_diff(
                 previous.splitlines(keepends=True),
                 yaml_text.splitlines(keepends=True),
-                fromfile="prd_overlay.yaml (before)",
-                tofile="prd_overlay.yaml (after)",
+                fromfile=f"{RELEASE_PLAN_OVERLAY_FILENAME} (before)",
+                tofile=f"{RELEASE_PLAN_OVERLAY_FILENAME} (after)",
                 lineterm="\n",
             )
         )
@@ -106,7 +108,8 @@ class KnowledgeInjector:
             except OSError as e:
                 overlay_written = False
                 logger.warning(
-                    "无法写入 prd_overlay.yaml（内存中仍有注入内容，磁盘未更新）: %s — %s",
+                    "无法写入 %s（内存中仍有注入内容，磁盘未更新）: %s — %s",
+                    RELEASE_PLAN_OVERLAY_FILENAME,
                     overlay_path,
                     e,
                 )

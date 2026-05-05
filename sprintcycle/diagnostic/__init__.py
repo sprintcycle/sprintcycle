@@ -17,7 +17,7 @@ from .provider import (
     ProjectDiagnostic,
 )
 
-from .prd_generator import (
+from .release_plan_generator import (
     DiagnosticPRDGenerator,
     PRDRuleEngine,
     LLMPRDGenerator,

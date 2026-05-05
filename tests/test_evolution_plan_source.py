@@ -13,7 +13,7 @@ import yaml
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 
-from sprintcycle.evolution.prd_source import (
+from sprintcycle.evolution.evolution_plan_source import (
     PRDSource,
     EvolutionPRD,
     ManualPRDSource,
@@ -47,8 +47,8 @@ class TestEvolutionPRD:
             version="v1.0",
             path="/test",
             sprints=[
-                {"name": "S1", "tasks": [{"task": "T1"}, {"task": "T2"}]},
-                {"name": "S2", "tasks": [{"task": "T3"}]},
+                {"name": "S1", "tasks": [{"description": "T1"}, {"description": "T2"}]},
+                {"name": "S2", "tasks": [{"description": "T3"}]},
             ],
         )
         
@@ -98,10 +98,10 @@ class TestManualPRDSource:
     def test_init(self):
         """测试初始化"""
         source = ManualPRDSource()
-        assert source._prd_dir == Path("prd")
+        assert source._plan_subdir == Path("release_plan")
         
-        source = ManualPRDSource("custom/prd")
-        assert source._prd_dir == Path("custom/prd")
+        source = ManualPRDSource("custom/release_plan")
+        assert source._plan_subdir == Path("custom/release_plan")
     
     def test_get_source_type(self):
         """测试来源类型"""
@@ -128,19 +128,19 @@ class TestManualPRDSource:
                     "name": "Sprint 1",
                     "goals": ["Goal 1", "Goal 2"],
                     "tasks": [
-                        {"task": "Task 1", "agent": "coder"},
-                        {"task": "Task 2", "agent": "tester"},
+                        {"description": "Task 1", "agent": "coder"},
+                        {"description": "Task 2", "agent": "tester"},
                     ],
                 },
             ],
         }
         
         with tempfile.TemporaryDirectory() as tmpdir:
-            # 创建prd目录和文件
-            prd_dir = Path(tmpdir) / "prd"
-            prd_dir.mkdir()
+            # 创建 release_plan 目录和文件
+            plan_dir = Path(tmpdir) / "release_plan"
+            plan_dir.mkdir()
             
-            yaml_file = prd_dir / "test.yaml"
+            yaml_file = plan_dir / "test.yaml"
             with open(yaml_file, "w") as f:
                 yaml.dump(prd_content, f)
             
@@ -163,10 +163,10 @@ class TestManualPRDSource:
         }
         
         with tempfile.TemporaryDirectory() as tmpdir:
-            prd_dir = Path(tmpdir) / "prd"
-            prd_dir.mkdir()
+            plan_dir = Path(tmpdir) / "release_plan"
+            plan_dir.mkdir()
             
-            with open(prd_dir / "test.yaml", "w") as f:
+            with open(plan_dir / "test.yaml", "w") as f:
                 yaml.dump(prd_content, f)
             
             source = ManualPRDSource()

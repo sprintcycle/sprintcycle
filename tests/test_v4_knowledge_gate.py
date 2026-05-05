@@ -40,7 +40,7 @@ sprints:
   - name: auth sprint
     goals: ["harden api"]
     tasks:
-      - task: noop
+      - description: noop
         agent: coder
 """
     sc = SprintCycle(project_path=str(tmp_path), config=cfg)

@@ -147,7 +147,7 @@ class CoderAgent(AgentExecutor):
             cwd = self._project_cwd(context)
             prompt = self._build_generation_prompt(requirements, context)
             cb = context.codebase_context or {}
-            overlay = str(cb.get("prd_overlay") or "")[:8000]
+            overlay = str(cb.get("release_plan_overlay") or "")[:8000]
             arch = str(
                 (requirements.get("architecture_design") or cb.get("architecture_design") or "")
             )[:8000]
@@ -156,7 +156,7 @@ class CoderAgent(AgentExecutor):
                 cwd=cwd,
                 title=title,
                 task_prompt=prompt,
-                prd_overlay_hint=overlay,
+                release_plan_overlay_hint=overlay,
                 architecture_hint=arch,
                 timeout=600,
             )

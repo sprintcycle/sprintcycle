@@ -10,8 +10,8 @@ from pathlib import Path
 from typing import Optional
 
 from .base import IntentHandler, IntentResult
-from ..prd.models import PRD
-from ..prd.parser import PRDParser
+from ..release_plan.models import PRD
+from ..release_plan.parser import PRDParser
 
 logger = logging.getLogger(__name__)
 
@@ -32,10 +32,10 @@ class RunnerHandler(IntentHandler):
         
         try:
             sprint_results = asyncio.run(
-                self.dispatcher.execute_prd(prd, max_concurrent=3)
+                self.orchestrator.execute_prd(prd, max_concurrent=3)
             )
             
-            from ..scheduler.dispatcher import ExecutionStatus
+            from ..orchestration.sprint_orchestrator import ExecutionStatus
             success = all(
                 r.status in (ExecutionStatus.SUCCESS, ExecutionStatus.SKIPPED)
                 for r in sprint_results

@@ -8,11 +8,11 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 if TYPE_CHECKING:
     from ..config import RuntimeConfig
-    from ..prd.models import PRDSprint
+    from ..release_plan.models import PRDSprint
 
 from ..execution.sprint_types import ExecutionStatus
 from .memory_store import MemoryStore
-from .prd_source import EvolutionPRD, ManualPRDSource, PRDSource
+from .evolution_plan_source import EvolutionPRD, ManualPRDSource, PRDSource
 
 logger = logging.getLogger(__name__)
 
@@ -79,8 +79,8 @@ PipelineResult = PRDExecutionResult
 class EvolutionPipeline:
     """统一进化管道（V4.0 §6.2）。
 
-    主生产路径为 ``SprintCycle`` → ``TaskDispatcher`` → ``SprintExecutor.execute_sprints``。
-    有 ``RuntimeConfig`` 时 ``execute_async`` 委托 ``TaskDispatcher``；无配置时为轻量占位
+    主生产路径为 ``SprintCycle`` → ``SprintOrchestrator`` → ``SprintExecutor.execute_sprints``。
+    有 ``RuntimeConfig`` 时 ``execute_async`` 委托编排器；无配置时为轻量占位
     执行。服务于进化实验、诊断派生 PRD 等，不与 Dispatcher 并列称为第二套「唯一编排」。
     """
 
@@ -127,25 +127,25 @@ class EvolutionPipeline:
         )
 
     async def execute_async(self, prd: EvolutionPRD) -> PRDExecutionResult:
-        """异步执行；有 ``RuntimeConfig`` 时委托 ``TaskDispatcher``（V4.0 §6.2 选项 A）。"""
+        """异步执行；有 ``RuntimeConfig`` 时委托 ``SprintOrchestrator``（V4.0 §6.2 选项 A）。"""
         if self._config is None:
             return self._legacy_execute(prd)
-        from ..scheduler.dispatcher import TaskDispatcher
-        from .prd_adapter import evolution_prd_to_prd
+        from ..orchestration.sprint_orchestrator import SprintOrchestrator
+        from .release_plan_adapter import evolution_prd_to_prd
 
         self._status = ExecutionStatus.RUNNING
         self._current_prd = prd
         result = PRDExecutionResult(prd=prd)
         try:
             std_prd = evolution_prd_to_prd(prd, self.project_path or ".")
-            dispatcher = TaskDispatcher(
+            orchestrator = SprintOrchestrator(
                 config=self._config,
                 evolution_pipeline=None,
                 project_path=std_prd.project.path,
             )
             max_c = max(1, int(self._config.parallel_tasks))
-            sprint_results = await dispatcher.execute_prd(std_prd, max_concurrent=max_c)
-            result.sprint_results = self._map_dispatcher_sprint_results(sprint_results)
+            sprint_results = await orchestrator.execute_prd(std_prd, max_concurrent=max_c)
+            result.sprint_results = self._map_orchestrator_sprint_results(sprint_results)
             result.success = all(r.success for r in result.sprint_results) if result.sprint_results else True
             result.final_fitness = self._calculate_fitness(result)
             result.improvement = result.final_fitness - result.baseline_fitness
@@ -173,7 +173,9 @@ class EvolutionPipeline:
             return _EvoSprintResult(True, 0.0)
         tasks_data: List[Dict[str, Any]] = []
         for t in sprint.tasks:
-            tasks_data.append({"task": t.task, "agent": t.agent, "target": t.target})
+            tasks_data.append(
+                {"description": t.description, "agent": t.agent, "target": t.target}
+            )
         evo = EvolutionPRD(
             name=f"evolve-{sprint.name}",
             version="1.0",
@@ -210,7 +212,7 @@ class EvolutionPipeline:
         return result
 
     @staticmethod
-    def _map_dispatcher_sprint_results(sprint_results: List[Any]) -> List[SprintExecutionResult]:
+    def _map_orchestrator_sprint_results(sprint_results: List[Any]) -> List[SprintExecutionResult]:
         from ..execution.sprint_types import SprintResult
 
         out: List[SprintExecutionResult] = []
@@ -222,8 +224,8 @@ class EvolutionPipeline:
             for tr in sr.task_results:
                 tr_list.append(
                     {
-                        "task": tr.task.task,
-                        "agent": tr.task.agent,
+                        "description": tr.work_item.description,
+                        "agent": tr.work_item.agent,
                         "success": tr.status == ExecutionStatus.SUCCESS,
                         "error": tr.error,
                     }
@@ -242,23 +244,29 @@ class EvolutionPipeline:
         start = datetime.now()
         result = SprintExecutionResult(sprint_name=sprint_name, success=True)
 
-        for task in tasks:
+        for work in tasks:
             try:
-                task_name = task.get("name", "unknown")
+                if isinstance(work, str):
+                    task_name = work
+                else:
+                    task_name = str(work.get("description", "unknown"))
                 task_result = self._execute_task(task_name)
                 result.task_results.append(task_result)
                 if not task_result.get("success", False):
                     result.success = False
             except Exception as e:
-                logger.error(f"Task {task.get('name', 'unknown')} failed: {e}")
-                result.task_results.append({"task": task.get("name", "unknown"), "success": False, "error": str(e)})
+                label = work if isinstance(work, str) else work.get("description", "unknown")
+                logger.error(f"Sprint Backlog item {label} failed: {e}")
+                result.task_results.append(
+                    {"description": str(label), "success": False, "error": str(e)}
+                )
                 result.success = False
 
         result.duration = (datetime.now() - start).total_seconds()
         return result
 
     def _execute_task(self, task_name: str) -> Dict[str, Any]:
-        return {"task": task_name, "success": True}
+        return {"description": task_name, "success": True}
 
     def _calculate_fitness(self, result: PRDExecutionResult) -> float:
         if not result.sprint_results:

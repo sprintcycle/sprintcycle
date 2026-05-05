@@ -1,7 +1,10 @@
 """
-PRD 解析器
+PRD / Release Plan 解析器（YAML → 内存模型）
 
-解析 YAML 格式的 PRD 文件，转换为 Python 数据结构
+**Scrum 对齐**：解析产物为「多 Sprint 可执行计划」；单条 ``tasks[]`` 可为
+``task``、``description`` 或 ``name`` 键（见 ``_parse_task``），对应 **Sprint Backlog Item** 的工作说明。
+
+详见 ``docs/DESIGN_SCRUM_NAMING_MIGRATION.md``；类型别名见 ``sprintcycle.scrum``。
 """
 
 import yaml
@@ -30,9 +33,9 @@ class PRDParseError(ValueError):
 
 class PRDParser:
     """
-    PRD 文件解析器
-    
-    支持解析 YAML 格式的 PRD 文件，提取项目信息、Sprint 定义和任务配置
+    将 YAML **执行计划**（工程名 PRD）解析为 ``PRD`` / ``ReleasePlan`` 对象。
+
+    提取 ``project``、``sprints[]``（Sprint Goal + Sprint Backlog）及工作项上的 ``agent`` 等。
     """
     
     # Agent 类型映射
@@ -217,11 +220,13 @@ class PRDParser:
         )
     
     def _parse_task(self, data: Dict[str, Any], index: int, sprint_name: str) -> PRDTask:
-        """解析任务定义"""
-        # 解析任务描述（支持多种格式）
-        task_content = data.get("task") or data.get("description") or data.get("name", "")
-        if not task_content:
-            raise PRDParseError(f"Sprint '{sprint_name}' Task #{index + 1}: 缺少 task 描述")
+        """解析 Sprint Backlog 项（仅接受 ``description``）。"""
+        task_content = data.get("description")
+        if task_content is None or (isinstance(task_content, str) and not str(task_content).strip()):
+            raise PRDParseError(
+                f"Sprint '{sprint_name}' Sprint Backlog Item #{index + 1}: "
+                "缺少非空字段 ``description``"
+            )
         
         # 解析 Agent 类型
         agent = data.get("agent", "coder")
@@ -238,7 +243,7 @@ class PRDParser:
             constraints = [constraints]
         
         return PRDTask(
-            task=task_content,
+            description=task_content,
             agent=agent,
             target=target,
             constraints=constraints,

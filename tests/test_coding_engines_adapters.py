@@ -40,7 +40,7 @@ def test_write_cookbook_recipe_creates_file(tmp_path: Path) -> None:
 def test_build_cookbook_body_includes_sections() -> None:
     b = build_cookbook_body(
         "do the thing",
-        prd_overlay_hint="overlay",
+        release_plan_overlay_hint="overlay",
         architecture_hint="arch",
     )
     assert "do the thing" in b

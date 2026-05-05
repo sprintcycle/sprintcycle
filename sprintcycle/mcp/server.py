@@ -108,27 +108,27 @@ class SprintCycleMCPServer:
             return [
                 Tool(
                     name="sprintcycle_plan",
-                    description="根据用户意图生成 Sprint 执行计划（不执行）。返回 prd_yaml，用户确认后可传给 sprintcycle_run 执行。",
+                    description="根据用户意图生成 Sprint 执行计划（不执行）。返回 prd_yaml（多 Sprint 执行计划 YAML），确认后可传给 sprintcycle_run。",
                     inputSchema={
                         "type": "object",
                         "properties": {
                             "intent": {"type": "string", "description": "用户意图描述"},
                             "mode": {"type": "string", "enum": ["auto", "evolution", "normal", "fix", "test"], "description": "执行模式"},
                             "target": {"type": "string", "description": "目标文件/模块"},
-                            "prd_path": {"type": "string", "description": "已有 PRD 文件路径"},
+                            "prd_path": {"type": "string", "description": "已有执行计划 YAML 文件路径"},
                         },
                         "required": ["intent"],
                     },
                 ),
                 Tool(
                     name="sprintcycle_run",
-                    description="执行 Sprint。支持自然语言意图、PRD YAML、PRD 文件路径三种输入。支持断点续跑。",
+                    description="执行 Sprint。支持自然语言意图、执行计划 YAML 文本、YAML 文件路径三种输入；支持断点续跑。",
                     inputSchema={
                         "type": "object",
                         "properties": {
                             "intent": {"type": "string", "description": "用户意图描述"},
-                            "prd_yaml": {"type": "string", "description": "PRD YAML 内容（来自 plan 结果）"},
-                            "prd_path": {"type": "string", "description": "PRD 文件路径"},
+                            "prd_yaml": {"type": "string", "description": "执行计划 YAML（来自 plan 的 prd_yaml）"},
+                            "prd_path": {"type": "string", "description": "执行计划 YAML 文件路径"},
                             "mode": {"type": "string", "enum": ["auto", "evolution", "normal", "fix", "test"], "description": "执行模式"},
                             "target": {"type": "string", "description": "目标文件/模块"},
                             "execution_id": {"type": "string", "description": "断点续跑的执渡 ID"},

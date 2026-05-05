@@ -6,7 +6,7 @@ import logging
 from typing import Dict, Optional
 
 from ..config import RuntimeConfig
-from ..prd.models import PRD, PRDSprint
+from ..release_plan.models import PRD, PRDSprint
 from .knowledge_injector import KnowledgeInjector
 from .sprint_hooks import SprintLifecycleHooks
 from .sprint_types import SprintResult
@@ -22,7 +22,7 @@ def resolve_knowledge_db_path(project_path: str, config: RuntimeConfig) -> str:
 
 
 class KnowledgeInjectionHook(SprintLifecycleHooks):
-    """每个 Sprint 开始前注入经验（写入 prd_overlay.yaml + context）。"""
+    """每个 Sprint 开始前注入经验（写入 release_plan_overlay.yaml + context）。"""
 
     def __init__(self, project_path: str, config: RuntimeConfig):
         self._project_path = project_path
@@ -44,10 +44,10 @@ class KnowledgeInjectionHook(SprintLifecycleHooks):
             db_path = resolve_knowledge_db_path(self._project_path, self._config)
             inj = KnowledgeInjector(db_path)
             res = inj.inject_for_sprint(self._project_path, sprint, prd)
-            context["prd_overlay_yaml"] = res.yaml_text
+            context["release_plan_overlay_yaml"] = res.yaml_text
             context["knowledge_injection_diff"] = res.diff_text
             context["knowledge_card_ids"] = res.cards_used
-            context["prd_overlay_written"] = res.overlay_written
+            context["release_plan_overlay_written"] = res.overlay_written
         except Exception as e:
             logger.warning("Knowledge injection skipped: %s", e)
 

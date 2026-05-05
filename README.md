@@ -14,7 +14,18 @@
 1. **[`docs/PRODUCT_TECH_V4.md`](docs/PRODUCT_TECH_V4.md)** — 真理源入口与主路径声明  
 2. **[`SPRINTCYCLE_PRODUCT_TECH_PLAN.md`](SPRINTCYCLE_PRODUCT_TECH_PLAN.md)** — 完整修订版（G1–G4、六 Phase、改造路线 §6）
 
-**主执行路径**：`SprintCycle` → `TaskDispatcher` → `SprintExecutor.execute_sprints`（`EvolutionPipeline` 为进化/实验场景，非并列「第二唯一编排」）。
+**主执行路径**：`SprintCycle` → `SprintOrchestrator` → `SprintExecutor.execute_sprints`（`EvolutionPipeline` 为进化/实验场景，非并列「第二唯一编排」）。
+
+### 与 Scrum 的对应（命名对齐）
+
+| 代码 / 文件 | Scrum 里怎么理解 |
+|-------------|------------------|
+| `PRD` / plan YAML | **可执行交付计划**（多 Sprint）；类型别名 `ReleasePlan`（`from sprintcycle import ReleasePlan`） |
+| `PRDSprint`、`sprints[]` | 一次 **Sprint**；`goals` ≈ Sprint Goal；`tasks` ≈ **Sprint Backlog** |
+| `PRDTask`、`description`（YAML 仅 `description:`） | **Sprint Backlog Item** 的工作说明 |
+| `SprintOrchestrator` | **Sprint 执行编排**（orchestrator），非日历排期 |
+
+完整分级与命名约定见 **[`docs/DESIGN_SCRUM_NAMING_MIGRATION.md`](docs/DESIGN_SCRUM_NAMING_MIGRATION.md)**。
 
 ### 质量门禁 G1–G4（与 `quality_level` / `quality_profile` 对照）
 
@@ -65,7 +76,7 @@ echo "DEEPSEEK_API_KEY=your-api-key" > .env
 ### 基本使用
 
 ```python
-from sprintcycle.prd.models import PRD, PRDProject, PRDSprint, PRDTask, ExecutionMode
+from sprintcycle.release_plan.models import PRD, PRDProject, PRDSprint, PRDTask, ExecutionMode
 from sprintcycle.execution.engine import ExecutionEngine
 
 prd = PRD(
@@ -74,7 +85,7 @@ prd = PRD(
     sprints=[
         PRDSprint(
             name="Sprint 1",
-            tasks=[PRDTask(task="实现一个可运行的最小功能", agent="coder")],
+            tasks=[PRDTask(description="实现一个可运行的最小功能", agent="coder")],
         )
     ],
 )
@@ -82,6 +93,8 @@ prd = PRD(
 engine = ExecutionEngine()
 result = await engine.execute(prd)
 ```
+
+进化管道从磁盘加载人工计划时，默认在项目根目录的 **`release_plan/*.yaml`** 查找（`ManualPRDSource` 的 `plan_subdir` 可改为其它相对路径）。
 
 ## 架构概览
 
@@ -121,7 +134,7 @@ result = await engine.execute(prd)
 | `SprintExecutor` | `sprintcycle/execution/sprint_executor.py` | Sprint 执行器 |
 | `ExecutionEngine` | `sprintcycle/execution/engine.py` | 统一执行引擎 |
 | `ErrorRouter` | `sprintcycle/execution/error_router.py` | 错误路由 |
-| `PRDValidator` | `sprintcycle/prd/validator.py` | PRD 验证器 |
+| `PRDValidator` | `sprintcycle/release_plan/validator.py` | 执行计划验证器 |
 
 ## 配置
 
@@ -167,7 +180,7 @@ sprintcycle/
 │
 ├── evolution/                 # 进化系统
 │   ├── pipeline.py           # EvolutionPipeline
-│   ├── prd_source.py         # PRD 源 (Manual/Diagnostic)
+│   ├── evolution_plan_source.py  # 进化计划源 (Manual/Diagnostic)
 │   ├── measurement.py        # 测量
 │   ├── memory_store.py       # 记忆存储
 │   └── rollback_manager.py   # 回滚管理
@@ -175,7 +188,7 @@ sprintcycle/
 ├── diagnostic/               # 诊断系统
 │   ├── provider.py           # 诊断提供者
 │   ├── health_report.py      # 健康报告
-│   └── prd_generator.py      # PRD 生成
+│   └── release_plan_generator.py  # 由诊断生成执行计划
 │
 ├── execution/                # 执行系统
 │   ├── engine.py             # 执行引擎
@@ -191,10 +204,13 @@ sprintcycle/
 │   ├── parser.py
 │   └── runner.py
 │
-├── prd/                       # PRD 处理
-│   ├── models.py            # PRD 模型
+├── release_plan/              # 可执行多 Sprint 计划（类型名仍为 PRD*）
+│   ├── models.py            # 数据模型
 │   ├── parser.py            # 解析器
 │   └── validator.py         # 验证器
+│
+├── orchestration/             # Sprint 编排
+│   └── sprint_orchestrator.py # SprintOrchestrator
 │
 └── integrations/             # 集成
     └── evolution_integration.py

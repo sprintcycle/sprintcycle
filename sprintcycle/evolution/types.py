@@ -3,7 +3,7 @@ SprintCycle Evolution Types
 
 v0.9.2: 删除空壳进化算法类型 (Gene, Variation, FitnessScore, EvolutionStage, EvolutionResult, EvolutionMetrics)
 这些类型没有实际的变异/选择算法支撑，是误导性的空壳。
-保留 SprintContext（被 dispatcher.py 和 execution/__init__.py 使用）。
+保留 SprintContext（被 ``orchestration/sprint_orchestrator.py`` 与 ``execution/__init__.py`` 使用）。
 """
 
 from dataclasses import dataclass, field

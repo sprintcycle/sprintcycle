@@ -1,7 +1,7 @@
 """
 Sprint 生命周期钩子 — 编排内核（execute_sprints）与横切能力（事件、测量等）解耦。
 
-由 TaskDispatcher 等注册实现；SprintExecutor 在「每个 Sprint 前后」调用。
+由 ``SprintOrchestrator`` 等注册实现；SprintExecutor 在「每个 Sprint 前后」调用。
 """
 
 from __future__ import annotations
@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 import logging
 from typing import Any, Dict, Optional, Sequence
 
-from ..prd.models import PRD, PRDSprint
+from ..release_plan.models import PRD, PRDSprint
 from .sprint_types import SprintResult
 
 logger = logging.getLogger(__name__)

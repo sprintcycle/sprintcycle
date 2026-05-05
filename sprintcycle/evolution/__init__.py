@@ -1,7 +1,7 @@
 """
 SprintCycle Evolution Module
 
-v0.9.0: 统一进化管道 — EvolutionPipeline + PRDSource + Diagnostic
+v0.9.0: 统一进化管道 — EvolutionPipeline + PRDSource + Diagnostic；人工 YAML 默认目录 **`release_plan/`**（见 ``ManualPRDSource``）。
 GEPA standalone engine removed, all evolution via EvolutionPipeline。
 v0.9.1: 精简 Config 类，删除未使用的枚举
 """
@@ -14,7 +14,7 @@ from .pipeline import (
     EvolutionPipeline,
     PipelineResult,
 )
-from .prd_source import (
+from .evolution_plan_source import (
     PRDSource,
     ManualPRDSource,
     DiagnosticPRDSource,

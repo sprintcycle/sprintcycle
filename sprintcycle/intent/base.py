@@ -9,8 +9,8 @@ from datetime import datetime
 
 # 使用 TYPE_CHECKING 避免循环导入
 if TYPE_CHECKING:
-    from ..prd.models import PRD
-    from ..scheduler.dispatcher import TaskDispatcher, SprintResult
+    from ..release_plan.models import PRD
+    from ..orchestration.sprint_orchestrator import SprintOrchestrator, SprintResult
 
 
 @dataclass
@@ -42,15 +42,15 @@ class IntentHandler(ABC):
     """意图处理器基类"""
     
     def __init__(self):
-        from ..scheduler.dispatcher import TaskDispatcher
-        self.dispatcher = TaskDispatcher()
+        from ..orchestration.sprint_orchestrator import SprintOrchestrator
+        self.orchestrator = SprintOrchestrator()
     
     @abstractmethod
     def execute(self, prd: "PRD") -> IntentResult:
         pass
     
     def validate_prd(self, prd: "PRD") -> bool:
-        from ..prd.validator import PRDValidator
+        from ..release_plan.validator import PRDValidator
         result = PRDValidator().validate(prd)
         return result.is_valid
     
@@ -61,7 +61,7 @@ class IntentHandler(ABC):
         sprint_results: List["SprintResult"],
         error: Optional[str] = None,
     ) -> IntentResult:
-        from ..scheduler.dispatcher import ExecutionStatus
+        from ..orchestration.sprint_orchestrator import ExecutionStatus
         
         completed_sprints = sum(
             1 for r in sprint_results 

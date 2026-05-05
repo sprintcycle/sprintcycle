@@ -2,6 +2,17 @@
 
 本文档帮助你在 5 分钟内快速上手 SprintCycle。
 
+### 与 Scrum 的对应（读代码/写集成时）
+
+| 你看到的名字 | Scrum 里怎么理解 |
+|--------------|------------------|
+| **PRD / plan YAML** | 多 Sprint 的**可执行交付计划**（非整份 Product Backlog）；别名见 `sprintcycle.scrum.ReleasePlan`。 |
+| **`PRDSprint` / `sprints[]`** | 一次 **Sprint**：`goals` ≈ Sprint Goal；`tasks` ≈ Sprint Backlog。 |
+| **`PRDTask` / YAML `description:`** | Sprint 内一条工作说明，≈ **Sprint Backlog Item**；别名 `SprintBacklogItem`；代码字段 **`description`**。 |
+| **`SprintOrchestrator`** | **Sprint 执行编排**（`orchestration` 主实现）。 |
+
+完整分级改造见 **[`docs/DESIGN_SCRUM_NAMING_MIGRATION.md`](DESIGN_SCRUM_NAMING_MIGRATION.md)**。
+
 ## 安装
 
 ```bash

@@ -143,7 +143,7 @@ mode: normal
 sprints:
   - name: "Sprint 1"
     tasks:
-      - task: "Task"
+      - description: "Task"
         agent: coder
 """
         with patch('sprintcycle.dashboard.app.SprintCycle') as mock_sc:

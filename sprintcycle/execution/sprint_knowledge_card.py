@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 if TYPE_CHECKING:
     from ..config.runtime_config import RuntimeConfig
     from ..evolution.measurement import MeasurementResult
-    from ..prd.models import PRD, PRDSprint
+    from ..release_plan.models import PRD, PRDSprint
     from .sprint_types import SprintResult
 
 logger = logging.getLogger(__name__)
@@ -59,7 +59,7 @@ def persist_sprint_outcome_card(
     errors: List[str] = []
     related: List[str] = []
     for tr in sprint_result.task_results:
-        t = tr.task
+        t = tr.work_item
         if getattr(t, "target", None):
             related.append(str(t.target))
         if tr.status.value != "success" if hasattr(tr.status, "value") else str(tr.status) != "success":

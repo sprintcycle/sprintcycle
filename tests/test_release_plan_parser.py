@@ -7,8 +7,8 @@ import tempfile
 import os
 from pathlib import Path
 
-from sprintcycle.prd.parser import PRDParser, PRDParseError, YAMLError
-from sprintcycle.prd.models import PRD, ExecutionMode
+from sprintcycle.release_plan.parser import PRDParser, PRDParseError, YAMLError
+from sprintcycle.release_plan.models import PRD, ExecutionMode
 
 
 class TestPRDParser:
@@ -33,7 +33,7 @@ sprints:
     goals:
       - "完成开发"
     tasks:
-      - task: |
+      - description: |
           实现功能
         agent: "coder"
         target: "src/main.py"
@@ -72,7 +72,7 @@ evolution:
 sprints:
   - name: "Sprint 1"
     tasks:
-      - task: |
+      - description: |
           优化引擎
         agent: "evolver"
         target: "sprintcycle/evolution/engine.py"
@@ -108,7 +108,7 @@ project:
 sprints:
   - name: "Sprint 1"
     tasks:
-      - task: "实现功能"
+      - description: "实现功能"
         agent: "coder"
 """
         with pytest.raises(PRDParseError) as exc_info:
@@ -138,7 +138,7 @@ project:
 sprints:
   - name: "Sprint 1"
     tasks:
-      - task: "测试任务"
+      - description: "测试任务"
         agent: "coder"
 """)
             temp_path = f.name
@@ -161,7 +161,7 @@ class TestPRDModels:
     
     def test_prd_total_tasks(self):
         """测试总任务数计算"""
-        from sprintcycle.prd.models import PRDProject, PRDSprint, PRDTask
+        from sprintcycle.release_plan.models import PRDProject, PRDSprint, PRDTask
         
         prd = PRD(
             project=PRDProject(name="test", path="/root/test"),
@@ -169,14 +169,14 @@ class TestPRDModels:
                 PRDSprint(
                     name="Sprint 1",
                     tasks=[
-                        PRDTask(task="task1", agent="coder"),
-                        PRDTask(task="task2", agent="coder"),
+                        PRDTask(description="task1", agent="coder"),
+                        PRDTask(description="task2", agent="coder"),
                     ]
                 ),
                 PRDSprint(
                     name="Sprint 2",
                     tasks=[
-                        PRDTask(task="task3", agent="tester"),
+                        PRDTask(description="task3", agent="tester"),
                     ]
                 ),
             ]
@@ -186,7 +186,7 @@ class TestPRDModels:
     
     def test_prd_to_dict(self):
         """测试 PRD 序列化"""
-        from sprintcycle.prd.models import PRDProject
+        from sprintcycle.release_plan.models import PRDProject
         
         prd = PRD(
             project=PRDProject(name="test", path="/root/test"),

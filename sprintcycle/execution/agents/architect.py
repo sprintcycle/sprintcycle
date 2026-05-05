@@ -59,7 +59,7 @@ class ArchitectureAgent(AgentExecutor):
     ) -> Dict[str, Any]:
         """分析需求和约束"""
         requirements: Dict[str, Any] = {
-            "task": task,
+            "description": task,
             "project_goals": context.project_goals,
             "constraints": context.metadata.get("constraints", []),
             "existing_modules": list(context.codebase_context.keys()),
@@ -101,14 +101,14 @@ class ArchitectureAgent(AgentExecutor):
     ) -> Dict[str, Any]:
         """设计解决方案"""
         design: Dict[str, Any] = {
-            "summary": f"为 '{requirements.get('task', '')[:50]}' 设计架构方案",
+            "summary": f"为 '{requirements.get('description', '')[:50]}' 设计架构方案",
             "components": [],
             "dependencies": [],
             "patterns": [],
             "decisions": [],
         }
 
-        task = requirements.get("task", "").lower()
+        task = requirements.get("description", "").lower()
 
         # 根据任务类型推荐架构模式
         if any(kw in task for kw in ["重构", "refactor", "迁移", "migrate"]):

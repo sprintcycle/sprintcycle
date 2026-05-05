@@ -83,7 +83,7 @@ pnpm-lock.yaml
 # SprintCycle
 .sprintcycle/
 # Knowledge-injection overlay (auto-generated; do not commit)
-prd_overlay.yaml
+release_plan_overlay.yaml
 
 # Local / CI artifacts (do not commit)
 coverage.json

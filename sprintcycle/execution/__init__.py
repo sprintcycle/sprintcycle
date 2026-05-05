@@ -14,7 +14,6 @@ from .state_store import (
     reset_default_state_store,
 )
 from .sqlite_state_store import SqliteExecutionStore
-from .sprint_types import TaskStatus
 from .feedback import FeedbackLoop, ExecutionFeedback, FeedbackLevel, FeedbackCategory
 from .sprint_hooks import ChainedSprintHooks, SprintLifecycleHooks, NoOpSprintLifecycleHooks
 from .cache import ExecutionCache, CacheEntry, get_cache, set_cache
@@ -36,12 +35,12 @@ EvolutionStrategy = StrategyEvolutionStrategy
 def _get_evolution_pipeline():
     """Lazy import to avoid circular dependency with evolution module"""
     from ..evolution.pipeline import EvolutionPipeline
-    from ..evolution.prd_source import ManualPRDSource, DiagnosticPRDSource
+    from ..evolution.evolution_plan_source import ManualPRDSource, DiagnosticPRDSource
     return EvolutionPipeline, ManualPRDSource, DiagnosticPRDSource
 
 __all__ = [
     "ExecutionEngine", "SprintExecutor", "NormalStrategy", "EvolutionStrategy", "ExecutionStrategy", "get_strategy",
-    "ExecutionStatus", "TaskResult", "SprintResult", "TaskStatus",
+    "ExecutionStatus", "TaskResult", "SprintResult",
     "EventBus", "Event", "EventType", "get_event_bus",
     "StateStore", "ExecutionState", "get_state_store", "configure_default_store", "reset_default_state_store",
     "SqliteExecutionStore",

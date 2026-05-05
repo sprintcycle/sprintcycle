@@ -1,6 +1,10 @@
 """
-Sprint 执行器 - 统一的 Sprint 迭代执行
-支持断点续传（通过 StateStore 集成）。
+Sprint 执行器 — 与 Scrum **Sprint** 时间盒内交付对应
+
+顺序（或受控并行）跑完单个 ``PRDSprint`` / ``SprintDefinition`` 的 **Sprint Backlog**（``tasks``），
+聚合为 ``SprintResult``；多 Sprint 由 ``SprintOrchestrator`` 编排。断点续跑通过 ``StateStore``。
+
+Scrum 命名对照见 ``docs/DESIGN_SCRUM_NAMING_MIGRATION.md``。
 """
 
 import asyncio
@@ -10,7 +14,7 @@ import time
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional, Set
 
-from ..prd.models import PRD, PRDEvolutionParams, PRDSprint, PRDTask
+from ..release_plan.models import PRD, PRDEvolutionParams, PRDSprint, PRDTask
 from .checkpoint import CheckpointMixin
 from .sprint_hooks import NoOpSprintLifecycleHooks, SprintLifecycleHooks
 from .state_store import StateStore, get_state_store
@@ -23,8 +27,7 @@ from .sprint_types import ExecutionStatus, SprintResult, TaskResult
 
 class SprintExecutor(CheckpointMixin):
     """
-    Sprint 执行器
-    支持断点续传（通过 StateStore）。
+    执行单个 **Sprint** 的 Sprint Backlog（支持断点续传，经 ``StateStore``）。
     """
 
     def __init__(
@@ -120,8 +123,8 @@ class SprintExecutor(CheckpointMixin):
                 prev = (cb.get("task_guidance") or "").strip()
                 extra = "\n\n[Coder 验证-修复 — 上一轮失败]\n" + vn
                 cb["task_guidance"] = (prev + extra).strip() if prev else extra.strip()
-        if context.get("prd_overlay_yaml"):
-            cb["prd_overlay"] = context["prd_overlay_yaml"]
+        if context.get("release_plan_overlay_yaml"):
+            cb["release_plan_overlay"] = context["release_plan_overlay_yaml"]
         locked_engine = str(
             context.get("_sprint_coding_engine") or context.get("coding_engine", "aider")
         )
@@ -157,16 +160,16 @@ class SprintExecutor(CheckpointMixin):
     MAX_SUBTASKS = 5
 
     def _should_split_task(self, task: PRDTask) -> bool:
-        if len(task.task) >= self.TASK_SPLIT_THRESHOLD:
+        if len(task.description) >= self.TASK_SPLIT_THRESHOLD:
             return True
         complex_keywords = ["重构", "迁移", "优化", "重写", "implement", "refactor", "migrate", "optimize", "rewrite"]
-        task_lower = task.task.lower()
+        task_lower = task.description.lower()
         keyword_count = sum(1 for kw in complex_keywords if kw.lower() in task_lower)
         return keyword_count >= 2
 
     def _split_task(self, task: PRDTask) -> List[PRDTask]:
         subtasks = []
-        task_text = task.task
+        task_text = task.description
         action_patterns = [
             r"实现[^\s，,。]+", r"添加[^\s，,。]+", r"修改[^\s，,。]+",
             r"修复[^\s，,。]+", r"优化[^\s，,。]+", r"创建[^\s，,。]+",
@@ -179,7 +182,7 @@ class SprintExecutor(CheckpointMixin):
         if len(subtask_parts) >= 2:
             for i, part in enumerate(subtask_parts[:self.MAX_SUBTASKS]):
                 subtask = PRDTask(
-                    task=part.strip(),
+                    description=part.strip(),
                     agent=task.agent,
                     target=task.target,
                     constraints=task.constraints.copy(),
@@ -189,7 +192,7 @@ class SprintExecutor(CheckpointMixin):
                 subtasks.append(subtask)
         else:
             subtask = PRDTask(
-                task=task_text[:self.TASK_SPLIT_THRESHOLD] + "..." if len(task_text) > self.TASK_SPLIT_THRESHOLD else task_text,
+                description=task_text[:self.TASK_SPLIT_THRESHOLD] + "..." if len(task_text) > self.TASK_SPLIT_THRESHOLD else task_text,
                 agent=task.agent,
                 target=task.target,
                 constraints=task.constraints.copy(),
@@ -271,8 +274,8 @@ class SprintExecutor(CheckpointMixin):
             task_records = []
             for tr in result.task_results:
                 task_records.append({
-                    "task": tr.task.task,
-                    "agent": tr.task.agent,
+                    "description": tr.work_item.description,
+                    "agent": tr.work_item.agent,
                     "status": tr.status.value if hasattr(tr.status, "value") else str(tr.status),
                     "output": tr.output,
                     "error": tr.error,
@@ -305,7 +308,7 @@ class SprintExecutor(CheckpointMixin):
         """记录单个 Task 执行日志"""
         status_str = task_result.status.value if hasattr(task_result.status, "value") else str(task_result.status)
         logger.info(
-            f"📋 Task [{task.agent}] {task.task[:40]}... → {status_str} "
+            f"📋 Task [{task.agent}] {task.description[:40]}... → {status_str} "
             f"({task_result.duration:.2f}s)"
         )
 
@@ -544,7 +547,7 @@ class SprintExecutor(CheckpointMixin):
         start_time = time.time()
         executor = self._agent_executors.get(task.agent)
         if not executor:
-            return TaskResult(task=task, sprint_name=sprint_name, status=ExecutionStatus.FAILED, error=f"未知的 Agent 类型: {task.agent}")
+            return TaskResult(work_item=task, sprint_name=sprint_name, status=ExecutionStatus.FAILED, error=f"未知的 Agent 类型: {task.agent}")
         try:
             # 注入反馈闭环信息到 task context
             enriched_context = dict(context)
@@ -578,15 +581,15 @@ class SprintExecutor(CheckpointMixin):
                     "\n[重要] 本次为失败重试，请特别注意上述问题。"
                 )
             output = await executor(task, enriched_context)
-            task_result = TaskResult(task=task, sprint_name=sprint_name, status=ExecutionStatus.SUCCESS, output=output, duration=time.time() - start_time)
+            task_result = TaskResult(work_item=task, sprint_name=sprint_name, status=ExecutionStatus.SUCCESS, output=output, duration=time.time() - start_time)
             self._log_task_execution(task, task_result)
             return task_result
         except Exception as e:
-            return TaskResult(task=task, sprint_name=sprint_name, status=ExecutionStatus.FAILED, error=str(e), duration=time.time() - start_time)
+            return TaskResult(work_item=task, sprint_name=sprint_name, status=ExecutionStatus.FAILED, error=str(e), duration=time.time() - start_time)
 
     async def _execute_coder_task(self, task: PRDTask, context: Dict[str, Any]) -> str:
         if self._dry_run():
-            return f"[dry_run] 完成: {task.task[:120]}"
+            return f"[dry_run] 完成: {task.description[:120]}"
         from .agents.coder_base import CoderAgent
 
         work = dict(context)
@@ -595,7 +598,7 @@ class SprintExecutor(CheckpointMixin):
         for attempt in range(max_r):
             ctx = self._build_agent_context(task, work.get("sprint_name", ""), work)
             agent = CoderAgent()
-            res = await agent.execute(task.task, ctx)
+            res = await agent.execute(task.description, ctx)
             if res.success:
                 return res.output or ""
             last_msg = res.error or last_msg
@@ -608,32 +611,32 @@ class SprintExecutor(CheckpointMixin):
 
     async def _execute_evolver_task(self, task: PRDTask, context: Dict[str, Any]) -> str:
         if self._dry_run():
-            return f"[dry_run] 进化完成: {task.task[:80]}"
+            return f"[dry_run] 进化完成: {task.description[:80]}"
         await asyncio.sleep(0.05)
-        return f"进化完成: {task.task[:80]}"
+        return f"进化完成: {task.description[:80]}"
 
     async def _execute_tester_task(self, task: PRDTask, context: Dict[str, Any]) -> str:
         if self._dry_run():
-            return f"[dry_run] 测试完成: {task.task[:80]}"
+            return f"[dry_run] 测试完成: {task.description[:80]}"
         from .agents.tester import TesterAgent
 
         ctx = self._build_agent_context(task, context.get("sprint_name", ""), context)
         agent = TesterAgent()
-        res = await agent.execute(task.task, ctx)
+        res = await agent.execute(task.description, ctx)
         if not res.success:
             raise RuntimeError(res.error or "TesterAgent 执行失败")
         return res.output or ""
 
     async def _execute_architect_task(self, task: PRDTask, context: Dict[str, Any]) -> str:
         if self._dry_run():
-            summary = f"[dry_run] 架构设计: {task.task[:80]}"
+            summary = f"[dry_run] 架构设计: {task.description[:80]}"
             context["architecture_design"] = summary
             return summary
         from .agents.architect import ArchitectureAgent
 
         ctx = self._build_agent_context(task, context.get("sprint_name", ""), context)
         agent = ArchitectureAgent()
-        res = await agent.execute(task.task, ctx)
+        res = await agent.execute(task.description, ctx)
         if not res.success:
             raise RuntimeError(res.error or "ArchitectureAgent 执行失败")
         arch = ctx.codebase_context.get("architecture_design") or res.output or ""
@@ -643,9 +646,9 @@ class SprintExecutor(CheckpointMixin):
 
     async def _execute_regression_tester_task(self, task: PRDTask, context: Dict[str, Any]) -> str:
         if self._dry_run():
-            return f"[dry_run] 回归测试完成: {task.task[:80]}"
+            return f"[dry_run] 回归测试完成: {task.description[:80]}"
         await asyncio.sleep(0.05)
-        return f"回归测试完成: {task.task[:80]}"
+        return f"回归测试完成: {task.description[:80]}"
 
 
     def _analyze_dependencies(
@@ -693,12 +696,12 @@ class SprintExecutor(CheckpointMixin):
             ("部署", "构建"), ("deploy", "build"),
         ]
 
-        task_text = task.task.lower()
+        task_text = task.description.lower()
 
         for dep_kw, src_kw in dependency_keywords:
             if dep_kw in task_text:
                 for j in range(task_idx):
-                    prev_text = tasks[j].task.lower()
+                    prev_text = tasks[j].description.lower()
                     prev_target = (tasks[j].target or "").lower()
                     if src_kw in prev_text or src_kw in prev_target:
                         dep_map[task_idx].add(j)
@@ -737,7 +740,7 @@ class SprintExecutor(CheckpointMixin):
         dep_map: Dict[int, Set[int]]
     ) -> None:
         """基于任务类型/agent分析依赖关系"""
-        task_text = task.task.lower()
+        task_text = task.description.lower()
 
         # Agent类型依赖: 测试任务依赖实现任务
         if task.agent == "tester":
@@ -754,7 +757,7 @@ class SprintExecutor(CheckpointMixin):
         for target_kws, source_kws in dep_rules:
             if any(kw in task_text for kw in target_kws):
                 for j in range(task_idx):
-                    prev_text = tasks[j].task.lower()
+                    prev_text = tasks[j].description.lower()
                     if any(kw in prev_text for kw in source_kws):
                         dep_map[task_idx].add(j)
 

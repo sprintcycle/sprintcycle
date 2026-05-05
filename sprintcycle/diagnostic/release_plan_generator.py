@@ -10,8 +10,8 @@ import logging
 from typing import List, Dict, Any, Optional
 
 from .health_report import ProjectHealthReport, Severity
-from ..evolution.prd_source import EvolutionPRD, PRDSourceType
-from .prd_rules import PRDRulePriority, PRDRule, PRDRuleEngine
+from ..evolution.evolution_plan_source import EvolutionPRD, PRDSourceType
+from .release_plan_rules import PRDRulePriority, PRDRule, PRDRuleEngine
 
 logger = logging.getLogger(__name__)
 

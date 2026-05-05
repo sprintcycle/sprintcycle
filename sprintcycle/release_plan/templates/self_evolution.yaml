@@ -12,7 +12,7 @@ evolution:
   targets:
     - "sprintcycle/evolution/engine.py"
     - "sprintcycle/evolution/client.py"
-    - "sprintcycle/scheduler/dispatcher.py"
+    - "sprintcycle/orchestration/sprint_orchestrator.py"
   goals:
     - "优化进化算法效率"
     - "提升代码可读性"
@@ -30,7 +30,7 @@ sprints:
       - "减少进化耗时 30%"
       - "优化内存使用"
     tasks:
-      - task: |
+      - description: |
           优化 EvolutionEngine.evolve_code 方法
           - 减少不必要的文件读写
           - 优化基因选择算法
@@ -40,7 +40,7 @@ sprints:
           - "保持方法签名不变"
           - "向后兼容"
 
-      - task: |
+      - description: |
           优化进化客户端请求
         agent: "evolver"
         target: "sprintcycle/evolution/client.py"
@@ -50,24 +50,24 @@ sprints:
       - "改进任务分配策略"
       - "增强错误处理"
     tasks:
-      - task: |
+      - description: |
           优化任务调度算法
           - 实现优先级队列
           - 优化并发控制
         agent: "evolver"
-        target: "sprintcycle/scheduler/dispatcher.py"
+        target: "sprintcycle/orchestration/sprint_orchestrator.py"
 
   - name: "Sprint 3: 验收测试"
     goals:
       - "确保优化效果"
       - "验证兼容性"
     tasks:
-      - task: |
+      - description: |
           运行集成测试套件
         agent: "tester"
         target: "tests/"
 
-      - task: |
+      - description: |
           性能基准测试
         agent: "tester"
         timeout: 3600

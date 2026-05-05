@@ -2,7 +2,7 @@
 Evolution PRD Source - PRD来源抽象
 
 定义多种PRD来源:
-- ManualPRDSource: 读取人工编写的PRD文件
+- ManualPRDSource: 从项目根下默认 ``release_plan/`` 目录读取人工编写的执行计划 YAML（``*.yaml``）
 - DiagnosticPRDSource: 诊断驱动生成PRD
 """
 
@@ -96,23 +96,21 @@ class PRDSource(ABC):
 
 class ManualPRDSource(PRDSource):
     """
-    人工PRD来源
+    人工执行计划来源（进化管道用 ``EvolutionPRD`` 视图）
     
-    从 prd/ 目录读取 YAML 文件生成PRD
+    默认从项目根目录下的 **``release_plan/``** 读取 ``*.yaml``（Scrum：与 ``release_plan`` 包名对齐的用户侧约定路径）。
     """
     
-    def __init__(self, prd_dir: str = "prd"):
+    def __init__(self, plan_subdir: str = "release_plan"):
         """
-        初始化人工PRD来源
-        
         Args:
-            prd_dir: PRD目录路径（相对于项目根目录）
+            plan_subdir: 存放执行计划 YAML 的子目录名，相对于 ``project_path``（默认 ``release_plan``）。
         """
-        self._prd_dir = Path(prd_dir)
+        self._plan_subdir = Path(plan_subdir)
     
     def generate(self, project_path: str) -> List[EvolutionPRD]:
         """
-        从PRD目录读取YAML文件生成EvolutionPRD
+        从 ``{project_path}/{plan_subdir}/*.yaml`` 读取执行计划并转为 ``EvolutionPRD`` 列表。
         
         Args:
             project_path: 项目根目录路径
@@ -120,13 +118,13 @@ class ManualPRDSource(PRDSource):
         Returns:
             EvolutionPRD列表
         """
-        prd_dir = Path(project_path) / self._prd_dir
-        if not prd_dir.exists():
-            logger.warning(f"PRD目录不存在: {prd_dir}")
+        plan_dir = Path(project_path) / self._plan_subdir
+        if not plan_dir.exists():
+            logger.warning(f"执行计划目录不存在: {plan_dir}")
             return []
         
         prds = []
-        for yaml_file in prd_dir.glob("*.yaml"):
+        for yaml_file in plan_dir.glob("*.yaml"):
             try:
                 prd = self._load_prd(yaml_file, project_path)
                 if prd:

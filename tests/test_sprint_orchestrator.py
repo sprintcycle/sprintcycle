@@ -6,26 +6,28 @@ import pytest
 import asyncio
 
 from sprintcycle.config import RuntimeConfig
-from sprintcycle.scheduler.dispatcher import (
-    TaskDispatcher, TaskResult, SprintResult,
-    ExecutionStatus
+from sprintcycle.orchestration.sprint_orchestrator import (
+    ExecutionStatus,
+    SprintOrchestrator,
+    SprintResult,
+    TaskResult,
 )
-from sprintcycle.prd.models import (
+from sprintcycle.release_plan.models import (
     PRD, PRDProject, PRDSprint, PRDTask, ExecutionMode
 )
 
 
-class TestTaskDispatcher:
-    """任务调度器测试"""
+class TestSprintOrchestrator:
+    """Sprint 编排器测试"""
     
     def setup_method(self):
         """测试前准备（dry_run 避免真实 LLM / Aider 调用）"""
-        self.dispatcher = TaskDispatcher(config=RuntimeConfig(dry_run=True, quality_level="L1"))
+        self.orchestrator = SprintOrchestrator(config=RuntimeConfig(dry_run=True, quality_level="L1"))
     
-    def test_dispatcher_initialization(self):
-        """测试调度器初始化"""
-        assert self.dispatcher is not None
-        assert self.dispatcher.evolution_pipeline is None
+    def test_orchestrator_initialization(self):
+        """测试编排器初始化"""
+        assert self.orchestrator is not None
+        assert self.orchestrator.evolution_pipeline is None
     
     def test_execute_normal_prd(self):
         """测试执行普通 PRD"""
@@ -37,15 +39,15 @@ class TestTaskDispatcher:
                     name="Sprint 1",
                     goals=["完成开发"],
                     tasks=[
-                        PRDTask(task="实现功能 A", agent="coder"),
-                        PRDTask(task="实现功能 B", agent="coder"),
+                        PRDTask(description="实现功能 A", agent="coder"),
+                        PRDTask(description="实现功能 B", agent="coder"),
                     ]
                 ),
             ]
         )
         
         # 同步运行
-        results = asyncio.run(self.dispatcher.execute_prd(prd))
+        results = asyncio.run(self.orchestrator.execute_prd(prd))
         
         assert len(results) == 1
         assert results[0].sprint.name == "Sprint 1"
@@ -60,19 +62,19 @@ class TestTaskDispatcher:
                 PRDSprint(
                     name="Sprint 1",
                     tasks=[
-                        PRDTask(task="任务 1", agent="coder"),
+                        PRDTask(description="任务 1", agent="coder"),
                     ]
                 ),
                 PRDSprint(
                     name="Sprint 2",
                     tasks=[
-                        PRDTask(task="任务 2", agent="coder"),
+                        PRDTask(description="任务 2", agent="coder"),
                     ]
                 ),
             ]
         )
         
-        results = asyncio.run(self.dispatcher.execute_prd(prd))
+        results = asyncio.run(self.orchestrator.execute_prd(prd))
         
         assert len(results) == 2
         assert results[0].sprint.name == "Sprint 1"
@@ -80,7 +82,7 @@ class TestTaskDispatcher:
     
     def test_get_summary(self):
         """测试获取摘要"""
-        summary = self.dispatcher.get_summary()
+        summary = self.orchestrator.get_summary()
         
         assert "evolution_pipeline" in summary
         assert "callbacks" in summary
@@ -92,31 +94,31 @@ class TestTaskResult:
     
     def test_task_result_creation(self):
         """测试创建任务结果"""
-        task = PRDTask(task="测试任务", agent="coder")
+        task = PRDTask(description="测试任务", agent="coder")
         result = TaskResult(
-            task=task,
+            work_item=task,
             sprint_name="Sprint 1",
             status=ExecutionStatus.SUCCESS,
             output="完成",
             duration=10.5,
         )
         
-        assert result.task.task == "测试任务"
+        assert result.work_item.description == "测试任务"
         assert result.status == ExecutionStatus.SUCCESS
         assert result.duration == 10.5
     
     def test_task_result_to_dict(self):
         """测试任务结果序列化"""
-        task = PRDTask(task="测试任务", agent="coder", target="src/main.py")
+        task = PRDTask(description="测试任务", agent="coder", target="src/main.py")
         result = TaskResult(
-            task=task,
+            work_item=task,
             sprint_name="Sprint 1",
             status=ExecutionStatus.SUCCESS,
         )
         
         result_dict = result.to_dict()
         
-        assert "task" in result_dict
+        assert "description" in result_dict
         assert "agent" in result_dict
         assert result_dict["status"] == "success"
 
@@ -129,25 +131,25 @@ class TestSprintResult:
         sprint = PRDSprint(
             name="Sprint 1",
             tasks=[
-                PRDTask(task="任务1", agent="coder"),
-                PRDTask(task="任务2", agent="coder"),
-                PRDTask(task="任务3", agent="coder"),
+                PRDTask(description="任务1", agent="coder"),
+                PRDTask(description="任务2", agent="coder"),
+                PRDTask(description="任务3", agent="coder"),
             ]
         )
         
         results = [
             TaskResult(
-                task=sprint.tasks[0],
+                work_item=sprint.tasks[0],
                 sprint_name="Sprint 1",
                 status=ExecutionStatus.SUCCESS,
             ),
             TaskResult(
-                task=sprint.tasks[1],
+                work_item=sprint.tasks[1],
                 sprint_name="Sprint 1",
                 status=ExecutionStatus.SUCCESS,
             ),
             TaskResult(
-                task=sprint.tasks[2],
+                work_item=sprint.tasks[2],
                 sprint_name="Sprint 1",
                 status=ExecutionStatus.FAILED,
             ),

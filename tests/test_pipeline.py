@@ -14,7 +14,7 @@ from sprintcycle.evolution.pipeline import (
     PRDExecutionResult,
     SprintExecutionResult,
 )
-from sprintcycle.evolution.prd_source import (
+from sprintcycle.evolution.evolution_plan_source import (
     EvolutionPRD,
     PRDSourceType,
 )
@@ -30,7 +30,7 @@ class TestEvolutionPipeline:
 
         assert pipeline.project_path == "/test/project"
         # Default initializes with ManualPRDSource
-        from sprintcycle.evolution.prd_source import ManualPRDSource
+        from sprintcycle.evolution.evolution_plan_source import ManualPRDSource
         assert isinstance(pipeline._prd_source, ManualPRDSource)
 
     def test_init_with_config(self):
@@ -71,7 +71,7 @@ class TestEvolutionPipeline:
             sprints=[{
                 "name": "Sprint 1",
                 "goals": [],
-                "tasks": [{"task": "Task 1", "agent": "coder"}],
+                "tasks": [{"description": "Task 1", "agent": "coder"}],
             }],
             source_type=PRDSourceType.MANUAL,
         )
@@ -86,7 +86,7 @@ class TestEvolutionPipeline:
         assert len(result.sprint_results) == 1
 
     def test_execute_delegates_when_runtime_config(self, tmp_path: Path):
-        """有 RuntimeConfig 时走 TaskDispatcher（dry_run，不触网）。"""
+        """有 RuntimeConfig 时走 SprintOrchestrator（dry_run，不触网）。"""
         prd = EvolutionPRD(
             name="delegated",
             version="1.0",
@@ -94,7 +94,7 @@ class TestEvolutionPipeline:
             sprints=[
                 {
                     "name": "S1",
-                    "tasks": [{"task": "noop", "agent": "coder"}],
+                    "tasks": [{"description": "noop", "agent": "coder"}],
                 }
             ],
         )
@@ -127,11 +127,11 @@ class TestEvolutionPipeline:
 
     @pytest.mark.asyncio
     async def test_evolve_sprint_with_config(self, tmp_path: Path) -> None:
-        from sprintcycle.prd.models import PRDSprint, PRDTask
+        from sprintcycle.release_plan.models import PRDSprint, PRDTask
 
         cfg = RuntimeConfig(dry_run=True)
         pl = EvolutionPipeline(str(tmp_path), config=cfg)
-        sp = PRDSprint(name="evo-s", goals=["g"], tasks=[PRDTask(task="work", agent="coder")])
+        sp = PRDSprint(name="evo-s", goals=["g"], tasks=[PRDTask(description="work", agent="coder")])
         r = await pl.evolve_sprint(sprint=sp)
         assert r.success is True
 
@@ -196,8 +196,8 @@ class TestSprintExecutionResult:
             sprint_name="Sprint 1",
             success=True,
             task_results=[
-                {"task": "Task 1", "success": True},
-                {"task": "Task 2", "success": True},
+                {"description": "Task 1", "success": True},
+                {"description": "Task 2", "success": True},
             ],
             duration=5.0,
         )
@@ -212,7 +212,7 @@ class TestSprintExecutionResult:
             sprint_name="Sprint 1",
             success=False,
             task_results=[
-                {"task": "Task 1", "success": False, "error": "Failed"},
+                {"description": "Task 1", "success": False, "error": "Failed"},
             ],
             duration=3.0,
             error="Sprint failed",

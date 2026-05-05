@@ -182,9 +182,9 @@ class PRDValidator:
         task_label = f"Sprint #{sprint_index + 1} Task #{task_index + 1}"
         
         # 验证任务描述
-        if not task.task:
+        if not task.description:
             errors.append(f"{task_label}: 缺少 task 描述")
-        elif len(task.task) < 10:
+        elif len(task.description) < 10:
             warnings.append(f"{task_label}: task 描述过短，建议提供更详细的任务说明")
         
         # 验证 Agent 类型

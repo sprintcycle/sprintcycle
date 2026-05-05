@@ -2,17 +2,17 @@
 Tests for PRD Generator module.
 
 Coverage targets:
-- sprintcycle/prd/generator.py
+- sprintcycle/release_plan/generator.py
 """
 
 import pytest
-from sprintcycle.prd.generator import (
+from sprintcycle.release_plan.generator import (
     IntentPRDGenerator,
     PRDEvolutionParams,
     ActionType,
     ExecutionMode,
 )
-from sprintcycle.prd.models import PRD
+from sprintcycle.release_plan.models import PRD
 
 
 class TestIntentPRDGenerator:

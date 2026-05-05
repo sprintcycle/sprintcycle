@@ -22,7 +22,7 @@ from sprintcycle.diagnostic.provider import (
     ProjectDiagnostic
 )
 
-from sprintcycle.diagnostic.prd_generator import (
+from sprintcycle.diagnostic.release_plan_generator import (
     PRDRuleEngine,
     LLMPRDGenerator,
     PRDRulePriority,

@@ -7,7 +7,7 @@ Dashboard / CLI / MCP / SDK 共用的唯一入口。
 六大操作: plan / run / diagnose / status / rollback / stop
 
 产品与技术叙述以仓库 ``docs/PRODUCT_TECH_V4.md`` 与 ``SPRINTCYCLE_PRODUCT_TECH_PLAN.md``
-（V4.0 工程真理源）为准；``run``/resume 主路径经 ``TaskDispatcher`` → ``SprintExecutor``。
+（V4.0 工程真理源）为准；``run``/resume 主路径经 ``SprintOrchestrator`` → ``SprintExecutor``。
 """
 
 import asyncio
@@ -22,10 +22,10 @@ from .results import (
 )
 from .config import RuntimeConfig
 from .intent.parser import IntentParser
-from .prd.generator import IntentPRDGenerator
-from .prd.parser import PRDParser
-from .prd.validator import PRDValidator
-from .scheduler.dispatcher import TaskDispatcher, ExecutionStatus
+from .release_plan.generator import IntentPRDGenerator
+from .release_plan.parser import PRDParser
+from .release_plan.validator import PRDValidator
+from .orchestration.sprint_orchestrator import ExecutionStatus, SprintOrchestrator
 from .execution.events import get_event_bus
 from .diagnostic.provider import ProjectDiagnostic
 from .execution.state_store import (
@@ -50,17 +50,17 @@ class SprintCycle:
         base_cfg = config or RuntimeConfig.from_project(self.project_path)
         self.config = base_cfg.merge(base_cfg, {"project_path": self.project_path})
         configure_default_store(self.project_path, self.config)
-        self._dispatcher: Optional[TaskDispatcher] = None
+        self._orchestrator: Optional[SprintOrchestrator] = None
 
     @property
-    def dispatcher(self) -> TaskDispatcher:
-        if self._dispatcher is None:
-            self._dispatcher = TaskDispatcher(
+    def orchestrator(self) -> SprintOrchestrator:
+        if self._orchestrator is None:
+            self._orchestrator = SprintOrchestrator(
                 config=self.config,
                 event_bus=get_event_bus(),
                 project_path=self.project_path,
             )
-        return self._dispatcher
+        return self._orchestrator
 
     # ─── 1. plan — 看计划，不干活 ───
 
@@ -81,7 +81,7 @@ class SprintCycle:
             sprints = [
                 {
                     "name": s.name,
-                    "tasks": [t.task for t in s.tasks],
+                    "tasks": [t.description for t in s.tasks],
                 }
                 for s in prd.sprints
             ]
@@ -128,7 +128,7 @@ class SprintCycle:
                 return gated
 
             sprint_results = asyncio.run(
-                self.dispatcher.execute_prd(
+                self.orchestrator.execute_prd(
                     prd, max_concurrent=self.config.parallel_tasks
                 )
             )
@@ -299,8 +299,8 @@ class SprintCycle:
             store.update_status(execution_id, ExecutionStatus.CANCELLED)
 
             # 2. 触发 SprintExecutor 的 cancel（如果正在运行）
-            if self._dispatcher and hasattr(self._dispatcher, '_executor'):
-                executor = self._dispatcher._executor
+            if self._orchestrator and hasattr(self._orchestrator, '_executor'):
+                executor = self._orchestrator._executor
                 if executor and hasattr(executor, 'cancel'):
                     executor.cancel()
 
@@ -385,7 +385,7 @@ class SprintCycle:
             total_tasks=getattr(prd, "total_tasks", 0),
             duration=time.time() - start,
             message=(
-                "知识注入预览已生成（未写入 prd_overlay.yaml）；"
+                "知识注入预览已生成（未写入 release_plan_overlay.yaml）；"
                 "请以 confirm_knowledge=True 或 CLI --yes 再次调用 run() 以继续。"
             ),
         )
@@ -520,9 +520,9 @@ class SprintCycle:
             if previous_results:
                 logger.info(f"已恢复 {len(previous_results)} 个已完成的 Sprint 结果")
 
-            # 使用 dispatcher 从断点继续执行
+            # 使用编排器从断点继续执行
             async def run_resume():
-                return await self.dispatcher.resume_from_sprint(
+                return await self.orchestrator.resume_from_sprint(
                     prd=prd,
                     resume_from_idx=sprint_idx,
                     previous_results=previous_results,
@@ -594,7 +594,7 @@ class SprintCycle:
             SprintResult 列表
         """
         from .execution.sprint_types import ExecutionStatus, SprintResult, TaskResult
-        from .prd.models import PRDTask
+        from .release_plan.models import PRDTask
         
         if not task_results_data:
             return []
@@ -618,15 +618,16 @@ class SprintCycle:
                 for tr_data in group:
                     # 找到对应的任务定义
                     task_def = None
+                    text = tr_data.get("description") or ""
                     for t in sprint.tasks:
-                        if t.task == tr_data.get("task", ""):
+                        if t.description == text:
                             task_def = t
                             break
                     
                     if task_def is None:
                         # 如果找不到精确匹配，创建一个占位任务
                         task_def = PRDTask(
-                            task=tr_data.get("task", ""),
+                            description=text or "",
                             agent=tr_data.get("agent", "coder"),
                             target=tr_data.get("target"),
                         )
@@ -638,7 +639,7 @@ class SprintCycle:
                         status = ExecutionStatus.SUCCESS
                     
                     task_result = TaskResult(
-                        task=task_def,
+                        work_item=task_def,
                         sprint_name=sprint.name,
                         status=status,
                         output=tr_data.get("output", ""),

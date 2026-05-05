@@ -17,7 +17,7 @@ from sprintcycle.config.quality import (
     resolve_effective_quality_level,
 )
 from sprintcycle.config.toml_loader import flatten_sprintcycle_toml
-from sprintcycle.prd.parser import PRDParser
+from sprintcycle.release_plan.parser import PRDParser
 
 
 @settings(max_examples=50)
@@ -86,7 +86,7 @@ _minimal_prd_dict = st.fixed_dictionaries(
                     "tasks": st.lists(
                         st.fixed_dictionaries(
                             {
-                                "task": st.text(
+                                "description": st.text(
                                     alphabet=st.characters(
                                         min_codepoint=0x20, max_codepoint=0x7E, blacklist_characters="\\"
                                     ),

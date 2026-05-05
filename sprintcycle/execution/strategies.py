@@ -12,7 +12,7 @@ from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, field
 
-from ..prd.models import PRD, ExecutionMode
+from ..release_plan.models import PRD, ExecutionMode
 from .sprint_executor import SprintExecutor, SprintResult, ExecutionStatus
 
 logger = logging.getLogger(__name__)

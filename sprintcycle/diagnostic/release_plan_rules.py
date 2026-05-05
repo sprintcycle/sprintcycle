@@ -10,7 +10,7 @@ from typing import List, Dict, Any, Optional
 from enum import Enum
 
 from .health_report import ProjectHealthReport, Severity
-from ..evolution.prd_source import EvolutionPRD, PRDSourceType
+from ..evolution.evolution_plan_source import EvolutionPRD, PRDSourceType
 
 logger = logging.getLogger(__name__)
 
@@ -128,12 +128,12 @@ class PRDRuleEngine:
                 "goals": ["分析测试失败原因", "修复失败的测试"],
                 "tasks": [
                     {
-                        "task": "运行测试分析失败原因",
+                        "description": "运行测试分析失败原因",
                         "agent": "tester",
                         "constraints": ["不要修改测试预期结果"],
                     },
                     {
-                        "task": "根据分析结果修复代码",
+                        "description": "根据分析结果修复代码",
                         "agent": "coder",
                         "constraints": ["确保修复后测试通过"],
                     },
@@ -160,12 +160,12 @@ class PRDRuleEngine:
                 "goals": ["运行mypy分析类型错误", "添加类型注解"],
                 "tasks": [
                     {
-                        "task": "分析mypy错误输出",
+                        "description": "分析mypy错误输出",
                         "agent": "coder",
                         "constraints": ["优先修复关键类型错误"],
                     },
                     {
-                        "task": "添加缺失的类型注解",
+                        "description": "添加缺失的类型注解",
                         "agent": "coder",
                         "constraints": ["使用 type 注释慎重"],
                     },
@@ -193,7 +193,7 @@ class PRDRuleEngine:
         
         tasks = [
             {
-                "task": f"为模块添加单元测试，目标覆盖率: {target_coverage}%",
+                "description": f"为模块添加单元测试，目标覆盖率: {target_coverage}%",
                 "agent": "tester",
                 "constraints": ["测试必须有实际断言"],
             },
@@ -201,7 +201,7 @@ class PRDRuleEngine:
         
         if low_modules:
             tasks.append({
-                "task": f"优先提升 {low_modules[0][0]} 模块覆盖率（当前: {low_modules[0][1]:.1f}%）",
+                "description": f"优先提升 {low_modules[0][0]} 模块覆盖率（当前: {low_modules[0][1]:.1f}%）",
                 "agent": "tester",
                 "constraints": ["从核心功能开始"],
             })
@@ -244,12 +244,12 @@ class PRDRuleEngine:
                 "goals": ["识别高复杂度函数", "重构为小函数"],
                 "tasks": [
                     {
-                        "task": "分析并识别需要重构的高复杂度函数",
+                        "description": "分析并识别需要重构的高复杂度函数",
                         "agent": "coder",
                         "constraints": ["优先重构被频繁调用的函数"],
                     },
                     {
-                        "task": "重构高复杂度函数，拆分大函数",
+                        "description": "重构高复杂度函数，拆分大函数",
                         "agent": "coder",
                         "constraints": ["保持原有功能不变"],
                     },
@@ -279,7 +279,7 @@ class PRDRuleEngine:
                 "goals": ["识别循环依赖关系", "通过接口抽象消除"],
                 "tasks": [
                     {
-                        "task": f"分析循环依赖: {', '.join(report.circular_deps[:3])}",
+                        "description": f"分析循环依赖: {', '.join(report.circular_deps[:3])}",
                         "agent": "coder",
                         "constraints": ["使用依赖注入解耦"],
                     },

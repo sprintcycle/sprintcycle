@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 from sprintcycle.config import RuntimeConfig
 from sprintcycle.execution.sprint_executor import SprintExecutor
 from sprintcycle.execution.sprint_hooks import ChainedSprintHooks, SprintLifecycleHooks
-from sprintcycle.prd.models import PRD, PRDProject, PRDSprint, PRDTask, ExecutionMode
+from sprintcycle.release_plan.models import PRD, PRDProject, PRDSprint, PRDTask, ExecutionMode
 
 
 class CountingHooks(SprintLifecycleHooks):
@@ -36,8 +36,8 @@ def test_execute_sprints_invokes_hooks_once_per_sprint():
         project=PRDProject(name="p", path="."),
         mode=ExecutionMode.NORMAL,
         sprints=[
-            PRDSprint(name="S1", tasks=[PRDTask(task="t1", agent="coder")]),
-            PRDSprint(name="S2", tasks=[PRDTask(task="t2", agent="coder")]),
+            PRDSprint(name="S1", tasks=[PRDTask(description="t1", agent="coder")]),
+            PRDSprint(name="S2", tasks=[PRDTask(description="t2", agent="coder")]),
         ],
     )
     ex.set_prd(prd)
@@ -78,7 +78,7 @@ def test_chained_sprint_hooks_invokes_in_order():
     prd = PRD(
         project=PRDProject(name="p", path="."),
         mode=ExecutionMode.NORMAL,
-        sprints=[PRDSprint(name="S", tasks=[PRDTask(task="t", agent="coder")])],
+        sprints=[PRDSprint(name="S", tasks=[PRDTask(description="t", agent="coder")])],
     )
     sprint = prd.sprints[0]
 
@@ -94,21 +94,21 @@ def test_chained_sprint_hooks_invokes_in_order():
     assert order == ["1b", "2b", "2a", "1a"]
 
 
-def test_dispatcher_uses_execute_sprints_not_per_sprint_loop():
+def test_orchestrator_uses_execute_sprints_not_per_sprint_loop():
     """Dispatcher Normal 路径应单次调用 execute_sprints（通过 patch 验证）。"""
     from unittest.mock import AsyncMock, patch
 
-    from sprintcycle.scheduler.dispatcher import TaskDispatcher
-    from sprintcycle.prd.models import PRD, PRDProject, PRDSprint, PRDTask, ExecutionMode
+    from sprintcycle.orchestration.sprint_orchestrator import SprintOrchestrator
+    from sprintcycle.release_plan.models import PRD, PRDProject, PRDSprint, PRDTask, ExecutionMode
 
     prd = PRD(
         project=PRDProject(name="x", path="."),
         mode=ExecutionMode.NORMAL,
-        sprints=[PRDSprint(name="S1", tasks=[PRDTask(task="a", agent="coder")])],
+        sprints=[PRDSprint(name="S1", tasks=[PRDTask(description="a", agent="coder")])],
     )
     fake = AsyncMock(return_value=[])
 
-    d = TaskDispatcher(config=RuntimeConfig(dry_run=True, quality_level="L1"))
+    d = SprintOrchestrator(config=RuntimeConfig(dry_run=True, quality_level="L1"))
 
     async def _run_disp() -> None:
         await d._execute_normal_mode(prd, max_concurrent=2)
