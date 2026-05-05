@@ -358,7 +358,9 @@ def reset_default_state_store() -> None:
 def configure_default_store(project_path: str, config: "RuntimeConfig") -> None:
     """
     按 ``RuntimeConfig.storage_backend`` 初始化全局 store。
-    应在 ``SprintCycle`` 构造末尾调用一次。
+
+    调用后 ``get_state_store()`` 返回该实例；若再传 ``store_dir`` 将被忽略（并打 warning）。
+    测试或切换项目前可调用 ``reset_default_state_store()``。
     """
     global _default_store
     backend = (getattr(config, "storage_backend", None) or "json").strip().lower()
@@ -378,8 +380,19 @@ def configure_default_store(project_path: str, config: "RuntimeConfig") -> None:
 
 
 def get_state_store(store_dir: Optional[str] = None) -> Union[StateStore, Any]:
-    """获取默认状态存储实例（未 configure 时退回 JSON ``StateStore``）。"""
+    """
+    获取默认状态存储实例。
+
+    - 若尚未调用 ``configure_default_store``：用 ``store_dir``（可为 ``None``）构造 JSON ``StateStore``。
+    - 若已通过 ``SprintCycle`` 等完成 configure：忽略 ``store_dir``，并在此参数非空时记录 **warning**。
+    """
     global _default_store
+    if _default_store is not None and store_dir is not None:
+        logger.warning(
+            "get_state_store(store_dir=%r) ignored: default store already set by configure_default_store(); "
+            "call reset_default_state_store() first if you need a different path.",
+            store_dir,
+        )
     if _default_store is None:
         _default_store = StateStore(store_dir)
     return _default_store

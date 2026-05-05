@@ -47,6 +47,7 @@ class KnowledgeInjectionHook(SprintLifecycleHooks):
             context["prd_overlay_yaml"] = res.yaml_text
             context["knowledge_injection_diff"] = res.diff_text
             context["knowledge_card_ids"] = res.cards_used
+            context["prd_overlay_written"] = res.overlay_written
         except Exception as e:
             logger.warning("Knowledge injection skipped: %s", e)
 

@@ -319,12 +319,21 @@ class RollbackManager:
         self._file_backups: Dict[str, List[str]] = {}
         self._lock = asyncio.Lock()
         self.backup_dir.mkdir(parents=True, exist_ok=True)
+        self._load_index_from_disk()
+
+    def _load_index_from_disk(self) -> None:
+        """从 ``index.json`` 同步加载备份索引（构造时与无事件循环环境均安全）。"""
         try:
-            asyncio.create_task(self._load_index())
-        except RuntimeError:
-            # No running event loop, will load synchronously later
-            pass
-    
+            index_file = self.backup_dir / "index.json"
+            if index_file.exists():
+                with open(index_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                self._backups = {bid: BackupRecord.from_dict(d) for bid, d in data.get("backups", {}).items()}
+                self._file_backups = data.get("file_backups", {})
+                logger.info("Loaded %s backup records", len(self._backups))
+        except Exception as e:
+            logger.error("Load index failed: %s", e)
+
     def _generate_backup_id(self, file_path: str) -> str:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
         return f"bk_{timestamp}_{hashlib.md5(f'{file_path}:{timestamp}'.encode()).hexdigest()[:8]}"
@@ -457,19 +466,6 @@ class RollbackManager:
         except Exception as e:
             logger.error(f"Save index failed: {e}")
     
-    async def _load_index(self) -> None:
-        try:
-            index_file = self.backup_dir / "index.json"
-            if index_file.exists():
-                with open(index_file, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                self._backups = {bid: BackupRecord.from_dict(d) for bid, d in data.get("backups", {}).items()}
-                self._file_backups = data.get("file_backups", {})
-                logger.info(f"Loaded {len(self._backups)} backup records")
-        except Exception as e:
-            logger.error(f"Load index failed: {e}")
-
-
 _default_manager: Optional[RollbackManager] = None
 
 

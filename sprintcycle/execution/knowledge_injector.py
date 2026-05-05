@@ -40,6 +40,8 @@ class KnowledgeInjectionResult:
     yaml_text: str
     diff_text: str
     cards_used: List[str]
+    # 是否已成功写入项目根 prd_overlay.yaml（失败时 yaml_text 仍供内存上下文）
+    overlay_written: bool = True
 
 
 class KnowledgeInjector:
@@ -86,14 +88,22 @@ class KnowledgeInjector:
             )
         )
         diff_text = "".join(diff_lines) if diff_lines else "(no textual change)\n"
+        overlay_written = True
         try:
+            overlay_path.parent.mkdir(parents=True, exist_ok=True)
             overlay_path.write_text(yaml_text, encoding="utf-8")
         except OSError as e:
-            logger.warning("无法写入 prd_overlay.yaml: %s", e)
+            overlay_written = False
+            logger.warning(
+                "无法写入 prd_overlay.yaml（内存中仍有注入内容，磁盘未更新）: %s — %s",
+                overlay_path,
+                e,
+            )
         if diff_text.strip() != "(no textual change)" and diff_text.strip():
             logger.info("Knowledge injection diff:\n%s", diff_text.rstrip())
         return KnowledgeInjectionResult(
             yaml_text=yaml_text,
             diff_text=diff_text,
             cards_used=ids,
+            overlay_written=overlay_written,
         )

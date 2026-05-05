@@ -113,9 +113,10 @@ class SqliteExecutionStore:
     ) -> List[ExecutionState]:
         s = self._session()
         try:
-            q = select(ExecutionRow).order_by(ExecutionRow.updated_at.desc()).limit(limit)
+            q = select(ExecutionRow)
             if status is not None:
                 q = q.where(ExecutionRow.status == status.value)
+            q = q.order_by(ExecutionRow.updated_at.desc()).limit(limit)
             rows = list(s.scalars(q).all())
             return [self._to_state(r) for r in rows]
         finally:
