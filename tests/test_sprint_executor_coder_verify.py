@@ -8,7 +8,7 @@ import pytest
 
 from sprintcycle.config import RuntimeConfig
 from sprintcycle.execution.sprint_executor import SprintExecutor
-from sprintcycle.release_plan.models import PRDTask
+from sprintcycle.release_plan.models import SprintBacklogItem
 
 
 class _FakeCoder:
@@ -33,7 +33,7 @@ async def test_coder_retries_then_success(monkeypatch: pytest.MonkeyPatch) -> No
     )
     cfg = RuntimeConfig(max_verify_fix_rounds=3, dry_run=False)
     ex = SprintExecutor(runtime_config=cfg, max_verify_fix_rounds=3)
-    task = PRDTask(description="do thing", agent="coder")
+    task = SprintBacklogItem(description="do thing", agent="coder")
     out = await ex._execute_coder_task(
         task,
         {"sprint_name": "S1", "coding_engine": "aider", "_sprint_coding_engine": "aider"},
@@ -57,7 +57,7 @@ async def test_coder_exhausts_rounds(monkeypatch: pytest.MonkeyPatch) -> None:
     )
     cfg = RuntimeConfig(max_verify_fix_rounds=2, dry_run=False)
     ex = SprintExecutor(runtime_config=cfg, max_verify_fix_rounds=2)
-    task = PRDTask(description="x", agent="coder")
+    task = SprintBacklogItem(description="x", agent="coder")
     with pytest.raises(RuntimeError, match="nope"):
         await ex._execute_coder_task(
             task,

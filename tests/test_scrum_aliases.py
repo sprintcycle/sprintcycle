@@ -1,31 +1,35 @@
-"""Scrum 类型别名与 PRDTask.description。"""
+"""根包与 ``release_plan.models`` 对 Scrum 对齐类型的一致导出。"""
 
 from __future__ import annotations
 
 from sprintcycle import (
+    EvolutionParams,
+    ExecutionMode,
+    ProductAnchor,
     ReleasePlan,
     SprintBacklogItem,
     SprintDefinition,
-    ProductAnchor,
     ReleasePlanParser,
 )
-from sprintcycle.release_plan.models import PRD, PRDProject, PRDSprint, PRDTask
+from sprintcycle.release_plan import models as rm
 
 
-def test_type_aliases_are_identity() -> None:
-    assert ReleasePlan is PRD
-    assert SprintDefinition is PRDSprint
-    assert SprintBacklogItem is PRDTask
-    assert ProductAnchor is PRDProject
+def test_root_package_matches_release_plan_models() -> None:
+    assert ReleasePlan is rm.ReleasePlan
+    assert SprintDefinition is rm.SprintDefinition
+    assert SprintBacklogItem is rm.SprintBacklogItem
+    assert ProductAnchor is rm.ProductAnchor
+    assert EvolutionParams is rm.EvolutionParams
+    assert ExecutionMode is rm.ExecutionMode
 
 
-def test_release_plan_parser_alias() -> None:
-    from sprintcycle.release_plan.parser import PRDParser
+def test_release_plan_parser_is_single_export() -> None:
+    from sprintcycle.release_plan.parser import ReleasePlanParser as ParserCls
 
-    assert ReleasePlanParser is PRDParser
+    assert ReleasePlanParser is ParserCls
 
 
-def test_sprint_backlog_item_description_property() -> None:
+def test_sprint_backlog_item_description_field() -> None:
     item = SprintBacklogItem(description="hello", agent="coder")
     assert item.description == "hello"
     item.description = "world"
@@ -45,5 +49,5 @@ sprints:
       - description: from description key
         agent: coder
 """
-    prd = ReleasePlanParser().parse_string(yaml.strip())
-    assert prd.sprints[0].tasks[0].description == "from description key"
+    plan = ReleasePlanParser().parse_string(yaml.strip())
+    assert plan.sprints[0].tasks[0].description == "from description key"

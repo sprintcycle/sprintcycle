@@ -19,8 +19,7 @@ class ExecutionRow(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     execution_id: Mapped[str] = mapped_column(String(256), unique=True, index=True)
-    # 列名保持 prd_name 以兼容已有 SQLite 库文件
-    release_plan_name: Mapped[str] = mapped_column("prd_name", String(512), default="")
+    release_plan_name: Mapped[str] = mapped_column("release_plan_name", String(512), default="")
     mode: Mapped[str] = mapped_column(String(64), default="normal")
     status: Mapped[str] = mapped_column(String(32), index=True, default="pending")
     current_sprint: Mapped[int] = mapped_column(Integer, default=0)

@@ -1,5 +1,5 @@
 """
-EvolutionReleasePlan → 主路径 ``release_plan.models.PRD``（V4.0 §6.2 委托 ``SprintOrchestrator`` 时使用）。
+EvolutionReleasePlan → 主路径 ``release_plan.models.ReleasePlan``（委托 ``SprintOrchestrator`` 时使用）。
 """
 
 from __future__ import annotations
@@ -7,20 +7,26 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, List
 
-from ..release_plan.models import PRD, ExecutionMode, PRDProject, PRDSprint, PRDTask
+from ..release_plan.models import (
+    ExecutionMode,
+    ProductAnchor,
+    ReleasePlan,
+    SprintBacklogItem,
+    SprintDefinition,
+)
 from .evolution_plan_source import EvolutionReleasePlan
 
 
-def _task_dict_to_prd_task(t: Any) -> PRDTask:
-    if isinstance(t, PRDTask):
+def _task_dict_to_sprint_backlog_item(t: Any) -> SprintBacklogItem:
+    if isinstance(t, SprintBacklogItem):
         return t
     if isinstance(t, str):
-        return PRDTask(description=t, agent="coder")
+        return SprintBacklogItem(description=t, agent="coder")
     if isinstance(t, dict):
         desc = t.get("description")
         if desc is None or (isinstance(desc, str) and not str(desc).strip()):
             raise ValueError("Sprint Backlog item dict must include non-empty 'description'")
-        return PRDTask(
+        return SprintBacklogItem(
             description=str(desc),
             agent=str(t.get("agent") or "coder"),
             target=t.get("target"),
@@ -28,26 +34,28 @@ def _task_dict_to_prd_task(t: Any) -> PRDTask:
             expected_output=t.get("expected_output"),
             timeout=int(t.get("timeout") or 600),
         )
-    return PRDTask(description=str(t), agent="coder")
+    return SprintBacklogItem(description=str(t), agent="coder")
 
 
-def evolution_release_plan_to_prd(evo: EvolutionReleasePlan, project_root: str) -> PRD:
+def evolution_release_plan_to_release_plan(
+    evo: EvolutionReleasePlan, project_root: str
+) -> ReleasePlan:
     raw = (evo.path or project_root or ".").strip() or "."
     try:
         p = Path(raw)
         resolved = str(p.resolve()) if p.exists() else raw
     except Exception:
         resolved = raw
-    proj = PRDProject(name=evo.name, path=resolved, version=str(evo.version))
-    sprints: List[PRDSprint] = []
+    proj = ProductAnchor(name=evo.name, path=resolved, version=str(evo.version))
+    sprints: List[SprintDefinition] = []
     for sp in evo.sprints:
         if not isinstance(sp, dict):
             continue
         name = str(sp.get("name") or "sprint")
         goals = [str(g) for g in sp.get("goals", [])]
         raw_tasks = sp.get("tasks", [])
-        tasks = [_task_dict_to_prd_task(t) for t in raw_tasks]
-        sprints.append(PRDSprint(name=name, goals=goals, tasks=tasks))
+        tasks = [_task_dict_to_sprint_backlog_item(t) for t in raw_tasks]
+        sprints.append(SprintDefinition(name=name, goals=goals, tasks=tasks))
     meta = dict(evo.metadata) if evo.metadata else {}
     src_val = (
         evo.source_type.value
@@ -55,4 +63,4 @@ def evolution_release_plan_to_prd(evo: EvolutionReleasePlan, project_root: str) 
         else str(evo.source_type)
     )
     meta.setdefault("evolution_release_plan_source", src_val)
-    return PRD(project=proj, mode=ExecutionMode.NORMAL, sprints=sprints, metadata=meta)
+    return ReleasePlan(project=proj, mode=ExecutionMode.NORMAL, sprints=sprints, metadata=meta)

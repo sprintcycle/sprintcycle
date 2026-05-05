@@ -29,9 +29,9 @@ class TestEvolutionPipeline:
         pipeline = EvolutionPipeline(project_path="/test/project")
 
         assert pipeline.project_path == "/test/project"
-        # Default initializes with ManualPRDSource
-        from sprintcycle.evolution.evolution_plan_source import ManualPRDSource
-        assert isinstance(pipeline._plan_source, ManualPRDSource)
+        # Default initializes with ManualReleasePlanSource
+        from sprintcycle.evolution.evolution_plan_source import ManualReleasePlanSource
+        assert isinstance(pipeline._plan_source, ManualReleasePlanSource)
 
     def test_init_with_config(self):
         """测试带RuntimeConfig初始化"""
@@ -65,7 +65,7 @@ class TestEvolutionPipeline:
     def test_execute_with_sprint_success(self):
         """测试执行带Sprint的成功场景"""
         plan = EvolutionReleasePlan(
-            name="Test PRD",
+            name="Test ReleasePlan",
             version="v1.0.0",
             path="/test/project",
             sprints=[{
@@ -108,7 +108,7 @@ class TestEvolutionPipeline:
     def test_execute_empty_sprints(self):
         """测试执行空Sprints"""
         plan = EvolutionReleasePlan(
-            name="Test PRD",
+            name="Test ReleasePlan",
             version="v1.0.0",
             path="/test/project",
             sprints=[],
@@ -127,11 +127,11 @@ class TestEvolutionPipeline:
 
     @pytest.mark.asyncio
     async def test_evolve_sprint_with_config(self, tmp_path: Path) -> None:
-        from sprintcycle.release_plan.models import PRDSprint, PRDTask
+        from sprintcycle.release_plan.models import SprintDefinition, SprintBacklogItem
 
         cfg = RuntimeConfig(dry_run=True)
         pl = EvolutionPipeline(str(tmp_path), config=cfg)
-        sp = PRDSprint(name="evo-s", goals=["g"], tasks=[PRDTask(description="work", agent="coder")])
+        sp = SprintDefinition(name="evo-s", goals=["g"], tasks=[SprintBacklogItem(description="work", agent="coder")])
         r = await pl.evolve_sprint(sprint=sp)
         assert r.success is True
 
@@ -145,7 +145,7 @@ class TestEvolutionPipeline:
     def test_pipeline_result_to_dict(self):
         """测试 EvolutionReleasePlanResult 序列化"""
         plan = EvolutionReleasePlan(
-            name="Test PRD",
+            name="Test ReleasePlan",
             version="v1.0.0",
             path="/test/project",
             sprints=[],
@@ -158,7 +158,7 @@ class TestEvolutionPipeline:
 
         data = result.to_dict()
 
-        assert data["release_plan_name"] == "Test PRD"
+        assert data["release_plan_name"] == "Test ReleasePlan"
         assert data["success"] is True
 
 

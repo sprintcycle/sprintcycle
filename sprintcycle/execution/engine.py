@@ -1,7 +1,7 @@
 """
 ExecutionEngine - 统一执行引擎
 
-根据 PRD 模式选择对应的执行策略，所有策略共用 SprintExecutor。
+根据 ReleasePlan 模式选择对应的执行策略，所有策略共用 SprintExecutor。
 EvolutionEngine 被注入到 SprintExecutor 中，作为 Sprint 的增强能力。
 """
 
@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional
 
 from loguru import logger
 
-from ..release_plan.models import PRD, ExecutionMode
+from ..release_plan.models import ReleasePlan, ExecutionMode
 from .sprint_executor import SprintExecutor
 from .strategies import EvolutionStrategy, ExecutionResult, ExecutionStrategy, NormalStrategy, get_strategy
 
@@ -22,9 +22,9 @@ class ExecutionEngine:
     ┌─────────────────────────────────────────────────────┐
     │              ExecutionEngine（统一引擎）             │
     │                                                     │
-    │  execute(prd):                                     │
-    │    strategy = self.get_strategy(prd.mode)          │
-    │    return strategy.execute(prd)                    │
+    │  execute(plan):                                     │
+    │    strategy = self.get_strategy(plan.mode)          │
+    │    return strategy.execute(plan)                    │
     └─────────────────────────────────────────────────────┘
                          │
          ┌───────────────┼───────────────┐
@@ -46,7 +46,7 @@ class ExecutionEngine:
     使用方式：
     ```python
     engine = ExecutionEngine()
-    result = await engine.execute(prd)
+    result = await engine.execute(plan)
     ```
     """
 
@@ -60,9 +60,9 @@ class ExecutionEngine:
         self.config = config or {}
 
         # v0.9.0: EvolutionPipeline replaces legacy engine
-        from ..evolution.evolution_plan_source import ManualPRDSource
+        from ..evolution.evolution_plan_source import ManualReleasePlanSource
         from ..evolution.pipeline import EvolutionPipeline
-        self._evolution_pipeline = EvolutionPipeline(plan_source=ManualPRDSource())
+        self._evolution_pipeline = EvolutionPipeline(plan_source=ManualReleasePlanSource())
 
         # 创建共享的 SprintExecutor（注入 EvolutionEngine）
         mv = int(self.config.get("max_verify_fix_rounds", 3))
@@ -96,12 +96,12 @@ class ExecutionEngine:
         """
         return get_strategy(mode, self.sprint_executor)
 
-    async def execute(self, release_plan: PRD) -> ExecutionResult:
+    async def execute(self, release_plan: ReleasePlan) -> ExecutionResult:
         """
         执行 Release Plan - 统一入口
         
         Args:
-            release_plan: Release Plan（内存模型为 ``PRD``）
+            release_plan: Release Plan（内存模型为 ``ReleasePlan``）
             
         Returns:
             ExecutionResult: 执行结果
@@ -122,7 +122,7 @@ class ExecutionEngine:
 
         return result
 
-    def _record_result(self, release_plan: PRD, result: ExecutionResult):
+    def _record_result(self, release_plan: ReleasePlan, result: ExecutionResult):
         """记录执行结果（可用于反馈闭环）"""
         logger.info(f"📊 执行结果: {'成功' if result.success else '失败'}")
         logger.info(f"   完成 Sprint: {result.completed_sprints}/{result.total_sprints}")

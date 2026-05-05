@@ -25,11 +25,12 @@ from .execution.state.state_store import (
     configure_default_store,
     get_state_store,
 )
+from .execution.state.wire_compat import checkpoint_plan_yaml
 from .intent.parser import IntentParser
 from .orchestration.sprint_orchestrator import ExecutionStatus, SprintOrchestrator
-from .release_plan.generator import IntentPRDGenerator
-from .release_plan.parser import PRDParser
-from .release_plan.validator import PRDValidator
+from .release_plan.generator import IntentReleasePlanGenerator
+from .release_plan.parser import ReleasePlanParser
+from .release_plan.validator import ReleasePlanValidator
 from .results import (
     DiagnoseResult,
     PlanResult,
@@ -81,7 +82,7 @@ class SprintCycle:
             plan = self._resolve_release_plan(
                 intent, mode, target, None, release_plan_path, product=product, **kwargs
             )
-            validation = PRDValidator().validate(plan)
+            validation = ReleasePlanValidator().validate(plan)
 
             sprints = [
                 {
@@ -125,8 +126,8 @@ class SprintCycle:
             if resume and execution_id:
                 return self._resume_execution(execution_id, start)
 
-            rp_yaml = release_plan_yaml or kwargs.get("prd_yaml")
-            rp_path = release_plan_path or kwargs.get("prd_path")
+            rp_yaml = release_plan_yaml
+            rp_path = release_plan_path
             plan = self._resolve_release_plan(
                 intent,
                 mode,
@@ -435,14 +436,10 @@ class SprintCycle:
         **kwargs: Any,
     ):
         """从意图/YAML/文件路径解析为 Release Plan（内存模型）。"""
-        if not release_plan_yaml:
-            release_plan_yaml = kwargs.get("prd_yaml")
-        if not release_plan_path:
-            release_plan_path = kwargs.get("prd_path")
         if release_plan_yaml:
-            return PRDParser().parse_string(release_plan_yaml)
+            return ReleasePlanParser().parse_string(release_plan_yaml)
         if release_plan_path:
-            return PRDParser().parse_file(release_plan_path)
+            return ReleasePlanParser().parse_file(release_plan_path)
         if not intent:
             raise ValueError("请提供 intent、release_plan_yaml 或 release_plan_path 之一")
         parsed = IntentParser().parse(
@@ -453,7 +450,7 @@ class SprintCycle:
             constraints=kwargs.get("constraints"),
             product=product,
         )
-        return IntentPRDGenerator.generate(
+        return IntentReleasePlanGenerator.generate(
             parsed,
             config=self.config,
             anchor_project_path=self.project_path,
@@ -563,9 +560,7 @@ class SprintCycle:
             checkpoint = state.checkpoint or {}
             sprint_idx = checkpoint.get("sprint_idx", 0)
             task_results = checkpoint.get("task_results", [])
-            yml = checkpoint.get("release_plan_yaml")
-            if yml is None:
-                yml = checkpoint.get("prd_yaml")
+            yml = checkpoint_plan_yaml(checkpoint)
 
             logger.info(
                 f"断点续跑: {execution_id}, 从 Sprint {sprint_idx} 继续"
@@ -574,7 +569,7 @@ class SprintCycle:
             # 更新状态为 RUNNING
             store.update_status(execution_id, ExecutionStatus.RUNNING)
 
-            # 从执行计划 YAML 恢复内存模型（类型仍为 PRD）
+            # 从执行计划 YAML 恢复内存模型（类型仍为 ReleasePlan）
             if not yml:
                 return RunResult(
                     success=False,
@@ -584,7 +579,7 @@ class SprintCycle:
                 )
 
             try:
-                plan = PRDParser().parse_string(yml)
+                plan = ReleasePlanParser().parse_string(yml)
             except Exception as e:
                 logger.error(f"无法解析保存的执行计划: {e}")
                 return RunResult(
@@ -655,7 +650,7 @@ class SprintCycle:
             SprintResult 列表
         """
         from .execution.sprint_types import ExecutionStatus, SprintResult, TaskResult
-        from .release_plan.models import PRDTask
+        from .release_plan.models import SprintBacklogItem
 
         if not task_results_data:
             return []
@@ -687,7 +682,7 @@ class SprintCycle:
 
                     if task_def is None:
                         # 如果找不到精确匹配，创建一个占位任务
-                        task_def = PRDTask(
+                        task_def = SprintBacklogItem(
                             description=text or "",
                             agent=tr_data.get("agent", "coder"),
                             target=tr_data.get("target"),

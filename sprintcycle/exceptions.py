@@ -45,8 +45,8 @@ class DiagnosticError(SprintCycleError):
     pass
 
 
-class PRDError(SprintCycleError):
-    """PRD相关错误（解析失败、生成失败、验证不通过）"""
+class ReleasePlanError(SprintCycleError):
+    """执行计划相关错误（解析失败、生成失败、验证不通过）"""
     pass
 
 
@@ -69,7 +69,7 @@ __all__ = [
     "ConfigError",
     "ExecutionError",
     "DiagnosticError",
-    "PRDError",
+    "ReleasePlanError",
     "EvolutionError",
     "LLMError",
 ]

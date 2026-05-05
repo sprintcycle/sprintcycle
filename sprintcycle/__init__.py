@@ -4,7 +4,7 @@ SprintCycle - 智能软件迭代框架
 __version__ = "0.9.2"
 __author__ = "SprintCycle Team"
 
-# 对外 API：Scrum 对齐命名（计划模型实现类名仍为 release_plan.models 中 PRD*）
+# 对外 API：计划模型与 Scrum 术语一致（见 release_plan.models）
 from .execution import SprintExecutor
 from .execution.sprint_types import SprintResult
 from .intent.runner import RunnerHandler
@@ -15,8 +15,9 @@ from .release_plan import (
     ReleasePlanValidator,
     ValidationError,
     ValidationResult,
+    expand_release_plan_for_execution,
 )
-from .scrum import (
+from .release_plan.models import (
     EvolutionParams,
     ExecutionMode,
     ProductAnchor,
@@ -38,6 +39,7 @@ __all__ = [
     "ExecutionMode",
     "ReleasePlanParser",
     "ReleasePlanValidator",
+    "expand_release_plan_for_execution",
     "ReleasePlanParseError",
     "ValidationError",
     "ValidationResult",

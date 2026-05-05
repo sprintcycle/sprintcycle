@@ -4,7 +4,7 @@ Tests for Diagnostic Module - 诊断模块测试
 测试场景:
 1. ProjectHealthReport - 健康报告
 2. ProjectDiagnostic - 诊断提供者
-3. PRDGenerator - PRD生成器
+3. DiagnosticReleasePlanGenerator — 诊断生成进化用执行计划
 """
 
 import pytest
@@ -23,10 +23,10 @@ from sprintcycle.diagnostic.provider import (
 )
 
 from sprintcycle.diagnostic.release_plan_generator import (
-    PRDRuleEngine,
-    LLMPRDGenerator,
-    PRDRulePriority,
-    DiagnosticPRDGenerator,
+    ReleasePlanRuleEngine,
+    LLMReleasePlanGenerator,
+    ReleasePlanRulePriority,
+    DiagnosticReleasePlanGenerator,
 )
 
 
@@ -186,59 +186,59 @@ class TestProjectDiagnostic:
         assert result["failed"] == 2
 
 
-class TestPRDRuleEngine:
-    """PRDRuleEngine测试类"""
+class TestReleasePlanRuleEngine:
+    """ReleasePlanRuleEngine测试类"""
     
     def test_init(self):
         """测试初始化"""
-        engine = PRDRuleEngine()
+        engine = ReleasePlanRuleEngine()
         assert len(engine._rules) >= 0
     
     def test_evaluate_test_failure(self):
         """测试测试失败规则"""
-        engine = PRDRuleEngine()
+        engine = ReleasePlanRuleEngine()
         
         report = ProjectHealthReport(
             target="/test",
             test_failures=3,
         )
         
-        prds = engine.evaluate(report)
-        
-        # 应该有至少一个 PRD
-        assert isinstance(prds, list)
+        plans = engine.evaluate(report)
+
+        # 应该有至少一个 ReleasePlan
+        assert isinstance(plans, list)
     
     def test_evaluate_low_coverage(self):
         """测试低覆盖率规则"""
-        engine = PRDRuleEngine()
+        engine = ReleasePlanRuleEngine()
         
         report = ProjectHealthReport(
             target="/test",
             coverage_total=50.0,
         )
         
-        prds = engine.evaluate(report)
-        
-        # 应该有 PRD 输出
-        assert isinstance(prds, list)
+        plans = engine.evaluate(report)
+
+        # 应该有 ReleasePlan 输出
+        assert isinstance(plans, list)
 
 
-class TestDiagnosticPRDGenerator:
-    """DiagnosticPRDGenerator测试类"""
+class TestDiagnosticReleasePlanGenerator:
+    """DiagnosticReleasePlanGenerator测试类"""
     
     def test_init(self):
         """测试初始化"""
-        generator = DiagnosticPRDGenerator()
+        generator = DiagnosticReleasePlanGenerator()
         assert generator._rule_engine is not None
 
 
-class TestLLMPRDGenerator:
-    """LLMPRDGenerator测试类"""
+class TestLLMReleasePlanGenerator:
+    """LLMReleasePlanGenerator测试类"""
     
     def test_init_no_api_key(self):
         """测试无API Key初始化"""
         with patch.dict("os.environ", {}, clear=True):
-            generator = LLMPRDGenerator()
+            generator = LLMReleasePlanGenerator()
             assert generator._api_key in ("", None)
 
 

@@ -1,6 +1,7 @@
 ## [Unreleased]
 
 ### Breaking / 命名收敛
+- **移除 ``prd_*`` 执行态兼容**：断点、状态 JSON、反馈文件、metadata 与上下文字段 **仅** 识别 **`release_plan_yaml` / `release_plan_id` / `release_plan_name`**；不再读取或折叠历史键 **`prd_yaml` / `prd_id` / `prd_name`**。**`init_db`** 不再将 SQLite **`executions.prd_name`** 列重命名为 **`release_plan_name`**；若库表仍为旧列名，请自行迁移后再使用当前 ORM。
 - **`IntentResult`**：字段 **`prd` → `release_plan`**；**`IntentHandler.validate_prd` → `validate_release_plan`**；**`execute(release_plan=…)`**（原 `prd` 参数名）。**`RunnerHandler`** 不再自建无配置的 ``SprintOrchestrator``，默认构造内建 **`SprintCycle(project_path, config)`** 并委托 **`SprintCycle._run_resolved_plan`**（与 **`run()`** 共用知识门与 **`parallel_tasks`**）；可选 **`RunnerHandler(api=existing_sprint_cycle)`** 注入同一 API 实例。**`RunnerHandler.parse_prd_file`** 重命名为 **`parse_release_plan_file`**。
 - **根包 `from sprintcycle import …`**：不再导出 `PRD`、`PRDProject`、`PRDSprint`、`PRDTask`、`PRDParser`、`PRDValidator`。请改用 **`ReleasePlan`、`ProductAnchor`、`SprintDefinition`、`SprintBacklogItem`、`EvolutionParams`、`ExecutionMode`、`ReleasePlanParser`、`ReleasePlanValidator`、`ReleasePlanParseError`**；实现类名未改时可用 **`from sprintcycle.release_plan.models import PRD`**。`sprintcycle.scrum` 仅导出 Scrum 别名（含 `EvolutionParams`），不再导出 `PRD*`。
 - **`ManualPRDSource`**：默认扫描目录由项目根下 **`prd/`** 改为 **`release_plan/`**；构造参数由 **`prd_dir`** 改为 **`plan_subdir`**（默认 ``"release_plan"``）。使用进化管道且依赖磁盘 YAML 的项目请将计划文件迁入 **`release_plan/*.yaml`** 或传入自定义子路径。

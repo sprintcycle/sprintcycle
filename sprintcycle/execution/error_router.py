@@ -15,6 +15,8 @@ from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
+from .state.wire_compat import metadata_plan_id
+
 
 class RoutingLevel(Enum):
     LEVEL_1_STATIC = "level_1_static"
@@ -170,7 +172,7 @@ class ErrorRouter:
             from .agents.analyzer import AnalysisRequest, BugAnalyzerAgent
             from .agents.base import AgentContext
             analyzer = BugAnalyzerAgent(llm_client=self._llm_client)
-            rid = context.metadata.get("release_plan_id") or context.metadata.get("prd_id", "unknown")
+            rid = metadata_plan_id(context.metadata)
             agent_ctx = AgentContext(release_plan_id=rid)
             request = AnalysisRequest(error_log=context.error_log, file_paths=context.file_paths, use_llm=True)
             result = await analyzer.analyze(request)

@@ -48,7 +48,7 @@ class TestCLIPlan:
 
             mock_instance.plan.return_value = PlanResult(
                 success=True,
-                release_plan_yaml="# PRD YAML content",
+                release_plan_yaml="# ReleasePlan YAML content",
                 sprints=[{"name": "Sprint 1", "tasks": ["Task 1"]}],
                 mode="auto",
                 release_plan_name="TestProject",
@@ -70,7 +70,7 @@ class TestCLIPlan:
 
             mock_instance.plan.return_value = PlanResult(
                 success=True,
-                release_plan_yaml="# PRD",
+                release_plan_yaml="# ReleasePlan",
                 sprints=[],
                 mode="auto",
                 release_plan_name="Test",

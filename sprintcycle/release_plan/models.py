@@ -1,11 +1,11 @@
 """
-PRD 数据模型（执行计划 / 多 Sprint 交付切片）
+Release Plan 数据模型（执行计划 / 多 Sprint 交付切片）
 
 **Scrum 对照**（详见 ``docs/DESIGN_SCRUM_NAMING_MIGRATION.md``）：
 
-- ``PRD``：持久化计划文档，近似 **Release 内多 Sprint 的交付编排**（非完整 Product Backlog）。
-- ``PRDSprint``：一次 **Sprint** 的边界；``goals`` ≈ Sprint Goal 表述；``tasks`` ≈ Sprint Backlog。
-- ``PRDTask``：Sprint 内单条工作项；YAML 入站字段 **仅** ``description``，近似 **Sprint Backlog Item**。
+- ``ReleasePlan``：持久化计划文档，近似 **Release 内多 Sprint 的交付编排**（非完整 Product Backlog）。
+- ``SprintDefinition``：一次 **Sprint** 的边界；``goals`` ≈ Sprint Goal 表述；``tasks`` ≈ Sprint Backlog。
+- ``SprintBacklogItem``：Sprint 内单条工作项；YAML 入站字段 **仅** ``description``。
 """
 
 from dataclasses import dataclass, field
@@ -21,8 +21,8 @@ class ExecutionMode(Enum):
 
 
 @dataclass
-class PRDProject:
-    """项目信息"""
+class ProductAnchor:
+    """产品侧锚点：名称、路径、版本。"""
     name: str
     path: str
     version: str = "v1.0.0"
@@ -36,7 +36,7 @@ class PRDProject:
 
 
 @dataclass
-class PRDEvolutionParams:
+class EvolutionParams:
     """进化配置（自进化模式专用）"""
     targets: List[str] = field(default_factory=list)
     goals: List[str] = field(default_factory=list)
@@ -55,7 +55,7 @@ class PRDEvolutionParams:
 
 
 @dataclass
-class PRDTask:
+class SprintBacklogItem:
     """Sprint 内工作项（Scrum：Sprint Backlog Item）；主字段 ``description``。"""
     description: str
     agent: str = "coder"  # Agent 类型
@@ -76,11 +76,11 @@ class PRDTask:
 
 
 @dataclass
-class PRDSprint:
+class SprintDefinition:
     """单次 Sprint：Sprint Goal（``goals``）+ Sprint Backlog（``tasks``）。"""
     name: str
     goals: List[str] = field(default_factory=list)
-    tasks: List[PRDTask] = field(default_factory=list)
+    tasks: List[SprintBacklogItem] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -91,12 +91,12 @@ class PRDSprint:
 
 
 @dataclass
-class PRD:
-    """可执行交付计划（多 Sprint）；对外可选用 ``sprintcycle.scrum.ReleasePlan`` 别名。"""
-    project: PRDProject
+class ReleasePlan:
+    """可执行交付计划（多 Sprint）。"""
+    project: ProductAnchor
     mode: ExecutionMode = ExecutionMode.NORMAL
-    evolution: Optional[PRDEvolutionParams] = None
-    sprints: List[PRDSprint] = field(default_factory=list)
+    evolution: Optional[EvolutionParams] = None
+    sprints: List[SprintDefinition] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=datetime.now)
 
@@ -156,9 +156,9 @@ class PRD:
         return output.getvalue()
 
     @classmethod
-    def sample_prd(cls) -> str:
-        """生成示例 PRD YAML 字符串"""
-        return '''# SprintCycle PRD 示例
+    def sample_release_plan_yaml(cls) -> str:
+        """生成示例执行计划 YAML 字符串"""
+        return '''# SprintCycle 执行计划示例
 
 project:
   name: "my-project"

@@ -28,7 +28,6 @@ _STD_RETRY_LOGGER = logging.getLogger("sprintcycle.interop.tenacity")
 
 class AgentType(Enum):
     CODER = "coder"
-    EVOLVER = "evolver"
     TESTER = "tester"
     REVIEWER = "reviewer"
     ARCHITECT = "architect"

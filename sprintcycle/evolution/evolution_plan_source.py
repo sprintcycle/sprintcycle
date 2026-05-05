@@ -1,7 +1,7 @@
 """
 Evolution plan sources — 进化子域「轻量 Release Plan」视图
 
-**与主路径 ``release_plan.models.PRD`` 的边界**（Scrum 对齐命名见
+**与主路径 ``release_plan.models.ReleasePlan`` 的边界**（Scrum 对齐见
 ``docs/DESIGN_SCRUM_NAMING_MIGRATION.md``）：
 
 - 本模块的 ``EvolutionReleasePlan`` 为 **dict 型 Sprint 切片 + 进化元数据**（置信度、收益等），
@@ -12,8 +12,8 @@ Evolution plan sources — 进化子域「轻量 Release Plan」视图
 
 具体实现：
 
-- ``ManualPRDSource``：从项目根下默认 ``release_plan/`` 读取 ``*.yaml``
-- ``DiagnosticPRDSource``：诊断驱动生成计划
+- ``ManualReleasePlanSource``：从项目根下默认 ``release_plan/`` 读取 ``*.yaml``
+- ``DiagnosticReleasePlanSource``：诊断驱动生成计划
 """
 
 from abc import ABC, abstractmethod
@@ -35,10 +35,10 @@ class EvolutionPlanSourceType(Enum):
 @dataclass
 class EvolutionReleasePlan:
     """
-    进化管道用的轻量「Release Plan」视图（非 ``release_plan.models.PRD`` 实例）。
+    进化管道用的轻量「Release Plan」视图（非 ``release_plan.models.ReleasePlan`` 实例）。
 
-    与主线 ``PRD`` 的区别：Sprint 为 **dict** 列表，并带进化追踪元数据（置信度、预期收益等）。
-    经 ``release_plan_adapter.evolution_release_plan_to_prd`` 转为可编排的 ``PRD``。
+    与主线 ``ReleasePlan`` 的区别：Sprint 为 **dict** 列表，并带进化追踪元数据（置信度、预期收益等）。
+    经 ``release_plan_adapter.evolution_release_plan_to_release_plan`` 转为可编排的 ``ReleasePlan``。
     """
     name: str
     version: str
@@ -84,7 +84,7 @@ class EvolutionPlanSource(ABC):
         pass
 
 
-class ManualPRDSource(EvolutionPlanSource):
+class ManualReleasePlanSource(EvolutionPlanSource):
     """
     人工执行计划来源（进化管道用 ``EvolutionReleasePlan`` 视图）。
 
@@ -160,18 +160,18 @@ class ManualPRDSource(EvolutionPlanSource):
         return EvolutionPlanSourceType.MANUAL
 
 
-class DiagnosticPRDSource(EvolutionPlanSource):
+class DiagnosticReleasePlanSource(EvolutionPlanSource):
     """诊断驱动生成 ``EvolutionReleasePlan``。"""
 
     def __init__(
         self,
         diagnostic_provider=None,
-        prd_generator=None,
-        max_prds: int = 5,
+        release_plan_generator=None,
+        max_plans: int = 5,
     ):
         self._diagnostic = diagnostic_provider
-        self._generator = prd_generator
-        self._max_prds = max_prds
+        self._generator = release_plan_generator
+        self._max_plans = max_plans
 
     def generate(self, project_path: str) -> List[EvolutionReleasePlan]:
         if self._diagnostic is None:
@@ -180,9 +180,9 @@ class DiagnosticPRDSource(EvolutionPlanSource):
             self._diagnostic = ProjectDiagnostic()
 
         if self._generator is None:
-            from sprintcycle.diagnostic import DiagnosticPRDGenerator
+            from sprintcycle.diagnostic import DiagnosticReleasePlanGenerator
 
-            self._generator = DiagnosticPRDGenerator()
+            self._generator = DiagnosticReleasePlanGenerator()
 
         logger.info(f"开始诊断项目: {project_path}")
         try:
@@ -200,7 +200,7 @@ class DiagnosticPRDSource(EvolutionPlanSource):
 
         filtered = self._filter_plans(raw_plans)
         filtered.sort(key=lambda x: x.priority, reverse=True)
-        return filtered[: self._max_prds]
+        return filtered[: self._max_plans]
 
     def _filter_plans(
         self, plans: List[EvolutionReleasePlan]

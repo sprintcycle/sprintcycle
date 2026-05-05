@@ -17,7 +17,7 @@ from sprintcycle.config.quality import (
     resolve_effective_quality_level,
 )
 from sprintcycle.config.toml_loader import flatten_sprintcycle_toml
-from sprintcycle.release_plan.parser import PRDParser
+from sprintcycle.release_plan.parser import ReleasePlanParser
 
 
 @settings(max_examples=50)
@@ -58,7 +58,7 @@ def test_resolve_strict_always_l3(_level: str) -> None:
     assert resolve_effective_quality_level("strict", _level) == "L3"
 
 
-_minimal_prd_dict = st.fixed_dictionaries(
+_minimal_plan_dict = st.fixed_dictionaries(
     {
         "project": st.fixed_dictionaries(
             {
@@ -93,7 +93,7 @@ _minimal_prd_dict = st.fixed_dictionaries(
                                     min_size=12,
                                     max_size=400,
                                 ),
-                                "agent": st.sampled_from(["coder", "tester", "evolver"]),
+                                "agent": st.sampled_from(["coder", "tester", "architect"]),
                             }
                         ),
                         min_size=1,
@@ -109,14 +109,14 @@ _minimal_prd_dict = st.fixed_dictionaries(
 
 
 @settings(max_examples=25, deadline=None)
-@given(_minimal_prd_dict)
-def test_prd_parse_dict_roundtrip_invariants(data: dict) -> None:
-    parser = PRDParser()
-    prd = parser.parse_dict(data, source_path="<hypothesis>")
-    assert prd.project.name == data["project"]["name"]
-    assert prd.project.path == data["project"]["path"]
-    assert len(prd.sprints) == len(data["sprints"])
-    assert prd.total_tasks == sum(len(s["tasks"]) for s in data["sprints"])
+@given(_minimal_plan_dict)
+def test_release_plan_parse_dict_roundtrip_invariants(data: dict) -> None:
+    parser = ReleasePlanParser()
+    plan = parser.parse_dict(data, source_path="<hypothesis>")
+    assert plan.project.name == data["project"]["name"]
+    assert plan.project.path == data["project"]["path"]
+    assert len(plan.sprints) == len(data["sprints"])
+    assert plan.total_tasks == sum(len(s["tasks"]) for s in data["sprints"])
 
 
 @settings(max_examples=30)

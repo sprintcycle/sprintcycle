@@ -1,8 +1,7 @@
 """
-PRD 生成器
+从意图生成 Release Plan（执行计划）
 
-将 ParsedIntent 转换为 PRD 文档
-支持基于历史反馈的优化
+将 ParsedIntent 转换为 ``ReleasePlan`` 内存模型。
 """
 
 import os
@@ -12,14 +11,19 @@ from typing import Any, Optional
 
 from ..config.runtime_config import RuntimeConfig
 from ..intent.parser import ActionType, ParsedIntent
-from .models import PRD, ExecutionMode, PRDEvolutionParams, PRDProject, PRDSprint, PRDTask
+from .models import (
+    EvolutionParams,
+    ExecutionMode,
+    ProductAnchor,
+    ReleasePlan,
+    SprintBacklogItem,
+    SprintDefinition,
+)
 
 
-class IntentPRDGenerator:
+class IntentReleasePlanGenerator:
     """
-    PRD 生成器
-    
-    将 ParsedIntent 转换为标准的 PRD 对象
+    将 ParsedIntent 转换为 ``ReleasePlan``。
     """
 
     # 自进化关键词（必须同时匹配项目名和动作词）
@@ -37,44 +41,44 @@ class IntentPRDGenerator:
         *,
         config: Optional[RuntimeConfig] = None,
         anchor_project_path: Optional[str] = None,
-    ) -> PRD:
+    ) -> ReleasePlan:
         """
-        从解析后的意图生成 PRD
-        
+        从解析后的意图生成 ``ReleasePlan``。
+
         判断优先级：
         1. 意图关键词识别（如 "优化 sprintcycle 自身代码"）
         2. ParsedIntent.action 动作类型
         3. target/project 路径判断
-        
+
         Args:
             parsed: ParsedIntent 对象
             config: 运行时配置（非自进化进化时用于 product_code_root / products_subdir）
             anchor_project_path: SprintCycle 的 project_path，用于解析相对 product_code_root
-        
+
         Returns:
-            PRD: 生成的 PRD 对象
+            生成的 ``ReleasePlan`` 对象
         """
         cfg = config or RuntimeConfig()
         anchor = anchor_project_path or os.getcwd()
 
         # 优先级 1: 根据意图描述判断是否为自进化
         if parsed.description:
-            inferred_mode = IntentPRDGenerator._infer_mode_from_intent(parsed.description)
+            inferred_mode = IntentReleasePlanGenerator._infer_mode_from_intent(parsed.description)
             if inferred_mode == ExecutionMode.EVOLUTION:
                 # 意图匹配自进化，强制使用 EVOLVE 动作
-                return IntentPRDGenerator._from_evolve(parsed, cfg, anchor)
+                return IntentReleasePlanGenerator._from_evolve(parsed, cfg, anchor)
 
-        # 优先级 2: 根据动作类型生成不同的 PRD
+        # 优先级 2: 根据动作类型生成不同的执行计划
         if parsed.action == ActionType.EVOLVE:
-            return IntentPRDGenerator._from_evolve(parsed, cfg, anchor)
+            return IntentReleasePlanGenerator._from_evolve(parsed, cfg, anchor)
         elif parsed.action == ActionType.FIX:
-            return IntentPRDGenerator._from_fix(parsed)
+            return IntentReleasePlanGenerator._from_fix(parsed)
         elif parsed.action == ActionType.TEST:
-            return IntentPRDGenerator._from_test(parsed)
+            return IntentReleasePlanGenerator._from_test(parsed)
         elif parsed.action == ActionType.RUN:
-            return IntentPRDGenerator._from_run(parsed)
+            return IntentReleasePlanGenerator._from_run(parsed)
         else:
-            return IntentPRDGenerator._from_build(parsed)
+            return IntentReleasePlanGenerator._from_build(parsed)
 
     @staticmethod
     def _infer_mode_from_intent(description: str) -> Optional[ExecutionMode]:
@@ -95,10 +99,10 @@ class IntentPRDGenerator:
         desc_lower = description.lower()
 
         # 检查是否包含项目关键词
-        has_project = any(kw in desc_lower for kw in IntentPRDGenerator.EVOLUTION_PROJECT_KEYWORDS)
+        has_project = any(kw in desc_lower for kw in IntentReleasePlanGenerator.EVOLUTION_PROJECT_KEYWORDS)
 
         # 检查是否包含动作关键词
-        has_action = any(kw in desc_lower for kw in IntentPRDGenerator.EVOLUTION_ACTION_KEYWORDS)
+        has_action = any(kw in desc_lower for kw in IntentReleasePlanGenerator.EVOLUTION_ACTION_KEYWORDS)
 
         # 同时满足才判断为自进化
         if has_project and has_action:
@@ -111,7 +115,7 @@ class IntentPRDGenerator:
         if not description:
             return False
         return (
-            IntentPRDGenerator._infer_mode_from_intent(description)
+            IntentReleasePlanGenerator._infer_mode_from_intent(description)
             == ExecutionMode.EVOLUTION
         )
 
@@ -166,15 +170,15 @@ class IntentPRDGenerator:
         parsed: ParsedIntent,
         config: RuntimeConfig,
         anchor_project_path: str,
-    ) -> PRD:
-        """从进化意图生成 PRD。
+    ) -> ReleasePlan:
+        """从进化意图生成 ``ReleasePlan``。
 
         自进化（意图同时含 sprintcycle/自身 与进化类动词）：产品路径为 SprintCycle 仓库根。
         其余进化：产品代码根为 ``<product_code_root>/<products_subdir>/<product>/``（目录不存在则创建）。
         """
-        if IntentPRDGenerator._is_self_evolution_intent(parsed.description):
+        if IntentReleasePlanGenerator._is_self_evolution_intent(parsed.description):
             project_path_str = str(
-                parsed.project or IntentPRDGenerator._get_sprintcycle_root()
+                parsed.project or IntentReleasePlanGenerator._get_sprintcycle_root()
             )
             project_name = "sprintcycle"
             version = "v0.6.0"
@@ -187,11 +191,11 @@ class IntentPRDGenerator:
                     "<product_code_root>/<products_subdir>/YourName/（可在 sprintcycle.toml 的 "
                     "[product_layout] 配置 code_root 与 subdir）。"
                 )
-            slug = IntentPRDGenerator._sanitize_product_slug(slug_raw)
-            base = IntentPRDGenerator._resolve_product_code_root(
+            slug = IntentReleasePlanGenerator._sanitize_product_slug(slug_raw)
+            base = IntentReleasePlanGenerator._resolve_product_code_root(
                 config, anchor_project_path
             )
-            sub = IntentPRDGenerator._safe_products_subdir(config)
+            sub = IntentReleasePlanGenerator._safe_products_subdir(config)
             products_dir = base / sub
             products_dir.mkdir(parents=True, exist_ok=True)
             dest = products_dir / slug
@@ -200,13 +204,13 @@ class IntentPRDGenerator:
             project_name = slug
             version = "v1.0.0"
 
-        project = PRDProject(
+        project = ProductAnchor(
             name=project_name,
             path=project_path_str,
             version=version,
         )
 
-        evolution = PRDEvolutionParams(
+        evolution = EvolutionParams(
             targets=[parsed.target] if parsed.target else [],
             goals=[parsed.description],
             constraints=parsed.constraints,
@@ -214,45 +218,32 @@ class IntentPRDGenerator:
             iterations=3,
         )
 
-        sprint = PRDSprint(
-            name="Evolution Sprint",
-            goals=[parsed.description],
-            tasks=[
-                PRDTask(
-                    description=parsed.description,
-                    agent="evolver",
-                    target=parsed.target,
-                    constraints=parsed.constraints,
-                )
-            ],
-        )
-
-        return PRD(
+        return ReleasePlan(
             project=project,
             mode=ExecutionMode.EVOLUTION,
             evolution=evolution,
-            sprints=[sprint],
+            sprints=[],
         )
 
     @staticmethod
-    def _from_build(parsed: ParsedIntent) -> PRD:
-        """从构建意图生成 PRD"""
+    def _from_build(parsed: ParsedIntent) -> ReleasePlan:
+        """从构建意图生成 ``ReleasePlan``"""
         project_path = parsed.project or os.getcwd()
         project_name = os.path.basename(os.path.abspath(project_path))
         # 确保 path 是字符串
         project_path_str = str(project_path)
 
-        project = PRDProject(
+        project = ProductAnchor(
             name=project_name,
             path=project_path_str,
             version="v1.0.0",
         )
 
-        sprint = PRDSprint(
+        sprint = SprintDefinition(
             name="Feature Development",
             goals=[parsed.description],
             tasks=[
-                PRDTask(
+                SprintBacklogItem(
                     description=parsed.description,
                     agent="coder",
                     target=parsed.target,
@@ -261,17 +252,17 @@ class IntentPRDGenerator:
             ],
         )
 
-        return PRD(
+        return ReleasePlan(
             project=project,
             mode=ExecutionMode.NORMAL,
             sprints=[sprint],
         )
 
     @staticmethod
-    def _from_fix(parsed: ParsedIntent) -> PRD:
-        """从修复意图生成 PRD - 使用自进化能力"""
+    def _from_fix(parsed: ParsedIntent) -> ReleasePlan:
+        """从修复意图生成 ``ReleasePlan``（自进化能力）"""
         # 解析错误信息
-        error_info = IntentPRDGenerator._parse_error_info(parsed.description)
+        error_info = IntentReleasePlanGenerator._parse_error_info(parsed.description)
 
         # 定位问题文件
         target_file = parsed.target or error_info.get("file")
@@ -280,7 +271,7 @@ class IntentPRDGenerator:
         project_name = os.path.basename(os.path.abspath(project_path))
         project_path_str = str(project_path)
 
-        project = PRDProject(
+        project = ProductAnchor(
             name=project_name,
             path=project_path_str,
             version="v1.0.0",
@@ -292,7 +283,7 @@ class IntentPRDGenerator:
             fix_goal = f"修复 {error_info['error_type']}: {error_info.get('error_msg', parsed.description)}"
 
         # 使用进化配置
-        evolution = PRDEvolutionParams(
+        evolution = EvolutionParams(
             targets=[target_file] if target_file else [],
             goals=[fix_goal],
             constraints=parsed.constraints,
@@ -300,24 +291,11 @@ class IntentPRDGenerator:
             iterations=3,
         )
 
-        sprint = PRDSprint(
-            name="Bug Fix Sprint",
-            goals=[fix_goal],
-            tasks=[
-                PRDTask(
-                    description=fix_goal,
-                    agent="evolver",  # 关键：使用 evolver 而不是 coder
-                    target=target_file,
-                    constraints=parsed.constraints,
-                )
-            ],
-        )
-
-        return PRD(
+        return ReleasePlan(
             project=project,
-            mode=ExecutionMode.EVOLUTION,  # 关键：使用 evolution 模式
+            mode=ExecutionMode.EVOLUTION,
             evolution=evolution,
-            sprints=[sprint],
+            sprints=[],
         )
 
     @staticmethod
@@ -353,35 +331,35 @@ class IntentPRDGenerator:
         return info
 
     @staticmethod
-    def _from_test(parsed: ParsedIntent) -> PRD:
-        """从测试意图生成 PRD"""
-        return IntentPRDGenerator._from_build(parsed)
+    def _from_test(parsed: ParsedIntent) -> ReleasePlan:
+        """从测试意图生成 ``ReleasePlan``"""
+        return IntentReleasePlanGenerator._from_build(parsed)
 
     @staticmethod
-    def _from_run(parsed: ParsedIntent) -> PRD:
-        """从运行 PRD 文件意图生成"""
-        # TODO: 实际解析 PRD 文件
-        return IntentPRDGenerator._from_build(parsed)
+    def _from_run(parsed: ParsedIntent) -> ReleasePlan:
+        """从「运行执行计划文件」类意图生成"""
+        # TODO: 实际解析 YAML 执行计划文件
+        return IntentReleasePlanGenerator._from_build(parsed)
 
     @staticmethod
-    def sample_prd() -> PRD:
-        """生成示例 PRD"""
-        project = PRDProject(
+    def sample_release_plan() -> ReleasePlan:
+        """生成示例 ``ReleasePlan``"""
+        project = ProductAnchor(
             name="demo",
             path="./demo",
             version="v1.0.0",
         )
 
-        sprint = PRDSprint(
+        sprint = SprintDefinition(
             name="Sprint 1",
             goals=["实现基础功能"],
             tasks=[
-                PRDTask(description="实现用户认证", agent="coder"),
-                PRDTask(description="编写单元测试", agent="tester"),
+                SprintBacklogItem(description="实现用户认证", agent="coder"),
+                SprintBacklogItem(description="编写单元测试", agent="tester"),
             ],
         )
 
-        return PRD(
+        return ReleasePlan(
             project=project,
             mode=ExecutionMode.NORMAL,
             sprints=[sprint],

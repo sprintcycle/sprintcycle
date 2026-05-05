@@ -16,6 +16,7 @@ from ...persistence.models import ExecutionRow
 from ...persistence.session import create_engine_for_path, init_db
 from ..sprint_types import ExecutionStatus
 from .state_store import ExecutionState
+from .wire_compat import checkpoint_plan_yaml
 
 
 class SqliteExecutionStore:
@@ -155,9 +156,7 @@ class SqliteExecutionStore:
         state = self.load(execution_id)
         if state and state.checkpoint:
             cp = state.checkpoint
-            yml = cp.get("release_plan_yaml")
-            if yml is None:
-                yml = cp.get("prd_yaml")
+            yml = checkpoint_plan_yaml(cp)
             return {
                 "current_sprint": cp.get("sprint_idx", 0),
                 "sprint_name": cp.get("sprint_name", ""),

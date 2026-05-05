@@ -1,259 +1,114 @@
-# SprintCycle - Self-Evolving Agile Development Framework
+# SprintCycle
 
-[![Version](https://img.shields.io/badge/version-v0.9.2-blue.svg)](sprintcycle/__init__.py)
-[![Python](https://img.shields.io/badge/python-3.10+-green.svg)](pyproject.toml)
-[![License](https://img.shields.io/badge/license-MIT-orange.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-50%20passed-brightgreen.svg)]()
+[中文](README.md)
 
-**SprintCycle** is a PRD-driven self-evolving agile development framework that implements a closed loop of code generation, test verification, and continuous optimization through a unified evolution pipeline.
+**Intent-driven, self-evolving agile delivery framework** — describe goals in natural language, materialize a runnable **Release Plan** (YAML), then execute it through Sprint orchestration. The CLI, MCP server, optional Web Dashboard, and Python API all share the same **`SprintCycle`** entry point.
 
-## Product & technical spec (V4.0 canonical)
+Current version: **0.9.2** (aligned with `sprintcycle.__version__`)
 
-For external communication and architecture reviews, the **in-repo** documents below are authoritative if they differ from any exported note (e.g. Youdao “V4.0” `.mhtml`):
+## Requirements
 
-1. **[`docs/PRODUCT_TECH_V4.md`](docs/PRODUCT_TECH_V4.md)** — canonical entry + primary execution path  
-2. **[`SPRINTCYCLE_PRODUCT_TECH_PLAN.md`](SPRINTCYCLE_PRODUCT_TECH_PLAN.md)** — full revised plan (G1–G4, six phases, §6 roadmap)
+- Python **≥ 3.11**
 
-**Primary execution path**: `SprintCycle` → `SprintOrchestrator` → `SprintExecutor.execute_sprints` (`EvolutionPipeline` is for evolution/diagnostic flows, not a second “only” orchestrator).
-
-### Scrum naming alignment
-
-| Code / artifact | Scrum reading |
-|-----------------|---------------|
-| Root `ReleasePlan` / plan YAML | **Executable release plan** (multi-Sprint); `from sprintcycle import ReleasePlan, ReleasePlanParser` |
-| `SprintDefinition`, `sprints[]` | One **Sprint**; `goals` ≈ Sprint Goal; `tasks` ≈ **Sprint Backlog** |
-| `SprintBacklogItem`, `description` (YAML uses `description:` only) | **Sprint Backlog Item** narrative |
-| `SprintOrchestrator` | **Sprint execution orchestration** (not calendar scheduling) |
-
-See **[`docs/DESIGN_SCRUM_NAMING_MIGRATION.md`](docs/DESIGN_SCRUM_NAMING_MIGRATION.md)** for phased refactors (P0/P1).
-
-### Quality gates G1–G4 (vs `quality_level` / `quality_profile`)
-
-| Gate | Meaning | Anchors |
-|------|---------|---------|
-| **G1** | Static & conventions | Ruff / static analysis; `runs_static_gate` from L1+ |
-| **G2** | Tests & coverage | `MeasurementProvider`, pytest; L2/L3 |
-| **G3** | Fitness & regression | Measurement dimensions, feedback; emphasis at L3 |
-| **G4** | Architecture invariants | `[tool.importlinter]` in `pyproject.toml`; optional Semgrep (`.github/workflows/semgrep.yml`) |
-
-See **`SPRINTCYCLE_PRODUCT_TECH_PLAN.md`** §2.3 and **`docs/PRODUCT_TECH_V4.md`**.
-
-## Key Features
-
-- **Unified API Layer** - 6 operations: plan/run/diagnose/status/rollback/stop
-- **Three Entry Points** - CLI / MCP (stdio + SSE dual transport) / Dashboard Web UI
-- **7 Agents** - analyzer/architect/coder/evolver/tester/regression_tester/traceback_parser
-- **Dashboard Four Panels** - PRD Editor / Execution History / Diagnostics / Live Events (EventBus→SSE)
-- **FeedbackLoop Feedback Loop** - Continuous optimization mechanism for evolution pipeline
-- **Resume Support** - Safely resume execution from checkpoint
-- **Safe Stop** - Gracefully stop sprint execution
-- **Execution State Persistence** - StateStore + Checkpoint state storage
-- **Differentiated Evolution Strategies** - Auto-select evolution path based on problem type
-- **Intelligent Error Routing** - Three-level routing: LEVEL_1_STATIC → LEVEL_2_PATTERN → LEVEL_3_LLM
-- **Multi-Engine Coding** - `aider`, **Claude Code** (`claude_code`), **Cursor Cookbook** (`cursor_cookbook`), with LiteLLM fallback ([`docs/CODING_ENGINES_CLAUDE_CURSOR.md`](docs/CODING_ENGINES_CLAUDE_CURSOR.md))
-- **Unified Configuration** - RuntimeConfig manages all configuration items
-
-## Quick Start
-
-### Installation
+## Installation
 
 ```bash
-git clone https://github.com/sprintcycle/sprintcycle.git
-cd sprintcycle
 pip install -e .
 ```
 
-### Configuration
+Optional extras (see `pyproject.toml`):
+
+| Extra | Purpose |
+|--------|---------|
+| `dashboard` / `full` | Web Dashboard (FastAPI + Uvicorn) |
+| `mcp-sse` | MCP over SSE (`uvicorn`, `starlette`) |
+| `dev` | Tests, typing, import-linter, etc. |
+| `mutation` | Mutation testing (`mutmut`) |
+
+Example:
 
 ```bash
-# Set API Key
-export DEEPSEEK_API_KEY="your-api-key"
-
-# Or create .env file
-echo "DEEPSEEK_API_KEY=your-api-key" > .env
+pip install -e ".[full,dev]"
 ```
 
-### Basic Usage
+## Quick start
 
-```python
-from sprintcycle.release_plan.models import PRD, PRDProject, PRDSprint, PRDTask, ExecutionMode
-from sprintcycle.execution.engine import ExecutionEngine
+Initialize per-project directories (state and logs):
 
-prd = PRD(
-    project=PRDProject(name="my-project", path="."),
-    mode=ExecutionMode.NORMAL,
-    sprints=[
-        PRDSprint(
-            name="Sprint 1",
-            tasks=[PRDTask(description="Ship a minimal runnable slice", agent="coder")],
-        )
-    ],
-)
-
-engine = ExecutionEngine()
-result = await engine.execute(prd)
+```bash
+sprintcycle init
 ```
 
-For evolution flows that load YAML from disk, defaults are under **`release_plan/*.yaml`** at the project root (`ManualPRDSource(plan_subdir=...)` is configurable).
+**Plan only (no execution):**
 
-## Architecture Overview
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    PRD-driven Sprint                       │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ┌──────────────┐    ┌─────────────────┐    ┌───────────┐ │
-│  │ ManualPRD    │    │ EvolutionPipeline│    │ Diagnostic│ │
-│  │ Source       │───▶│ (Unified Pipe)   │───▶│ PRD Source│ │
-│  └──────────────┘    └─────────────────┘    └───────────┘ │
-│                              │                              │
-│                              ▼                              │
-│                     ┌─────────────────┐                    │
-│                     │  SprintExecutor │                    │
-│                     └─────────────────┘                    │
-│                              │                              │
-│              ┌───────────────┼───────────────┐            │
-│              ▼               ▼               ▼            │
-│        ┌──────────┐    ┌──────────┐    ┌──────────┐      │
-│        │ Analyzer │    │  Coder   │    │  Tester  │      │
-│        └──────────┘    └──────────┘    └──────────┘      │
-│                                                             │
-│  ┌─────────────────────────────────────────────────────┐  │
-│  │        Error Router (Three-Level)                    │  │
-│  │  LEVEL_1_STATIC → LEVEL_2_PATTERN → LEVEL_3_LLM    │  │
-│  └─────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
+```bash
+sprintcycle plan "Add unit tests for the login flow" -m auto
 ```
 
-### Core Modules
+**Run (default group command forwards bare args to `run`):**
 
-| Module | Path | Description |
-|--------|------|-------------|
-| `EvolutionPipeline` | `sprintcycle/evolution/pipeline.py` | Unified evolution pipeline |
-| `SprintExecutor` | `sprintcycle/execution/sprint_executor.py` | Sprint executor |
-| `ExecutionEngine` | `sprintcycle/execution/engine.py` | Unified execution engine |
-| `ErrorRouter` | `sprintcycle/execution/error_router.py` | Error routing |
-| `PRDValidator` | `sprintcycle/release_plan/validator.py` | Execution plan validator |
-
-## Configuration
-
-### Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DEEPSEEK_API_KEY` | DeepSeek API Key | - |
-| `SPRINTCYCLE_LLM_PROVIDER` | LLM provider | deepseek |
-| `SPRINTCYCLE_LLM_MODEL` | Model name | deepseek-reasoner |
-| `SPRINTCYCLE_LLM_TEMPERATURE` | Temperature | 0.7 |
-| `SPRINTCYCLE_LLM_MAX_TOKENS` | Max tokens | 2048 |
-| `SPRINTCYCLE_EVOLUTION_ENABLED` | Enable evolution | true |
-| `SPRINTCYCLE_DRY_RUN` | Dry run mode | false |
-| `SPRINTCYCLE_MAX_SPRINTS` | Max sprints | 10 |
-| `SPRINTCYCLE_PARALLEL_TASKS` | Parallel tasks | 3 |
-| `SPRINTCYCLE_LOG_LEVEL` | Log level | INFO |
-| `SPRINTCYCLE_QUALITY_PROFILE` | Quality preset `off`/`fast`/`default`/`strict` (§6.3) | `default` |
-| `SPRINTCYCLE_CODING_ENGINE` | Coder engine (overrides toml) | `aider` |
-| `SPRINTCYCLE_CLAUDE_BIN` | Claude Code executable | `claude` |
-| `SPRINTCYCLE_CURSOR_USE_CLI` | Also run Cursor `agent` CLI for cookbook | unset |
-
-See [`docs/CODING_ENGINES_CLAUDE_CURSOR.md`](docs/CODING_ENGINES_CLAUDE_CURSOR.md) for the full list.
-
-### Claude Code & Cursor Cookbook
-
-- **Claude Code**: set `[engine] name = "claude_code"` (or `SPRINTCYCLE_CODING_ENGINE=claude_code`) after installing the official `claude` CLI. SprintCycle invokes non-interactive `claude -p`.
-- **Cursor Cookbook**: with `name = "cursor_cookbook"`, writes markdown recipes under `.sprintcycle/cursor-cookbook/` for use in Cursor Agent / Chat; set `SPRINTCYCLE_CURSOR_USE_CLI=1` to optionally run `agent -p` once per task.
-
-Full bilingual notes: **[`docs/CODING_ENGINES_CLAUDE_CURSOR.md`](docs/CODING_ENGINES_CLAUDE_CURSOR.md)**.
-
-## Project Structure
-
+```bash
+sprintcycle run "Fix dead links in README"
+# same as:
+sprintcycle "Fix dead links in README"
 ```
-sprintcycle/
-├── cli.py                    # CLI entry point
-├── coding_engine.py          # Coding engine
-├── llm_provider.py           # LLM provider
-├── exceptions.py             # Exception definitions
-│
-├── config/
-│   └── manager.py            # Config management (RuntimeConfig, LLMConfig)
-│
-├── evolution/                 # Evolution system
-│   ├── pipeline.py           # EvolutionPipeline
-│   ├── evolution_plan_source.py  # Evolution plan source (Manual/Diagnostic)
-│   ├── measurement.py        # Measurement
-│   ├── memory_store.py       # Memory store
-│   └── rollback_manager.py   # Rollback manager
-│
-├── diagnostic/               # Diagnostic system
-│   ├── provider.py           # Diagnostic provider
-│   ├── health_report.py       # Health report
-│   └── release_plan_generator.py  # Generate execution plans from diagnostics
-│
-├── execution/                 # Execution system
-│   ├── engine.py              # Execution engine
-│   ├── sprint_executor.py     # Sprint executor
-│   ├── error_router.py        # Error router
-│   ├── static_analyzer.py     # Static analyzer
-│   └── agents/                # Agent implementations
-│       ├── analyzer.py
-│       ├── coder.py
-│       └── tester.py
-│
-├── intent/                    # Intent recognition
-│   ├── parser.py
-│   └── runner.py
-│
-├── release_plan/              # Executable multi-sprint plan (impl classes PRD*; root exports Scrum names)
-│   ├── models.py             # Data models
-│   ├── parser.py            # Parser
-│   └── validator.py         # Validator
-│
-├── orchestration/             # Sprint orchestration
-│   └── sprint_orchestrator.py # SprintOrchestrator
-│
-└── integrations/              # Integrations
-    └── evolution_integration.py
-```
+
+Common flags: `--project` / `-p` for repo root, `--format json` for machine-readable output, `--mode` one of `auto`, `evolution`, `normal`, `fix`, `test`, `--release-plan` for an existing YAML, `--resume` with `--execution-id` to continue. If knowledge injection requires confirmation, pass `--yes`.
+
+## Capabilities
+
+- **plan**: intent → validated / expanded Release Plan; no tasks executed.
+- **run**: orchestrated Sprints via `SprintExecutor`; checkpoints and resume supported.
+- **diagnose**: project health summary and issues.
+- **status** / **rollback** / **stop**: history, rollback, and cancel in-flight work.
+- **Knowledge cards**: `sprintcycle knowledge search`; execution path supports injection and confirmation policies.
+- **MCP**: `sprintcycle serve` (default **stdio**; `--transport sse` for remote agents).
+- **Dashboard**: `sprintcycle dashboard` (install dashboard extras first).
+
+## CLI cheat sheet
+
+| Command | Description |
+|--------|-------------|
+| `sprintcycle wizard` | Interactive plan / run / diagnose / status |
+| `sprintcycle plan <intent>` | Generate execution plan |
+| `sprintcycle run [intent]` | Execute sprints |
+| `sprintcycle diagnose` | Health check |
+| `sprintcycle status [execution_id]` | Single run or list |
+| `sprintcycle rollback <execution_id>` | Roll back |
+| `sprintcycle stop <execution_id>` | Stop a run |
+| `sprintcycle import-state` | Import JSON state dir into SQLite |
+| `sprintcycle knowledge search` | Search knowledge cards |
+| `sprintcycle serve` | Start MCP server |
+| `sprintcycle dashboard` | Start Web UI |
+| `sprintcycle init [path]` | Create `.sprintcycle` layout |
+
+Global options: `-p/--project`, `--format text|json`, `-v/--verbose`.
+
+## Python API
+
+Use **`SprintCycle`** from `sprintcycle.api` — `plan`, `run`, `diagnose`, `status`, `rollback`, `stop`, etc., mirroring the CLI for scripts, services, or CI.
+
+Public models and helpers are re-exported from the top-level `sprintcycle` package (`ReleasePlan`, `ReleasePlanParser`, `ReleasePlanValidator`, `SprintOrchestrator`, `SprintExecutor`, …; see `sprintcycle/__init__.py`).
+
+## Repository layout (high level)
+
+- `sprintcycle/api.py` — unified API
+- `sprintcycle/cli.py` — CLI
+- `sprintcycle/orchestration/` — Sprint orchestration
+- `sprintcycle/execution/` — engine, state, agents, knowledge hooks
+- `sprintcycle/release_plan/` — models, parse, validate, generate, expand
+- `sprintcycle/intent/` — intent parsing and runner
+- `sprintcycle/mcp/` — MCP server
+- `sprintcycle/dashboard/` — optional Web UI
+- `tests/` — pytest suite
 
 ## Development
 
-### Canonical dev-setup path
-
-The script in-repo is **`docs-dev/dev-setup.sh`**. For `curl`/`bash` from raw GitHub, substitute org, repo, and ref (fork or tag), e.g.  
-`https://raw.githubusercontent.com/<org>/<repo>/<ref>/docs-dev/dev-setup.sh`  
-CI asserts this file exists on the default branch.
-
-### Run Tests
-
 ```bash
-pytest tests/ -v
+pip install -e ".[dev]"
+pytest
 ```
 
-Includes **Hypothesis** property tests (`tests/test_g4_properties.py`, V4.0 §6.4); install with `pip install -e ".[dev]"`.
+## Contributing
 
-### Architecture gate (G4)
-
-- **Required on PRs**: GitHub Actions job **`architecture-gate`** runs `lint-imports` (contracts in `pyproject.toml`).
-- **Mutation testing (optional)**: `pip install -e ".[mutation]"`; see **`.github/workflows/mutation.yml`**.
-- **Semgrep (optional)**: **`.github/workflows/semgrep.yml`** — failures do not block the main CI workflow.
-
-### Code Quality
-
-```bash
-# mypy type checking
-mypy sprintcycle/ --ignore-missing-imports
-
-# ruff linting
-ruff check sprintcycle/
-```
-
-### Status
-
-- **Version**: 0.9.2
-- **Tests**: see CI / `pytest tests/` (includes G4 property tests and import-linter test)
-- **mypy**: 0 errors
-
-## License
-
-MIT License
+Run `pytest` (and project lint rules) before opening PRs. If a license file is added at the repo root, it governs distribution terms.

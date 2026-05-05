@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 from sprintcycle.config import RuntimeConfig
 from sprintcycle.execution.sprint_executor import SprintExecutor
 from sprintcycle.execution.hooks.sprint_hooks import ChainedSprintHooks, SprintLifecycleHooks
-from sprintcycle.release_plan.models import PRD, PRDProject, PRDSprint, PRDTask, ExecutionMode
+from sprintcycle.release_plan.models import ReleasePlan, ProductAnchor, SprintDefinition, SprintBacklogItem, ExecutionMode
 
 
 class CountingHooks(SprintLifecycleHooks):
@@ -17,19 +17,19 @@ class CountingHooks(SprintLifecycleHooks):
     async def on_before_sprint(
         self,
         sprint_index: int,
-        sprint: PRDSprint,
+        sprint: SprintDefinition,
         context: Dict[str, Any],
-        release_plan: Optional[PRD],
+        release_plan: Optional[ReleasePlan],
     ) -> None:
         self.before.append(sprint_index)
 
     async def on_after_sprint(
         self,
         sprint_index: int,
-        sprint: PRDSprint,
+        sprint: SprintDefinition,
         result,
         context: Dict[str, Any],
-        release_plan: Optional[PRD],
+        release_plan: Optional[ReleasePlan],
     ) -> None:
         self.after.append(sprint_index)
 
@@ -41,15 +41,15 @@ def test_execute_sprints_invokes_hooks_once_per_sprint():
         runtime_config=RuntimeConfig(dry_run=True, quality_level="L1"),
         sprint_hooks=hooks,
     )
-    prd = PRD(
-        project=PRDProject(name="p", path="."),
+    plan = ReleasePlan(
+        project=ProductAnchor(name="p", path="."),
         mode=ExecutionMode.NORMAL,
         sprints=[
-            PRDSprint(name="S1", tasks=[PRDTask(description="t1", agent="coder")]),
-            PRDSprint(name="S2", tasks=[PRDTask(description="t2", agent="coder")]),
+            SprintDefinition(name="S1", tasks=[SprintBacklogItem(description="t1", agent="coder")]),
+            SprintDefinition(name="S2", tasks=[SprintBacklogItem(description="t2", agent="coder")]),
         ],
     )
-    ex.set_release_plan(prd)
+    ex.set_release_plan(plan)
     ctx: Dict[str, Any] = {
         "project_path": ".",
         "release_plan_name": "p",
@@ -59,7 +59,7 @@ def test_execute_sprints_invokes_hooks_once_per_sprint():
 
     async def _run() -> None:
         results = await ex.execute_sprints(
-            prd.sprints, mode="normal", context=ctx, release_plan=prd
+            plan.sprints, mode="normal", context=ctx, release_plan=plan
         )
         assert len(results) == 2
 
@@ -86,20 +86,20 @@ def test_chained_sprint_hooks_invokes_in_order():
             order.append("2a")
 
     chain = ChainedSprintHooks((H1(), H2()))
-    prd = PRD(
-        project=PRDProject(name="p", path="."),
+    plan = ReleasePlan(
+        project=ProductAnchor(name="p", path="."),
         mode=ExecutionMode.NORMAL,
-        sprints=[PRDSprint(name="S", tasks=[PRDTask(description="t", agent="coder")])],
+        sprints=[SprintDefinition(name="S", tasks=[SprintBacklogItem(description="t", agent="coder")])],
     )
-    sprint = prd.sprints[0]
+    sprint = plan.sprints[0]
 
     async def _run() -> None:
         from sprintcycle.execution.sprint_types import SprintResult, ExecutionStatus
 
         ctx: Dict[str, Any] = {}
-        await chain.on_before_sprint(0, sprint, ctx, prd)
+        await chain.on_before_sprint(0, sprint, ctx, plan)
         res = SprintResult(sprint=sprint, status=ExecutionStatus.SUCCESS, task_results=[])
-        await chain.on_after_sprint(0, sprint, res, ctx, prd)
+        await chain.on_after_sprint(0, sprint, res, ctx, plan)
 
     asyncio.run(_run())
     assert order == ["1b", "2b", "2a", "1a"]
@@ -110,24 +110,24 @@ def test_orchestrator_uses_execute_sprints_not_per_sprint_loop():
     from unittest.mock import AsyncMock, patch
 
     from sprintcycle.orchestration.sprint_orchestrator import SprintOrchestrator
-    from sprintcycle.release_plan.models import PRD, PRDProject, PRDSprint, PRDTask, ExecutionMode
+    from sprintcycle.release_plan.models import ReleasePlan, ProductAnchor, SprintDefinition, SprintBacklogItem, ExecutionMode
 
-    prd = PRD(
-        project=PRDProject(name="x", path="."),
+    plan = ReleasePlan(
+        project=ProductAnchor(name="x", path="."),
         mode=ExecutionMode.NORMAL,
-        sprints=[PRDSprint(name="S1", tasks=[PRDTask(description="a", agent="coder")])],
+        sprints=[SprintDefinition(name="S1", tasks=[SprintBacklogItem(description="a", agent="coder")])],
     )
     fake = AsyncMock(return_value=[])
 
     d = SprintOrchestrator(config=RuntimeConfig(dry_run=True, quality_level="L1"))
 
     async def _run_disp() -> None:
-        await d._execute_normal_mode(prd, max_concurrent=2)
+        await d._execute_normal_mode(plan, max_concurrent=2)
 
     with patch.object(SprintExecutor, "execute_sprints", fake):
         asyncio.run(_run_disp())
 
     fake.assert_awaited_once()
     kwargs = fake.await_args.kwargs
-    assert kwargs.get("release_plan") is prd
+    assert kwargs.get("release_plan") is plan
     assert kwargs.get("sprint_index_offset") == 0

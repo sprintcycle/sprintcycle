@@ -36,6 +36,7 @@ from rich.table import Table
 from rich.traceback import install as install_rich_traceback
 
 from sprintcycle.api import SprintCycle
+from sprintcycle.execution.state.wire_compat import dict_plan_name
 from sprintcycle.logging_setup import configure_sprintcycle_logging
 from sprintcycle.results import (
     DiagnoseResult,
@@ -219,7 +220,7 @@ def _print_status(r: StatusResult) -> None:
             t.add_row(
                 escape(str(e.get("execution_id", "?"))),
                 escape(str(e.get("status", "?"))),
-                escape(str(e.get("release_plan_name") or e.get("prd_name", ""))),
+                escape(dict_plan_name(e)),
                 f"{e.get('current_sprint', 0)}/{e.get('total_sprints', 0)}",
             )
         console.print(t)

@@ -1,10 +1,10 @@
 """
 Diagnostic Module - 项目诊断模块
 
-提供多维度项目体检和PRD生成能力:
+提供多维度项目体检与 **进化用执行计划**（``EvolutionReleasePlan``）生成能力:
 - ProjectDiagnostic: 项目诊断提供者
 - ProjectHealthReport: 健康报告
-- DiagnosticPRDGenerator: PRD生成器
+- DiagnosticReleasePlanGenerator / ReleasePlanRuleEngine: 规则 + LLM 生成计划
 """
 
 from .health_report import (
@@ -16,11 +16,12 @@ from .provider import (
     ProjectDiagnostic,
 )
 from .release_plan_generator import (
-    DiagnosticPRDGenerator,
-    LLMPRDGenerator,
-    PRDRuleEngine,
-    PRDRulePriority,
+    DiagnosticReleasePlanGenerator,
+    LLMReleasePlanGenerator,
+    ReleasePlanRuleEngine,
+    ReleasePlanRulePriority,
 )
+from .release_plan_rules import ReleasePlanRule
 
 __all__ = [
     # 健康报告
@@ -29,9 +30,10 @@ __all__ = [
     "Severity",
     # 诊断提供者
     "ProjectDiagnostic",
-    # PRD生成器
-    "DiagnosticPRDGenerator",
-    "PRDRuleEngine",
-    "LLMPRDGenerator",
-    "PRDRulePriority",
+    # 执行计划生成（进化子域用 EvolutionReleasePlan）
+    "DiagnosticReleasePlanGenerator",
+    "ReleasePlanRuleEngine",
+    "ReleasePlanRule",
+    "LLMReleasePlanGenerator",
+    "ReleasePlanRulePriority",
 ]

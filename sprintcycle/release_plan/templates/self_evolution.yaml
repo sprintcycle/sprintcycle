@@ -1,12 +1,12 @@
-# SprintCycle 自进化 PRD 模板
-# 适用于：优化 SprintCycle 框架本身
+# SprintCycle 自进化计划模板
+# 执行时仅依据 evolution.targets + goals/constraints，由编排器展开为标准 Sprint（architect → coder → tester → regression_tester）。
 
 project:
   name: "sprintcycle"
   path: "/root/sprintcycle"
   version: "v0.6.0"
 
-mode: "evolution"  # 自进化模式
+mode: "evolution"
 
 evolution:
   targets:
@@ -24,50 +24,5 @@ evolution:
   max_variations: 5
   iterations: 3
 
-sprints:
-  - name: "Sprint 1: 引擎优化"
-    goals:
-      - "减少进化耗时 30%"
-      - "优化内存使用"
-    tasks:
-      - description: |
-          优化 EvolutionEngine.evolve_code 方法
-          - 减少不必要的文件读写
-          - 优化基因选择算法
-        agent: "evolver"
-        target: "sprintcycle/evolution/engine.py"
-        constraints:
-          - "保持方法签名不变"
-          - "向后兼容"
-
-      - description: |
-          优化进化客户端请求
-        agent: "evolver"
-        target: "sprintcycle/evolution/client.py"
-
-  - name: "Sprint 2: 调度器优化"
-    goals:
-      - "改进任务分配策略"
-      - "增强错误处理"
-    tasks:
-      - description: |
-          优化任务调度算法
-          - 实现优先级队列
-          - 优化并发控制
-        agent: "evolver"
-        target: "sprintcycle/orchestration/sprint_orchestrator.py"
-
-  - name: "Sprint 3: 验收测试"
-    goals:
-      - "确保优化效果"
-      - "验证兼容性"
-    tasks:
-      - description: |
-          运行集成测试套件
-        agent: "tester"
-        target: "tests/"
-
-      - description: |
-          性能基准测试
-        agent: "tester"
-        timeout: 3600
+# 可为空；非空时仅作文档参考，执行阶段仍按 targets 重新展开
+sprints: []

@@ -1,16 +1,16 @@
 """
 SprintCycle Evolution Module
 
-v0.9.0: 统一进化管道 — ``EvolutionPipeline`` + ``EvolutionPlanSource`` + Diagnostic；人工 YAML 默认目录 **`release_plan/`**（见 ``ManualPRDSource``）。
+v0.9.0: 统一进化管道 — ``EvolutionPipeline`` + ``EvolutionPlanSource`` + Diagnostic；人工 YAML 默认目录 **`release_plan/`**（见 ``ManualReleasePlanSource``）。
 """
 
 # ========== Core Types ==========
 from .evolution_plan_source import (
-    DiagnosticPRDSource,
+    DiagnosticReleasePlanSource,
     EvolutionPlanSource,
     EvolutionPlanSourceType,
     EvolutionReleasePlan,
-    ManualPRDSource,
+    ManualReleasePlanSource,
 )
 
 # ========== Components (retained) ==========
@@ -44,8 +44,8 @@ __all__ = [
     "EvolutionReleasePlanResult",
     "SprintExecutionResult",
     "EvolutionPlanSource",
-    "ManualPRDSource",
-    "DiagnosticPRDSource",
+    "ManualReleasePlanSource",
+    "DiagnosticReleasePlanSource",
     "EvolutionReleasePlan",
     "EvolutionPlanSourceType",
     "MeasurementProvider",

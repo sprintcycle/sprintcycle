@@ -151,10 +151,10 @@ def test_quality_gate_l2_coverage_fail():
 
 def test_sprint_executor_retry_budget():
     from sprintcycle.execution.sprint_executor import SprintExecutor
-    from sprintcycle.release_plan.models import PRDSprint
+    from sprintcycle.release_plan.models import SprintDefinition
 
     ex = SprintExecutor(max_verify_fix_rounds=3)
-    sp = PRDSprint(name="s", goals=[], tasks=[])
+    sp = SprintDefinition(name="s", goals=[], tasks=[])
     object.__setattr__(sp, "_retry_count", 2)
     assert ex._should_retry(sp) is True
     object.__setattr__(sp, "_retry_count", 3)

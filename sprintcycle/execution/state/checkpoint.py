@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional
 
 from loguru import logger
 
-from ...release_plan.models import PRD
+from ...release_plan.models import ReleasePlan
 from ..sprint_types import ExecutionStatus, SprintResult
 from .state_store import ExecutionState, StateStore
 
@@ -18,13 +18,13 @@ class CheckpointMixin:
     """断点续传 Mixin，需与拥有 state_store / _execution_id / _release_plan 属性的类配合使用"""
 
     _execution_id: str
-    _release_plan: Optional["PRD"]
+    _release_plan: Optional["ReleasePlan"]
 
     @property
     def state_store(self) -> "StateStore":
         raise NotImplementedError  # provided by SprintExecutor
 
-    def _init_execution_state(self, release_plan: Optional[PRD] = None) -> str:
+    def _init_execution_state(self, release_plan: Optional[ReleasePlan] = None) -> str:
         if self._execution_id is None:
             self._execution_id: str = f"exec_{uuid.uuid4().hex[:8]}"
 

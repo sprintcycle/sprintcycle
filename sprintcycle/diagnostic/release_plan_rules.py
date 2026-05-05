@@ -1,19 +1,21 @@
 """
-PRD Rule Engine - PRD 规则引擎
+ReleasePlan Rule Engine - ReleasePlan 规则引擎
 
-规则优先层：基于诊断报告的规则匹配和 PRD 生成。
+规则优先层：基于诊断报告的规则匹配和 ReleasePlan 生成。
 """
 
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, List
 
+from loguru import logger
+
 from ..evolution.evolution_plan_source import EvolutionPlanSourceType, EvolutionReleasePlan
 from .health_report import ProjectHealthReport
 
 
-class PRDRulePriority(Enum):
-    """PRD规则优先级"""
+class ReleasePlanRulePriority(Enum):
+    """执行计划规则优先级（诊断规则引擎）。"""
     P0_CRITICAL = 0  # 必须修复
     P1_HIGH = 1  # 强烈建议
     P2_MEDIUM = 2  # 建议
@@ -21,20 +23,18 @@ class PRDRulePriority(Enum):
 
 
 @dataclass
-class PRDRule:
+class ReleasePlanRule:
     """
-    PRD生成规则
-    
-    定义一个诊断规则和对应的PRD生成逻辑
+    单条诊断规则：匹配条件 + 生成 ``EvolutionReleasePlan`` 的工厂。
     """
     name: str
-    priority: PRDRulePriority
+    priority: ReleasePlanRulePriority
     check: Any  # 检查函数
-    generate: Any  # PRD生成函数
+    generate: Any  # 生成函数
     threshold: float = 0.0  # 触发阈值
 
 
-class PRDRuleEngine:
+class ReleasePlanRuleEngine:
     """
     预定义5条核心规则:
     1. TestFailure: 测试失败规则
@@ -45,52 +45,52 @@ class PRDRuleEngine:
     """
 
     def __init__(self):
-        self._rules: List[PRDRule] = [
+        self._rules: List[ReleasePlanRule] = [
             # 规则1: 测试失败
-            PRDRule(
+            ReleasePlanRule(
                 name="test_failure",
-                priority=PRDRulePriority.P0_CRITICAL,
+                priority=ReleasePlanRulePriority.P0_CRITICAL,
                 check=lambda r: r.test_failures > 0,
-                generate=lambda r, p: self._gen_fix_tests_prd(r, p),
+                generate=lambda r, p: self._gen_fix_tests_plan(r, p),
                 threshold=0,
             ),
             # 规则2: 类型错误
-            PRDRule(
+            ReleasePlanRule(
                 name="type_error",
-                priority=PRDRulePriority.P0_CRITICAL,
+                priority=ReleasePlanRulePriority.P0_CRITICAL,
                 check=lambda r: r.mypy_errors > 0,
-                generate=lambda r, p: self._gen_fix_types_prd(r, p),
+                generate=lambda r, p: self._gen_fix_types_plan(r, p),
                 threshold=0,
             ),
             # 规则3: 覆盖率不足
-            PRDRule(
+            ReleasePlanRule(
                 name="low_coverage",
-                priority=PRDRulePriority.P1_HIGH,
+                priority=ReleasePlanRulePriority.P1_HIGH,
                 check=lambda r: r.coverage_total < 70,
-                generate=lambda r, p: self._gen_coverage_prd(r, p),
+                generate=lambda r, p: self._gen_coverage_plan(r, p),
                 threshold=70,
             ),
             # 规则4: 高复杂度
-            PRDRule(
+            ReleasePlanRule(
                 name="high_complexity",
-                priority=PRDRulePriority.P2_MEDIUM,
+                priority=ReleasePlanRulePriority.P2_MEDIUM,
                 check=lambda r: r.complexity_high > 5,
-                generate=lambda r, p: self._gen_refactor_prd(r, p),
+                generate=lambda r, p: self._gen_refactor_plan(r, p),
                 threshold=5,
             ),
             # 规则5: 循环依赖
-            PRDRule(
+            ReleasePlanRule(
                 name="circular_dependency",
-                priority=PRDRulePriority.P1_HIGH,
+                priority=ReleasePlanRulePriority.P1_HIGH,
                 check=lambda r: len(r.circular_deps) > 0,
-                generate=lambda r, p: self._gen_fix_circular_prd(r, p),
+                generate=lambda r, p: self._gen_fix_circular_plan(r, p),
                 threshold=0,
             ),
         ]
 
     def evaluate(self, report: ProjectHealthReport) -> List[EvolutionReleasePlan]:
         """
-        评估报告并生成PRD
+        评估报告并生成进化用执行计划草案
         
         Args:
             report: 健康报告
@@ -98,23 +98,23 @@ class PRDRuleEngine:
         Returns:
             EvolutionReleasePlan列表
         """
-        prds = []
+        plans: List[EvolutionReleasePlan] = []
 
         for rule in self._rules:
             try:
                 if rule.check(report):
-                    prd = rule.generate(report, report.target)
-                    if prd:
-                        prds.append(prd)
+                    plan = rule.generate(report, report.target)
+                    if plan:
+                        plans.append(plan)
             except Exception as e:
                 logger.opt(exception=True).warning("规则 {} 执行失败: {}", rule.name, e)
 
-        return prds
+        return plans
 
-    def _gen_fix_tests_prd(
+    def _gen_fix_tests_plan(
         self, report: ProjectHealthReport, project_path: str
     ) -> EvolutionReleasePlan:
-        """生成修复测试的PRD"""
+        """生成「修复测试」类进化计划草案。"""
         return EvolutionReleasePlan(
             name="修复测试失败",
             version="v1.0.0",
@@ -143,10 +143,10 @@ class PRDRuleEngine:
             priority=90,
         )
 
-    def _gen_fix_types_prd(
+    def _gen_fix_types_plan(
         self, report: ProjectHealthReport, project_path: str
     ) -> EvolutionReleasePlan:
-        """生成修复类型错误的PRD"""
+        """生成「修复类型错误」类进化计划草案。"""
         return EvolutionReleasePlan(
             name="修复类型错误",
             version="v1.0.0",
@@ -175,10 +175,10 @@ class PRDRuleEngine:
             priority=85,
         )
 
-    def _gen_coverage_prd(
+    def _gen_coverage_plan(
         self, report: ProjectHealthReport, project_path: str
     ) -> EvolutionReleasePlan:
-        """生成提升覆盖率的PRD"""
+        """生成「提升覆盖率」类进化计划草案。"""
         target_coverage = max(report.coverage_total + 15, 80)
 
         # 找出覆盖率最低的模块
@@ -227,10 +227,10 @@ class PRDRuleEngine:
             priority=70,
         )
 
-    def _gen_refactor_prd(
+    def _gen_refactor_plan(
         self, report: ProjectHealthReport, project_path: str
     ) -> EvolutionReleasePlan:
-        """生成重构高复杂度代码的PRD"""
+        """生成「重构高复杂度」类进化计划草案。"""
         return EvolutionReleasePlan(
             name="重构高复杂度函数",
             version="v1.0.0",
@@ -262,10 +262,10 @@ class PRDRuleEngine:
             priority=50,
         )
 
-    def _gen_fix_circular_prd(
+    def _gen_fix_circular_plan(
         self, report: ProjectHealthReport, project_path: str
     ) -> EvolutionReleasePlan:
-        """生成修复循环依赖的PRD"""
+        """生成「修复循环依赖」类进化计划草案。"""
         return EvolutionReleasePlan(
             name="消除循环依赖",
             version="v1.0.0",

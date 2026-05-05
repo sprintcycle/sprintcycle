@@ -9,7 +9,7 @@ from loguru import logger
 if TYPE_CHECKING:
     from ...config.runtime_config import RuntimeConfig
     from ...evolution.measurement import MeasurementResult
-    from ...release_plan.models import PRD, PRDSprint
+    from ...release_plan.models import ReleasePlan, SprintDefinition
     from ..sprint_types import SprintResult
 
 
@@ -18,9 +18,9 @@ def persist_sprint_outcome_card(
     *,
     project_path: str,
     config: "RuntimeConfig",
-    release_plan: "PRD",
+    release_plan: "ReleasePlan",
     sprint_index: int,
-    sprint: "PRDSprint",
+    sprint: "SprintDefinition",
     sprint_result: "SprintResult",
     measurement: Optional["MeasurementResult"],
 ) -> Optional[str]:

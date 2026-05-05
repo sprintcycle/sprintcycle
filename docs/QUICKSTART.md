@@ -6,7 +6,7 @@
 
 | 你看到的名字 | Scrum 里怎么理解 |
 |--------------|------------------|
-| **ReleasePlan / plan YAML** | 多 Sprint 的**可执行交付计划**（非整份 Product Backlog）；根包 `from sprintcycle import ReleasePlan` 或 `sprintcycle.scrum`。 |
+| **ReleasePlan / plan YAML** | 多 Sprint 的**可执行交付计划**（非整份 Product Backlog）；根包 `from sprintcycle import ReleasePlan` 与 `release_plan.models` 为同一类型。 |
 | **`PRDSprint` / `sprints[]`** | 一次 **Sprint**：`goals` ≈ Sprint Goal；`tasks` ≈ Sprint Backlog。 |
 | **`PRDTask` / YAML `description:`** | Sprint 内一条工作说明，≈ **Sprint Backlog Item**；别名 `SprintBacklogItem`；代码字段 **`description`**。 |
 | **`SprintOrchestrator`** | **Sprint 执行编排**（`orchestration` 主实现）。 |

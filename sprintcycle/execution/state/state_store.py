@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 from loguru import logger
 
 from ..sprint_types import ExecutionStatus
+from .wire_compat import checkpoint_plan_yaml
 
 if TYPE_CHECKING:
     from ...config.runtime_config import RuntimeConfig
@@ -100,10 +101,8 @@ class ExecutionState:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "ExecutionState":
-        """从字典创建（兼容旧字段 prd_name）。"""
+        """从字典创建（字段名与 ``to_dict`` / 断点结构一致，使用 ``release_plan_*`` 键）。"""
         data = data.copy()
-        if "release_plan_name" not in data and "prd_name" in data:
-            data["release_plan_name"] = data.pop("prd_name")
         data["status"] = ExecutionStatus(data["status"])
         return cls(**data)
 
@@ -236,7 +235,7 @@ class StateStore:
             sprint_idx: 当前 Sprint 索引
             sprint_name: Sprint 名称
             task_results: 任务结果列表
-            release_plan_yaml: 执行计划 YAML（用于恢复；旧数据键为 prd_yaml）
+            release_plan_yaml: 执行计划 YAML（用于恢复；断点键名为 ``release_plan_yaml``）
             
         Returns:
             是否成功创建
@@ -286,9 +285,7 @@ class StateStore:
         state = self.load(execution_id)
         if state and state.checkpoint:
             cp = state.checkpoint
-            yml = cp.get("release_plan_yaml")
-            if yml is None:
-                yml = cp.get("prd_yaml")
+            yml = checkpoint_plan_yaml(cp)
             return {
                 "current_sprint": cp.get("sprint_idx", 0),
                 "sprint_name": cp.get("sprint_name", ""),

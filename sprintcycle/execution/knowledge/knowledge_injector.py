@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, List, Optional
 from loguru import logger
 
 if TYPE_CHECKING:
-    from ...release_plan.models import PRD, PRDSprint
+    from ...release_plan.models import ReleasePlan, SprintDefinition
 
 
 RELEASE_PLAN_OVERLAY_FILENAME = "release_plan_overlay.yaml"
@@ -63,8 +63,8 @@ class KnowledgeInjector:
     def inject_for_sprint(
         self,
         project_path: str,
-        sprint: "PRDSprint",
-        release_plan: Optional["PRD"],
+        sprint: "SprintDefinition",
+        release_plan: Optional["ReleasePlan"],
         *,
         max_cards: int = 8,
         persist_overlay: bool = True,

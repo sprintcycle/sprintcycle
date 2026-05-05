@@ -3,15 +3,16 @@ Agent 执行器模块
 
 提供多种 Agent 执行器实现：
 - CoderAgent: 代码编写（含批量处理和缓存）
-- EvolverAgent: 代码进化优化
 - TesterAgent: 测试验证
 - BugAnalyzerAgent: Bug 分析与修复
 - ArchitectureAgent: 架构设计
 - RegressionTestAgent: 回归测试
 
+``EvolutionPath`` 定义于 ``release_plan.expand``（自进化展开时的策略维度枚举）。
+
 使用方式：
 ```python
-from sprintcycle.execution.agents import CoderAgent, EvolverAgent, TesterAgent, BugAnalyzerAgent
+from sprintcycle.execution.agents import CoderAgent, TesterAgent, BugAnalyzerAgent
 
 # Coder Agent
 coder = CoderAgent()
@@ -21,10 +22,6 @@ result = await coder.execute("实现登录功能", context)
 from sprintcycle.execution.agents import BatchTask, BatchConfig
 tasks = [BatchTask(task="task1", context=ctx), BatchTask(task="task2", context=ctx)]
 results = await coder.execute_batch(tasks)
-
-# Evolver Agent
-evolver = EvolverAgent(strategy="performance")
-result = await evolver.execute("优化性能", context)
 
 # Tester Agent
 tester = TesterAgent(test_type="unit")
@@ -36,6 +33,7 @@ result = await analyzer.execute("分析并修复 NameError", context)
 ```
 """
 
+from ...release_plan.expand import EvolutionPath
 from .analyzer import BugAnalyzerAgent
 from .architect import ArchitectureAgent
 from .base import AgentContext, AgentExecutor, AgentResult, AgentType
@@ -51,7 +49,6 @@ from .bug_models import (
 )
 from .coder_base import CoderAgent
 from .coder_types import BatchConfig, BatchTask
-from .evolver import EvolutionPath, EvolutionStrategy, EvolverAgent
 from .regression_tester import RegressionTestAgent
 from .tester import TestCase, TesterAgent, TestResult, TestType
 
@@ -65,10 +62,7 @@ __all__ = [
     "CoderAgent",
     "BatchTask",
     "BatchConfig",
-    # Evolver Agent
-    "EvolverAgent",
     "EvolutionPath",
-    "EvolutionStrategy",
     # Tester Agent
     "TesterAgent",
     "TestCase",

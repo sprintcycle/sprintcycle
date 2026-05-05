@@ -215,7 +215,7 @@ class SprintCycleMCPServer:
             intent=args["intent"],
             mode=args.get("mode", "auto"),
             target=args.get("target"),
-            release_plan_path=args.get("release_plan_path") or args.get("prd_path"),
+            release_plan_path=args.get("release_plan_path"),
             product=args.get("product"),
         )
         return _text_response(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
@@ -225,8 +225,8 @@ class SprintCycleMCPServer:
             intent=args.get("intent"),
             mode=args.get("mode", "auto"),
             target=args.get("target"),
-            release_plan_yaml=args.get("release_plan_yaml") or args.get("prd_yaml"),
-            release_plan_path=args.get("release_plan_path") or args.get("prd_path"),
+            release_plan_yaml=args.get("release_plan_yaml"),
+            release_plan_path=args.get("release_plan_path"),
             product=args.get("product"),
             execution_id=args.get("execution_id"),
             resume=args.get("resume", False),

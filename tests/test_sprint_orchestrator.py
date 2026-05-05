@@ -6,14 +6,10 @@ import pytest
 import asyncio
 
 from sprintcycle.config import RuntimeConfig
-from sprintcycle.orchestration.sprint_orchestrator import (
-    ExecutionStatus,
-    SprintOrchestrator,
-    SprintResult,
-    TaskResult,
-)
+from sprintcycle.execution.sprint_types import ExecutionStatus, SprintResult, TaskResult
+from sprintcycle.orchestration.sprint_orchestrator import SprintOrchestrator
 from sprintcycle.release_plan.models import (
-    PRD, PRDProject, PRDSprint, PRDTask, ExecutionMode
+    ReleasePlan, ProductAnchor, SprintDefinition, SprintBacklogItem, ExecutionMode
 )
 
 
@@ -29,25 +25,25 @@ class TestSprintOrchestrator:
         assert self.orchestrator is not None
         assert self.orchestrator.evolution_pipeline is None
     
-    def test_execute_normal_prd(self):
-        """测试执行普通 PRD"""
-        prd = PRD(
-            project=PRDProject(name="test", path="/root/test"),
+    def test_execute_normal_release_plan(self):
+        """测试执行普通 ReleasePlan"""
+        plan = ReleasePlan(
+            project=ProductAnchor(name="test", path="/root/test"),
             mode=ExecutionMode.NORMAL,
             sprints=[
-                PRDSprint(
+                SprintDefinition(
                     name="Sprint 1",
                     goals=["完成开发"],
                     tasks=[
-                        PRDTask(description="实现功能 A", agent="coder"),
-                        PRDTask(description="实现功能 B", agent="coder"),
+                        SprintBacklogItem(description="实现功能 A", agent="coder"),
+                        SprintBacklogItem(description="实现功能 B", agent="coder"),
                     ]
                 ),
             ]
         )
         
         # 同步运行
-        results = asyncio.run(self.orchestrator.execute_release_plan(prd))
+        results = asyncio.run(self.orchestrator.execute_release_plan(plan))
         
         assert len(results) == 1
         assert results[0].sprint.name == "Sprint 1"
@@ -55,31 +51,52 @@ class TestSprintOrchestrator:
     
     def test_execute_multiple_sprints(self):
         """测试执行多个 Sprint"""
-        prd = PRD(
-            project=PRDProject(name="test", path="/root/test"),
+        plan = ReleasePlan(
+            project=ProductAnchor(name="test", path="/root/test"),
             mode=ExecutionMode.NORMAL,
             sprints=[
-                PRDSprint(
+                SprintDefinition(
                     name="Sprint 1",
                     tasks=[
-                        PRDTask(description="任务 1", agent="coder"),
+                        SprintBacklogItem(description="任务 1", agent="coder"),
                     ]
                 ),
-                PRDSprint(
+                SprintDefinition(
                     name="Sprint 2",
                     tasks=[
-                        PRDTask(description="任务 2", agent="coder"),
+                        SprintBacklogItem(description="任务 2", agent="coder"),
                     ]
                 ),
             ]
         )
         
-        results = asyncio.run(self.orchestrator.execute_release_plan(prd))
+        results = asyncio.run(self.orchestrator.execute_release_plan(plan))
         
         assert len(results) == 2
         assert results[0].sprint.name == "Sprint 1"
         assert results[1].sprint.name == "Sprint 2"
-    
+
+    def test_execute_evolution_expands_to_sprints(self):
+        """自进化模式经展开后与 SprintExecutor 单一路径一致。"""
+        from sprintcycle.release_plan.models import EvolutionParams
+
+        plan = ReleasePlan(
+            project=ProductAnchor(name="evo", path="/root/test"),
+            mode=ExecutionMode.EVOLUTION,
+            evolution=EvolutionParams(
+                targets=["src/x.py"],
+                goals=["提升可读性"],
+                constraints=["保持 API 兼容"],
+            ),
+            sprints=[],
+        )
+        results = asyncio.run(self.orchestrator.execute_release_plan(plan))
+        assert len(results) == 1
+        assert results[0].sprint.name == "进化: src/x.py"
+        assert len(results[0].task_results) == 4
+        agents = [tr.work_item.agent for tr in results[0].task_results]
+        assert agents == ["architect", "coder", "tester", "regression_tester"]
+
     def test_get_summary(self):
         """测试获取摘要"""
         summary = self.orchestrator.get_summary()
@@ -94,7 +111,7 @@ class TestTaskResult:
     
     def test_task_result_creation(self):
         """测试创建任务结果"""
-        task = PRDTask(description="测试任务", agent="coder")
+        task = SprintBacklogItem(description="测试任务", agent="coder")
         result = TaskResult(
             work_item=task,
             sprint_name="Sprint 1",
@@ -109,7 +126,7 @@ class TestTaskResult:
     
     def test_task_result_to_dict(self):
         """测试任务结果序列化"""
-        task = PRDTask(description="测试任务", agent="coder", target="src/main.py")
+        task = SprintBacklogItem(description="测试任务", agent="coder", target="src/main.py")
         result = TaskResult(
             work_item=task,
             sprint_name="Sprint 1",
@@ -128,12 +145,12 @@ class TestSprintResult:
     
     def test_sprint_result_calculations(self):
         """测试 Sprint 结果计算"""
-        sprint = PRDSprint(
+        sprint = SprintDefinition(
             name="Sprint 1",
             tasks=[
-                PRDTask(description="任务1", agent="coder"),
-                PRDTask(description="任务2", agent="coder"),
-                PRDTask(description="任务3", agent="coder"),
+                SprintBacklogItem(description="任务1", agent="coder"),
+                SprintBacklogItem(description="任务2", agent="coder"),
+                SprintBacklogItem(description="任务3", agent="coder"),
             ]
         )
         
@@ -168,7 +185,7 @@ class TestSprintResult:
     
     def test_sprint_result_empty(self):
         """测试空 Sprint 结果"""
-        sprint = PRDSprint(name="Sprint 1", tasks=[])
+        sprint = SprintDefinition(name="Sprint 1", tasks=[])
         sprint_result = SprintResult(
             sprint=sprint,
             status=ExecutionStatus.SKIPPED,

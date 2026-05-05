@@ -7,7 +7,7 @@ from typing import Dict, Optional
 from loguru import logger
 
 from ...config import RuntimeConfig
-from ...release_plan.models import PRD, PRDSprint
+from ...release_plan.models import ReleasePlan, SprintDefinition
 from ..hooks.sprint_hooks import SprintLifecycleHooks
 from ..sprint_types import SprintResult
 from .knowledge_injector import KnowledgeInjector
@@ -33,9 +33,9 @@ class KnowledgeInjectionHook(SprintLifecycleHooks):
     async def on_before_sprint(
         self,
         sprint_index: int,
-        sprint: PRDSprint,
+        sprint: SprintDefinition,
         context: Dict[str, Any],
-        release_plan: Optional[PRD],
+        release_plan: Optional[ReleasePlan],
     ) -> None:
         if not self._enabled():
             return
@@ -53,9 +53,9 @@ class KnowledgeInjectionHook(SprintLifecycleHooks):
     async def on_after_sprint(
         self,
         sprint_index: int,
-        sprint: PRDSprint,
+        sprint: SprintDefinition,
         result: SprintResult,
         context: Dict[str, Any],
-        release_plan: Optional[PRD],
+        release_plan: Optional[ReleasePlan],
     ) -> None:
         return None

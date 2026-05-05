@@ -16,7 +16,7 @@ class ActionType(Enum):
     BUILD = "normal"       # 构建、开发、添加
     FIX = "fix"            # 修复、解决
     TEST = "test"          # 测试
-    RUN = "run"            # 执行 PRD 文件
+    RUN = "run"            # 执行 ReleasePlan 文件
     UNKNOWN = "normal"     # 未知，默认普通模式
 
 
@@ -73,7 +73,7 @@ class IntentParser:
     ) -> ParsedIntent:
         """解析用户意图"""
 
-        # 检查是否是 PRD 文件路径
+        # 检查是否是 ReleasePlan 文件路径
         release_plan_file = self._extract_release_plan_path(intent)
 
         # 如果用户指定了模式，直接使用

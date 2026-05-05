@@ -56,7 +56,7 @@ class TestDashboardPlan:
             mock_sc.return_value = mock_instance
             mock_instance.plan.return_value = PlanResult(
                 success=True,
-                release_plan_yaml="# PRD content",
+                release_plan_yaml="# ReleasePlan content",
                 sprints=[{"name": "Sprint 1", "tasks": ["Task 1"]}],
                 mode="auto",
                 release_plan_name="TestProject",
@@ -82,7 +82,7 @@ class TestDashboardPlan:
             mock_sc.return_value = mock_instance
             mock_instance.plan.return_value = PlanResult(
                 success=True,
-                release_plan_yaml="# PRD",
+                release_plan_yaml="# ReleasePlan",
                 sprints=[],
                 mode="evolution",
                 release_plan_name="Test",
@@ -134,7 +134,7 @@ class TestDashboardRun:
             assert data['execution_id'] == "exec-123"
 
     def test_dashboard_run_with_release_plan_yaml(self, temp_project):
-        """run accepts release_plan_yaml (legacy prd_yaml alias)"""
+        """run forwards release_plan_yaml to SprintCycle.run"""
         release_plan_yaml = """
 project:
   name: "YAMLProject"

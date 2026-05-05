@@ -1,5 +1,5 @@
 """
-PRD 解析器单元测试
+ReleasePlan 解析器单元测试
 """
 
 import pytest
@@ -7,20 +7,20 @@ import tempfile
 import os
 from pathlib import Path
 
-from sprintcycle.release_plan.parser import PRDParser, PRDParseError, YAMLError
-from sprintcycle.release_plan.models import PRD, ExecutionMode
+from sprintcycle.release_plan.parser import ReleasePlanParser, ReleasePlanParseError, YAMLError
+from sprintcycle.release_plan.models import ReleasePlan, ExecutionMode
 
 
-class TestPRDParser:
-    """PRD 解析器测试"""
+class TestReleasePlanParser:
+    """ReleasePlan 解析器测试"""
     
     def setup_method(self):
         """测试前准备"""
-        self.parser = PRDParser()
+        self.parser = ReleasePlanParser()
     
-    def test_parse_valid_prd(self):
-        """测试解析有效 PRD"""
-        prd_content = """
+    def test_parse_valid_yaml(self):
+        """测试解析有效执行计划 YAML"""
+        yaml_src = """
 project:
   name: "test-project"
   path: "/root/test"
@@ -38,20 +38,20 @@ sprints:
         agent: "coder"
         target: "src/main.py"
 """
-        prd = self.parser.parse_string(prd_content)
+        plan = self.parser.parse_string(yaml_src)
         
-        assert prd.project.name == "test-project"
-        assert prd.project.path == "/root/test"
-        assert prd.project.version == "v1.0.0"
-        assert prd.mode == ExecutionMode.NORMAL
-        assert len(prd.sprints) == 1
-        assert prd.sprints[0].name == "Sprint 1"
-        assert len(prd.sprints[0].tasks) == 1
-        assert prd.sprints[0].tasks[0].agent == "coder"
+        assert plan.project.name == "test-project"
+        assert plan.project.path == "/root/test"
+        assert plan.project.version == "v1.0.0"
+        assert plan.mode == ExecutionMode.NORMAL
+        assert len(plan.sprints) == 1
+        assert plan.sprints[0].name == "Sprint 1"
+        assert len(plan.sprints[0].tasks) == 1
+        assert plan.sprints[0].tasks[0].agent == "coder"
     
-    def test_parse_evolution_prd(self):
-        """测试解析自进化 PRD"""
-        prd_content = """
+    def test_parse_evolution_yaml(self):
+        """测试解析自进化模式 YAML"""
+        yaml_src = """
 project:
   name: "sprintcycle"
   path: "/root/sprintcycle"
@@ -74,19 +74,19 @@ sprints:
     tasks:
       - description: |
           优化引擎
-        agent: "evolver"
+        agent: "coder"
         target: "sprintcycle/evolution/engine.py"
 """
-        prd = self.parser.parse_string(prd_content)
+        plan = self.parser.parse_string(yaml_src)
         
-        assert prd.is_evolution_mode
-        assert prd.evolution is not None
-        assert len(prd.evolution.targets) == 2
-        assert "优化性能" in prd.evolution.goals
+        assert plan.is_evolution_mode
+        assert plan.evolution is not None
+        assert len(plan.evolution.targets) == 2
+        assert "优化性能" in plan.evolution.goals
     
     def test_parse_empty_file(self):
         """测试解析空文件"""
-        with pytest.raises(PRDParseError):
+        with pytest.raises(ReleasePlanParseError):
             self.parser.parse_string("")
     
     def test_parse_invalid_yaml(self):
@@ -101,7 +101,7 @@ project:
     
     def test_parse_missing_project_name(self):
         """测试解析缺少项目名"""
-        prd_content = """
+        yaml_src = """
 project:
   path: "/root/test"
 
@@ -111,19 +111,19 @@ sprints:
       - description: "实现功能"
         agent: "coder"
 """
-        with pytest.raises(PRDParseError) as exc_info:
-            self.parser.parse_string(prd_content)
+        with pytest.raises(ReleasePlanParseError) as exc_info:
+            self.parser.parse_string(yaml_src)
         assert "project.name" in str(exc_info.value)
     
     def test_parse_missing_sprints(self):
         """测试解析缺少 sprints"""
-        prd_content = """
+        yaml_src = """
 project:
   name: "test"
   path: "/root/test"
 """
-        with pytest.raises(PRDParseError) as exc_info:
-            self.parser.parse_string(prd_content)
+        with pytest.raises(ReleasePlanParseError) as exc_info:
+            self.parser.parse_string(yaml_src)
         assert "sprints" in str(exc_info.value)
     
     def test_parse_file(self):
@@ -144,57 +144,57 @@ sprints:
             temp_path = f.name
         
         try:
-            prd = self.parser.parse_file(temp_path)
-            assert prd.project.name == "test-file"
+            plan = self.parser.parse_file(temp_path)
+            assert plan.project.name == "test-file"
         finally:
             os.unlink(temp_path)
     
     def test_parse_file_not_exists(self):
         """测试文件不存在"""
-        with pytest.raises(PRDParseError) as exc_info:
+        with pytest.raises(ReleasePlanParseError) as exc_info:
             self.parser.parse_file("/nonexistent/file.yaml")
         assert "文件不存在" in str(exc_info.value)
 
 
-class TestPRDModels:
-    """PRD 模型测试"""
+class TestReleasePlanModels:
+    """ReleasePlan 模型测试"""
     
-    def test_prd_total_tasks(self):
+    def test_release_plan_total_tasks(self):
         """测试总任务数计算"""
-        from sprintcycle.release_plan.models import PRDProject, PRDSprint, PRDTask
+        from sprintcycle.release_plan.models import ProductAnchor, SprintDefinition, SprintBacklogItem
         
-        prd = PRD(
-            project=PRDProject(name="test", path="/root/test"),
+        plan = ReleasePlan(
+            project=ProductAnchor(name="test", path="/root/test"),
             sprints=[
-                PRDSprint(
+                SprintDefinition(
                     name="Sprint 1",
                     tasks=[
-                        PRDTask(description="task1", agent="coder"),
-                        PRDTask(description="task2", agent="coder"),
+                        SprintBacklogItem(description="task1", agent="coder"),
+                        SprintBacklogItem(description="task2", agent="coder"),
                     ]
                 ),
-                PRDSprint(
+                SprintDefinition(
                     name="Sprint 2",
                     tasks=[
-                        PRDTask(description="task3", agent="tester"),
+                        SprintBacklogItem(description="task3", agent="tester"),
                     ]
                 ),
             ]
         )
         
-        assert prd.total_tasks == 3
+        assert plan.total_tasks == 3
     
-    def test_prd_to_dict(self):
-        """测试 PRD 序列化"""
-        from sprintcycle.release_plan.models import PRDProject
+    def test_release_plan_to_dict(self):
+        """测试 ReleasePlan 序列化"""
+        from sprintcycle.release_plan.models import ProductAnchor
         
-        prd = PRD(
-            project=PRDProject(name="test", path="/root/test"),
+        plan = ReleasePlan(
+            project=ProductAnchor(name="test", path="/root/test"),
         )
         
-        prd_dict = prd.to_dict()
-        assert prd_dict["project"]["name"] == "test"
-        assert prd_dict["mode"] == "normal"
+        out_dict = plan.to_dict()
+        assert out_dict["project"]["name"] == "test"
+        assert out_dict["mode"] == "normal"
 
 
 if __name__ == "__main__":

@@ -47,7 +47,7 @@ class TestBugAnalyzerAgent:
     def context(self):
         """创建测试上下文"""
         return AgentContext(
-            release_plan_id="test_prd",
+            release_plan_id="test_release_plan",
             sprint_name="Test Sprint",
         )
     

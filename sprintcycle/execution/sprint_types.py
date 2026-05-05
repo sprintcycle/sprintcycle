@@ -28,7 +28,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from ..release_plan.models import PRDSprint, PRDTask
+from ..release_plan.models import SprintDefinition, SprintBacklogItem
 
 
 class ExecutionStatus(Enum):
@@ -55,8 +55,8 @@ class ExecutionStatus(Enum):
 
 @dataclass
 class TaskResult:
-    """单条 Sprint Backlog Item 的执行结果（``work_item`` 为 ``PRDTask`` 工作项定义）。"""
-    work_item: PRDTask
+    """单条 Sprint Backlog Item 的执行结果（``work_item`` 为 ``SprintBacklogItem`` 工作项定义）。"""
+    work_item: SprintBacklogItem
     sprint_name: str
     status: ExecutionStatus
     output: str = ""
@@ -81,7 +81,7 @@ class TaskResult:
 @dataclass
 class SprintResult:
     """单个 Sprint 结束后的聚合结果（检视 Increment 时的输入之一：工作项成败与耗时）。"""
-    sprint: PRDSprint
+    sprint: SprintDefinition
     status: ExecutionStatus
     task_results: List[TaskResult] = field(default_factory=list)
     duration: float = 0.0

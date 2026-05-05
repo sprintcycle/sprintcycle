@@ -12,7 +12,7 @@ from .agents import (
     BatchConfig,
     BatchTask,
     CoderAgent,
-    EvolverAgent,
+    EvolutionPath,
     TestCase,
     TesterAgent,
     TestResult,
@@ -52,9 +52,9 @@ EvolutionStrategy = StrategyEvolutionStrategy
 
 def _get_evolution_pipeline():
     """Lazy import to avoid circular dependency with evolution module"""
-    from ..evolution.evolution_plan_source import DiagnosticPRDSource, ManualPRDSource
+    from ..evolution.evolution_plan_source import DiagnosticReleasePlanSource, ManualReleasePlanSource
     from ..evolution.pipeline import EvolutionPipeline
-    return EvolutionPipeline, ManualPRDSource, DiagnosticPRDSource
+    return EvolutionPipeline, ManualReleasePlanSource, DiagnosticReleasePlanSource
 
 __all__ = [
     "ExecutionEngine", "SprintExecutor", "NormalStrategy", "EvolutionStrategy", "ExecutionStrategy", "get_strategy",
@@ -66,7 +66,7 @@ __all__ = [
     "SprintLifecycleHooks", "NoOpSprintLifecycleHooks", "ChainedSprintHooks",
     "ExecutionCache", "CacheEntry", "get_cache", "set_cache",
     "AgentType", "AgentContext", "AgentResult", "AgentExecutor", "CoderAgent", "BatchTask", "BatchConfig",
-    "EvolverAgent", "TesterAgent", "TestCase", "TestType", "TestResult",
+    "EvolutionPath", "TesterAgent", "TestCase", "TestType", "TestResult",
     # 错误处理
     "ErrorKnowledgeBase", "ErrorPattern", "PatternMatch", "get_error_knowledge_base", "reset_error_knowledge_base",
     "ErrorRouter", "RoutingLevel", "RoutingContext", "RoutingResult", "get_error_router",

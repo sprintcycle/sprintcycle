@@ -15,7 +15,7 @@ from typing import Any, AsyncGenerator, Dict, Optional
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 from loguru import logger
-from pydantic import AliasChoices, BaseModel, Field
+from pydantic import BaseModel
 
 from sprintcycle.api import SprintCycle
 from sprintcycle.execution.events import Event, EventType, get_event_bus
@@ -130,10 +130,7 @@ class PlanRequest(BaseModel):
     intent: str
     mode: str = "auto"
     target: Optional[str] = None
-    release_plan_path: Optional[str] = Field(
-        default=None,
-        validation_alias=AliasChoices("release_plan_path", "prd_path"),
-    )
+    release_plan_path: Optional[str] = None
     product: Optional[str] = None
 
 
@@ -141,14 +138,8 @@ class RunRequest(BaseModel):
     intent: Optional[str] = None
     mode: str = "auto"
     target: Optional[str] = None
-    release_plan_yaml: Optional[str] = Field(
-        default=None,
-        validation_alias=AliasChoices("release_plan_yaml", "prd_yaml"),
-    )
-    release_plan_path: Optional[str] = Field(
-        default=None,
-        validation_alias=AliasChoices("release_plan_path", "prd_path"),
-    )
+    release_plan_yaml: Optional[str] = None
+    release_plan_path: Optional[str] = None
     product: Optional[str] = None
     execution_id: Optional[str] = None
     resume: bool = False
@@ -361,15 +352,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .main{flex:1;overflow:hidden;display:flex;flex-direction:column}
 .panel{display:none;flex-direction:column;height:100%;overflow:hidden}
 .panel.active{display:flex}
-.prd-panel{padding:20px;gap:16px;overflow-y:auto}
-.prd-top{display:grid;grid-template-columns:1fr 1fr;gap:16px;min-height:0}
-.prd-top>*{min-height:0}
+.plan-editor-panel{padding:20px;gap:16px;overflow-y:auto}
+.plan-editor-top{display:grid;grid-template-columns:1fr 1fr;gap:16px;min-height:0}
+.plan-editor-top>*{min-height:0}
 .panel-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;display:flex;flex-direction:column;overflow:hidden}
 .panel-card .card-header{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--text-dim);flex-shrink:0}
 .panel-card .card-body{flex:1;overflow:auto}
-textarea.prd-input{width:100%;height:100%;background:var(--code-bg);color:var(--text);border:none;padding:14px;font-family:'Fira Code','Cascadia Code','Consolas',monospace;font-size:12px;line-height:1.7;resize:none;outline:none}
-textarea.prd-input::placeholder{color:var(--text-muted)}
-.prd-controls{padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px;flex-shrink:0}
+textarea.plan-editor-input{width:100%;height:100%;background:var(--code-bg);color:var(--text);border:none;padding:14px;font-family:'Fira Code','Cascadia Code','Consolas',monospace;font-size:12px;line-height:1.7;resize:none;outline:none}
+textarea.plan-editor-input::placeholder{color:var(--text-muted)}
+.plan-editor-controls{padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px;flex-shrink:0}
 .btn{padding:8px 18px;border-radius:7px;border:none;cursor:pointer;font-size:13px;font-weight:600;transition:all .15s;display:inline-flex;align-items:center;gap:6px}
 .btn:disabled{opacity:.45;cursor:not-allowed}
 .btn-primary{background:var(--green);color:#fff}
@@ -386,7 +377,7 @@ textarea.prd-input::placeholder{color:var(--text-muted)}
 .plan-result .task-list{padding:8px 12px}
 .plan-result .task-item{padding:4px 0;color:var(--text-dim);font-size:12px;display:flex;align-items:flex-start;gap:6px}
 .plan-result .task-item::before{content:'→';color:var(--accent);flex-shrink:0}
-.plan-result .prd-meta{display:flex;gap:16px;margin-bottom:12px;font-size:12px;color:var(--text-dim)}
+.plan-result .plan-meta{display:flex;gap:16px;margin-bottom:12px;font-size:12px;color:var(--text-dim)}
 .plan-result .error-text{color:var(--red);font-size:13px}
 .history-panel{flex:1;overflow-y:auto;padding:20px}
 .executions-list{display:flex;flex-direction:column;gap:10px}
@@ -488,7 +479,7 @@ textarea.prd-input::placeholder{color:var(--text-muted)}
 .blue-text{color:var(--accent)}
 .chevron{transition:transform .2s;font-size:12px;color:var(--text-muted)}
 .chevron.open{transform:rotate(90deg)}
-@media(max-width:768px){.prd-top{grid-template-columns:1fr}.diag-items{grid-template-columns:1fr}.exec-info{font-size:11px;gap:8px}.header{padding:0 12px}.tab-bar{padding:0 12px}.tab{padding:10px 12px;font-size:12px}}
+@media(max-width:768px){.plan-editor-top{grid-template-columns:1fr}.diag-items{grid-template-columns:1fr}.exec-info{font-size:11px;gap:8px}.header{padding:0 12px}.tab-bar{padding:0 12px}.tab{padding:10px 12px;font-size:12px}}
 </style>
 </head>
 <body>
@@ -502,18 +493,18 @@ textarea.prd-input::placeholder{color:var(--text-muted)}
     </div>
   </div>
   <div class="tab-bar">
-    <div class="tab active" data-tab="prd">📝 执行计划</div>
+    <div class="tab active" data-tab="plan">📝 执行计划</div>
     <div class="tab" data-tab="history">📜 执行历史 <span class="badge" id="historyBadge" style="display:none">0</span></div>
     <div class="tab" data-tab="diag">🏥 诊断</div>
     <div class="tab" data-tab="events">📡 实时事件 <span class="badge" id="liveBadge">0</span></div>
   </div>
   <div class="main">
-    <div class="panel prd-panel active" id="panel-prd">
-      <div class="prd-top">
+    <div class="panel plan-editor-panel active" id="panel-plan">
+      <div class="plan-editor-top">
         <div class="panel-card">
           <div class="card-header">📝 执行计划 YAML <span style="margin-left:auto;font-size:11px;color:var(--text-muted);font-weight:400">支持自然语言或直接输入 YAML</span></div>
           <div class="card-body">
-            <textarea class="prd-input" id="prdEditor" placeholder="输入执行计划 YAML 或直接描述你的意图...
+            <textarea class="plan-editor-input" id="planYamlEditor" placeholder="输入执行计划 YAML 或直接描述你的意图...
 
 示例（YAML）:
 project:
@@ -528,7 +519,7 @@ sprints:
 示例（自然语言）:
 帮我给 demo 项目添加单元测试"></textarea>
           </div>
-          <div class="prd-controls">
+          <div class="plan-editor-controls">
             <button class="btn btn-secondary" id="btnClear">🗑️ 清空</button>
             <div style="flex:1"></div>
             <button class="btn btn-secondary" id="btnPlan" onclick="doPlan()">📋 Plan</button>
@@ -601,14 +592,14 @@ function buildEventContent(data){var parts=[];if(data.execution_id)parts.push('[
 function appendEvent(base,data){var log=$('eventsLog');var type=base.event_type;var meta=EVENT_META[type]||{icon:'?',label:type.toUpperCase()};var ts=data.timestamp?new Date(data.timestamp).toLocaleTimeString('zh-CN',{hour12:false}):'';var content=buildEventContent(data);var agentBadge=data.agent_type?'<span class="ev-badge agent">'+data.agent_type+'</span>':'';var row=document.createElement('div');row.className='event-row '+type;row.innerHTML='<span class="ev-ts">'+ts+'</span><span class="ev-type '+type+'">'+meta.icon+' '+meta.label+'</span><span class="ev-content">'+escHtml(content)+agentBadge+'</span>';log.appendChild(row);eventCount++;$('eventCount').textContent=eventCount;$('liveBadge').textContent=eventCount;if($('autoScroll').checked)log.scrollTop=log.scrollHeight}
 function clearEvents(){$('eventsLog').innerHTML='';eventCount=0;$('eventCount').textContent='0';$('liveBadge').textContent='0'}
 function escHtml(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
-$('btnClear').addEventListener('click',function(){$('prdEditor').value='';$('planResult').innerHTML='<div style="color:var(--text-muted);text-align:center;padding:40px 0;font-size:13px">已清空，点击 <b>Plan</b> 预览执行计划</div>';$('planMeta').textContent=''});
-$('prdEditor').addEventListener('keydown',function(e){if(e.key==='Enter'&&(e.ctrlKey||e.metaKey))doRun()});
+$('btnClear').addEventListener('click',function(){$('planYamlEditor').value='';$('planResult').innerHTML='<div style="color:var(--text-muted);text-align:center;padding:40px 0;font-size:13px">已清空，点击 <b>Plan</b> 预览执行计划</div>';$('planMeta').textContent=''});
+$('planYamlEditor').addEventListener('keydown',function(e){if(e.key==='Enter'&&(e.ctrlKey||e.metaKey))doRun()});
 function setButtonsDisabled(disabled){$('btnPlan').disabled=disabled;$('btnRun').disabled=disabled}
-function renderPlanResult(data){if(!data.success&&data.error)return'<div class="error-text">❌ '+escHtml(data.error)+'</div>';if(!data.sprints||data.sprints.length===0)return'<div class="ok-text">✅ 计划为空</div>';var pn=data.release_plan_name||data.prd_name;var meta=[];if(pn)meta.push('📦 '+escHtml(pn));if(data.mode)meta.push('⚙ '+escHtml(data.mode));if(data.sprints)meta.push('📦 '+data.sprints.length+' Sprint');if(data.duration!==undefined)meta.push('⏱ '+data.duration.toFixed(2)+'s');if(meta.length)$('planMeta').textContent=meta.join(' · ');var html='<div class="plan-header">📋 执行计划预览</div>';if(meta.length)html+='<div class="prd-meta">'+meta.map(function(m){return'<span>'+m+'</span>'}).join('')+'</div>';data.sprints.forEach(function(sp,i){var tasks=Array.isArray(sp.tasks)?sp.tasks:[];html+='<div class="sprint-item"><div class="sprint-name">Sprint '+(i+1)+': '+escHtml(sp.name||'Unnamed')+'</div><div class="task-list">'+tasks.map(function(t){return'<div class="task-item">'+escHtml(t)+'</div>'}).join('')+'</div></div>'});return html}
-async function doPlan(){var input=$('prdEditor').value.trim();if(!input){alert('请输入执行计划 YAML 或意图描述');return}setButtonsDisabled(true);$('planResult').innerHTML='<div class="loading">⏳ 正在规划...</div>';try{var body=input.match(/^(project|sprints|mode|name|version)\\s*:/im)?{release_plan_yaml:input}:{intent:input};var data=await apiPost('plan',body);$('planResult').innerHTML=renderPlanResult(data)}catch(e){$('planResult').innerHTML='<div class="error-text">请求失败: '+escHtml(e.message)+'</div>'}finally{setButtonsDisabled(false)}}
-async function doRun(){var input=$('prdEditor').value.trim();if(!input){alert('请输入执行计划 YAML 或意图描述');return}setButtonsDisabled(true);$('planResult').innerHTML='<div class="loading">🚀 正在执行... 请关注「实时事件」面板</div>';try{var body=input.match(/^(project|sprints|mode|name|version)\\s*:/im)?{release_plan_yaml:input}:{intent:input};var data=await apiPost('run',body);$('planResult').innerHTML=renderPlanResult(data);loadHistory()}catch(e){$('planResult').innerHTML='<div class="error-text">请求失败: '+escHtml(e.message)+'</div>'}finally{setButtonsDisabled(false)}}
+function renderPlanResult(data){if(!data.success&&data.error)return'<div class="error-text">❌ '+escHtml(data.error)+'</div>';if(!data.sprints||data.sprints.length===0)return'<div class="ok-text">✅ 计划为空</div>';var pn=data.release_plan_name;var meta=[];if(pn)meta.push('📦 '+escHtml(pn));if(data.mode)meta.push('⚙ '+escHtml(data.mode));if(data.sprints)meta.push('📦 '+data.sprints.length+' Sprint');if(data.duration!==undefined)meta.push('⏱ '+data.duration.toFixed(2)+'s');if(meta.length)$('planMeta').textContent=meta.join(' · ');var html='<div class="plan-header">📋 执行计划预览</div>';if(meta.length)html+='<div class="plan-meta">'+meta.map(function(m){return'<span>'+m+'</span>'}).join('')+'</div>';data.sprints.forEach(function(sp,i){var tasks=Array.isArray(sp.tasks)?sp.tasks:[];html+='<div class="sprint-item"><div class="sprint-name">Sprint '+(i+1)+': '+escHtml(sp.name||'Unnamed')+'</div><div class="task-list">'+tasks.map(function(t){return'<div class="task-item">'+escHtml(t)+'</div>'}).join('')+'</div></div>'});return html}
+async function doPlan(){var input=$('planYamlEditor').value.trim();if(!input){alert('请输入执行计划 YAML 或意图描述');return}setButtonsDisabled(true);$('planResult').innerHTML='<div class="loading">⏳ 正在规划...</div>';try{var body=input.match(/^(project|sprints|mode|name|version)\\s*:/im)?{release_plan_yaml:input}:{intent:input};var data=await apiPost('plan',body);$('planResult').innerHTML=renderPlanResult(data)}catch(e){$('planResult').innerHTML='<div class="error-text">请求失败: '+escHtml(e.message)+'</div>'}finally{setButtonsDisabled(false)}}
+async function doRun(){var input=$('planYamlEditor').value.trim();if(!input){alert('请输入执行计划 YAML 或意图描述');return}setButtonsDisabled(true);$('planResult').innerHTML='<div class="loading">🚀 正在执行... 请关注「实时事件」面板</div>';try{var body=input.match(/^(project|sprints|mode|name|version)\\s*:/im)?{release_plan_yaml:input}:{intent:input};var data=await apiPost('run',body);$('planResult').innerHTML=renderPlanResult(data);loadHistory()}catch(e){$('planResult').innerHTML='<div class="error-text">请求失败: '+escHtml(e.message)+'</div>'}finally{setButtonsDisabled(false)}}
 async function loadHistory(){var list=$('executionsList');list.innerHTML='<div style="color:var(--text-muted);padding:20px 0;text-align:center">⏳ 加载中...</div>';try{var data=await apiPost('status',{});if(!data.success){list.innerHTML='<div class="error-text">加载失败: '+escHtml(data.error||'unknown')+'</div>';return}executionsCache=data.executions||[];renderExecutions(executionsCache)}catch(e){list.innerHTML='<div class="error-text">请求失败: '+escHtml(e.message)+'</div>'}}
-function renderExecutions(execs){var list=$('executionsList');if(!execs||execs.length===0){list.innerHTML='<div class="exec-empty">📭 暂无执行历史<br><br><button class="btn btn-secondary btn-sm" onclick="loadHistory()">🔄 刷新</button></div>';$('historyBadge').style.display='none';return}$('historyBadge').textContent=execs.length;$('historyBadge').style.display='';var html='';execs.forEach(function(ex){var status=ex.status||'unknown';var progress=ex.total_sprints>0?'Sprint '+(ex.current_sprint||0)+'/'+ex.total_sprints:'';var tasks=ex.completed_tasks!==undefined?ex.completed_tasks+'/'+(ex.total_tasks||'?')+' 任务':'';var created=ex.created_at?new Date(ex.created_at).toLocaleString('zh-CN',{hour12:false}):'';var canResume=['cancelled','failed','paused'].indexOf(status)!==-1&&ex.checkpoint;var execId=ex.execution_id||'';var shortId=execId.length>8?execId.substring(0,8):execId;html+='<div class="exec-card"><div class="exec-card-header" onclick="toggleExec(''+execId+'')"><span class="exec-id">'+escHtml(shortId)+'</span><span class="exec-status '+status+'">'+status+'</span><div class="exec-info">'+((ex.release_plan_name||ex.prd_name)?'<span>📦 '+escHtml(ex.release_plan_name||ex.prd_name)+'</span>':'')+(ex.mode?'<span>⚙ '+escHtml(ex.mode)+'</span>':'')+(progress?'<span>📦 '+progress+'</span>':'')+(tasks?'<span>📋 '+tasks+'</span>':'')+(created?'<span>🕐 '+created+'</span>':'')+(ex.error?'<span style="color:var(--red)">❌ '+escHtml(ex.error.substring(0,50))+'</span>':'')+'</div><div class="exec-actions">'+(canResume?'<button class="btn btn-sm btn-primary" onclick="event.stopPropagation();resumeExec(''+execId+'')">▶ Resume</button>':'')+'<button class="btn btn-sm btn-secondary" onclick="event.stopPropagation();stopExec(''+execId+'')" title="停止">⏹</button></div><span class="chevron" id="chev-'+execId+'">▶</span></div><div class="exec-detail" id="detail-'+execId+'">'+renderExecDetail(ex)+'</div></div>'});list.innerHTML=html}
+function renderExecutions(execs){var list=$('executionsList');if(!execs||execs.length===0){list.innerHTML='<div class="exec-empty">📭 暂无执行历史<br><br><button class="btn btn-secondary btn-sm" onclick="loadHistory()">🔄 刷新</button></div>';$('historyBadge').style.display='none';return}$('historyBadge').textContent=execs.length;$('historyBadge').style.display='';var html='';execs.forEach(function(ex){var status=ex.status||'unknown';var progress=ex.total_sprints>0?'Sprint '+(ex.current_sprint||0)+'/'+ex.total_sprints:'';var tasks=ex.completed_tasks!==undefined?ex.completed_tasks+'/'+(ex.total_tasks||'?')+' 任务':'';var created=ex.created_at?new Date(ex.created_at).toLocaleString('zh-CN',{hour12:false}):'';var canResume=['cancelled','failed','paused'].indexOf(status)!==-1&&ex.checkpoint;var execId=ex.execution_id||'';var shortId=execId.length>8?execId.substring(0,8):execId;html+='<div class="exec-card"><div class="exec-card-header" onclick="toggleExec(''+execId+'')"><span class="exec-id">'+escHtml(shortId)+'</span><span class="exec-status '+status+'">'+status+'</span><div class="exec-info">'+(ex.release_plan_name?'<span>📦 '+escHtml(ex.release_plan_name)+'</span>':'')+(ex.mode?'<span>⚙ '+escHtml(ex.mode)+'</span>':'')+(progress?'<span>📦 '+progress+'</span>':'')+(tasks?'<span>📋 '+tasks+'</span>':'')+(created?'<span>🕐 '+created+'</span>':'')+(ex.error?'<span style="color:var(--red)">❌ '+escHtml(ex.error.substring(0,50))+'</span>':'')+'</div><div class="exec-actions">'+(canResume?'<button class="btn btn-sm btn-primary" onclick="event.stopPropagation();resumeExec(''+execId+'')">▶ Resume</button>':'')+'<button class="btn btn-sm btn-secondary" onclick="event.stopPropagation();stopExec(''+execId+'')" title="停止">⏹</button></div><span class="chevron" id="chev-'+execId+'">▶</span></div><div class="exec-detail" id="detail-'+execId+'">'+renderExecDetail(ex)+'</div></div>'});list.innerHTML=html}
 function renderExecDetail(ex){var sprints=(ex.metadata&&ex.metadata.sprint_history)||(ex.checkpoint&&ex.checkpoint.sprint_history)||[];if(!sprints.length)return'<div style="padding:14px 0;color:var(--text-muted);font-size:12px">暂无详细信息</div>';var html='<div class="sprint-section">';sprints.forEach(function(sp,i){var tasks=Array.isArray(sp.task_results)?sp.task_results:(Array.isArray(sp.tasks)?sp.tasks:[]);var spStatus=sp.status||'unknown';var dotClass={success:'success',failed:'failed',running:'running',skipped:'skipped'}[spStatus]||'success';var spLabel=sp.sprint_name||sp.name||('Sprint '+(i+1));html+='<div class="sprint-card"><div class="sprint-card-header"><span class="sprint-status-dot '+dotClass+'"></span><span class="sprint-name-label">'+escHtml(spLabel)+'</span><span class="sprint-meta">'+spStatus+'</span>'+(sp.duration!==undefined?'<span class="sprint-meta">⏱ '+sp.duration.toFixed(1)+'s</span>':'')+'</div><div class="task-result-list">';tasks.forEach(function(t){var icon=t.status==='success'?'✅':t.status==='failed'?'❌':'⏳';var color=t.status==='failed'?'var(--red)':t.status==='success'?'var(--green)':'var(--text-dim)';var line=typeof t==='string'?t:(t.description||'');html+='<div class="task-result-item"><span class="task-status-icon" style="color:'+color+'">'+icon+'</span><span>'+escHtml(line||'unnamed')+'</span><span style="margin-left:auto;color:var(--text-muted);font-size:11px">'+escHtml(t.agent||'')+'</span>'+(t.error?'<span style="color:var(--red);font-size:11px;margin-left:6px">⚠</span>':'')+'</div>'});html+='</div></div>'});html+='</div>';return html}
 function toggleExec(execId){var detail=$('detail-'+execId);var chev=$('chev-'+execId);if(!detail)return;if(detail.classList.contains('open')){detail.classList.remove('open');chev.classList.remove('open')}else {detail.classList.add('open');chev.classList.add('open')}}
 async function resumeExec(execId){if(!confirm('确认恢复执行 '+execId.substring(0,8)+' ?'))return;try{var data=await apiPost('run',{execution_id:execId,resume:true});if(data.success){loadHistory();switchTab('events')}else{alert('Resume 失败: '+(data.error||'unknown'))}}catch(e){alert('请求失败: '+e.message)}}

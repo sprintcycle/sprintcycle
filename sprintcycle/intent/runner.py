@@ -16,12 +16,12 @@ from .base import IntentHandler, IntentResult
 if TYPE_CHECKING:
     from ..api import SprintCycle
     from ..config import RuntimeConfig
-    from ..release_plan.models import PRD
+    from ..release_plan.models import ReleasePlan
 
 
 
 class RunnerHandler(IntentHandler):
-    """从 Release Plan 对象执行（与 ``SprintCycle.run(prd_yaml=…)`` 行为对齐）。"""
+    """从 Release Plan 对象执行（与 ``SprintCycle.run(release_plan_yaml=…)`` 行为对齐）。"""
 
     def __init__(
         self,
@@ -38,7 +38,7 @@ class RunnerHandler(IntentHandler):
 
             self._api = _SprintCycle(project_path=project_path, config=config)
 
-    def execute(self, release_plan: "PRD") -> IntentResult:
+    def execute(self, release_plan: "ReleasePlan") -> IntentResult:
         """执行已解析计划（经 ``SprintCycle`` 统一路径）。"""
         logger.info("🚀 开始执行 Release Plan: {}", release_plan.project.name)
 
@@ -83,6 +83,6 @@ class RunnerHandler(IntentHandler):
             )
 
     @staticmethod
-    def parse_release_plan_file(file_path: str) -> "PRD":
+    def parse_release_plan_file(file_path: str) -> "ReleasePlan":
         """从 YAML 文件解析 Release Plan。"""
         return ReleasePlanParser().parse_file(file_path)

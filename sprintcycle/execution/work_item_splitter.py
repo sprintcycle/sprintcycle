@@ -27,7 +27,7 @@ from typing import Any, Dict, List
 
 @dataclass
 class IntentWorkItem:
-    """从意图文本拆出的一条工作项草案（非运行时 ``PRDTask``）。"""
+    """从意图文本拆出的一条工作项草案（非运行时 ``SprintBacklogItem``）。"""
     title: str                           # 任务标题
     description: str                     # 任务描述
     priority: str = "medium"             # 优先级
@@ -104,39 +104,39 @@ class WorkItemSplitter:
         self.max_tasks = max_tasks
         self.min_tasks = min_tasks
 
-    def split(self, prd: str) -> List[Dict[str, Any]]:
+    def split(self, source_text: str) -> List[Dict[str, Any]]:
         """
-        将 PRD 拆分为任务列表
+        将 ReleasePlan 拆分为任务列表
         
         Args:
-            prd: 产品需求文档
+            source_text: 意图或需求说明的自由文本（非结构化 YAML）
             
         Returns:
             List[Dict]: 任务列表
         """
-        if not prd or not prd.strip():
+        if not source_text or not source_text.strip():
             return []
 
         tasks = []
 
         # 策略1: 检测编号列表 (1. 2. 3. 或 - [ ] - [x])
-        numbered_tasks = self._extract_numbered_tasks(prd)
+        numbered_tasks = self._extract_numbered_tasks(source_text)
         if numbered_tasks:
             tasks.extend(numbered_tasks)
 
         # 策略2: 检测模块关键词
-        module_tasks = self._extract_module_tasks(prd)
+        module_tasks = self._extract_module_tasks(source_text)
         if module_tasks:
             tasks.extend(module_tasks)
 
         # 策略3: 基于句子拆分
         if not tasks:
-            sentence_tasks = self._extract_sentence_tasks(prd)
+            sentence_tasks = self._extract_sentence_tasks(source_text)
             tasks.extend(sentence_tasks)
 
         # 策略4: 基于换行拆分
         if not tasks:
-            line_tasks = self._extract_line_tasks(prd)
+            line_tasks = self._extract_line_tasks(source_text)
             tasks.extend(line_tasks)
 
         # 去重和排序
@@ -157,7 +157,7 @@ class WorkItemSplitter:
 
         return tasks
 
-    def _extract_numbered_tasks(self, prd: str) -> List[Dict[str, Any]]:
+    def _extract_numbered_tasks(self, source_text: str) -> List[Dict[str, Any]]:
         """提取编号列表任务"""
         tasks = []
 
@@ -169,7 +169,7 @@ class WorkItemSplitter:
         ]
 
         for pattern, has_number in patterns:
-            matches = re.finditer(pattern, prd, re.MULTILINE)
+            matches = re.finditer(pattern, source_text, re.MULTILINE)
             for match in matches:
                 if has_number:
                     # 从完整匹配中提取数字后的内容
@@ -184,15 +184,15 @@ class WorkItemSplitter:
 
         return tasks
 
-    def _extract_module_tasks(self, prd: str) -> List[Dict[str, Any]]:
+    def _extract_module_tasks(self, source_text: str) -> List[Dict[str, Any]]:
         """基于模块关键词提取任务"""
         tasks = []
-        prd_lower = prd.lower()
+        text_lower = source_text.lower()
 
         detected_modules = set()
         for module, keywords in self.MODULE_KEYWORDS.items():
             for keyword in keywords:
-                if keyword.lower() in prd_lower:
+                if keyword.lower() in text_lower:
                     detected_modules.add(module)
                     break
 
@@ -226,12 +226,12 @@ class WorkItemSplitter:
 
         return tasks
 
-    def _extract_sentence_tasks(self, prd: str) -> List[Dict[str, Any]]:
+    def _extract_sentence_tasks(self, source_text: str) -> List[Dict[str, Any]]:
         """基于句子拆分任务"""
         tasks = []
 
         # 按句子拆分
-        sentences = re.split(r"[。；;!?\n]", prd)
+        sentences = re.split(r"[。；;!?\n]", source_text)
 
         for sentence in sentences:
             sentence = sentence.strip()
@@ -241,11 +241,11 @@ class WorkItemSplitter:
 
         return tasks
 
-    def _extract_line_tasks(self, prd: str) -> List[Dict[str, Any]]:
+    def _extract_line_tasks(self, source_text: str) -> List[Dict[str, Any]]:
         """基于换行拆分任务"""
         tasks = []
 
-        lines = prd.split("\n")
+        lines = source_text.split("\n")
         for line in lines:
             line = line.strip()
             if line and len(line) > 5:

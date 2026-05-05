@@ -1,34 +1,35 @@
 """
 SprintCycle Release Plan 模块（工程包名 ``release_plan``）
 
-可执行多 Sprint 计划：内存模型在 ``models`` 中仍以 ``PRD`` 等类名实现；
-**对外推荐**使用 ``sprintcycle`` 根包或 ``sprintcycle.scrum`` 的 Scrum 对等名
-（``ReleasePlan``、``ReleasePlanParser`` 等）。
+可执行多 Sprint 计划：内存模型在 ``models`` 中为 ``ReleasePlan``、``SprintDefinition`` 等；
+根包 ``from sprintcycle import ReleasePlan, ReleasePlanParser`` 与本文档一致。
 """
 
-from .models import PRD, ExecutionMode, PRDEvolutionParams, PRDProject, PRDSprint, PRDTask
-from .parser import (
-    PRDParseError,
-    PRDParser,
-    ReleasePlanParseError,
-    ReleasePlanParser,
-    YAMLError,
+from .expand import EvolutionPath, EvolutionStrategy, expand_release_plan_for_execution
+from .models import (
+    EvolutionParams,
+    ExecutionMode,
+    ProductAnchor,
+    ReleasePlan,
+    SprintBacklogItem,
+    SprintDefinition,
 )
-from .validator import PRDValidator, ReleasePlanValidator, ValidationError, ValidationResult
+from .parser import ReleasePlanParseError, ReleasePlanParser, YAMLError
+from .validator import ReleasePlanValidator, ValidationError, ValidationResult
 
 __all__ = [
-    "PRD",
-    "PRDProject",
-    "PRDSprint",
-    "PRDTask",
-    "PRDEvolutionParams",
+    "ReleasePlan",
+    "ProductAnchor",
+    "SprintDefinition",
+    "SprintBacklogItem",
+    "EvolutionParams",
+    "EvolutionPath",
+    "EvolutionStrategy",
+    "expand_release_plan_for_execution",
     "ExecutionMode",
-    "PRDParser",
-    "PRDParseError",
     "ReleasePlanParser",
     "ReleasePlanParseError",
     "YAMLError",
-    "PRDValidator",
     "ReleasePlanValidator",
     "ValidationError",
     "ValidationResult",

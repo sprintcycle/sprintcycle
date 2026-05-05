@@ -2,8 +2,8 @@
 Tests for evolution plan sources
 
 测试场景:
-1. ManualPRDSource - YAML 文件加载
-2. DiagnosticPRDSource - 诊断驱动计划生成
+1. ManualReleasePlanSource - YAML 文件加载
+2. DiagnosticReleasePlanSource - 诊断驱动计划生成
 3. EvolutionReleasePlan 数据结构
 """
 
@@ -14,8 +14,8 @@ from pathlib import Path
 
 from sprintcycle.evolution.evolution_plan_source import (
     EvolutionReleasePlan,
-    ManualPRDSource,
-    DiagnosticPRDSource,
+    ManualReleasePlanSource,
+    DiagnosticReleasePlanSource,
     EvolutionPlanSourceType,
 )
 
@@ -25,14 +25,14 @@ class TestEvolutionReleasePlan:
 
     def test_basic_creation(self):
         plan = EvolutionReleasePlan(
-            name="Test PRD",
+            name="Test ReleasePlan",
             version="v1.0.0",
             path="/test/project",
             goals=["Goal 1", "Goal 2"],
             sprints=[{"name": "Sprint 1", "tasks": []}],
         )
 
-        assert plan.name == "Test PRD"
+        assert plan.name == "Test ReleasePlan"
         assert plan.version == "v1.0.0"
         assert len(plan.goals) == 2
         assert len(plan.sprints) == 1
@@ -68,7 +68,7 @@ class TestEvolutionReleasePlan:
 
     def test_to_dict(self):
         plan = EvolutionReleasePlan(
-            name="Test PRD",
+            name="Test ReleasePlan",
             version="v1.0.0",
             path="/test/project",
             goals=["Goal 1"],
@@ -79,36 +79,36 @@ class TestEvolutionReleasePlan:
 
         data = plan.to_dict()
 
-        assert data["name"] == "Test PRD"
+        assert data["name"] == "Test ReleasePlan"
         assert data["version"] == "v1.0.0"
         assert data["source_type"] == "manual"
         assert data["confidence"] == 0.9
         assert data["total_tasks"] == 0
 
 
-class TestManualPRDSource:
-    """ManualPRDSource 测试类"""
+class TestManualReleasePlanSource:
+    """ManualReleasePlanSource 测试类"""
 
     def test_init(self):
-        source = ManualPRDSource()
+        source = ManualReleasePlanSource()
         assert source._plan_subdir == Path("release_plan")
 
-        source = ManualPRDSource("custom/release_plan")
+        source = ManualReleasePlanSource("custom/release_plan")
         assert source._plan_subdir == Path("custom/release_plan")
 
     def test_get_source_type(self):
-        source = ManualPRDSource()
+        source = ManualReleasePlanSource()
         assert source.get_source_type() == EvolutionPlanSourceType.MANUAL
 
     def test_generate_empty_dir(self):
         with tempfile.TemporaryDirectory() as tmpdir:
-            source = ManualPRDSource()
+            source = ManualReleasePlanSource()
             plans = source.generate(tmpdir)
 
             assert len(plans) == 0
 
     def test_generate_with_yaml(self):
-        prd_content = {
+        yaml_fixture = {
             "project": {
                 "name": "Test Project",
                 "version": "v1.0.0",
@@ -131,9 +131,9 @@ class TestManualPRDSource:
 
             yaml_file = plan_dir / "test.yaml"
             with open(yaml_file, "w") as f:
-                yaml.dump(prd_content, f)
+                yaml.dump(yaml_fixture, f)
 
-            source = ManualPRDSource()
+            source = ManualReleasePlanSource()
             plans = source.generate(tmpdir)
 
             assert len(plans) == 1
@@ -145,7 +145,7 @@ class TestManualPRDSource:
             assert len(plan.sprints[0]["tasks"]) == 2
 
     def test_generate_with_priority(self):
-        prd_content = {
+        yaml_fixture = {
             "project": {"name": "Test"},
             "sprints": [],
         }
@@ -155,33 +155,33 @@ class TestManualPRDSource:
             plan_dir.mkdir()
 
             with open(plan_dir / "test.yaml", "w") as f:
-                yaml.dump(prd_content, f)
+                yaml.dump(yaml_fixture, f)
 
-            source = ManualPRDSource()
+            source = ManualReleasePlanSource()
             plans = source.generate(tmpdir)
 
             assert plans[0].priority == 100
             assert plans[0].confidence == 1.0
 
 
-class TestDiagnosticPRDSource:
-    """DiagnosticPRDSource 测试类"""
+class TestDiagnosticReleasePlanSource:
+    """DiagnosticReleasePlanSource 测试类"""
 
     def test_init(self):
-        source = DiagnosticPRDSource()
+        source = DiagnosticReleasePlanSource()
         assert source._diagnostic is None
         assert source._generator is None
-        assert source._max_prds == 5
+        assert source._max_plans == 5
 
-        source = DiagnosticPRDSource(max_prds=10)
-        assert source._max_prds == 10
+        source = DiagnosticReleasePlanSource(max_plans=10)
+        assert source._max_plans == 10
 
     def test_get_source_type(self):
-        source = DiagnosticPRDSource()
+        source = DiagnosticReleasePlanSource()
         assert source.get_source_type() == EvolutionPlanSourceType.DIAGNOSTIC
 
     def test_filter_plans(self):
-        source = DiagnosticPRDSource()
+        source = DiagnosticReleasePlanSource()
 
         plans = [
             EvolutionReleasePlan("P1", "v1", "/test", confidence=0.9, expected_benefit=10),

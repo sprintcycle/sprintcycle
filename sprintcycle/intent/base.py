@@ -9,14 +9,14 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 # 使用 TYPE_CHECKING 避免循环导入
 if TYPE_CHECKING:
     from ..orchestration.sprint_orchestrator import SprintResult
-    from ..release_plan.models import PRD
+    from ..release_plan.models import ReleasePlan
 
 
 @dataclass
 class IntentResult:
     """意图执行结果（``release_plan`` 与根包 ``ReleasePlan`` 为同一类型）。"""
     success: bool
-    release_plan: "PRD"
+    release_plan: "ReleasePlan"
     completed_sprints: int = 0
     completed_tasks: int = 0
     total_sprints: int = 0
@@ -41,19 +41,19 @@ class IntentHandler(ABC):
     """意图处理器基类"""
 
     @abstractmethod
-    def execute(self, release_plan: "PRD") -> IntentResult:
+    def execute(self, release_plan: "ReleasePlan") -> IntentResult:
         pass
 
-    def validate_release_plan(self, release_plan: "PRD") -> bool:
-        from ..release_plan.validator import PRDValidator
+    def validate_release_plan(self, release_plan: "ReleasePlan") -> bool:
+        from ..release_plan.validator import ReleasePlanValidator
 
-        result = PRDValidator().validate(release_plan)
+        result = ReleasePlanValidator().validate(release_plan)
         return result.is_valid
 
     def _build_result(
         self,
         success: bool,
-        release_plan: "PRD",
+        release_plan: "ReleasePlan",
         sprint_results: List["SprintResult"],
         error: Optional[str] = None,
     ) -> IntentResult:

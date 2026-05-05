@@ -36,24 +36,24 @@ class TestAPIPlan:
         """plan → returns PlanResult containing release_plan_yaml"""
         sc = SprintCycle(project_path=self.temp_dir)
 
-        # Mock the PRD generation to avoid LLM calls
+        # Mock the ReleasePlan generation to avoid LLM calls
         with patch('sprintcycle.api.IntentParser') as mock_parser, \
-             patch('sprintcycle.api.IntentPRDGenerator') as mock_generator:
+             patch('sprintcycle.api.IntentReleasePlanGenerator') as mock_generator:
 
-            # Setup mock PRD
-            from sprintcycle.release_plan.models import PRD, PRDProject, PRDSprint, PRDTask, ExecutionMode
-            mock_prd = PRD(
-                project=PRDProject(name="TestProject", path=self.temp_dir),
+            # Setup mock ReleasePlan
+            from sprintcycle.release_plan.models import ReleasePlan, ProductAnchor, SprintDefinition, SprintBacklogItem, ExecutionMode
+            mock_plan = ReleasePlan(
+                project=ProductAnchor(name="TestProject", path=self.temp_dir),
                 mode=ExecutionMode.NORMAL,
                 sprints=[
-                    PRDSprint(
+                    SprintDefinition(
                         name="Sprint 1",
                         goals=["Test goal"],
-                        tasks=[PRDTask(description="Test task", agent="coder")]
+                        tasks=[SprintBacklogItem(description="Test task", agent="coder")]
                     )
                 ]
             )
-            mock_generator.generate.return_value = mock_prd
+            mock_generator.generate.return_value = mock_plan
 
             result = sc.plan(intent="Test intent")
 
@@ -71,16 +71,16 @@ class TestAPIPlan:
         sc = SprintCycle(project_path=self.temp_dir)
 
         with patch('sprintcycle.api.IntentParser') as mock_parser, \
-             patch('sprintcycle.api.IntentPRDGenerator') as mock_generator, \
-             patch('sprintcycle.api.PRDValidator') as mock_validator:
+             patch('sprintcycle.api.IntentReleasePlanGenerator') as mock_generator, \
+             patch('sprintcycle.api.ReleasePlanValidator') as mock_validator:
 
-            from sprintcycle.release_plan.models import PRD, PRDProject, PRDSprint, PRDTask, ExecutionMode
-            mock_prd = PRD(
-                project=PRDProject(name="TestProject", path=self.temp_dir),
+            from sprintcycle.release_plan.models import ReleasePlan, ProductAnchor, SprintDefinition, SprintBacklogItem, ExecutionMode
+            mock_plan = ReleasePlan(
+                project=ProductAnchor(name="TestProject", path=self.temp_dir),
                 mode=ExecutionMode.EVOLUTION,
                 sprints=[]
             )
-            mock_generator.generate.return_value = mock_prd
+            mock_generator.generate.return_value = mock_plan
             
             # Mock validator
             mock_validator_instance = MagicMock()
@@ -124,7 +124,7 @@ class TestAPIRun:
         sc = SprintCycle(project_path=self.temp_dir)
 
         with patch('sprintcycle.api.IntentParser') as mock_parser, \
-             patch('sprintcycle.api.IntentPRDGenerator') as mock_generator, \
+             patch('sprintcycle.api.IntentReleasePlanGenerator') as mock_generator, \
              patch('sprintcycle.api.get_state_store') as mock_get_store, \
              patch('sprintcycle.orchestration.sprint_orchestrator.SprintOrchestrator') as mock_dispatcher_cls:
 
@@ -135,21 +135,21 @@ class TestAPIRun:
                 MagicMock(execution_id="test-exec-123")
             ]
 
-            from sprintcycle.release_plan.models import PRD, PRDProject, PRDSprint, PRDTask, ExecutionMode
+            from sprintcycle.release_plan.models import ReleasePlan, ProductAnchor, SprintDefinition, SprintBacklogItem, ExecutionMode
             from sprintcycle.execution.sprint_types import SprintResult, TaskResult
 
-            mock_prd = PRD(
-                project=PRDProject(name="TestProject", path=self.temp_dir),
+            mock_plan = ReleasePlan(
+                project=ProductAnchor(name="TestProject", path=self.temp_dir),
                 mode=ExecutionMode.NORMAL,
                 sprints=[
-                    PRDSprint(
+                    SprintDefinition(
                         name="Sprint 1",
                         goals=["Test"],
-                        tasks=[PRDTask(description="Task 1", agent="coder")]
+                        tasks=[SprintBacklogItem(description="Task 1", agent="coder")]
                     )
                 ]
             )
-            mock_generator.generate.return_value = mock_prd
+            mock_generator.generate.return_value = mock_plan
 
             # Mock sprint results
             mock_task = MagicMock()
@@ -198,7 +198,7 @@ sprints:
         agent: coder
 """
 
-        with patch('sprintcycle.api.PRDParser') as mock_parser, \
+        with patch('sprintcycle.api.ReleasePlanParser') as mock_parser, \
              patch('sprintcycle.api.get_state_store') as mock_get_store, \
              patch('sprintcycle.orchestration.sprint_orchestrator.SprintOrchestrator') as mock_dispatcher_cls:
 
@@ -206,13 +206,13 @@ sprints:
             mock_get_store.return_value = mock_store
             mock_store.list_executions.return_value = []
 
-            from sprintcycle.release_plan.models import PRD, PRDProject, ExecutionMode
-            mock_prd = PRD(
-                project=PRDProject(name="YAMLProject", path="."),
+            from sprintcycle.release_plan.models import ReleasePlan, ProductAnchor, ExecutionMode
+            mock_plan = ReleasePlan(
+                project=ProductAnchor(name="YAMLProject", path="."),
                 mode=ExecutionMode.NORMAL,
                 sprints=[]
             )
-            mock_parser.return_value.parse_string.return_value = mock_prd
+            mock_parser.return_value.parse_string.return_value = mock_plan
 
             # Mock the dispatcher
             mock_dispatcher_instance = MagicMock()
@@ -528,7 +528,7 @@ class TestAPIResume:
         sc = SprintCycle(project_path=self.temp_dir)
 
         with patch('sprintcycle.api.get_state_store') as mock_get_store, \
-             patch('sprintcycle.api.PRDParser') as mock_parser, \
+             patch('sprintcycle.api.ReleasePlanParser') as mock_parser, \
              patch('sprintcycle.orchestration.sprint_orchestrator.SprintOrchestrator') as mock_dispatcher_cls:
 
             mock_store = MagicMock(spec=StateStore)
@@ -569,13 +569,13 @@ sprints:
             mock_store.load.return_value = mock_state
             mock_store.can_resume.return_value = True
 
-            from sprintcycle.release_plan.models import PRD, PRDProject, ExecutionMode
-            mock_prd = PRD(
-                project=PRDProject(name="ResumeProject", path="."),
+            from sprintcycle.release_plan.models import ReleasePlan, ProductAnchor, ExecutionMode
+            mock_plan = ReleasePlan(
+                project=ProductAnchor(name="ResumeProject", path="."),
                 mode=ExecutionMode.NORMAL,
                 sprints=[]
             )
-            mock_parser.return_value.parse_string.return_value = mock_prd
+            mock_parser.return_value.parse_string.return_value = mock_plan
 
             mock_sprint_result = MagicMock()
             mock_sprint_result.status = ExecutionStatus.SUCCESS

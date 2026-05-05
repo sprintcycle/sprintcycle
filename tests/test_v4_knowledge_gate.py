@@ -31,7 +31,7 @@ def test_run_returns_pending_knowledge_confirmation(tmp_path: Path) -> None:
         require_knowledge_injection_confirm=True,
         dry_run=True,
     )
-    prd_yaml = """
+    plan_yaml = """
 project:
   name: gate-proj
   path: "."
@@ -44,13 +44,13 @@ sprints:
         agent: coder
 """
     sc = SprintCycle(project_path=str(tmp_path), config=cfg)
-    r = sc.run(prd_yaml=prd_yaml.strip())
+    r = sc.run(release_plan_yaml=plan_yaml.strip())
     assert r.pending_knowledge_confirmation is True
     assert r.success is False
     assert r.knowledge_injection_preview.get("sprint_name") == "auth sprint"
     assert r.knowledge_injection_preview.get("cards_used")
 
-    r2 = sc.run(prd_yaml=prd_yaml.strip(), confirm_knowledge=True)
+    r2 = sc.run(release_plan_yaml=plan_yaml.strip(), confirm_knowledge=True)
     assert r2.pending_knowledge_confirmation is False
 
 

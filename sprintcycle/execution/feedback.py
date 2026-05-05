@@ -261,10 +261,6 @@ class FeedbackLoop:
             data_copy = data.copy()
             data_copy.pop("success_rate", None)
             data_copy.pop("overall_score", None)
-            if "release_plan_id" not in data_copy and "prd_id" in data_copy:
-                data_copy["release_plan_id"] = data_copy.pop("prd_id")
-            if "release_plan_name" not in data_copy and "prd_name" in data_copy:
-                data_copy["release_plan_name"] = data_copy.pop("prd_name")
             return [ExecutionFeedback(**data_copy)]
         except Exception as e:
             logger.error(f"❌ 加载历史反馈失败: {e}")
@@ -368,7 +364,7 @@ class FeedbackLoop:
         if quality < 60:
             suggestions.append("代码质量偏低，建议加强代码审查和重构")
         elif quality < 80:
-            suggestions.append("代码质量有提升空间，可以考虑使用 Evolver 优化")
+            suggestions.append("代码质量有提升空间，可为相关任务增加 coder 重构/优化类约束或启用自进化展开")
         return suggestions
     
     def _analyze_performance(self, feedback: ExecutionFeedback) -> List[str]:
@@ -427,7 +423,7 @@ class FeedbackLoop:
             improvements.append({
                 "category": "code_quality", "title": "提升代码质量",
                 "description": f"当前质量评分 {feedback.code_quality_score}",
-                "action": "使用 Evolver 进行代码优化",
+                "action": "使用 coder 任务并附加优化/重构类约束，或采用 mode: evolution 由 targets 展开执行",
             })
         if feedback.test_coverage < 70:
             improvements.append({
@@ -439,7 +435,7 @@ class FeedbackLoop:
             improvements.append({
                 "category": "performance", "title": "提升性能",
                 "description": f"当前性能评分 {feedback.performance_score}",
-                "action": "使用 Evolver(strategy=performance) 优化",
+                "action": "在 goals 中强调 performance 后由自进化展开，或增加 coder 性能优化类任务",
             })
         return improvements
     
@@ -528,10 +524,6 @@ class FeedbackLoop:
         out: List[ExecutionFeedback] = []
         for d in data:
             dc = dict(d)
-            if "release_plan_id" not in dc and "prd_id" in dc:
-                dc["release_plan_id"] = dc.pop("prd_id")
-            if "release_plan_name" not in dc and "prd_name" in dc:
-                dc["release_plan_name"] = dc.pop("prd_name")
             out.append(ExecutionFeedback(**dc))
         self._history = out
 

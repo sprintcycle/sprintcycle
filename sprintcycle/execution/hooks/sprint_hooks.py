@@ -11,7 +11,7 @@ from typing import Any, Dict, Optional, Sequence
 
 from loguru import logger
 
-from ...release_plan.models import PRD, PRDSprint
+from ...release_plan.models import ReleasePlan, SprintDefinition
 from ..sprint_types import SprintResult
 
 
@@ -22,9 +22,9 @@ class SprintLifecycleHooks(ABC):
     async def on_before_sprint(
         self,
         sprint_index: int,
-        sprint: PRDSprint,
+        sprint: SprintDefinition,
         context: Dict[str, Any],
-        release_plan: Optional[PRD],
+        release_plan: Optional[ReleasePlan],
     ) -> None:
         """即将执行该 Sprint（含 context 已写入 sprint_index / sprint_name / project_goals）。"""
 
@@ -32,10 +32,10 @@ class SprintLifecycleHooks(ABC):
     async def on_after_sprint(
         self,
         sprint_index: int,
-        sprint: PRDSprint,
+        sprint: SprintDefinition,
         result: SprintResult,
         context: Dict[str, Any],
-        release_plan: Optional[PRD],
+        release_plan: Optional[ReleasePlan],
     ) -> None:
         """该 Sprint 本轮最终结果已确定（含反馈重试后的最终结果）。"""
 
@@ -44,19 +44,19 @@ class NoOpSprintLifecycleHooks(SprintLifecycleHooks):
     async def on_before_sprint(
         self,
         sprint_index: int,
-        sprint: PRDSprint,
+        sprint: SprintDefinition,
         context: Dict[str, Any],
-        release_plan: Optional[PRD],
+        release_plan: Optional[ReleasePlan],
     ) -> None:
         return None
 
     async def on_after_sprint(
         self,
         sprint_index: int,
-        sprint: PRDSprint,
+        sprint: SprintDefinition,
         result: SprintResult,
         context: Dict[str, Any],
-        release_plan: Optional[PRD],
+        release_plan: Optional[ReleasePlan],
     ) -> None:
         return None
 
@@ -70,9 +70,9 @@ class ChainedSprintHooks(SprintLifecycleHooks):
     async def on_before_sprint(
         self,
         sprint_index: int,
-        sprint: PRDSprint,
+        sprint: SprintDefinition,
         context: Dict[str, Any],
-        release_plan: Optional[PRD],
+        release_plan: Optional[ReleasePlan],
     ) -> None:
         for h in self._hooks:
             try:
@@ -83,10 +83,10 @@ class ChainedSprintHooks(SprintLifecycleHooks):
     async def on_after_sprint(
         self,
         sprint_index: int,
-        sprint: PRDSprint,
+        sprint: SprintDefinition,
         result: SprintResult,
         context: Dict[str, Any],
-        release_plan: Optional[PRD],
+        release_plan: Optional[ReleasePlan],
     ) -> None:
         for h in reversed(self._hooks):
             try:

@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
-from ..release_plan.models import PRD, ExecutionMode
+from ..release_plan.models import ReleasePlan, ExecutionMode
 from .sprint_executor import ExecutionStatus, SprintExecutor, SprintResult
 
 
@@ -20,7 +20,7 @@ from .sprint_executor import ExecutionStatus, SprintExecutor, SprintResult
 class ExecutionResult:
     """执行结果"""
     success: bool
-    release_plan: PRD
+    release_plan: ReleasePlan
     sprint_results: List[SprintResult] = field(default_factory=list)
     duration: float = 0.0
     error: Optional[str] = None
@@ -70,12 +70,12 @@ class ExecutionStrategy(ABC):
         self.sprint_executor = sprint_executor
 
     @abstractmethod
-    async def execute(self, release_plan: PRD) -> ExecutionResult:
+    async def execute(self, release_plan: ReleasePlan) -> ExecutionResult:
         """
-        执行 PRD
+        执行 ReleasePlan
         
         Args:
-            release_plan: PRD 对象
+            release_plan: ReleasePlan 对象
             
         Returns:
             ExecutionResult: 执行结果
@@ -93,7 +93,7 @@ class NormalStrategy(ExecutionStrategy):
     Sprint 1 → Sprint 2 → Sprint 3 → ... → 完成
     """
 
-    async def execute(self, release_plan: PRD) -> ExecutionResult:
+    async def execute(self, release_plan: ReleasePlan) -> ExecutionResult:
         """执行普通任务"""
         start_time = time.time()
         logger.info(f"📋 Normal 策略执行: {release_plan.project.name}")
@@ -146,7 +146,7 @@ class EvolutionStrategy(ExecutionStrategy):
         super().__init__(sprint_executor)
         # 不再直接持有 evolution_engine，而是通过 SprintExecutor 使用
 
-    async def execute(self, release_plan: PRD) -> ExecutionResult:
+    async def execute(self, release_plan: ReleasePlan) -> ExecutionResult:
         """执行自进化 - 统一走 SprintExecutor"""
         start_time = time.time()
         logger.info(f"🔄 Evolution 策略执行: {release_plan.project.name}")
