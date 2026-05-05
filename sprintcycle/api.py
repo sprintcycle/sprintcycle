@@ -28,7 +28,7 @@ from .release_plan.validator import PRDValidator
 from .orchestration.sprint_orchestrator import ExecutionStatus, SprintOrchestrator
 from .execution.events import get_event_bus
 from .diagnostic.provider import ProjectDiagnostic
-from .execution.state_store import (
+from .execution.state.state_store import (
     StateStore,
     configure_default_store,
     get_state_store,
@@ -75,23 +75,23 @@ class SprintCycle:
         """意图 → PRD 计划（不执行），返回 prd_yaml 供 run() 使用"""
         start = time.time()
         try:
-            prd = self._resolve_prd(intent, mode, target, None, prd_path, **kwargs)
-            validation = PRDValidator().validate(prd)
+            plan = self._resolve_release_plan(intent, mode, target, None, prd_path, **kwargs)
+            validation = PRDValidator().validate(plan)
 
             sprints = [
                 {
                     "name": s.name,
                     "tasks": [t.description for t in s.tasks],
                 }
-                for s in prd.sprints
+                for s in plan.sprints
             ]
 
             return PlanResult(
                 success=validation.is_valid,
-                prd_yaml=prd.to_yaml(),
+                prd_yaml=plan.to_yaml(),
                 sprints=sprints,
-                mode=prd.mode.value,
-                prd_name=prd.project.name,
+                mode=plan.mode.value,
+                prd_name=plan.project.name,
                 duration=time.time() - start,
             )
         except Exception as e:
@@ -119,21 +119,11 @@ class SprintCycle:
             if resume and execution_id:
                 return self._resume_execution(execution_id, start)
 
-            prd = self._resolve_prd(intent, mode, target, prd_yaml, prd_path, **kwargs)
-
-            gated = self._maybe_gate_knowledge_injection(
-                prd, start, confirm_knowledge=confirm_knowledge
+            plan = self._resolve_release_plan(intent, mode, target, prd_yaml, prd_path, **kwargs)
+            run_result, _ = self._run_resolved_plan(
+                plan, start, confirm_knowledge=confirm_knowledge
             )
-            if gated is not None:
-                return gated
-
-            sprint_results = asyncio.run(
-                self.orchestrator.execute_prd(
-                    prd, max_concurrent=self.config.parallel_tasks
-                )
-            )
-
-            return self._build_run_result(prd, sprint_results, start)
+            return run_result
         except Exception as e:
             logger.exception("run failed")
             return RunResult(success=False, error=str(e), duration=time.time() - start)
@@ -325,7 +315,7 @@ class SprintCycle:
         limit: int = 50,
     ) -> Dict[str, Any]:
         """按关键词与标签检索知识卡片（SQLite）。"""
-        from .execution.knowledge_hook import resolve_knowledge_db_path
+        from .execution.knowledge.knowledge_hook import resolve_knowledge_db_path
         from .persistence.knowledge_repository import KnowledgeCardRepository
 
         repo = KnowledgeCardRepository(resolve_knowledge_db_path(self.project_path, self.config))
@@ -334,9 +324,36 @@ class SprintCycle:
 
     # ─── 内部方法 ───
 
+    def _run_resolved_plan(
+        self,
+        plan: Any,
+        start: float,
+        *,
+        confirm_knowledge: bool = False,
+    ) -> tuple[RunResult, List[Any]]:
+        """已解析的 Release Plan：知识门 → Sprint 序列。
+
+        返回 ``(run_result, sprint_results_objects)``；若知识门提前返回，则第二项为 ``[]``。
+        """
+        gated = self._maybe_gate_knowledge_injection(
+            plan, start, confirm_knowledge=confirm_knowledge
+        )
+        if gated is not None:
+            return (gated, [])
+
+        sprint_results = asyncio.run(
+            self.orchestrator.execute_prd(
+                plan, max_concurrent=self.config.parallel_tasks
+            )
+        )
+        return (
+            self._build_run_result(plan, sprint_results, start),
+            sprint_results,
+        )
+
     def _maybe_gate_knowledge_injection(
         self,
-        prd: Any,
+        plan: Any,
         start: float,
         *,
         confirm_knowledge: bool,
@@ -348,22 +365,22 @@ class SprintCycle:
             return None
         if not getattr(self.config, "knowledge_injection_enabled", True):
             return None
-        if not getattr(prd, "sprints", None):
+        if not getattr(plan, "sprints", None):
             return None
         try:
-            from .execution.knowledge_hook import resolve_knowledge_db_path
-            from .execution.knowledge_injector import (
+            from .execution.knowledge.knowledge_hook import resolve_knowledge_db_path
+            from .execution.knowledge.knowledge_injector import (
                 KnowledgeInjector,
                 knowledge_injection_is_material,
             )
         except Exception:
             return None
-        sprint0 = prd.sprints[0]
+        sprint0 = plan.sprints[0]
         try:
             db_path = resolve_knowledge_db_path(self.project_path, self.config)
             inj = KnowledgeInjector(db_path)
             res = inj.inject_for_sprint(
-                self.project_path, sprint0, prd, persist_overlay=False
+                self.project_path, sprint0, plan, persist_overlay=False
             )
         except Exception as e:
             logger.warning("knowledge injection preview skipped: %s", e)
@@ -380,9 +397,9 @@ class SprintCycle:
             success=False,
             pending_knowledge_confirmation=True,
             knowledge_injection_preview=preview,
-            prd_name=getattr(prd.project, "name", "") if hasattr(prd, "project") else "",
-            total_sprints=len(prd.sprints),
-            total_tasks=getattr(prd, "total_tasks", 0),
+            prd_name=getattr(plan.project, "name", "") if hasattr(plan, "project") else "",
+            total_sprints=len(plan.sprints),
+            total_tasks=getattr(plan, "total_tasks", 0),
             duration=time.time() - start,
             message=(
                 "知识注入预览已生成（未写入 release_plan_overlay.yaml）；"
@@ -390,7 +407,7 @@ class SprintCycle:
             ),
         )
 
-    def _resolve_prd(
+    def _resolve_release_plan(
         self,
         intent: Optional[str],
         mode: str,
@@ -399,7 +416,7 @@ class SprintCycle:
         prd_path: Optional[str],
         **kwargs: Any,
     ):
-        """从意图/YAML/文件路径解析 PRD"""
+        """从意图/YAML/文件路径解析为 Release Plan（内存模型）。"""
         if prd_yaml:
             return PRDParser().parse_string(prd_yaml)
         if prd_path:
@@ -412,9 +429,18 @@ class SprintCycle:
         return IntentPRDGenerator().generate(parsed)
 
     def _build_run_result(
-        self, prd: Any, sprint_results: List[Any], start: float
+        self,
+        plan: Any,
+        sprint_results: List[Any],
+        start: float,
+        *,
+        execution_id: Optional[str] = None,
+        current_sprint: int = 0,
+        message: str = "",
+        prd_name: Optional[str] = None,
+        total_tasks: Optional[int] = None,
     ) -> RunResult:
-        """构建 RunResult"""
+        """从 plan + 原始 Sprint 结果拼装 ``RunResult``（首跑与断点续跑共用）。"""
         success = all(
             r.status in (ExecutionStatus.SUCCESS, ExecutionStatus.SKIPPED)
             for r in sprint_results
@@ -426,43 +452,64 @@ class SprintCycle:
         )
         completed_tasks = sum(r.success_count for r in sprint_results)
 
-        # 提取 execution_id（从 StateStore 获取最新的）
-        execution_id = ""
-        try:
-            store = get_state_store()
-            states = store.list_executions(limit=1)
-            if states:
-                execution_id = states[0].execution_id
-        except Exception:
-            pass
+        resolved_execution_id = execution_id
+        if resolved_execution_id is None:
+            resolved_execution_id = ""
+            try:
+                store = get_state_store()
+                states = store.list_executions(limit=1)
+                if states:
+                    resolved_execution_id = states[0].execution_id
+            except Exception:
+                pass
 
-        # 序列化 sprint_results
+        sr_list = self._serialize_sprint_results(sprint_results)
+
+        name = prd_name
+        if name is None:
+            name = plan.project.name if hasattr(plan, "project") else ""
+
+        n_tasks = total_tasks
+        if n_tasks is None:
+            n_tasks = plan.total_tasks if hasattr(plan, "total_tasks") else 0
+
+        return RunResult(
+            success=success,
+            execution_id=resolved_execution_id,
+            prd_name=name,
+            completed_sprints=completed_sprints,
+            completed_tasks=completed_tasks,
+            total_sprints=len(sprint_results),
+            total_tasks=n_tasks,
+            current_sprint=current_sprint,
+            sprint_results=sr_list,
+            message=message,
+            duration=time.time() - start,
+        )
+
+    @staticmethod
+    def _serialize_sprint_results(sprint_results: List[Any]) -> List[Dict[str, Any]]:
+        """将 ``SprintResult`` 列表转为 ``RunResult.sprint_results`` 字典列表。"""
         sr_list: List[Dict[str, Any]] = []
         for r in sprint_results:
             sr_list.append(
                 {
                     "sprint_name": r.sprint.name if hasattr(r, "sprint") else "",
-                    "status": r.status.value if hasattr(r.status, "value") else str(r.status),
+                    "status": r.status.value
+                    if hasattr(r.status, "value")
+                    else str(r.status),
                     "success_count": r.success_count,
                     "task_count": len(r.task_results),
                     "duration": r.duration,
                 }
             )
-
-        return RunResult(
-            success=success,
-            execution_id=execution_id,
-            prd_name=prd.project.name if hasattr(prd, "project") else "",
-            completed_sprints=completed_sprints,
-            completed_tasks=completed_tasks,
-            total_sprints=len(sprint_results),
-            total_tasks=prd.total_tasks if hasattr(prd, "total_tasks") else 0,
-            sprint_results=sr_list,
-            duration=time.time() - start,
-        )
+        return sr_list
 
     def _resume_execution(self, execution_id: str, start: float) -> RunResult:
-        """断点续跑 — 从 StateStore 记录的断点继续执行"""
+        """断点续跑：从 StateStore 断点继续执行。
+
+        产品约定：**不经**知识注入确认门（与首跑走 ``_run_resolved_plan`` 含知识门区分）。
+        """
         try:
             store = get_state_store()
             if not store.can_resume(execution_id):
@@ -504,7 +551,7 @@ class SprintCycle:
                 )
 
             try:
-                prd = PRDParser().parse_string(prd_yaml)
+                plan = PRDParser().parse_string(prd_yaml)
             except Exception as e:
                 logger.error(f"无法解析保存的 PRD: {e}")
                 return RunResult(
@@ -515,7 +562,7 @@ class SprintCycle:
                 )
 
             # 重建之前的 Sprint 结果
-            previous_results = self._reconstruct_sprint_results(prd, task_results)
+            previous_results = self._reconstruct_sprint_results(plan, task_results)
             
             if previous_results:
                 logger.info(f"已恢复 {len(previous_results)} 个已完成的 Sprint 结果")
@@ -523,7 +570,7 @@ class SprintCycle:
             # 使用编排器从断点继续执行
             async def run_resume():
                 return await self.orchestrator.resume_from_sprint(
-                    prd=prd,
+                    prd=plan,
                     resume_from_idx=sprint_idx,
                     previous_results=previous_results,
                     max_concurrent=self.config.parallel_tasks,
@@ -534,43 +581,22 @@ class SprintCycle:
             # 更新状态为 COMPLETED
             store.update_status(execution_id, ExecutionStatus.COMPLETED)
 
-            # 构建 RunResult
-            success = all(
-                r.status in (ExecutionStatus.SUCCESS, ExecutionStatus.SKIPPED)
-                for r in sprint_results
+            # 与首跑共用收尾（续跑不经知识门，见 ``run`` 分支）
+            resume_prd_name = (
+                plan.project.name if hasattr(plan, "project") else state.prd_name
             )
-            completed_sprints = sum(
-                1
-                for r in sprint_results
-                if r.status in (ExecutionStatus.SUCCESS, ExecutionStatus.SKIPPED)
+            resume_total_tasks = (
+                plan.total_tasks if hasattr(plan, "total_tasks") else state.total_tasks
             )
-            completed_tasks = sum(r.success_count for r in sprint_results)
-
-            # 序列化 sprint_results
-            sr_list: List[Dict[str, Any]] = []
-            for r in sprint_results:
-                sr_list.append(
-                    {
-                        "sprint_name": r.sprint.name if hasattr(r, "sprint") else "",
-                        "status": r.status.value if hasattr(r.status, "value") else str(r.status),
-                        "success_count": r.success_count,
-                        "task_count": len(r.task_results),
-                        "duration": r.duration,
-                    }
-                )
-
-            return RunResult(
-                success=success,
+            return self._build_run_result(
+                plan,
+                sprint_results,
+                start,
                 execution_id=execution_id,
-                prd_name=prd.project.name if hasattr(prd, "project") else state.prd_name,
-                completed_sprints=completed_sprints,
-                completed_tasks=completed_tasks,
-                total_sprints=len(sprint_results),
-                total_tasks=prd.total_tasks if hasattr(prd, "total_tasks") else state.total_tasks,
                 current_sprint=sprint_idx,
-                sprint_results=sr_list,
                 message=f"断点续跑完成，共执行 {len(sprint_results)} 个 Sprint",
-                duration=time.time() - start,
+                prd_name=resume_prd_name,
+                total_tasks=resume_total_tasks,
             )
         except Exception as e:
             logger.exception("resume failed")
@@ -579,17 +605,17 @@ class SprintCycle:
             )
     
     def _reconstruct_sprint_results(
-        self, 
-        prd: Any, 
+        self,
+        plan: Any,
         task_results_data: List[Dict[str, Any]]
     ) -> List[Any]:
         """
         从保存的任务结果重建 SprintResult 列表
-        
+
         Args:
-            prd: PRD 对象
+            plan: Release Plan 对象
             task_results_data: 保存的任务结果数据
-            
+
         Returns:
             SprintResult 列表
         """
@@ -610,7 +636,7 @@ class SprintCycle:
             sprint_groups[sprint_name].append(tr)
         
         # 找到对应的 Sprint 并重建结果
-        for sprint in prd.sprints:
+        for sprint in plan.sprints:
             if sprint.name in sprint_groups:
                 group = sprint_groups[sprint.name]
                 task_results: List[TaskResult] = []

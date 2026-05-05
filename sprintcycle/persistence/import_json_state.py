@@ -20,8 +20,8 @@ def import_json_executions_to_sqlite(
     Returns:
         成功导入（写入）条数。
     """
-    from ..execution.sqlite_state_store import SqliteExecutionStore
-    from ..execution.state_store import ExecutionState
+    from ..execution.state.sqlite_state_store import SqliteExecutionStore
+    from ..execution.state.state_store import ExecutionState
 
     src = Path(json_state_dir).expanduser().resolve()
     if not src.is_dir():

@@ -10,7 +10,7 @@ from typing import List, Dict, Any, Optional
 from enum import Enum
 
 from .health_report import ProjectHealthReport, Severity
-from ..evolution.evolution_plan_source import EvolutionPRD, PRDSourceType
+from ..evolution.evolution_plan_source import EvolutionReleasePlan, EvolutionPlanSourceType
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +91,7 @@ class PRDRuleEngine:
             ),
         ]
     
-    def evaluate(self, report: ProjectHealthReport) -> List[EvolutionPRD]:
+    def evaluate(self, report: ProjectHealthReport) -> List[EvolutionReleasePlan]:
         """
         评估报告并生成PRD
         
@@ -99,7 +99,7 @@ class PRDRuleEngine:
             report: 健康报告
             
         Returns:
-            EvolutionPRD列表
+            EvolutionReleasePlan列表
         """
         prds = []
         
@@ -116,9 +116,9 @@ class PRDRuleEngine:
     
     def _gen_fix_tests_prd(
         self, report: ProjectHealthReport, project_path: str
-    ) -> EvolutionPRD:
+    ) -> EvolutionReleasePlan:
         """生成修复测试的PRD"""
-        return EvolutionPRD(
+        return EvolutionReleasePlan(
             name="修复测试失败",
             version="v1.0.0",
             path=project_path,
@@ -139,7 +139,7 @@ class PRDRuleEngine:
                     },
                 ],
             }],
-            source_type=PRDSourceType.DIAGNOSTIC,
+            source_type=EvolutionPlanSourceType.DIAGNOSTIC,
             metadata={"rule": "test_failure", "failures": report.test_failures},
             confidence=0.95,
             expected_benefit=10.0,
@@ -148,9 +148,9 @@ class PRDRuleEngine:
     
     def _gen_fix_types_prd(
         self, report: ProjectHealthReport, project_path: str
-    ) -> EvolutionPRD:
+    ) -> EvolutionReleasePlan:
         """生成修复类型错误的PRD"""
-        return EvolutionPRD(
+        return EvolutionReleasePlan(
             name="修复类型错误",
             version="v1.0.0",
             path=project_path,
@@ -171,7 +171,7 @@ class PRDRuleEngine:
                     },
                 ],
             }],
-            source_type=PRDSourceType.DIAGNOSTIC,
+            source_type=EvolutionPlanSourceType.DIAGNOSTIC,
             metadata={"rule": "type_error", "errors": report.mypy_errors},
             confidence=0.90,
             expected_benefit=8.0,
@@ -180,7 +180,7 @@ class PRDRuleEngine:
     
     def _gen_coverage_prd(
         self, report: ProjectHealthReport, project_path: str
-    ) -> EvolutionPRD:
+    ) -> EvolutionReleasePlan:
         """生成提升覆盖率的PRD"""
         target_coverage = max(report.coverage_total + 15, 80)
         
@@ -206,7 +206,7 @@ class PRDRuleEngine:
                 "constraints": ["从核心功能开始"],
             })
         
-        return EvolutionPRD(
+        return EvolutionReleasePlan(
             name="提升测试覆盖率",
             version="v1.0.0",
             path=project_path,
@@ -219,7 +219,7 @@ class PRDRuleEngine:
                 "goals": ["识别低覆盖模块", "添加测试用例"],
                 "tasks": tasks,
             }],
-            source_type=PRDSourceType.DIAGNOSTIC,
+            source_type=EvolutionPlanSourceType.DIAGNOSTIC,
             metadata={
                 "rule": "low_coverage",
                 "current": report.coverage_total,
@@ -232,9 +232,9 @@ class PRDRuleEngine:
     
     def _gen_refactor_prd(
         self, report: ProjectHealthReport, project_path: str
-    ) -> EvolutionPRD:
+    ) -> EvolutionReleasePlan:
         """生成重构高复杂度代码的PRD"""
-        return EvolutionPRD(
+        return EvolutionReleasePlan(
             name="重构高复杂度函数",
             version="v1.0.0",
             path=project_path,
@@ -255,7 +255,7 @@ class PRDRuleEngine:
                     },
                 ],
             }],
-            source_type=PRDSourceType.DIAGNOSTIC,
+            source_type=EvolutionPlanSourceType.DIAGNOSTIC,
             metadata={
                 "rule": "high_complexity",
                 "count": report.complexity_high,
@@ -267,9 +267,9 @@ class PRDRuleEngine:
     
     def _gen_fix_circular_prd(
         self, report: ProjectHealthReport, project_path: str
-    ) -> EvolutionPRD:
+    ) -> EvolutionReleasePlan:
         """生成修复循环依赖的PRD"""
-        return EvolutionPRD(
+        return EvolutionReleasePlan(
             name="消除循环依赖",
             version="v1.0.0",
             path=project_path,
@@ -285,7 +285,7 @@ class PRDRuleEngine:
                     },
                 ],
             }],
-            source_type=PRDSourceType.DIAGNOSTIC,
+            source_type=EvolutionPlanSourceType.DIAGNOSTIC,
             metadata={
                 "rule": "circular_dependency",
                 "deps": report.circular_deps,

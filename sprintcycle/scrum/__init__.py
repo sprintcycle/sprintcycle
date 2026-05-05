@@ -1,7 +1,8 @@
 """
 Scrum 对齐的类型别名（零运行时开销）
 
-与 ``release_plan.models`` 中为**同一类型**，便于新代码用 Scrum 词汇阅读与导入。
+与 ``release_plan.models`` 中为**同一类型**；新代码与根包 ``from sprintcycle import …``
+请只用本模块导出的 **Scrum 名**（不再导出 ``PRD*``）。
 详见 ``docs/DESIGN_SCRUM_NAMING_MIGRATION.md``。
 """
 
@@ -30,15 +31,14 @@ SprintDefinition = PRDSprint
 SprintBacklogItem = PRDTask
 """Sprint Backlog 上的一条可执行工作项；主字段 ``description``。"""
 
+EvolutionParams = PRDEvolutionParams
+"""自进化 / 实验环配置（与 ``release_plan.models.PRDEvolutionParams`` 同一类型）。"""
+
 __all__ = [
     "ReleasePlan",
     "ProductAnchor",
     "SprintDefinition",
     "SprintBacklogItem",
-    "PRD",
-    "PRDProject",
-    "PRDSprint",
-    "PRDTask",
-    "PRDEvolutionParams",
+    "EvolutionParams",
     "ExecutionMode",
 ]

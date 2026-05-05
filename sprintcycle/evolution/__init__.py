@@ -1,9 +1,7 @@
 """
 SprintCycle Evolution Module
 
-v0.9.0: 统一进化管道 — EvolutionPipeline + PRDSource + Diagnostic；人工 YAML 默认目录 **`release_plan/`**（见 ``ManualPRDSource``）。
-GEPA standalone engine removed, all evolution via EvolutionPipeline。
-v0.9.1: 精简 Config 类，删除未使用的枚举
+v0.9.0: 统一进化管道 — ``EvolutionPipeline`` + ``EvolutionPlanSource`` + Diagnostic；人工 YAML 默认目录 **`release_plan/`**（见 ``ManualPRDSource``）。
 """
 
 # ========== Core Types ==========
@@ -12,13 +10,15 @@ from .types import SprintContext
 # ========== Unified Pipeline (v0.9.0) ==========
 from .pipeline import (
     EvolutionPipeline,
-    PipelineResult,
+    EvolutionReleasePlanResult,
+    SprintExecutionResult,
 )
 from .evolution_plan_source import (
-    PRDSource,
+    EvolutionPlanSource,
     ManualPRDSource,
     DiagnosticPRDSource,
-    EvolutionPRD,
+    EvolutionReleasePlan,
+    EvolutionPlanSourceType,
 )
 
 # ========== Components (retained) ==========
@@ -38,20 +38,18 @@ from .rollback_manager import (
     RollbackError,
 )
 
-# ========== Config (backward compat) ==========
-# MeasurementConfig, MemoryConfig removed in v0.9.1 - use RuntimeConfig fields instead
-# RollbackConfig removed in v0.9.1 - use parameters or RuntimeConfig instead
-
 __version__ = "0.9.1"
 
 __all__ = [
     "SprintContext",
     "EvolutionPipeline",
-    "PipelineResult",
-    "PRDSource",
+    "EvolutionReleasePlanResult",
+    "SprintExecutionResult",
+    "EvolutionPlanSource",
     "ManualPRDSource",
     "DiagnosticPRDSource",
-    "EvolutionPRD",
+    "EvolutionReleasePlan",
+    "EvolutionPlanSourceType",
     "MeasurementProvider",
     "MeasurementResult",
     "MemoryStore",

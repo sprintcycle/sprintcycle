@@ -63,7 +63,7 @@ class ExecutionEngine:
         # v0.9.0: EvolutionPipeline replaces legacy engine
         from ..evolution.pipeline import EvolutionPipeline
         from ..evolution.evolution_plan_source import ManualPRDSource
-        self._evolution_pipeline = EvolutionPipeline(prd_source=ManualPRDSource())
+        self._evolution_pipeline = EvolutionPipeline(plan_source=ManualPRDSource())
         
         # 创建共享的 SprintExecutor（注入 EvolutionEngine）
         mv = int(self.config.get("max_verify_fix_rounds", 3))

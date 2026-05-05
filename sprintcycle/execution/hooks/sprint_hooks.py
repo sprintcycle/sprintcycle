@@ -10,8 +10,8 @@ from abc import ABC, abstractmethod
 import logging
 from typing import Any, Dict, Optional, Sequence
 
-from ..release_plan.models import PRD, PRDSprint
-from .sprint_types import SprintResult
+from ...release_plan.models import PRD, PRDSprint
+from ..sprint_types import SprintResult
 
 logger = logging.getLogger(__name__)
 

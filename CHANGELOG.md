@@ -1,6 +1,8 @@
 ## [Unreleased]
 
 ### Breaking / 命名收敛
+- **`IntentResult`**：字段 **`prd` → `release_plan`**；**`IntentHandler.validate_prd` → `validate_release_plan`**；**`execute(release_plan=…)`**（原 `prd` 参数名）。**`RunnerHandler`** 不再自建无配置的 ``SprintOrchestrator``，默认构造内建 **`SprintCycle(project_path, config)`** 并委托 **`SprintCycle._run_resolved_plan`**（与 **`run()`** 共用知识门与 **`parallel_tasks`**）；可选 **`RunnerHandler(api=existing_sprint_cycle)`** 注入同一 API 实例。**`RunnerHandler.parse_prd_file`** 重命名为 **`parse_release_plan_file`**。
+- **根包 `from sprintcycle import …`**：不再导出 `PRD`、`PRDProject`、`PRDSprint`、`PRDTask`、`PRDParser`、`PRDValidator`。请改用 **`ReleasePlan`、`ProductAnchor`、`SprintDefinition`、`SprintBacklogItem`、`EvolutionParams`、`ExecutionMode`、`ReleasePlanParser`、`ReleasePlanValidator`、`ReleasePlanParseError`**；实现类名未改时可用 **`from sprintcycle.release_plan.models import PRD`**。`sprintcycle.scrum` 仅导出 Scrum 别名（含 `EvolutionParams`），不再导出 `PRD*`。
 - **`ManualPRDSource`**：默认扫描目录由项目根下 **`prd/`** 改为 **`release_plan/`**；构造参数由 **`prd_dir`** 改为 **`plan_subdir`**（默认 ``"release_plan"``）。使用进化管道且依赖磁盘 YAML 的项目请将计划文件迁入 **`release_plan/*.yaml`** 或传入自定义子路径。
 - 知识注入落盘文件：**`prd_overlay.yaml` → `release_plan_overlay.yaml`**（项目根；`KnowledgeInjector` 常量 `RELEASE_PLAN_OVERLAY_FILENAME`）。
 - 知识注入运行时上下文：**`prd_overlay_yaml` → `release_plan_overlay_yaml`**、**`prd_overlay_written` → `release_plan_overlay_written`**；Coder / Cookbook 路径 **`codebase_context["prd_overlay"]` → `["release_plan_overlay"]`**；**`prd_overlay_hint` → `release_plan_overlay_hint`**（`build_cookbook_body` / `run_cursor_cookbook_flow`）。
@@ -11,6 +13,12 @@
 - `PRDParser`：Sprint Backlog 项 **仅**接受 YAML 键 **`description`**（不再接受 `task` / `name`）
 - 移除 **`DeliveryMode`** 与 **`delivery_mode_to_execution_mode`**（`release_plan.models`、`scrum`、根包导出）
 - `execution` 包不再导出 **`TaskStatus`**（请使用 `ExecutionStatus`）
+
+### Refactor
+- `orchestration/sprint_orchestrator`：内部钩子类 **`_DispatcherSprintHooks` → `_OrchestratorSprintHooks`**（与已移除的 scheduler/dispatcher 脱钩）。
+- `execution/sprint_types`：在模块与 **`ExecutionStatus`** docstring 中写明 **对外稳定 status 子集**（CLI/MCP/任务与 Sprint JSON）与 **执行会话轴**、**内部取值**的边界，避免前端分支膨胀。
+- `SprintCycle`：断点续跑成功路径与首跑共用 **`_build_run_result`** / **`_serialize_sprint_results`**；**续跑不经知识注入确认门**（与 ``_run_resolved_plan`` 区分）在 **`_resume_execution`** docstring 中写明。
+- **Evolution 子域 Scrum 对等命名（无旧名导出）**：仅保留 `EvolutionReleasePlan`、`EvolutionPlanSource`、`EvolutionPlanSourceType`、`EvolutionReleasePlanResult`（字段 `release_plan`）、`evolution_release_plan_to_prd`、`EvolutionPipeline(plan_source=…)`；`EvolutionReleasePlanResult.to_dict()` 使用 `release_plan_name` / `release_plan_version`。边界说明见 `evolution/pipeline.py`、`evolution/evolution_plan_source.py`。
 
 ### Features
 - P1 Scrum：`scrum` 根包导出；CLI/MCP/Dashboard「执行计划」话术；`SprintResult`/`TaskResult` Scrum docstring（`docs/DESIGN_SCRUM_NAMING_MIGRATION.md`）

@@ -269,3 +269,8 @@ class PRDParser:
             "total_tasks": prd.total_tasks,
             "is_evolution": prd.is_evolution_mode,
         }
+
+
+# 对外推荐名（根包 ``sprintcycle`` 与 ``release_plan`` 子包导出）
+ReleasePlanParser = PRDParser
+ReleasePlanParseError = PRDParseError

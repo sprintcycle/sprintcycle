@@ -25,17 +25,17 @@ from ..evolution.evolution_plan_source import DiagnosticPRDSource
 from ..evolution.types import SprintContext
 from ..execution.events import Event, EventBus, EventType, create_event, get_event_bus
 from ..execution.feedback import FeedbackLoop
-from ..execution.knowledge_hook import KnowledgeInjectionHook
+from ..execution.knowledge.knowledge_hook import KnowledgeInjectionHook
 from ..execution.sprint_executor import SprintExecutor
-from ..execution.sprint_hooks import ChainedSprintHooks, SprintLifecycleHooks
+from ..execution.hooks.sprint_hooks import ChainedSprintHooks, SprintLifecycleHooks
 from ..execution.sprint_types import ExecutionStatus, SprintResult, TaskResult
 from ..release_plan.models import PRD, PRDSprint, PRDTask
 
 logger = logging.getLogger(__name__)
 
 
-class _DispatcherSprintHooks(SprintLifecycleHooks):
-    """将 Sprint 边界事件、回调与测量挂到 SprintExecutor 钩子链上。"""
+class _OrchestratorSprintHooks(SprintLifecycleHooks):
+    """由 ``SprintOrchestrator`` 注入：在 Sprint 边界发事件、调回调、跑测量与知识卡片落盘。"""
 
     def __init__(self, orchestrator: "SprintOrchestrator", prd: PRD):
         self._orchestrator = orchestrator
@@ -90,7 +90,7 @@ class _DispatcherSprintHooks(SprintLifecycleHooks):
             )
         if p is not None:
             m = await self._orchestrator._post_sprint_measurement(p)
-            from ..execution.sprint_knowledge_card import persist_sprint_outcome_card
+            from ..execution.knowledge.sprint_knowledge_card import persist_sprint_outcome_card
 
             persist_sprint_outcome_card(
                 project_path=self._orchestrator._project_root,
@@ -152,7 +152,7 @@ class SprintOrchestrator:
         return ChainedSprintHooks(
             (
                 KnowledgeInjectionHook(self._project_root, self.config),
-                _DispatcherSprintHooks(self, prd),
+                _OrchestratorSprintHooks(self, prd),
             )
         )
 
@@ -257,7 +257,7 @@ class SprintOrchestrator:
             return []
         if not self.evolution_pipeline:
             self.evolution_pipeline = EvolutionPipeline(
-                self._project_root, config=self.config, prd_source=DiagnosticPRDSource()
+                self._project_root, config=self.config, plan_source=DiagnosticPRDSource()
             )
         strategy = self._infer_evolution_strategy(prd.evolution.goals)
         logger.info(f"🧬 自进化策略: {strategy} | 目标: {prd.evolution.goals}")
@@ -318,10 +318,13 @@ class SprintOrchestrator:
             target_path = Path(prd.project.path) / target
             if not target_path.exists(): raise FileNotFoundError(f"目标文件不存在: {target_path}")
             assert self.evolution_pipeline is not None
-            from sprintcycle.evolution.evolution_plan_source import EvolutionPRD
-            evo_prd = EvolutionPRD(name=f"evo-{sprint.tasks[0].agent}", version="1.0", path=prd.project.path)
-            evo_prd.sprints = [{"name": "evolution", "tasks": [sprint.tasks[0].description]}]
-            evo_result = await self.evolution_pipeline.execute_async(evo_prd)
+            from sprintcycle.evolution.evolution_plan_source import EvolutionReleasePlan
+
+            evo_plan = EvolutionReleasePlan(
+                name=f"evo-{sprint.tasks[0].agent}", version="1.0", path=prd.project.path
+            )
+            evo_plan.sprints = [{"name": "evolution", "tasks": [sprint.tasks[0].description]}]
+            evo_result = await self.evolution_pipeline.execute_async(evo_plan)
             task_result.status = ExecutionStatus.SUCCESS if evo_result.success else ExecutionStatus.FAILED
             task_result.output = f"进化执行完成: {evo_result.completed_sprints} 个Sprint" if evo_result.success else ""
             task_result.error = evo_result.error or "未知错误" if not evo_result.success else None
@@ -374,10 +377,13 @@ class SprintOrchestrator:
             result.error = "evolver 任务必须指定 target"
             return result
         if not self.evolution_pipeline:
-            self.evolution_pipeline = EvolutionPipeline(".", config=self.config, prd_source=DiagnosticPRDSource())
+            self.evolution_pipeline = EvolutionPipeline(
+                ".", config=self.config, plan_source=DiagnosticPRDSource()
+            )
         try:
-            from sprintcycle.evolution.evolution_plan_source import EvolutionPRD
-            evo_prd = EvolutionPRD(
+            from sprintcycle.evolution.evolution_plan_source import EvolutionReleasePlan
+
+            evo_plan = EvolutionReleasePlan(
                 name=f"evolution-{task.target}",
                 version="1.0",
                 path=".",
@@ -395,7 +401,7 @@ class SprintOrchestrator:
                     }
                 ],
             )
-            evo_result = await self.evolution_pipeline.execute_async(evo_prd)
+            evo_result = await self.evolution_pipeline.execute_async(evo_plan)
             result.status = ExecutionStatus.SUCCESS if evo_result.success else ExecutionStatus.FAILED
             result.output = f"进化执行完成: {evo_result.completed_sprints} 个Sprint" if evo_result.success else ""
             result.error = evo_result.error if not evo_result.success else None

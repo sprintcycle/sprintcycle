@@ -11,12 +11,12 @@ import pytest
 from sprintcycle.config import RuntimeConfig
 from sprintcycle.evolution.pipeline import (
     EvolutionPipeline,
-    PRDExecutionResult,
+    EvolutionReleasePlanResult,
     SprintExecutionResult,
 )
 from sprintcycle.evolution.evolution_plan_source import (
-    EvolutionPRD,
-    PRDSourceType,
+    EvolutionReleasePlan,
+    EvolutionPlanSourceType,
 )
 from sprintcycle.execution.sprint_types import ExecutionStatus
 
@@ -31,7 +31,7 @@ class TestEvolutionPipeline:
         assert pipeline.project_path == "/test/project"
         # Default initializes with ManualPRDSource
         from sprintcycle.evolution.evolution_plan_source import ManualPRDSource
-        assert isinstance(pipeline._prd_source, ManualPRDSource)
+        assert isinstance(pipeline._plan_source, ManualPRDSource)
 
     def test_init_with_config(self):
         """测试带RuntimeConfig初始化"""
@@ -64,7 +64,7 @@ class TestEvolutionPipeline:
 
     def test_execute_with_sprint_success(self):
         """测试执行带Sprint的成功场景"""
-        prd = EvolutionPRD(
+        plan = EvolutionReleasePlan(
             name="Test PRD",
             version="v1.0.0",
             path="/test/project",
@@ -73,21 +73,21 @@ class TestEvolutionPipeline:
                 "goals": [],
                 "tasks": [{"description": "Task 1", "agent": "coder"}],
             }],
-            source_type=PRDSourceType.MANUAL,
+            source_type=EvolutionPlanSourceType.MANUAL,
         )
 
         pipeline = EvolutionPipeline(
             project_path="/test/project",
         )
 
-        result = pipeline.execute(prd)
+        result = pipeline.execute(plan)
 
-        assert result.prd == prd
+        assert result.release_plan == plan
         assert len(result.sprint_results) == 1
 
     def test_execute_delegates_when_runtime_config(self, tmp_path: Path):
         """有 RuntimeConfig 时走 SprintOrchestrator（dry_run，不触网）。"""
-        prd = EvolutionPRD(
+        plan = EvolutionReleasePlan(
             name="delegated",
             version="1.0",
             path=str(tmp_path),
@@ -100,26 +100,26 @@ class TestEvolutionPipeline:
         )
         cfg = RuntimeConfig(dry_run=True, quality_level="L1")
         pipeline = EvolutionPipeline(project_path=str(tmp_path), config=cfg)
-        result = pipeline.execute(prd)
+        result = pipeline.execute(plan)
         assert result.success
         assert len(result.sprint_results) == 1
         assert result.sprint_results[0].sprint_name == "S1"
 
     def test_execute_empty_sprints(self):
         """测试执行空Sprints"""
-        prd = EvolutionPRD(
+        plan = EvolutionReleasePlan(
             name="Test PRD",
             version="v1.0.0",
             path="/test/project",
             sprints=[],
-            source_type=PRDSourceType.MANUAL,
+            source_type=EvolutionPlanSourceType.MANUAL,
         )
 
         pipeline = EvolutionPipeline(
             project_path="/test/project",
         )
 
-        result = pipeline.execute(prd)
+        result = pipeline.execute(plan)
 
         # Empty sprints results in success=True with 0 sprint results
         # This is expected behavior - no sprints means nothing to fail
@@ -143,22 +143,22 @@ class TestEvolutionPipeline:
         assert pipeline.status == ExecutionStatus.IDLE
 
     def test_pipeline_result_to_dict(self):
-        """测试PipelineResult序列化"""
-        prd = EvolutionPRD(
+        """测试 EvolutionReleasePlanResult 序列化"""
+        plan = EvolutionReleasePlan(
             name="Test PRD",
             version="v1.0.0",
             path="/test/project",
             sprints=[],
-            source_type=PRDSourceType.MANUAL,
+            source_type=EvolutionPlanSourceType.MANUAL,
         )
-        result = PRDExecutionResult(
-            prd=prd,
+        result = EvolutionReleasePlanResult(
+            release_plan=plan,
             success=True,
         )
 
         data = result.to_dict()
 
-        assert data["prd_name"] == "Test PRD"
+        assert data["release_plan_name"] == "Test PRD"
         assert data["success"] is True
 
 

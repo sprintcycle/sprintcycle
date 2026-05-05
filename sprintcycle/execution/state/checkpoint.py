@@ -8,9 +8,9 @@ import logging
 import uuid
 from typing import Dict, Any, Optional
 
-from ..release_plan.models import PRD
+from ...release_plan.models import PRD
 from .state_store import ExecutionState, StateStore
-from .sprint_types import ExecutionStatus, SprintResult
+from ..sprint_types import ExecutionStatus, SprintResult
 
 logger = logging.getLogger(__name__)
 

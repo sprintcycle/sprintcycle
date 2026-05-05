@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, List, Optional
 
 if TYPE_CHECKING:
-    from ..release_plan.models import PRD, PRDSprint
+    from ...release_plan.models import PRD, PRDSprint
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +56,7 @@ def knowledge_injection_is_material(res: KnowledgeInjectionResult) -> bool:
 
 class KnowledgeInjector:
     def __init__(self, db_path: str):
-        from ..persistence.knowledge_repository import KnowledgeCardRepository
+        from ...persistence.knowledge_repository import KnowledgeCardRepository
 
         self._repo = KnowledgeCardRepository(db_path)
 

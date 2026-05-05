@@ -6,7 +6,7 @@ import pytest
 
 from sprintcycle.config import RuntimeConfig
 from sprintcycle.execution.rollback import RollbackManager
-from sprintcycle.execution.state_store import (
+from sprintcycle.execution.state.state_store import (
     configure_default_store,
     get_state_store,
     reset_default_state_store,

@@ -6,6 +6,21 @@ Sprint 执行类型 — 与 Scrum **Sprint / Sprint Backlog Item 结果 / Increm
   质量门/DoD 体现，本对象承载该 Sprint 内工作项结果与时长等**可检视证据**。
 
 v0.9.1: TaskResult/SprintResult 并入本模块；执行状态统一为 ``ExecutionStatus``。
+
+**``ExecutionStatus`` 与对外协议（CLI JSON / MCP）**
+
+- **建议在集成层当作稳定契约依赖的取值**（单条 Sprint Backlog Item 或单个 Sprint 聚合的
+  ``status`` 字段，见 ``TaskResult.to_dict`` / ``SprintResult`` 及 ``RunResult.sprint_results``）：
+  ``pending``、``running``、``success``、``failed``、``skipped``、``timeout``、``cancelled``。
+  新前端/自动化只应对以上分支做完备处理即可。
+
+- **执行会话轴**（``StateStore`` / ``ExecutionState``、``SprintCycle.status`` 返回的**整条执行**
+  状态，与上列「任务级」字符串同枚举但语义不同）：常见 ``running``、``completed``、
+  ``failed``、``cancelled``、``paused``。勿与单任务 JSON 的 ``status`` 混用同一套 UI 映射。
+
+- **内部或次要场景**：``idle``、``partial``（如进化管道聚合态）；``completed`` 与 ``success``
+  并存属历史合并遗留，会话级完成优先用 ``completed``，Sprint/任务成败用 ``success``。
+  新增对外字段时**不要**再引入新的字符串；若必须扩展，先改文档与本段说明再落地。
 """
 
 from dataclasses import dataclass, field
@@ -17,7 +32,12 @@ from ..release_plan.models import PRDTask, PRDSprint
 
 
 class ExecutionStatus(Enum):
-    """统一执行状态枚举（v0.9.2: 合并 ExecutionStateStatus + PipelineStatus）"""
+    """统一执行状态枚举（v0.9.2: 合并 ExecutionStateStatus + PipelineStatus）。
+
+    取值分轴见**本模块文件顶部说明**。摘要：任务/Sprint 结果 JSON 优先依赖
+    ``pending`` … ``cancelled``；整条执行记录另看 ``running`` / ``completed`` / ``paused`` 等。
+    """
+
     PENDING = "pending"
     RUNNING = "running"
     SUCCESS = "success"

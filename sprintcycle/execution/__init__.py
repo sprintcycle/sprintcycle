@@ -6,16 +6,16 @@ from .engine import ExecutionEngine
 from .strategies import NormalStrategy, EvolutionStrategy as StrategyEvolutionStrategy, ExecutionStrategy, get_strategy
 from .sprint_executor import SprintExecutor, ExecutionStatus, TaskResult, SprintResult
 from .events import EventBus, Event, EventType, get_event_bus
-from .state_store import (
+from .state.state_store import (
     StateStore,
     ExecutionState,
     configure_default_store,
     get_state_store,
     reset_default_state_store,
 )
-from .sqlite_state_store import SqliteExecutionStore
+from .state.sqlite_state_store import SqliteExecutionStore
 from .feedback import FeedbackLoop, ExecutionFeedback, FeedbackLevel, FeedbackCategory
-from .sprint_hooks import ChainedSprintHooks, SprintLifecycleHooks, NoOpSprintLifecycleHooks
+from .hooks.sprint_hooks import ChainedSprintHooks, SprintLifecycleHooks, NoOpSprintLifecycleHooks
 from .cache import ExecutionCache, CacheEntry, get_cache, set_cache
 from .agents import (
     AgentType, AgentContext, AgentResult, AgentExecutor, CoderAgent, BatchTask, BatchConfig,

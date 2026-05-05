@@ -15,11 +15,11 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 from datetime import datetime
 from pathlib import Path
 
-from .sprint_types import ExecutionStatus
+from ..sprint_types import ExecutionStatus
 import logging
 
 if TYPE_CHECKING:
-    from ..config.runtime_config import RuntimeConfig
+    from ...config.runtime_config import RuntimeConfig
 
 logger = logging.getLogger(__name__)
 

@@ -1,5 +1,5 @@
 """
-EvolutionPRD → 主路径 PRD 模型（V4.0 §6.2 委托 SprintOrchestrator 时使用）
+EvolutionReleasePlan → 主路径 ``release_plan.models.PRD``（V4.0 §6.2 委托 ``SprintOrchestrator`` 时使用）。
 """
 
 from __future__ import annotations
@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, List
 
 from ..release_plan.models import PRD, ExecutionMode, PRDProject, PRDSprint, PRDTask
-from .evolution_plan_source import EvolutionPRD
+from .evolution_plan_source import EvolutionReleasePlan
 
 
 def _task_dict_to_prd_task(t: Any) -> PRDTask:
@@ -31,7 +31,7 @@ def _task_dict_to_prd_task(t: Any) -> PRDTask:
     return PRDTask(description=str(t), agent="coder")
 
 
-def evolution_prd_to_prd(evo: EvolutionPRD, project_root: str) -> PRD:
+def evolution_release_plan_to_prd(evo: EvolutionReleasePlan, project_root: str) -> PRD:
     raw = (evo.path or project_root or ".").strip() or "."
     try:
         p = Path(raw)
@@ -49,5 +49,10 @@ def evolution_prd_to_prd(evo: EvolutionPRD, project_root: str) -> PRD:
         tasks = [_task_dict_to_prd_task(t) for t in raw_tasks]
         sprints.append(PRDSprint(name=name, goals=goals, tasks=tasks))
     meta = dict(evo.metadata) if evo.metadata else {}
-    meta.setdefault("evolution_prd_source", evo.source_type.value if hasattr(evo.source_type, "value") else str(evo.source_type))
+    src_val = (
+        evo.source_type.value
+        if hasattr(evo.source_type, "value")
+        else str(evo.source_type)
+    )
+    meta.setdefault("evolution_release_plan_source", src_val)
     return PRD(project=proj, mode=ExecutionMode.NORMAL, sprints=sprints, metadata=meta)

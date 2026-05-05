@@ -10,7 +10,7 @@ import logging
 from typing import List, Dict, Any, Optional
 
 from .health_report import ProjectHealthReport, Severity
-from ..evolution.evolution_plan_source import EvolutionPRD, PRDSourceType
+from ..evolution.evolution_plan_source import EvolutionReleasePlan, EvolutionPlanSourceType
 from .release_plan_rules import PRDRulePriority, PRDRule, PRDRuleEngine
 
 logger = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ class LLMPRDGenerator:
         self._model = cfg.model
         self._api_base = cfg.api_base
     
-    def generate(self, report: ProjectHealthReport, project_path: str) -> List[EvolutionPRD]:
+    def generate(self, report: ProjectHealthReport, project_path: str) -> List[EvolutionReleasePlan]:
         from sprintcycle.llm_provider import call_llm
         if not self._api_key:
             logger.warning("LLM_API_KEY未设置，跳过LLM生成")
@@ -68,7 +68,7 @@ class LLMPRDGenerator:
 
 以JSON格式输出PRD。"""
     
-    def _parse_llm_response(self, content: str, project_path: str) -> List[EvolutionPRD]:
+    def _parse_llm_response(self, content: str, project_path: str) -> List[EvolutionReleasePlan]:
         import json, re
         json_match = re.search(r"\{[\s\S]*\}|\[[\s\S]*\]", content)
         if not json_match:
@@ -79,10 +79,10 @@ class LLMPRDGenerator:
                 data = [data]
             prds = []
             for item in data:
-                prds.append(EvolutionPRD(
+                prds.append(EvolutionReleasePlan(
                     name=item.get("name", "LLM生成PRD"), version="v1.0.0", path=project_path,
                     goals=item.get("goals", []), sprints=item.get("sprints", []),
-                    source_type=PRDSourceType.DIAGNOSTIC, metadata={"generator": "llm"},
+                    source_type=EvolutionPlanSourceType.DIAGNOSTIC, metadata={"generator": "llm"},
                     confidence=0.7, expected_benefit=item.get("expected_benefit", 5.0),
                     priority=item.get("priority", 50),
                 ))
@@ -99,7 +99,7 @@ class DiagnosticPRDGenerator:
         self._rule_engine = rule_engine or PRDRuleEngine()
         self._llm_generator = llm_generator
     
-    def generate(self, report: ProjectHealthReport, project_path: str) -> List[EvolutionPRD]:
+    def generate(self, report: ProjectHealthReport, project_path: str) -> List[EvolutionReleasePlan]:
         # 1. 规则引擎生成P0/P1 PRD
         rule_prds = self._rule_engine.evaluate(report)
         # 2. LLM补充（仅在健康评分较低时）

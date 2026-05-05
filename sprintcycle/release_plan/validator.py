@@ -225,3 +225,6 @@ class PRDValidator:
                 errors=[f"文件验证失败: {e}"],
                 warnings=[],
             )
+
+
+ReleasePlanValidator = PRDValidator

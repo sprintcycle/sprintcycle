@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from sprintcycle.config import RuntimeConfig
 from sprintcycle.execution.sprint_executor import SprintExecutor
-from sprintcycle.execution.sprint_hooks import ChainedSprintHooks, SprintLifecycleHooks
+from sprintcycle.execution.hooks.sprint_hooks import ChainedSprintHooks, SprintLifecycleHooks
 from sprintcycle.release_plan.models import PRD, PRDProject, PRDSprint, PRDTask, ExecutionMode
 
 

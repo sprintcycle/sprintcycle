@@ -20,9 +20,9 @@
 
 | 代码 / 文件 | Scrum 里怎么理解 |
 |-------------|------------------|
-| `PRD` / plan YAML | **可执行交付计划**（多 Sprint）；类型别名 `ReleasePlan`（`from sprintcycle import ReleasePlan`） |
-| `PRDSprint`、`sprints[]` | 一次 **Sprint**；`goals` ≈ Sprint Goal；`tasks` ≈ **Sprint Backlog** |
-| `PRDTask`、`description`（YAML 仅 `description:`） | **Sprint Backlog Item** 的工作说明 |
+| 根包 `ReleasePlan` / plan YAML | **可执行交付计划**（多 Sprint）；`from sprintcycle import ReleasePlan, ReleasePlanParser` |
+| `SprintDefinition`、`sprints[]` | 一次 **Sprint**；`goals` ≈ Sprint Goal；`tasks` ≈ **Sprint Backlog** |
+| `SprintBacklogItem`、`description`（YAML 仅 `description:`） | **Sprint Backlog Item** 的工作说明 |
 | `SprintOrchestrator` | **Sprint 执行编排**（orchestrator），非日历排期 |
 
 完整分级与命名约定见 **[`docs/DESIGN_SCRUM_NAMING_MIGRATION.md`](docs/DESIGN_SCRUM_NAMING_MIGRATION.md)**。
@@ -204,7 +204,7 @@ sprintcycle/
 │   ├── parser.py
 │   └── runner.py
 │
-├── release_plan/              # 可执行多 Sprint 计划（类型名仍为 PRD*）
+├── release_plan/              # 可执行多 Sprint 计划（实现类名 PRD*；根包导出 Scrum 名）
 │   ├── models.py            # 数据模型
 │   ├── parser.py            # 解析器
 │   └── validator.py         # 验证器

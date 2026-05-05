@@ -15,9 +15,9 @@ from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional, Set
 
 from ..release_plan.models import PRD, PRDEvolutionParams, PRDSprint, PRDTask
-from .checkpoint import CheckpointMixin
-from .sprint_hooks import NoOpSprintLifecycleHooks, SprintLifecycleHooks
-from .state_store import StateStore, get_state_store
+from .state.checkpoint import CheckpointMixin
+from .hooks.sprint_hooks import NoOpSprintLifecycleHooks, SprintLifecycleHooks
+from .state.state_store import StateStore, get_state_store
 
 logger = logging.getLogger(__name__)
 

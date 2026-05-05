@@ -6,10 +6,10 @@ import logging
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 if TYPE_CHECKING:
-    from ..config.runtime_config import RuntimeConfig
-    from ..evolution.measurement import MeasurementResult
-    from ..release_plan.models import PRD, PRDSprint
-    from .sprint_types import SprintResult
+    from ...config.runtime_config import RuntimeConfig
+    from ...evolution.measurement import MeasurementResult
+    from ...release_plan.models import PRD, PRDSprint
+    from ..sprint_types import SprintResult
 
 logger = logging.getLogger(__name__)
 
@@ -32,8 +32,8 @@ def persist_sprint_outcome_card(
     if not getattr(config, "persist_sprint_knowledge_cards", True):
         return None
     try:
-        from ..execution.knowledge_hook import resolve_knowledge_db_path
-        from ..persistence.knowledge_repository import KnowledgeCardRepository
+        from .knowledge_hook import resolve_knowledge_db_path
+        from ...persistence.knowledge_repository import KnowledgeCardRepository
     except Exception as e:  # pragma: no cover
         logger.debug("knowledge card deps unavailable: %s", e)
         return None

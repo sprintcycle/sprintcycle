@@ -7,12 +7,9 @@ from sprintcycle import (
     SprintBacklogItem,
     SprintDefinition,
     ProductAnchor,
-    PRD,
-    PRDProject,
-    PRDSprint,
-    PRDTask,
+    ReleasePlanParser,
 )
-from sprintcycle.release_plan.parser import PRDParser
+from sprintcycle.release_plan.models import PRD, PRDProject, PRDSprint, PRDTask
 
 
 def test_type_aliases_are_identity() -> None:
@@ -22,8 +19,14 @@ def test_type_aliases_are_identity() -> None:
     assert ProductAnchor is PRDProject
 
 
-def test_prd_task_description_property() -> None:
-    item = PRDTask(description="hello", agent="coder")
+def test_release_plan_parser_alias() -> None:
+    from sprintcycle.release_plan.parser import PRDParser
+
+    assert ReleasePlanParser is PRDParser
+
+
+def test_sprint_backlog_item_description_property() -> None:
+    item = SprintBacklogItem(description="hello", agent="coder")
     assert item.description == "hello"
     item.description = "world"
     assert item.description == "world"
@@ -42,5 +45,5 @@ sprints:
       - description: from description key
         agent: coder
 """
-    prd = PRDParser().parse_string(yaml.strip())
+    prd = ReleasePlanParser().parse_string(yaml.strip())
     assert prd.sprints[0].tasks[0].description == "from description key"

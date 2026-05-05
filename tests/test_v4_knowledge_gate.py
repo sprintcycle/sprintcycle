@@ -13,7 +13,7 @@ from sprintcycle.persistence.knowledge_repository import KnowledgeCardRepository
 
 @pytest.fixture(autouse=True)
 def _reset_store():
-    from sprintcycle.execution.state_store import reset_default_state_store
+    from sprintcycle.execution.state.state_store import reset_default_state_store
 
     reset_default_state_store()
     yield
@@ -55,7 +55,7 @@ sprints:
 
 
 def test_knowledge_injection_is_material_helper(tmp_path: Path) -> None:
-    from sprintcycle.execution.knowledge_injector import (
+    from sprintcycle.execution.knowledge.knowledge_injector import (
         KnowledgeInjectionResult,
         knowledge_injection_is_material,
     )

@@ -20,9 +20,9 @@ For external communication and architecture reviews, the **in-repo** documents b
 
 | Code / artifact | Scrum reading |
 |-----------------|---------------|
-| `PRD` / plan YAML | **Executable release plan** (multi-Sprint); type alias `ReleasePlan` (`from sprintcycle import ReleasePlan`) |
-| `PRDSprint`, `sprints[]` | One **Sprint**; `goals` ≈ Sprint Goal; `tasks` ≈ **Sprint Backlog** |
-| `PRDTask`, `description` (YAML uses `description:` only) | **Sprint Backlog Item** narrative |
+| Root `ReleasePlan` / plan YAML | **Executable release plan** (multi-Sprint); `from sprintcycle import ReleasePlan, ReleasePlanParser` |
+| `SprintDefinition`, `sprints[]` | One **Sprint**; `goals` ≈ Sprint Goal; `tasks` ≈ **Sprint Backlog** |
+| `SprintBacklogItem`, `description` (YAML uses `description:` only) | **Sprint Backlog Item** narrative |
 | `SprintOrchestrator` | **Sprint execution orchestration** (not calendar scheduling) |
 
 See **[`docs/DESIGN_SCRUM_NAMING_MIGRATION.md`](docs/DESIGN_SCRUM_NAMING_MIGRATION.md)** for phased refactors (P0/P1).
@@ -204,7 +204,7 @@ sprintcycle/
 │   ├── parser.py
 │   └── runner.py
 │
-├── release_plan/              # Executable multi-sprint plan (types still named PRD*)
+├── release_plan/              # Executable multi-sprint plan (impl classes PRD*; root exports Scrum names)
 │   ├── models.py             # Data models
 │   ├── parser.py            # Parser
 │   └── validator.py         # Validator

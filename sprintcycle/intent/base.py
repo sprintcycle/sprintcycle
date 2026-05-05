@@ -5,19 +5,18 @@ Intent 基类
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Dict, Any, Optional, List, TYPE_CHECKING
-from datetime import datetime
 
 # 使用 TYPE_CHECKING 避免循环导入
 if TYPE_CHECKING:
     from ..release_plan.models import PRD
-    from ..orchestration.sprint_orchestrator import SprintOrchestrator, SprintResult
+    from ..orchestration.sprint_orchestrator import SprintResult
 
 
 @dataclass
 class IntentResult:
-    """意图执行结果"""
+    """意图执行结果（``release_plan`` 与根包 ``ReleasePlan`` 为同一类型）。"""
     success: bool
-    prd: "PRD"
+    release_plan: "PRD"
     completed_sprints: int = 0
     completed_tasks: int = 0
     total_sprints: int = 0
@@ -40,42 +39,40 @@ class IntentResult:
 
 class IntentHandler(ABC):
     """意图处理器基类"""
-    
-    def __init__(self):
-        from ..orchestration.sprint_orchestrator import SprintOrchestrator
-        self.orchestrator = SprintOrchestrator()
-    
+
     @abstractmethod
-    def execute(self, prd: "PRD") -> IntentResult:
+    def execute(self, release_plan: "PRD") -> IntentResult:
         pass
-    
-    def validate_prd(self, prd: "PRD") -> bool:
+
+    def validate_release_plan(self, release_plan: "PRD") -> bool:
         from ..release_plan.validator import PRDValidator
-        result = PRDValidator().validate(prd)
+
+        result = PRDValidator().validate(release_plan)
         return result.is_valid
-    
+
     def _build_result(
         self,
         success: bool,
-        prd: "PRD",
+        release_plan: "PRD",
         sprint_results: List["SprintResult"],
         error: Optional[str] = None,
     ) -> IntentResult:
         from ..orchestration.sprint_orchestrator import ExecutionStatus
-        
+
         completed_sprints = sum(
-            1 for r in sprint_results 
+            1
+            for r in sprint_results
             if r.status in (ExecutionStatus.SUCCESS, ExecutionStatus.SKIPPED)
         )
         completed_tasks = sum(r.success_count for r in sprint_results)
-        
+
         return IntentResult(
             success=success,
-            prd=prd,
+            release_plan=release_plan,
             completed_sprints=completed_sprints,
             completed_tasks=completed_tasks,
             total_sprints=len(sprint_results),
-            total_tasks=prd.total_tasks,
+            total_tasks=release_plan.total_tasks,
             error=error,
             sprint_results=sprint_results,
         )

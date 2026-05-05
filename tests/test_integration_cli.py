@@ -20,7 +20,7 @@ from sprintcycle.results import (
     StatusResult, RollbackResult, StopResult,
 )
 from sprintcycle.execution.sprint_types import ExecutionStatus
-from sprintcycle.execution.state_store import ExecutionState
+from sprintcycle.execution.state.state_store import ExecutionState
 
 
 @pytest.fixture
