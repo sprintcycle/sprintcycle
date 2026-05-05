@@ -4,14 +4,14 @@ RuntimeConfig - 运行时核心配置
 v0.9.2: 使用 pydantic-settings BaseSettings 自动从环境变量加载
 """
 
-import os
 import logging
-from typing import Optional, Dict, Any, Union
+import os
+from typing import Any, Dict, Optional, Union
 
-from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import field_validator, model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from .quality import normalize_quality_level
+from .quality import normalize_quality_level, normalize_quality_profile, resolve_effective_quality_level
 from .toml_loader import flatten_sprintcycle_toml, load_sprintcycle_toml
 
 logger = logging.getLogger(__name__)
@@ -35,6 +35,7 @@ _DEFAULT_CONFIG: Dict[str, Any] = {
     "complexity_threshold": 10, "diagnostic_timeout": 300,
     "dry_run": False, "verbose": False, "quiet": False,
     "quality_level": "L1",
+    "quality_profile": "default",
     "max_verify_fix_rounds": 3,
     "coding_engine": "aider",
     "min_coverage_percent": 80.0,
@@ -132,6 +133,8 @@ class RuntimeConfig(BaseSettings):
     project_path: str = "."
     # V4.0 P0: 质量档位 L0–L3、验证修复轮次、编码引擎（与 sprintcycle.toml 对齐）
     quality_level: str = "L1"
+    # V4.0 §6.3：off / fast / default / strict；非 default 时覆盖 quality_level 映射到 L 档位
+    quality_profile: str = "default"
     max_verify_fix_rounds: int = 3
     coding_engine: str = "aider"
     min_coverage_percent: float = 80.0
@@ -145,23 +148,32 @@ class RuntimeConfig(BaseSettings):
     def _normalize_quality_level(cls, v: str) -> str:
         return normalize_quality_level(v or "L1")
 
+    @field_validator("quality_profile")
+    @classmethod
+    def _normalize_quality_profile(cls, v: str) -> str:
+        return normalize_quality_profile(v or "default")
+
+    def effective_quality_level(self) -> str:
+        """供测量、Dispatcher、SprintExecutor 使用的实际 L 档位（已考虑 quality_profile）。"""
+        return resolve_effective_quality_level(self.quality_profile, self.quality_level)
+
     @model_validator(mode="before")
     @classmethod
     def _resolve_compat(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         """处理向后兼容的环境变量和 ${VAR} 形式的环境变量引用"""
         if not isinstance(values, dict):
             return values
-        
+
         # 兼容旧版环境变量名
         if not values.get("api_key"):
             values["api_key"] = _get_api_key_from_env()
         if not values.get("api_base"):
             values["api_base"] = _get_api_base_from_env()
-        
+
         # 解析 ${VAR} 形式的环境变量引用
         if values.get("api_key") and isinstance(values["api_key"], str):
             values["api_key"] = _resolve_env_var(values["api_key"])
-        
+
         # 兼容 LLM_PROVIDER 和 LLM_MODEL
         env_provider = os.getenv("LLM_PROVIDER")
         if env_provider:
@@ -169,7 +181,7 @@ class RuntimeConfig(BaseSettings):
         env_model = os.getenv("LLM_MODEL")
         if env_model:
             values["llm_model"] = env_model
-        
+
         return values
 
     def to_dict(self) -> Dict[str, Any]:

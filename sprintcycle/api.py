@@ -5,6 +5,9 @@ Dashboard / CLI / MCP / SDK 共用的唯一入口。
 所有操作通过此类暴露，三端只做参数适配和展示格式化。
 
 六大操作: plan / run / diagnose / status / rollback / stop
+
+产品与技术叙述以仓库 ``docs/PRODUCT_TECH_V4.md`` 与 ``SPRINTCYCLE_PRODUCT_TECH_PLAN.md``
+（V4.0 工程真理源）为准；``run``/resume 主路径经 ``TaskDispatcher`` → ``SprintExecutor``。
 """
 
 import asyncio

@@ -1,3 +1,15 @@
+## [Unreleased]
+
+### Features
+- config: `quality_profile`（off/fast/default/strict）与 `RuntimeConfig.effective_quality_level()`（V4.0 §6.3）；`sprintcycle.toml` `[quality] profile`
+- evolution: `EvolutionPipeline.execute_async` 在有 `RuntimeConfig` 时委托 `TaskDispatcher`；`evolve_sprint` 供 `SprintExecutor` 进化模式调用（§6.2）
+- agents: `EvolutionPath` 枚举（保留 `EvolutionStrategy` 别名，§6.7）
+- ci: 校验 `docs-dev/dev-setup.sh` 存在；独立 **`architecture-gate`** job（import-linter）；可选 `mutation.yml` + `semgrep.yml`；`pyproject` `[mutation]`、`dev` 含 **hypothesis**
+- g4: `tests/test_g4_properties.py`（Hypothesis）；import-linter 增加 **prd** / **execution** 不得依赖 `dashboard`
+
+### Documentation
+- docs: V4.0 canonical entry `docs/PRODUCT_TECH_V4.md`；README 真理源；`SPRINTCYCLE_PRODUCT_TECH_PLAN.md` 顶栏；`evolution/pipeline`、`scheduler/dispatcher`、`config/quality` 与 G1–G4 说明
+
 ## [v0.9.2] - 2025-12-20
 
 ### Features

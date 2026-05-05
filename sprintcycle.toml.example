@@ -8,6 +8,8 @@ max_sprints = 10
 
 [quality]
 level = "L1"
+# 预设档位（V4.0 §6.3）：default | off | fast | strict；非 default 时覆盖 level 映射到 L0/L1/L3
+# profile = "strict"
 min_coverage_percent = 80.0
 
 [execution]

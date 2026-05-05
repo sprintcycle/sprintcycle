@@ -1,0 +1,22 @@
+# V4.0 §6.5：突变测试可选阶段，不阻塞主 CI；默认每周与手动触发。
+name: Mutation (optional)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 7 * * 1"
+
+jobs:
+  mutmut:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install with mutation extra
+        run: pip install -e ".[mutation,dev]"
+      - name: Run mutmut (narrow scope; failure does not block main CI)
+        continue-on-error: true
+        run: |
+          python -m mutmut run --paths-to-mutate=sprintcycle/config/quality.py

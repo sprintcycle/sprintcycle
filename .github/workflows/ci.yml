@@ -6,10 +6,25 @@ on:
   pull_request:
 
 jobs:
+  architecture-gate:
+    name: architecture-gate (G4)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: pip install -e ".[dev]"
+      - name: Import linter contracts
+        run: lint-imports
+
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Verify canonical dev-setup path (V4.0 §6.1)
+        run: test -f docs-dev/dev-setup.sh
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -19,5 +34,3 @@ jobs:
         run: pip install ruff && ruff check sprintcycle tests
       - name: Pytest
         run: python -m pytest tests/ -q --tb=short
-      - name: Import linter (L3)
-        run: lint-imports

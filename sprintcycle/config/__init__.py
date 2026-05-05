@@ -16,17 +16,21 @@ v0.9.2 架构：
 - pydantic: LLMConfig 提供类型安全
 """
 
-from .runtime_config import RuntimeConfig
+from .llm_config import CodingClaudeConfig, CodingLLMConfig, EvolutionLLMConfig, LLMConfig
+from .manager import ConfigManager, get_config_manager, reset_config_manager
 from .quality import (
     QUALITY_LEVELS,
+    QUALITY_PROFILES,
+    QualityProfile,
     normalize_quality_level,
+    normalize_quality_profile,
+    resolve_effective_quality_level,
     runs_architecture_guard,
     runs_coverage_gate,
     runs_pytest,
     runs_static_gate,
 )
-from .toml_loader import flatten_sprintcycle_toml, load_sprintcycle_toml
-from .llm_config import LLMConfig, CodingLLMConfig, CodingClaudeConfig, EvolutionLLMConfig
+from .runtime_config import RuntimeConfig
 from .sprintcycle_config import (
     CodingConfig,
     EvolutionRunConfig,
@@ -34,12 +38,16 @@ from .sprintcycle_config import (
     load_config_from_env,
     validate_config,
 )
-from .manager import ConfigManager, get_config_manager, reset_config_manager
+from .toml_loader import flatten_sprintcycle_toml, load_sprintcycle_toml
 
 __all__ = [
     "RuntimeConfig",
     "QUALITY_LEVELS",
+    "QUALITY_PROFILES",
+    "QualityProfile",
     "normalize_quality_level",
+    "normalize_quality_profile",
+    "resolve_effective_quality_level",
     "runs_architecture_guard",
     "runs_coverage_gate",
     "runs_pytest",

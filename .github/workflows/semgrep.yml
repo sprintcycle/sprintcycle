@@ -1,0 +1,24 @@
+# V4.0 §6.4 可选：Semgrep 社区规则集；不阻塞主 CI。
+name: Semgrep (optional)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 8 * * 3"
+
+permissions:
+  contents: read
+
+jobs:
+  semgrep:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Semgrep scan
+        continue-on-error: true
+        run: |
+          pip install semgrep
+          semgrep scan --config p/python --quiet sprintcycle/

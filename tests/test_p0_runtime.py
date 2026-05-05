@@ -4,8 +4,20 @@ from pathlib import Path
 
 import pytest
 
-from sprintcycle.config import RuntimeConfig, flatten_sprintcycle_toml, load_sprintcycle_toml
+from sprintcycle.config import (
+    RuntimeConfig,
+    flatten_sprintcycle_toml,
+    load_sprintcycle_toml,
+    resolve_effective_quality_level,
+)
 from sprintcycle.evolution.measurement import MeasurementProvider, MeasurementResult
+
+
+def test_resolve_effective_quality_level_profiles():
+    assert resolve_effective_quality_level("default", "L2") == "L2"
+    assert resolve_effective_quality_level("strict", "L0") == "L3"
+    assert resolve_effective_quality_level("fast", "L3") == "L1"
+    assert resolve_effective_quality_level("off", "L3") == "L0"
 
 
 def test_flatten_sprintcycle_toml_roundtrip():
@@ -26,6 +38,13 @@ def test_flatten_sprintcycle_toml_roundtrip():
     assert flat["llm_provider"] == "openai"
 
 
+def test_flatten_quality_profile():
+    nested = {"quality": {"level": "L0", "profile": "strict"}}
+    flat = flatten_sprintcycle_toml(nested)
+    assert flat["quality_level"] == "L0"
+    assert flat["quality_profile"] == "strict"
+
+
 def test_load_sprintcycle_toml_missing(tmp_path: Path):
     assert load_sprintcycle_toml(tmp_path) == {}
 
@@ -33,6 +52,7 @@ def test_load_sprintcycle_toml_missing(tmp_path: Path):
 def test_from_project_merges_toml(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     for key in (
         "SPRINTCYCLE_QUALITY_LEVEL",
+        "SPRINTCYCLE_QUALITY_PROFILE",
         "SPRINTCYCLE_MAX_VERIFY_FIX_ROUNDS",
         "SPRINTCYCLE_CODING_ENGINE",
     ):
@@ -56,6 +76,35 @@ name = "llm"
     assert cfg.quality_level == "L0"
     assert cfg.max_verify_fix_rounds == 2
     assert cfg.coding_engine == "llm"
+
+
+def test_from_project_quality_profile_overrides_effective_level(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    for key in ("SPRINTCYCLE_QUALITY_LEVEL", "SPRINTCYCLE_QUALITY_PROFILE"):
+        monkeypatch.delenv(key, raising=False)
+    (tmp_path / "sprintcycle.toml").write_text(
+        '[quality]\nlevel = "L0"\nprofile = "strict"\n',
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    cfg = RuntimeConfig.from_project(str(tmp_path))
+    assert cfg.quality_level == "L0"
+    assert cfg.quality_profile == "strict"
+    assert cfg.effective_quality_level() == "L3"
+
+
+def test_measurement_strict_profile_runs_pytest_even_if_level_l0():
+    rc = RuntimeConfig(quality_level="L0", quality_profile="strict")
+    mock_calls: list[str] = []
+
+    def runner(cmd: str, cwd: str, timeout: int):
+        mock_calls.append(cmd)
+        return 0, "1 passed", ""
+
+    p = MeasurementProvider(repo_path=".", runtime_config=rc, runner=runner)
+    p.measure_all()
+    assert any("pytest" in c for c in mock_calls)
 
 
 def test_measurement_l0_skips_pytest():

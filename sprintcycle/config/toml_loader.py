@@ -54,6 +54,8 @@ def flatten_sprintcycle_toml(nested: Dict[str, Any]) -> Dict[str, Any]:
     quality = _as_dict(nested.get("quality"))
     if "level" in quality:
         out["quality_level"] = str(quality["level"]).strip()
+    if "profile" in quality:
+        out["quality_profile"] = str(quality["profile"]).strip().lower()
     if "min_coverage_percent" in quality:
         out["min_coverage_percent"] = float(quality["min_coverage_percent"])
 

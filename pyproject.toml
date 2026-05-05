@@ -40,7 +40,12 @@ dev = [
     "mypy>=1.0.0",
     "pytest>=7.0.0",
     "pytest-asyncio>=0.21.0",
+    "hypothesis>=6.100.0",
     "import-linter>=2.0",
+]
+# 突变测试（V4.0 §6.5）：不并入默认 dev，按需安装 ``pip install -e ".[mutation]"``；CI 见 workflows/mutation.yml
+mutation = [
+    "mutmut>=2.4.0",
 ]
 
 [project.scripts]
@@ -83,6 +88,26 @@ name = "调度层不得依赖 dashboard"
 type = "forbidden"
 source_modules = [
     "sprintcycle.scheduler",
+]
+forbidden_modules = [
+    "sprintcycle.dashboard",
+]
+
+[[tool.importlinter.contracts]]
+name = "PRD 层不得依赖 dashboard（G4）"
+type = "forbidden"
+source_modules = [
+    "sprintcycle.prd",
+]
+forbidden_modules = [
+    "sprintcycle.dashboard",
+]
+
+[[tool.importlinter.contracts]]
+name = "执行层不得依赖 dashboard（G4）"
+type = "forbidden"
+source_modules = [
+    "sprintcycle.execution",
 ]
 forbidden_modules = [
     "sprintcycle.dashboard",

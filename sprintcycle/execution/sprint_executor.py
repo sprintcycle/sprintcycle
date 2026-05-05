@@ -5,23 +5,20 @@ Sprint 执行器 - 统一的 Sprint 迭代执行
 
 import asyncio
 import logging
-import time
 import re
-import uuid
-from typing import List, Dict, Any, Optional, Callable, Set
-from dataclasses import dataclass, field
-from enum import Enum
+import time
 from datetime import datetime
+from typing import Any, Callable, Dict, List, Optional, Set
 
-from ..prd.models import PRD, PRDSprint, PRDTask, ExecutionMode, PRDEvolutionParams
-from .state_store import StateStore, ExecutionState, get_state_store
+from ..prd.models import PRD, PRDEvolutionParams, PRDSprint, PRDTask
 from .checkpoint import CheckpointMixin
 from .sprint_hooks import NoOpSprintLifecycleHooks, SprintLifecycleHooks
+from .state_store import StateStore, get_state_store
 
 logger = logging.getLogger(__name__)
 
 
-from .sprint_types import ExecutionStatus, TaskResult, SprintResult
+from .sprint_types import ExecutionStatus, SprintResult, TaskResult
 
 
 class SprintExecutor(CheckpointMixin):
@@ -29,7 +26,7 @@ class SprintExecutor(CheckpointMixin):
     Sprint 执行器
     支持断点续传（通过 StateStore）。
     """
-    
+
     def __init__(
         self,
         max_parallel: int = 3,
@@ -59,39 +56,39 @@ class SprintExecutor(CheckpointMixin):
         self._cancelled: bool = False
         self._checkpoint_interval = 1
         self._register_default_executors()
-    
+
     @property
     def state_store(self) -> StateStore:
         if self._state_store is None:
             self._state_store = get_state_store()
         return self._state_store
-    
+
     def set_state_store(self, state_store: StateStore) -> None:
         self._state_store = state_store
         logger.info("StateStore 已注入到 SprintExecutor")
-    
+
     def set_feedback_loop(self, feedback_loop) -> None:
         self._feedback_loop = feedback_loop
-    
+
     def set_prd(self, prd: PRD) -> None:
         self._prd = prd
-    
+
     def set_evolution_engine(self, evolution_engine) -> None:
         self._evolution_engine = evolution_engine
-    
+
     def set_error_handler(self, error_handler) -> None:
         self._error_handler = error_handler
 
     def set_sprint_hooks(self, sprint_hooks: Optional[SprintLifecycleHooks]) -> None:
         """注册 Sprint 生命周期钩子（None 表示使用无操作实现）。"""
         self._sprint_hooks = sprint_hooks or NoOpSprintLifecycleHooks()
-    
+
     def get_feedback_history(self) -> List[Any]:
         if self._feedback_loop:
             return self._feedback_loop.get_history()
         return []
-    
-    
+
+
     def _register_default_executors(self) -> None:
         self._agent_executors = {
             "coder": self._execute_coder_task,
@@ -133,7 +130,7 @@ class SprintExecutor(CheckpointMixin):
                 "constraints": task.constraints or [],
             },
         )
-    
+
     def register_agent_executor(self, agent_type: str, executor: Callable):
         self._agent_executors[agent_type] = executor
 
@@ -146,10 +143,10 @@ class SprintExecutor(CheckpointMixin):
     def is_cancelled(self) -> bool:
         """检查是否已被取消"""
         return self._cancelled
-    
+
     TASK_SPLIT_THRESHOLD = 500
     MAX_SUBTASKS = 5
-    
+
     def _should_split_task(self, task: PRDTask) -> bool:
         if len(task.task) >= self.TASK_SPLIT_THRESHOLD:
             return True
@@ -157,7 +154,7 @@ class SprintExecutor(CheckpointMixin):
         task_lower = task.task.lower()
         keyword_count = sum(1 for kw in complex_keywords if kw.lower() in task_lower)
         return keyword_count >= 2
-    
+
     def _split_task(self, task: PRDTask) -> List[PRDTask]:
         subtasks = []
         task_text = task.task
@@ -169,7 +166,7 @@ class SprintExecutor(CheckpointMixin):
         for pattern in action_patterns:
             matches = re.findall(pattern, task_text, re.IGNORECASE)
             subtask_parts.extend(matches)
-        
+
         if len(subtask_parts) >= 2:
             for i, part in enumerate(subtask_parts[:self.MAX_SUBTASKS]):
                 subtask = PRDTask(
@@ -192,7 +189,7 @@ class SprintExecutor(CheckpointMixin):
             )
             subtasks.append(subtask)
         return subtasks
-    
+
     def split_sprint_tasks(self, sprint: PRDSprint) -> PRDSprint:
         new_sprint = PRDSprint(name=sprint.name, goals=sprint.goals.copy(), tasks=[])
         for task in sprint.tasks:
@@ -202,7 +199,7 @@ class SprintExecutor(CheckpointMixin):
             else:
                 new_sprint.tasks.append(task)
         return new_sprint
-    
+
     async def execute_sprint(self, sprint: PRDSprint, context: Optional[Dict[str, Any]] = None, save_checkpoint: bool = True) -> SprintResult:
         start_time = time.time()
         result = SprintResult(sprint=sprint, status=ExecutionStatus.RUNNING)
@@ -220,23 +217,23 @@ class SprintExecutor(CheckpointMixin):
                     deps["code"] = task_result.output
                 if task.agent == "architect":
                     ctx_acc["architecture_design"] = task_result.output
-        
+
         if all(r.status == ExecutionStatus.SUCCESS for r in result.task_results):
             result.status = ExecutionStatus.SUCCESS
         elif any(r.status == ExecutionStatus.FAILED for r in result.task_results):
             result.status = ExecutionStatus.FAILED
         else:
             result.status = ExecutionStatus.SUCCESS
-        
+
         result.duration = time.time() - start_time
         self._collect_feedback(sprint, result)
         self._persist_sprint_result(sprint, result)
-        
+
         if save_checkpoint and self._execution_id:
             self._save_checkpoint(0, sprint.name, result)
-        
+
         return result
-    
+
     def _collect_feedback(self, sprint: PRDSprint, result: SprintResult) -> None:
         if self._feedback_loop is None:
             return
@@ -287,7 +284,7 @@ class SprintExecutor(CheckpointMixin):
                 self.state_store.save(state)
                 logger.info(f"📝 Sprint 结果已持久化: {sprint.name}")
             else:
-                logger.debug(f"无 StateStore 状态，跳过持久化")
+                logger.debug("无 StateStore 状态，跳过持久化")
         except Exception as e:
             logger.warning(f"持久化 Sprint 结果失败: {e}")
 
@@ -298,7 +295,7 @@ class SprintExecutor(CheckpointMixin):
             f"📋 Task [{task.agent}] {task.task[:40]}... → {status_str} "
             f"({task_result.duration:.2f}s)"
         )
-    
+
     async def execute_sprints(
         self,
         sprints: List[PRDSprint],
@@ -453,7 +450,7 @@ class SprintExecutor(CheckpointMixin):
         except Exception as e:
             logger.warning(f"收集反馈失败: {e}")
             return None
-    
+
     async def _execute_evolution_sprints(self, sprints: List[PRDSprint], evolution_config: Optional[PRDEvolutionParams], context: Optional[Dict[str, Any]] = None) -> List[SprintResult]:
         results = []
         max_generations = evolution_config.iterations if evolution_config else 3
@@ -465,7 +462,7 @@ class SprintExecutor(CheckpointMixin):
             if self._execution_id:
                 self._save_checkpoint(0, sprint.name, sprint_result)
         return results
-    
+
     def _convert_evolution_result(self, sprint: PRDSprint, evo_result: Any) -> SprintResult:
         success = evo_result.success if hasattr(evo_result, "success") else True
         sprint_result = SprintResult(
@@ -474,10 +471,10 @@ class SprintExecutor(CheckpointMixin):
             duration=evo_result.execution_time if hasattr(evo_result, "execution_time") else 0.0,
         )
         return sprint_result
-    
+
     def set_event_bus(self, event_bus) -> None:
         self._event_bus = event_bus
-    
+
     async def _emit_event(self, event_type: str, data: Dict[str, Any]) -> None:
         if self._event_bus:
             from .events import Event, EventType
@@ -486,44 +483,44 @@ class SprintExecutor(CheckpointMixin):
                 await self._event_bus.emit(event)
             except KeyError:
                 pass
-    
+
     async def execute_sprint_parallel(self, sprint: PRDSprint, context: Optional[Dict[str, Any]] = None, dependency_map: Optional[Dict[int, Set[int]]] = None, save_checkpoint: bool = True) -> SprintResult:
         start_time = time.time()
         result = SprintResult(sprint=sprint, status=ExecutionStatus.RUNNING)
         task_count = len(sprint.tasks)
         completed: Set[int] = set()
         task_semaphore = asyncio.Semaphore(self._max_parallel)
-        
+
         async def execute_with_semaphore(task: PRDTask, idx: int) -> TaskResult:
             async with task_semaphore:
                 return await self._execute_task_with_event(task, sprint.name, context or {})
-        
+
         async def run_task(idx: int) -> None:
             task = sprint.tasks[idx]
             task_result = await execute_with_semaphore(task, idx)
             result.task_results.append(task_result)
-        
+
         task_coroutines = [run_task(i) for i in range(task_count)]
         await asyncio.gather(*task_coroutines, return_exceptions=True)
-        
+
         if all(r.status == ExecutionStatus.SUCCESS for r in result.task_results):
             result.status = ExecutionStatus.SUCCESS
         elif any(r.status == ExecutionStatus.FAILED for r in result.task_results):
             result.status = ExecutionStatus.FAILED
         else:
             result.status = ExecutionStatus.SUCCESS
-        
+
         result.duration = time.time() - start_time
-        
+
         if save_checkpoint and self._execution_id:
             self._save_checkpoint(0, sprint.name, result)
-        
+
         return result
-    
+
     async def _execute_task_with_event(self, task: PRDTask, sprint_name: str, context: Dict[str, Any]) -> TaskResult:
         result = await self._execute_task(task, sprint_name, context)
         return result
-    
+
     async def _execute_task(self, task: PRDTask, sprint_name: str, context: Dict[str, Any]) -> TaskResult:
         start_time = time.time()
         executor = self._agent_executors.get(task.agent)
@@ -537,14 +534,16 @@ class SprintExecutor(CheckpointMixin):
                 enriched_context["coding_engine"] = getattr(
                     self._runtime_config, "coding_engine", "aider"
                 )
-                enriched_context["quality_level"] = getattr(
-                    self._runtime_config, "quality_level", "L1"
+                enriched_context["quality_level"] = (
+                    self._runtime_config.effective_quality_level()
+                    if hasattr(self._runtime_config, "effective_quality_level")
+                    else getattr(self._runtime_config, "quality_level", "L1")
                 )
             if "improvement_suggestions" in context:
                 suggestions = context["improvement_suggestions"]
                 if suggestions:
                     enriched_context["task_guidance"] = (
-                        f"前序 Sprint 反馈改进建议:\n"
+                        "前序 Sprint 反馈改进建议:\n"
                         + "\n".join(f"- {s}" for s in suggestions)
                     )
             if "retry_from_failure" in context:
@@ -557,7 +556,7 @@ class SprintExecutor(CheckpointMixin):
             return task_result
         except Exception as e:
             return TaskResult(task=task, sprint_name=sprint_name, status=ExecutionStatus.FAILED, error=str(e), duration=time.time() - start_time)
-    
+
     async def _execute_coder_task(self, task: PRDTask, context: Dict[str, Any]) -> str:
         if self._dry_run():
             return f"[dry_run] 完成: {task.task[:120]}"
@@ -613,7 +612,7 @@ class SprintExecutor(CheckpointMixin):
 
 
     def _analyze_dependencies(
-        self, 
+        self,
         tasks: List[PRDTask],
         context: Optional[Dict[str, Any]] = None
     ) -> Dict[int, Set[int]]:
@@ -628,17 +627,17 @@ class SprintExecutor(CheckpointMixin):
             Dict[int, Set[int]]: 任务索引到其依赖任务索引集合的映射
         """
         dependency_map: Dict[int, Set[int]] = {i: set() for i in range(len(tasks))}
-        
+
         # 对每个任务分析依赖
         for i, task in enumerate(tasks):
             self._add_keyword_based_dependencies(tasks, i, task, dependency_map)
             self._add_target_path_dependencies(tasks, i, task, dependency_map)
             self._add_agent_type_dependencies(tasks, i, task, dependency_map)
-        
+
         # 移除自引用
         for idx in dependency_map:
             dependency_map[idx].discard(idx)
-        
+
         return dependency_map
 
     def _add_keyword_based_dependencies(
@@ -656,9 +655,9 @@ class SprintExecutor(CheckpointMixin):
             ("端到端", "模块"), ("e2e", "module"),
             ("部署", "构建"), ("deploy", "build"),
         ]
-        
+
         task_text = task.task.lower()
-        
+
         for dep_kw, src_kw in dependency_keywords:
             if dep_kw in task_text:
                 for j in range(task_idx):
@@ -677,18 +676,18 @@ class SprintExecutor(CheckpointMixin):
         """基于target文件路径分析依赖关系"""
         if not task.target:
             return
-        
+
         task_ext = task.target.lower().split('.')[-1] if '.' in task.target.lower() else ''
         code_extensions = {'py', 'ts', 'js', 'go', 'java'}
-        
+
         if task_ext not in code_extensions:
             return
-        
+
         for j in range(task_idx):
             prev_task = tasks[j]
             if not prev_task.target:
                 continue
-            
+
             prev_ext = prev_task.target.lower().split('.')[-1] if '.' in prev_task.target.lower() else ''
             if prev_ext == task_ext:
                 dep_map[task_idx].add(j)
@@ -702,19 +701,19 @@ class SprintExecutor(CheckpointMixin):
     ) -> None:
         """基于任务类型/agent分析依赖关系"""
         task_text = task.task.lower()
-        
+
         # Agent类型依赖: 测试任务依赖实现任务
         if task.agent == "tester":
             for j in range(task_idx):
                 if tasks[j].agent in ["coder", "implement"]:
                     dep_map[task_idx].add(j)
-        
+
         # 任务文本依赖规则
         dep_rules = [
             (["build", "编译"], ["compile", "编译"]),
             (["deploy", "部署"], ["build", "构建"]),
         ]
-        
+
         for target_kws, source_kws in dep_rules:
             if any(kw in task_text for kw in target_kws):
                 for j in range(task_idx):
@@ -732,14 +731,14 @@ class SprintExecutor(CheckpointMixin):
             r'path:\s*["\']?([^"\'\s]+)["\']?',
             r'file:\s*["\']?([^"\'\s]+)["\']?',
         ]
-        
+
         paths = []
         for pattern in patterns:
             matches = re.findall(pattern, text)
             paths.extend(matches)
-        
+
         return list(set(paths))
-    
+
     def get_execution_order(self, tasks: List[PRDTask]) -> List[List[int]]:
         """
         获取任务的拓扑排序执行顺序
@@ -752,28 +751,28 @@ class SprintExecutor(CheckpointMixin):
             例如: [[0, 1], [2], [3, 4]] 表示任务分三批执行
         """
         dependency_map = self._analyze_dependencies(tasks)
-        
+
         # 计算每个任务的入度
         in_degree = {i: len(deps) for i, deps in dependency_map.items()}
         remaining = set(range(len(tasks)))
-        
+
         batches: List[List[int]] = []
-        
+
         while remaining:
             # 找到入度为0的任务
             ready = [i for i in remaining if in_degree.get(i, 0) == 0]
-            
+
             if not ready:
                 # 存在循环依赖，随机选择一个
                 ready = [min(remaining)]
-            
+
             batches.append(ready)
-            
+
             # 更新入度
             for task_idx in ready:
                 remaining.discard(task_idx)
                 for other_idx, deps in dependency_map.items():
                     if task_idx in deps:
                         in_degree[other_idx] -= 1
-        
+
         return batches

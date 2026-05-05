@@ -7,6 +7,26 @@
 
 **SprintCycle** is a PRD-driven self-evolving agile development framework that implements a closed loop of code generation, test verification, and continuous optimization through a unified evolution pipeline.
 
+## Product & technical spec (V4.0 canonical)
+
+For external communication and architecture reviews, the **in-repo** documents below are authoritative if they differ from any exported note (e.g. Youdao “V4.0” `.mhtml`):
+
+1. **[`docs/PRODUCT_TECH_V4.md`](docs/PRODUCT_TECH_V4.md)** — canonical entry + primary execution path  
+2. **[`SPRINTCYCLE_PRODUCT_TECH_PLAN.md`](SPRINTCYCLE_PRODUCT_TECH_PLAN.md)** — full revised plan (G1–G4, six phases, §6 roadmap)
+
+**Primary execution path**: `SprintCycle` → `TaskDispatcher` → `SprintExecutor.execute_sprints` (`EvolutionPipeline` is for evolution/diagnostic flows, not a second “only” orchestrator).
+
+### Quality gates G1–G4 (vs `quality_level` / `quality_profile`)
+
+| Gate | Meaning | Anchors |
+|------|---------|---------|
+| **G1** | Static & conventions | Ruff / static analysis; `runs_static_gate` from L1+ |
+| **G2** | Tests & coverage | `MeasurementProvider`, pytest; L2/L3 |
+| **G3** | Fitness & regression | Measurement dimensions, feedback; emphasis at L3 |
+| **G4** | Architecture invariants | `[tool.importlinter]` in `pyproject.toml`; optional Semgrep (`.github/workflows/semgrep.yml`) |
+
+See **`SPRINTCYCLE_PRODUCT_TECH_PLAN.md`** §2.3 and **`docs/PRODUCT_TECH_V4.md`**.
+
 ## Key Features
 
 - **Unified API Layer** - 6 operations: plan/run/diagnose/status/rollback/stop
@@ -45,17 +65,20 @@ echo "DEEPSEEK_API_KEY=your-api-key" > .env
 ### Basic Usage
 
 ```python
-from sprintcycle.prd.models import PRD, ExecutionMode
+from sprintcycle.prd.models import PRD, PRDProject, PRDSprint, PRDTask, ExecutionMode
 from sprintcycle.execution.engine import ExecutionEngine
 
-# Create PRD
 prd = PRD(
-    project_name="my-project",
+    project=PRDProject(name="my-project", path="."),
     mode=ExecutionMode.NORMAL,
-    # ... other config
+    sprints=[
+        PRDSprint(
+            name="Sprint 1",
+            tasks=[PRDTask(task="Ship a minimal runnable slice", agent="coder")],
+        )
+    ],
 )
 
-# Execute
 engine = ExecutionEngine()
 result = await engine.execute(prd)
 ```
@@ -116,6 +139,7 @@ result = await engine.execute(prd)
 | `SPRINTCYCLE_MAX_SPRINTS` | Max sprints | 10 |
 | `SPRINTCYCLE_PARALLEL_TASKS` | Parallel tasks | 3 |
 | `SPRINTCYCLE_LOG_LEVEL` | Log level | INFO |
+| `SPRINTCYCLE_QUALITY_PROFILE` | Quality preset `off`/`fast`/`default`/`strict` (§6.3) | `default` |
 | `SPRINTCYCLE_CODING_ENGINE` | Coder engine (overrides toml) | `aider` |
 | `SPRINTCYCLE_CLAUDE_BIN` | Claude Code executable | `claude` |
 | `SPRINTCYCLE_CURSOR_USE_CLI` | Also run Cursor `agent` CLI for cookbook | unset |
@@ -178,11 +202,25 @@ sprintcycle/
 
 ## Development
 
+### Canonical dev-setup path
+
+The script in-repo is **`docs-dev/dev-setup.sh`**. For `curl`/`bash` from raw GitHub, substitute org, repo, and ref (fork or tag), e.g.  
+`https://raw.githubusercontent.com/<org>/<repo>/<ref>/docs-dev/dev-setup.sh`  
+CI asserts this file exists on the default branch.
+
 ### Run Tests
 
 ```bash
 pytest tests/ -v
 ```
+
+Includes **Hypothesis** property tests (`tests/test_g4_properties.py`, V4.0 §6.4); install with `pip install -e ".[dev]"`.
+
+### Architecture gate (G4)
+
+- **Required on PRs**: GitHub Actions job **`architecture-gate`** runs `lint-imports` (contracts in `pyproject.toml`).
+- **Mutation testing (optional)**: `pip install -e ".[mutation]"`; see **`.github/workflows/mutation.yml`**.
+- **Semgrep (optional)**: **`.github/workflows/semgrep.yml`** — failures do not block the main CI workflow.
 
 ### Code Quality
 
@@ -196,9 +234,8 @@ ruff check sprintcycle/
 
 ### Status
 
-- **Version**: 0.7.0
-- **Lines of Code**: ~15000
-- **Tests**: 50 passed (integration tests)
+- **Version**: 0.9.2
+- **Tests**: see CI / `pytest tests/` (includes G4 property tests and import-linter test)
 - **mypy**: 0 errors
 
 ## License

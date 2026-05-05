@@ -26,7 +26,7 @@ class MeasurementResult:
     overall: float = 0.0
     details: Dict[str, Any] = field(default_factory=dict)
     timestamp: float = field(default_factory=time.time)
-    
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "correctness": self.correctness,
@@ -37,7 +37,7 @@ class MeasurementResult:
             "details": self.details,
             "timestamp": self.timestamp,
         }
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "MeasurementResult":
         return cls(
@@ -49,7 +49,7 @@ class MeasurementResult:
             details=data.get("details", {}),
             timestamp=data.get("timestamp", time.time()),
         )
-    
+
     def __bool__(self) -> bool:
         return self.overall >= 0.5
 
@@ -74,7 +74,7 @@ class MeasurementProvider:
             self.measurement_timeout = getattr(runtime_config, "diagnostic_timeout", measurement_timeout)
             self.coverage_threshold = coverage_threshold
             self._quality_level = normalize_quality_level(
-                getattr(runtime_config, "quality_level", "L1")
+                runtime_config.effective_quality_level()
             )
             self._min_coverage_percent = float(
                 getattr(runtime_config, "min_coverage_percent", 80.0)
@@ -87,7 +87,7 @@ class MeasurementProvider:
             self._min_coverage_percent = 80.0
         self._runner = runner or self._default_runner
         self._history: List[MeasurementResult] = []
-        
+
     def _default_runner(self, cmd: str, cwd: str = ".", timeout: int = 300) -> Tuple[int, str, str]:
         try:
             result = subprocess.run(
@@ -98,7 +98,7 @@ class MeasurementProvider:
             return -1, "", "Command timed out"
         except Exception as e:
             return -1, "", str(e)
-    
+
     def measure_all(self) -> MeasurementResult:
         if self._quality_level == "L0":
             result = MeasurementResult(
@@ -137,7 +137,7 @@ class MeasurementProvider:
         )
         self._history.append(result)
         return result
-    
+
     def _measure_correctness(self) -> float:
         if not runs_pytest(self._quality_level):
             return 1.0
@@ -161,7 +161,7 @@ class MeasurementProvider:
             return 1.0 if rc == 0 else 0.0
         except Exception:
             return 0.5
-    
+
     def _measure_performance(self) -> float:
         if len(self._history) >= 2:
             prev = self._history[-2]
@@ -169,12 +169,12 @@ class MeasurementProvider:
             if curr.overall > prev.overall:
                 return min(1.0, 0.7 + 0.1)
         return 0.7
-    
+
     def _measure_stability(self) -> float:
         recent = self._history[-3:] if len(self._history) >= 3 else self._history
         failures = sum(1 for r in recent if r.correctness < 0.5)
         return 1.0 - (failures / max(1, len(recent))) * 0.5
-    
+
     def _measure_code_quality(self) -> float:
         if self._quality_level == "L0":
             return 1.0
@@ -187,13 +187,13 @@ class MeasurementProvider:
             return 0.7
         except Exception:
             return 0.5
-    
+
     def _get_correctness_details(self) -> Dict[str, Any]:
         return {"history_length": len(self._history)}
-    
+
     def _get_quality_details(self) -> Dict[str, Any]:
         return {}
-    
+
     def check_quality_gate(self, result: MeasurementResult) -> bool:
         if self._quality_level == "L0":
             return True
@@ -208,13 +208,13 @@ class MeasurementProvider:
             if pct > 0 and pct + 1e-6 < self._min_coverage_percent:
                 return False
         return True
-    
+
     def get_history(self) -> List[MeasurementResult]:
         return self._history.copy()
-    
+
     def get_latest(self) -> Optional[MeasurementResult]:
         return self._history[-1] if self._history else None
-    
+
     def compare(self, baseline: MeasurementResult, current: MeasurementResult) -> Dict[str, float]:
         return {
             "correctness_delta": current.correctness - baseline.correctness,
@@ -223,6 +223,6 @@ class MeasurementProvider:
             "code_quality_delta": current.code_quality - baseline.code_quality,
             "overall_delta": current.overall - baseline.overall,
         }
-    
+
     def is_improved(self, baseline: MeasurementResult, current: MeasurementResult) -> bool:
         return current.overall > baseline.overall

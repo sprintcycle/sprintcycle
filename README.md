@@ -7,6 +7,26 @@
 
 **SprintCycle** 是一个 PRD 驱动的自我进化敏捷开发框架，通过统一进化管道实现代码生成、测试验证与持续优化的闭环。
 
+## 产品与技术方案（V4.0 唯一真理源）
+
+对外叙述与架构评审以仓库内文档为准，与附件《3.1 SprintCycle 产品与技术完整方案 V4.0》冲突时，**以下文件优先**：
+
+1. **[`docs/PRODUCT_TECH_V4.md`](docs/PRODUCT_TECH_V4.md)** — 真理源入口与主路径声明  
+2. **[`SPRINTCYCLE_PRODUCT_TECH_PLAN.md`](SPRINTCYCLE_PRODUCT_TECH_PLAN.md)** — 完整修订版（G1–G4、六 Phase、改造路线 §6）
+
+**主执行路径**：`SprintCycle` → `TaskDispatcher` → `SprintExecutor.execute_sprints`（`EvolutionPipeline` 为进化/实验场景，非并列「第二唯一编排」）。
+
+### 质量门禁 G1–G4（与 `quality_level` / `quality_profile` 对照）
+
+| 门禁 | 含义 | 代码与配置锚点 |
+|------|------|----------------|
+| **G1** | 静态与规范 | Ruff / 静态分析；`L1+` 起 `runs_static_gate` |
+| **G2** | 测试与覆盖 | `MeasurementProvider`、pytest；`L2/L3` |
+| **G3** | 适应度与回归 | 测量维度、反馈闭环；`L3` 侧重 |
+| **G4** | 架构不变量 | `pyproject.toml` 中 `[tool.importlinter]`；可选 Semgrep（`.github/workflows/semgrep.yml`） |
+
+详见 **`SPRINTCYCLE_PRODUCT_TECH_PLAN.md`** §2.3 与 **`docs/PRODUCT_TECH_V4.md`**。
+
 ## 核心特性
 
 - **统一 API 层** - plan/run/diagnose/status/rollback/stop 六大操作
@@ -45,17 +65,20 @@ echo "DEEPSEEK_API_KEY=your-api-key" > .env
 ### 基本使用
 
 ```python
-from sprintcycle.prd.models import PRD, ExecutionMode
+from sprintcycle.prd.models import PRD, PRDProject, PRDSprint, PRDTask, ExecutionMode
 from sprintcycle.execution.engine import ExecutionEngine
 
-# 创建 PRD
 prd = PRD(
-    project_name="my-project",
+    project=PRDProject(name="my-project", path="."),
     mode=ExecutionMode.NORMAL,
-    # ... 其他配置
+    sprints=[
+        PRDSprint(
+            name="Sprint 1",
+            tasks=[PRDTask(task="实现一个可运行的最小功能", agent="coder")],
+        )
+    ],
 )
 
-# 执行
 engine = ExecutionEngine()
 result = await engine.execute(prd)
 ```
@@ -116,6 +139,7 @@ result = await engine.execute(prd)
 | `SPRINTCYCLE_MAX_SPRINTS` | 最大 Sprint 数 | 10 |
 | `SPRINTCYCLE_PARALLEL_TASKS` | 并行任务数 | 3 |
 | `SPRINTCYCLE_LOG_LEVEL` | 日志级别 | INFO |
+| `SPRINTCYCLE_QUALITY_PROFILE` | 质量预设 `off`/`fast`/`default`/`strict`（§6.3） | `default` |
 | `SPRINTCYCLE_CODING_ENGINE` | Coder 编码引擎（覆盖 toml） | `aider` |
 | `SPRINTCYCLE_CLAUDE_BIN` | Claude Code 可执行文件 | `claude` |
 | `SPRINTCYCLE_CURSOR_USE_CLI` | Cursor Cookbook 是否再调 `agent` CLI | 未设置 |
@@ -178,11 +202,27 @@ sprintcycle/
 
 ## 开发
 
+### 一键环境脚本（canonical 路径）
+
+仓库内脚本路径为 **`docs-dev/dev-setup.sh`**（勿假设 `main/dev-setup.sh` 等未存在路径）。从 GitHub  raw 安装时请将组织、仓库与分支换成你的 fork 或固定 tag，例如：
+
+`https://raw.githubusercontent.com/<org>/<repo>/<ref>/docs-dev/dev-setup.sh`
+
+CI 会校验该文件存在于默认分支。
+
 ### 运行测试
 
 ```bash
 pytest tests/ -v
 ```
+
+含 **Hypothesis** 属性测试（`tests/test_g4_properties.py`，V4.0 §6.4）；需 `pip install -e ".[dev]"`。
+
+### 架构门禁（G4）
+
+- **PR 必过**：GitHub Actions 中 **`architecture-gate`** job 运行 `lint-imports`（与 `pyproject.toml` 中契约一致）。
+- **突变测试（可选）**：`pip install -e ".[mutation]"`；定时/手动见 **`.github/workflows/mutation.yml`**。
+- **Semgrep（可选）**：见 **`.github/workflows/semgrep.yml`**，失败不阻塞主 CI。
 
 ### 代码检查
 
@@ -197,8 +237,7 @@ ruff check sprintcycle/
 ### 状态
 
 - **版本**: 0.9.2
-- **代码行数**: ~15000
-- **测试**: 50 passed (集成测试)
+- **测试**: 以 CI / `pytest tests/` 为准（含 G4 属性测试与 import-linter 单测）
 - **mypy**: 0 errors
 
 ## License
