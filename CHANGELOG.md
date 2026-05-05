@@ -1,6 +1,9 @@
 ## [Unreleased]
 
 ### Features
+- V4.0：`require_knowledge_injection_confirm` / `persist_sprint_knowledge_cards`（`[behavior]` + `SPRINTCYCLE_*`）；`KnowledgeInjector.inject_for_sprint(..., persist_overlay=False)` 预览；`RunResult.pending_knowledge_confirmation`；CLI `run --yes`；MCP `confirm_knowledge`
+- V4.0：Coder 任务按 `max_verify_fix_rounds` 验证-修复重试；单 Sprint 锁定 `_sprint_coding_engine`；Sprint 结束可选写入 `knowledge_cards`（`sprint_knowledge_card.persist_sprint_outcome_card`）
+- docs: `docs/EXTENSION_POINTS.md`（Authlib / Helm / 审计等企业能力接入位，无默认实现）
 - config: `quality_profile`（off/fast/default/strict）与 `RuntimeConfig.effective_quality_level()`（V4.0 §6.3）；`sprintcycle.toml` `[quality] profile`
 - evolution: `EvolutionPipeline.execute_async` 在有 `RuntimeConfig` 时委托 `TaskDispatcher`；`evolve_sprint` 供 `SprintExecutor` 进化模式调用（§6.2）
 - agents: `EvolutionPath` 枚举（保留 `EvolutionStrategy` 别名，§6.7）

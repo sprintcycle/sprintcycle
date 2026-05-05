@@ -42,6 +42,9 @@ class RunResult(ResultBase):
     total_tasks: int = 0
     current_sprint: int = 0
     sprint_results: List[Dict[str, Any]] = field(default_factory=list)
+    # V4.0：知识注入需用户确认时返回；此时 success=False 且未执行 PRD
+    pending_knowledge_confirmation: bool = False
+    knowledge_injection_preview: Dict[str, Any] = field(default_factory=dict)
     message: str = ""
 
 

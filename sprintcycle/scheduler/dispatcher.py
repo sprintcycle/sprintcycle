@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 from ..config import RuntimeConfig
+from ..evolution.measurement import MeasurementResult
 from ..evolution.pipeline import EvolutionPipeline
 from ..evolution.prd_source import DiagnosticPRDSource
 from ..evolution.types import SprintContext
@@ -87,7 +88,18 @@ class _DispatcherSprintHooks(SprintLifecycleHooks):
                 )
             )
         if p is not None:
-            await self._dispatcher._post_sprint_measurement(p)
+            m = await self._dispatcher._post_sprint_measurement(p)
+            from ..execution.sprint_knowledge_card import persist_sprint_outcome_card
+
+            persist_sprint_outcome_card(
+                project_path=self._dispatcher._project_root,
+                config=self._dispatcher.config,
+                prd=p,
+                sprint_index=sprint_index,
+                sprint=sprint,
+                sprint_result=result,
+                measurement=m,
+            )
 
 
 class TaskDispatcher:
@@ -159,13 +171,13 @@ class TaskDispatcher:
             "quality_level": self.config.effective_quality_level(),
         }
 
-    async def _post_sprint_measurement(self, prd: PRD) -> None:
-        """每个 Sprint 结束后按 quality_level 运行测量（与 RuntimeConfig 一致）。"""
+    async def _post_sprint_measurement(self, prd: PRD) -> Optional[MeasurementResult]:
+        """每个 Sprint 结束后按 quality_level 运行测量（与 RuntimeConfig 一致）。返回测量结果供知识卡片等复用。"""
         from ..config.quality import runs_pytest
         from ..evolution.measurement import MeasurementProvider
 
         if not runs_pytest(self.config.effective_quality_level()):
-            return
+            return None
         raw_root = prd.project.path or self._project_root
         try:
             repo = str(Path(raw_root).resolve())
@@ -181,6 +193,7 @@ class TaskDispatcher:
                 m.correctness,
                 m.details,
             )
+        return m
 
     async def execute_prd(self, prd: PRD, max_concurrent: int = 3) -> List[SprintResult]:
         await self._emit(create_event(EventType.EXECUTION_START, execution_id=getattr(prd, 'execution_id', None), message=f"开始执行 PRD: {prd.project.name}", sprint_name=prd.project.name, sprint_number=0))

@@ -44,6 +44,14 @@ class KnowledgeInjectionResult:
     overlay_written: bool = True
 
 
+def knowledge_injection_is_material(res: KnowledgeInjectionResult) -> bool:
+    """是否有可展示的注入内容（用于 run 前可选确认门）。"""
+    if res.cards_used:
+        return True
+    d = (res.diff_text or "").strip()
+    return bool(d) and d != "(no textual change)"
+
+
 class KnowledgeInjector:
     def __init__(self, db_path: str):
         from ..persistence.knowledge_repository import KnowledgeCardRepository
@@ -57,6 +65,7 @@ class KnowledgeInjector:
         prd: Optional["PRD"],
         *,
         max_cards: int = 8,
+        persist_overlay: bool = True,
     ) -> KnowledgeInjectionResult:
         query_bits = [sprint.name, " ".join(sprint.goals)]
         if prd is not None:
@@ -88,17 +97,19 @@ class KnowledgeInjector:
             )
         )
         diff_text = "".join(diff_lines) if diff_lines else "(no textual change)\n"
-        overlay_written = True
-        try:
-            overlay_path.parent.mkdir(parents=True, exist_ok=True)
-            overlay_path.write_text(yaml_text, encoding="utf-8")
-        except OSError as e:
-            overlay_written = False
-            logger.warning(
-                "无法写入 prd_overlay.yaml（内存中仍有注入内容，磁盘未更新）: %s — %s",
-                overlay_path,
-                e,
-            )
+        overlay_written = False
+        if persist_overlay:
+            overlay_written = True
+            try:
+                overlay_path.parent.mkdir(parents=True, exist_ok=True)
+                overlay_path.write_text(yaml_text, encoding="utf-8")
+            except OSError as e:
+                overlay_written = False
+                logger.warning(
+                    "无法写入 prd_overlay.yaml（内存中仍有注入内容，磁盘未更新）: %s — %s",
+                    overlay_path,
+                    e,
+                )
         if diff_text.strip() != "(no textual change)" and diff_text.strip():
             logger.info("Knowledge injection diff:\n%s", diff_text.rstrip())
         return KnowledgeInjectionResult(

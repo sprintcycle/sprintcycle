@@ -94,10 +94,13 @@ def test_knowledge_search_and_injection(tmp_path: Path) -> None:
     sprint = PRDSprint(name="auth sprint", goals=["harden api"], tasks=[PRDTask(task="t", agent="coder")])
     prd = PRD(project=PRDProject(name="p", path=str(tmp_path)), mode=ExecutionMode.NORMAL, sprints=[sprint])
     inj = KnowledgeInjector(str(db))
-    res = inj.inject_for_sprint(str(tmp_path), sprint, prd)
+    res = inj.inject_for_sprint(str(tmp_path), sprint, prd, persist_overlay=False)
     assert "JWT" in res.yaml_text or "middleware" in res.yaml_text
     overlay = tmp_path / "prd_overlay.yaml"
+    assert not overlay.is_file()
+    res2 = inj.inject_for_sprint(str(tmp_path), sprint, prd, persist_overlay=True)
     assert overlay.is_file()
+    assert res2.overlay_written
     assert "experience_notes" in overlay.read_text(encoding="utf-8")
     assert res.diff_text
 

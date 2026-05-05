@@ -31,3 +31,9 @@ model = "deepseek-reasoner"
 state_dir = ".sprintcycle/state"
 # sqlite 时 executions + knowledge_cards 共用此文件（相对路径相对项目根）
 # sqlite_path = ".sprintcycle/data/sprintcycle.db"
+
+# [behavior]
+# V4.0：知识注入落盘前需显式确认（API confirm_knowledge / CLI --yes）
+# require_knowledge_injection_confirm = false
+# Sprint 结束后写入 knowledge_cards 结构化摘要
+# persist_sprint_knowledge_cards = true

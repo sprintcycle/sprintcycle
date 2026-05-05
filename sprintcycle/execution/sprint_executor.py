@@ -114,8 +114,17 @@ class SprintExecutor(CheckpointMixin):
                 cb[key] = context[key]
         if context.get("task_guidance"):
             cb["task_guidance"] = context["task_guidance"]
+        if context.get("verify_fix_notes"):
+            vn = str(context["verify_fix_notes"]).strip()
+            if vn:
+                prev = (cb.get("task_guidance") or "").strip()
+                extra = "\n\n[Coder 验证-修复 — 上一轮失败]\n" + vn
+                cb["task_guidance"] = (prev + extra).strip() if prev else extra.strip()
         if context.get("prd_overlay_yaml"):
             cb["prd_overlay"] = context["prd_overlay_yaml"]
+        locked_engine = str(
+            context.get("_sprint_coding_engine") or context.get("coding_engine", "aider")
+        )
         return AgentContext(
             prd_id=str(context.get("prd_id", "")),
             prd_name=str(context.get("prd_name", "")),
@@ -125,7 +134,7 @@ class SprintExecutor(CheckpointMixin):
             dependencies=deps,
             codebase_context=cb,
             metadata={
-                "coding_engine": context.get("coding_engine", "aider"),
+                "coding_engine": locked_engine,
                 "quality_level": context.get("quality_level", "L1"),
                 "constraints": task.constraints or [],
             },
@@ -207,6 +216,10 @@ class SprintExecutor(CheckpointMixin):
 
         ctx_acc: Dict[str, Any] = dict(context or {})
         ctx_acc.setdefault("sprint_name", sprint.name)
+        ctx_acc.setdefault(
+            "_sprint_coding_engine",
+            ctx_acc.get("coding_engine", "aider"),
+        )
 
         for task in sprint.tasks:
             task_result = await self._execute_task(task, sprint.name, ctx_acc)
@@ -487,6 +500,12 @@ class SprintExecutor(CheckpointMixin):
     async def execute_sprint_parallel(self, sprint: PRDSprint, context: Optional[Dict[str, Any]] = None, dependency_map: Optional[Dict[int, Set[int]]] = None, save_checkpoint: bool = True) -> SprintResult:
         start_time = time.time()
         result = SprintResult(sprint=sprint, status=ExecutionStatus.RUNNING)
+        ctx_base = dict(context or {})
+        ctx_base.setdefault(
+            "_sprint_coding_engine",
+            ctx_base.get("coding_engine", "aider"),
+        )
+        context = ctx_base
         task_count = len(sprint.tasks)
         completed: Set[int] = set()
         task_semaphore = asyncio.Semaphore(self._max_parallel)
@@ -531,14 +550,22 @@ class SprintExecutor(CheckpointMixin):
             enriched_context = dict(context)
             enriched_context.setdefault("sprint_name", sprint_name)
             if self._runtime_config is not None:
-                enriched_context["coding_engine"] = getattr(
+                base_engine = enriched_context.get("coding_engine") or getattr(
                     self._runtime_config, "coding_engine", "aider"
                 )
+                enriched_context.setdefault("_sprint_coding_engine", base_engine)
+                enriched_context["coding_engine"] = enriched_context["_sprint_coding_engine"]
                 enriched_context["quality_level"] = (
                     self._runtime_config.effective_quality_level()
                     if hasattr(self._runtime_config, "effective_quality_level")
                     else getattr(self._runtime_config, "quality_level", "L1")
                 )
+            else:
+                enriched_context.setdefault(
+                    "_sprint_coding_engine",
+                    enriched_context.get("coding_engine", "aider"),
+                )
+                enriched_context["coding_engine"] = enriched_context["_sprint_coding_engine"]
             if "improvement_suggestions" in context:
                 suggestions = context["improvement_suggestions"]
                 if suggestions:
@@ -562,12 +589,22 @@ class SprintExecutor(CheckpointMixin):
             return f"[dry_run] 完成: {task.task[:120]}"
         from .agents.coder_base import CoderAgent
 
-        ctx = self._build_agent_context(task, context.get("sprint_name", ""), context)
-        agent = CoderAgent()
-        res = await agent.execute(task.task, ctx)
-        if not res.success:
-            raise RuntimeError(res.error or "CoderAgent 执行失败")
-        return res.output or ""
+        work = dict(context)
+        max_r = self._max_verify_fix_rounds
+        last_msg = "CoderAgent 执行失败"
+        for attempt in range(max_r):
+            ctx = self._build_agent_context(task, work.get("sprint_name", ""), work)
+            agent = CoderAgent()
+            res = await agent.execute(task.task, ctx)
+            if res.success:
+                return res.output or ""
+            last_msg = res.error or last_msg
+            if attempt >= max_r - 1:
+                raise RuntimeError(last_msg)
+            prev = (work.get("verify_fix_notes") or "").strip()
+            work["verify_fix_notes"] = (
+                prev + f"\n[attempt {attempt + 1}/{max_r}] {last_msg}"
+            ).strip()
 
     async def _execute_evolver_task(self, task: PRDTask, context: Dict[str, Any]) -> str:
         if self._dry_run():

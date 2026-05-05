@@ -71,6 +71,10 @@ def _print_result(result: Any, fmt: str) -> None:
     """统一输出：text 格式人类友好，json 格式机器友好"""
     if fmt == "json":
         click.echo(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
+        if isinstance(result, RunResult) and getattr(
+            result, "pending_knowledge_confirmation", False
+        ):
+            sys.exit(3)
         return
 
     # text 格式
@@ -78,6 +82,8 @@ def _print_result(result: Any, fmt: str) -> None:
         _print_plan(result)
     elif isinstance(result, RunResult):
         _print_run(result)
+        if getattr(result, "pending_knowledge_confirmation", False):
+            sys.exit(3)
     elif isinstance(result, DiagnoseResult):
         _print_diagnose(result)
     elif isinstance(result, StatusResult):
@@ -106,6 +112,17 @@ def _print_plan(r: PlanResult) -> None:
 
 
 def _print_run(r: RunResult) -> None:
+    if getattr(r, "pending_knowledge_confirmation", False):
+        click.echo("\n⏸ 知识注入待确认（尚未执行 Sprint）")
+        click.echo(f"   项目: {r.prd_name}")
+        pv = r.knowledge_injection_preview or {}
+        cu = pv.get("cards_used") or []
+        if cu:
+            click.echo(f"   引用知识卡片: {len(cu)} 条")
+        if r.message:
+            click.echo(f"   {r.message}")
+        click.echo("   再次执行时请加上 --yes 以确认并落盘 prd_overlay.yaml")
+        return
     status_icon = "✅" if r.success else "❌"
     click.echo(f"\n{status_icon} 执行{'成功' if r.success else '失败'}")
     click.echo(f"   项目: {r.prd_name}")
@@ -228,6 +245,12 @@ def plan(ctx: click.Context, intent: str, mode: str, target: Optional[str], prd_
 @click.option("--prd-yaml", "prd_yaml", default=None, help="PRD YAML 内容")
 @click.option("--resume", is_flag=True, help="断点续跑")
 @click.option("--execution-id", default=None, help="执行 ID（resume 时使用）")
+@click.option(
+    "--yes",
+    "confirm_knowledge",
+    is_flag=True,
+    help="在 require_knowledge_injection_confirm 开启时确认知识注入并继续执行",
+)
 @click.pass_context
 def run(
     ctx: click.Context,
@@ -238,12 +261,14 @@ def run(
     prd_yaml: Optional[str],
     resume: bool,
     execution_id: Optional[str],
+    confirm_knowledge: bool,
 ) -> None:
     """执行 Sprint"""
     result = ctx.obj["sc"].run(
         intent=intent, mode=mode, target=target,
         prd_path=prd_path, prd_yaml=prd_yaml,
         resume=resume, execution_id=execution_id,
+        confirm_knowledge=confirm_knowledge,
     )
     _print_result(result, ctx.obj["fmt"])
 

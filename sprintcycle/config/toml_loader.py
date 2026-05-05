@@ -85,4 +85,14 @@ def flatten_sprintcycle_toml(nested: Dict[str, Any]) -> Dict[str, Any]:
     if "sqlite_path" in storage:
         out["sqlite_path"] = str(storage["sqlite_path"])
 
+    behavior = _as_dict(nested.get("behavior"))
+    if "require_knowledge_injection_confirm" in behavior:
+        out["require_knowledge_injection_confirm"] = bool(
+            behavior["require_knowledge_injection_confirm"]
+        )
+    if "persist_sprint_knowledge_cards" in behavior:
+        out["persist_sprint_knowledge_cards"] = bool(
+            behavior["persist_sprint_knowledge_cards"]
+        )
+
     return out

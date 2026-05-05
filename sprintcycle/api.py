@@ -109,6 +109,7 @@ class SprintCycle:
         prd_path: Optional[str] = None,
         execution_id: Optional[str] = None,
         resume: bool = False,
+        confirm_knowledge: bool = False,
         **kwargs: Any,
     ) -> RunResult:
         """执行（一键到底 / 断点续跑 / 从 PRD 执行）"""
@@ -119,6 +120,12 @@ class SprintCycle:
                 return self._resume_execution(execution_id, start)
 
             prd = self._resolve_prd(intent, mode, target, prd_yaml, prd_path, **kwargs)
+
+            gated = self._maybe_gate_knowledge_injection(
+                prd, start, confirm_knowledge=confirm_knowledge
+            )
+            if gated is not None:
+                return gated
 
             sprint_results = asyncio.run(
                 self.dispatcher.execute_prd(
@@ -326,6 +333,62 @@ class SprintCycle:
         return {"success": True, "count": len(cards), "cards": [c.to_dict() for c in cards]}
 
     # ─── 内部方法 ───
+
+    def _maybe_gate_knowledge_injection(
+        self,
+        prd: Any,
+        start: float,
+        *,
+        confirm_knowledge: bool,
+    ) -> Optional[RunResult]:
+        """V4.0：可选在首次知识注入落盘前要求调用方显式确认。"""
+        if confirm_knowledge:
+            return None
+        if not getattr(self.config, "require_knowledge_injection_confirm", False):
+            return None
+        if not getattr(self.config, "knowledge_injection_enabled", True):
+            return None
+        if not getattr(prd, "sprints", None):
+            return None
+        try:
+            from .execution.knowledge_hook import resolve_knowledge_db_path
+            from .execution.knowledge_injector import (
+                KnowledgeInjector,
+                knowledge_injection_is_material,
+            )
+        except Exception:
+            return None
+        sprint0 = prd.sprints[0]
+        try:
+            db_path = resolve_knowledge_db_path(self.project_path, self.config)
+            inj = KnowledgeInjector(db_path)
+            res = inj.inject_for_sprint(
+                self.project_path, sprint0, prd, persist_overlay=False
+            )
+        except Exception as e:
+            logger.warning("knowledge injection preview skipped: %s", e)
+            return None
+        if not knowledge_injection_is_material(res):
+            return None
+        preview = {
+            "sprint_name": sprint0.name,
+            "cards_used": res.cards_used,
+            "diff_text": res.diff_text[:12000],
+            "yaml_excerpt": res.yaml_text[:4000],
+        }
+        return RunResult(
+            success=False,
+            pending_knowledge_confirmation=True,
+            knowledge_injection_preview=preview,
+            prd_name=getattr(prd.project, "name", "") if hasattr(prd, "project") else "",
+            total_sprints=len(prd.sprints),
+            total_tasks=getattr(prd, "total_tasks", 0),
+            duration=time.time() - start,
+            message=(
+                "知识注入预览已生成（未写入 prd_overlay.yaml）；"
+                "请以 confirm_knowledge=True 或 CLI --yes 再次调用 run() 以继续。"
+            ),
+        )
 
     def _resolve_prd(
         self,

@@ -133,6 +133,11 @@ class SprintCycleMCPServer:
                             "target": {"type": "string", "description": "目标文件/模块"},
                             "execution_id": {"type": "string", "description": "断点续跑的执渡 ID"},
                             "resume": {"type": "boolean", "description": "是否断点续跑", "default": False},
+                            "confirm_knowledge": {
+                                "type": "boolean",
+                                "description": "require_knowledge_injection_confirm 开启时传 true 以确认知识注入并执行",
+                                "default": False,
+                            },
                         },
                     },
                 ),
@@ -217,6 +222,7 @@ class SprintCycleMCPServer:
             prd_path=args.get("prd_path"),
             execution_id=args.get("execution_id"),
             resume=args.get("resume", False),
+            confirm_knowledge=bool(args.get("confirm_knowledge", False)),
         )
         return _text_response(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
 

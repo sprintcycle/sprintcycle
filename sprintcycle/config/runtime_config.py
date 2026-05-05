@@ -42,6 +42,8 @@ _DEFAULT_CONFIG: Dict[str, Any] = {
     "project_path": ".",
     "storage_backend": "json",
     "knowledge_injection_enabled": True,
+    "require_knowledge_injection_confirm": False,
+    "persist_sprint_knowledge_cards": True,
 }
 
 
@@ -142,6 +144,10 @@ class RuntimeConfig(BaseSettings):
     storage_backend: str = "json"
     sqlite_path: Optional[str] = None
     knowledge_injection_enabled: bool = True
+    # V4.0：run 前若将写入知识叠加层，可先返回待确认结果（见 RunResult.pending_knowledge_confirmation）
+    require_knowledge_injection_confirm: bool = False
+    # Sprint 结束后将结构化摘要写入 knowledge_cards（SQLite）；关闭则只记录日志/事件
+    persist_sprint_knowledge_cards: bool = True
 
     @field_validator("quality_level")
     @classmethod
