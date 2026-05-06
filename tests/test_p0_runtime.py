@@ -51,6 +51,39 @@ def test_flatten_governance_downgrade_flag():
     assert flat["governance_downgrade_errors_to_warnings"] is False
 
 
+def test_flatten_cache_section_and_redis_url_alias():
+    nested = {
+        "cache": {
+            "enabled": False,
+            "backend": "redis",
+            "dir": ".data/sc-cache",
+            "url": "redis://localhost:6380/1",
+            "max_entries": 500,
+            "default_ttl_hours": 12,
+            "llm_codegen": False,
+        }
+    }
+    flat = flatten_sprintcycle_toml(nested)
+    assert flat["cache_enabled"] is False
+    assert flat["cache_backend"] == "redis"
+    assert flat["cache_dir"] == ".data/sc-cache"
+    assert flat["cache_redis_url"] == "redis://localhost:6380/1"
+    assert flat["cache_max_entries"] == 500
+    assert flat["cache_default_ttl_hours"] == 12
+    assert flat["cache_llm_codegen"] is False
+
+
+def test_flatten_cache_redis_url_wins_over_url():
+    nested = {
+        "cache": {
+            "redis_url": "redis://primary/0",
+            "url": "redis://fallback/0",
+        }
+    }
+    flat = flatten_sprintcycle_toml(nested)
+    assert flat["cache_redis_url"] == "redis://primary/0"
+
+
 def test_load_sprintcycle_toml_missing(tmp_path: Path):
     assert load_sprintcycle_toml(tmp_path) == {}
 

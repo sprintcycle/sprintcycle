@@ -5,7 +5,7 @@ Agent 执行结果缓存 - 基于 DiskCache 的持久化缓存机制
 1. 基于任务哈希的缓存机制
 2. 支持缓存失效策略（TTL、手动失效）
 3. 缓存统计和监控
-4. 使用 DiskCache（SQLite）作为后端
+4. 通过 ``CacheBackend`` 持久化（默认 diskcache / SQLite）
 """
 
 import asyncio
@@ -13,10 +13,15 @@ import hashlib
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, Optional, TypeVar
+from typing import TYPE_CHECKING, Any, Dict, Optional, TypeVar
 
-import diskcache
 from loguru import logger
+
+from sprintcycle.cache.base import CacheBackend
+from sprintcycle.cache.disk import DiskCacheBackend
+
+if TYPE_CHECKING:
+    from sprintcycle.config.runtime_config import RuntimeConfig
 
 T = TypeVar('T')
 
@@ -25,7 +30,7 @@ T = TypeVar('T')
 class CacheEntry:
     """
     缓存条目（保留用于向后兼容）
-    
+
     内部实现已迁移到 DiskCache，此类仅用于保持 API 兼容
     """
 
@@ -71,14 +76,14 @@ class CacheEntry:
 class ExecutionCache:
     """
     Agent 执行结果缓存
-    
+
     提供基于任务哈希的缓存机制，支持：
     1. TTL 自动过期
     2. 手动失效
     3. LRU 淘汰策略
     4. 缓存统计
-    
-    使用 DiskCache（SQLite）作为后端
+
+    底层由 ``CacheBackend`` 实现（默认 diskcache，可由 ``configure_execution_cache_from_runtime`` 切换为 Redis 等）。
     """
 
     def __init__(
@@ -86,16 +91,18 @@ class ExecutionCache:
         cache_dir: str = ".sprintcycle/cache",
         ttl_hours: int = 24,
         max_entries: int = 1000,
-        enable_persistence: bool = True
+        enable_persistence: bool = True,
+        backend: Optional[CacheBackend] = None,
     ):
         """
         初始化缓存
-        
+
         Args:
-            cache_dir: 缓存目录
+            cache_dir: 缓存目录（diskcache 默认后端时使用；传入 ``backend`` 时仍作展示路径）
             ttl_hours: 默认 TTL（小时）
-            max_entries: 最大缓存条目数
-            enable_persistence: 是否启用持久化（始终持久化）
+            max_entries: 最大缓存条目数（默认 disk 后端 LRU 估算）
+            enable_persistence: 是否创建目录（仅默认 disk 后端且无注入 ``backend`` 时）
+            backend: 注入的后端；为 None 时在 ``cache_dir`` 下构造 ``DiskCacheBackend``
         """
         self.cache_dir = Path(cache_dir)
         self.default_ttl_hours = ttl_hours
@@ -105,15 +112,12 @@ class ExecutionCache:
         # 异步锁
         self._lock = asyncio.Lock()
 
-        # DiskCache 配置
-        # size_limit: 约 1MB per entry estimate * max_entries
-        cache_size_limit = max_entries * 1024 * 1024
-        self._cache = diskcache.Cache(
-            str(self.cache_dir),
-            size_limit=cache_size_limit,
-            eviction_policy="lru",
-        )
-        logger.info(f"Using DiskCache backend at {cache_dir} (size_limit={cache_size_limit})")
+        if backend is not None:
+            self._backend = backend
+        else:
+            if self.enable_persistence:
+                self.cache_dir.mkdir(parents=True, exist_ok=True)
+            self._backend = DiskCacheBackend(str(self.cache_dir), max_entries=max_entries)
 
         # 统计
         self._stats = {
@@ -126,10 +130,6 @@ class ExecutionCache:
 
         # 清理任务
         self._cleanup_task: Optional[asyncio.Task] = None
-
-        # 初始化
-        if self.enable_persistence:
-            self.cache_dir.mkdir(parents=True, exist_ok=True)
 
     def _generate_hash(self, task_key: str) -> str:
         """生成任务哈希"""
@@ -144,13 +144,13 @@ class ExecutionCache:
     ) -> str:
         """
         生成任务缓存键
-        
+
         Args:
             agent_type: Agent 类型
             task: 任务描述
             context_hash: 上下文哈希
             **kwargs: 其他参数
-            
+
         Returns:
             str: 缓存键
         """
@@ -169,14 +169,14 @@ class ExecutionCache:
     def get(self, task_hash: str) -> Optional[Any]:
         """
         获取缓存结果
-        
+
         Args:
             task_hash: 任务哈希
-            
+
         Returns:
             Optional[Any]: 缓存结果，如果不存在或已过期返回 None
         """
-        value = self._cache.get(task_hash)
+        value = self._backend.get(task_hash)
         if value is None:
             self._stats["misses"] += 1
             logger.debug(f"Cache miss: {task_hash[:8]}")
@@ -198,7 +198,7 @@ class ExecutionCache:
     ) -> None:
         """
         设置缓存
-        
+
         Args:
             task_hash: 任务哈希
             value: 缓存值
@@ -207,8 +207,7 @@ class ExecutionCache:
         ttl = ttl_hours if ttl_hours is not None else self.default_ttl_hours
         ttl_seconds = ttl * 3600
 
-        # DiskCache: 直接设置，TTL 通过 expire 参数
-        self._cache.set(task_hash, value, expire=ttl_seconds)
+        self._backend.set(task_hash, value, expire_seconds=ttl_seconds)
         self._stats["sets"] += 1
         logger.debug(f"Cache set: {task_hash[:8]} (TTL={ttl}h)")
 
@@ -225,23 +224,21 @@ class ExecutionCache:
     def invalidate(self, task_hash: Optional[str] = None) -> int:
         """
         失效缓存
-        
+
         Args:
             task_hash: 任务哈希（None 表示清空所有缓存）
-            
+
         Returns:
             int: 失效的条目数
         """
         if task_hash is None:
-            count = len(self._cache)
-            self._cache.clear()
+            count = len(self._backend)
+            self._backend.clear()
             self._stats["invalidations"] += count
             logger.info(f"Cache cleared: {count} entries removed")
             return count
 
-        existed = task_hash in self._cache
-        if existed:
-            del self._cache[task_hash]
+        if self._backend.delete(task_hash):
             self._stats["invalidations"] += 1
             logger.debug(f"Cache invalidated: {task_hash[:8]}")
             return 1
@@ -256,7 +253,7 @@ class ExecutionCache:
     def stats(self) -> Dict[str, Any]:
         """
         获取缓存统计
-        
+
         Returns:
             Dict[str, Any]: 统计信息
         """
@@ -267,7 +264,7 @@ class ExecutionCache:
         )
         hit_rate_percentage = round(hit_rate, 2)
 
-        cache_size = len(self._cache)
+        cache_size = len(self._backend)
 
         return {
             **self._stats,
@@ -277,21 +274,20 @@ class ExecutionCache:
             "max_entries": self.max_entries,
             "memory_usage_estimate_mb": self._estimate_memory_usage(),
             "utilization": round(cache_size / self.max_entries * 100, 2) if self.max_entries > 0 else 0,
-            "backend": "diskcache",
+            "backend": self._backend.backend_name,
         }
 
     def _estimate_memory_usage(self) -> float:
         """估算内存使用（MB）"""
         try:
-            # DiskCache 在磁盘上，返回磁盘使用量
-            return round(self._cache.volume() / 1024 / 1024, 2)
+            return round(self._backend.volume_bytes() / 1024 / 1024, 2)
         except Exception:
             return 0.0
 
     def cleanup_expired(self) -> int:
         """
         清理过期缓存
-        
+
         Returns:
             int: 清理的条目数
         """
@@ -306,7 +302,7 @@ class ExecutionCache:
     async def start_cleanup_task(self, interval_hours: int = 1) -> None:
         """
         启动定期清理任务
-        
+
         Args:
             interval_hours: 清理间隔（小时）
         """
@@ -321,7 +317,7 @@ class ExecutionCache:
 
     def __len__(self) -> int:
         """返回缓存条目数"""
-        return len(self._cache)
+        return len(self._backend)
 
 
 # 全局缓存实例
@@ -342,9 +338,30 @@ def set_cache(cache: ExecutionCache) -> None:
     _global_cache = cache
 
 
+def configure_execution_cache_from_runtime(runtime: "RuntimeConfig", project_path: str) -> None:
+    """
+    按 ``RuntimeConfig`` 重建全局 ``ExecutionCache``（含 diskcache / redis / disabled）。
+
+    在 ``SprintCycle`` 初始化时调用；多项目同进程时以后实例为准。
+    """
+    from sprintcycle.cache.factory import build_cache_backend, resolve_cache_dir_for_project
+
+    backend = build_cache_backend(runtime, project_path)
+    cache_dir = str(resolve_cache_dir_for_project(runtime, project_path))
+    set_cache(
+        ExecutionCache(
+            cache_dir=cache_dir,
+            ttl_hours=int(runtime.cache_default_ttl_hours),
+            max_entries=max(1, int(runtime.cache_max_entries)),
+            backend=backend,
+        )
+    )
+
+
 __all__ = [
     "ExecutionCache",
     "CacheEntry",
     "get_cache",
     "set_cache",
+    "configure_execution_cache_from_runtime",
 ]

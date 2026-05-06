@@ -11,7 +11,7 @@ SprintCycle CLI — 子命令式入口
   sprintcycle rollback <id>   → 回滚
   sprintcycle stop <id>       → 停止
   sprintcycle serve           → 启动 MCP Server
-  sprintcycle dashboard       → 启动 Dashboard (P2)
+  sprintcycle dashboard [--dev] → 启动 Dashboard（`--dev` 同启 Vite）
   sprintcycle init [path]     → 初始化项目
   sprintcycle import-state    → JSON 状态目录导入 SQLite
   sprintcycle knowledge search → 检索知识卡片
@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import subprocess
 import sys
 from importlib.metadata import PackageNotFoundError, version
@@ -925,24 +926,82 @@ def serve(ctx: click.Context, host: str, port: int, transport: str) -> None:
         sys.exit(1)
 
 
+def _dashboard_frontend_dir() -> Path:
+    """仓库根目录下的 frontend/（可编辑安装）；wheel 安装时通常不存在。"""
+    return Path(__file__).resolve().parent.parent / "frontend"
+
+
 @cli.command()
 @click.option("--host", default="0.0.0.0", help="监听地址")
 @click.option("--port", default=8080, type=int, help="监听端口")
+@click.option(
+    "--dev",
+    is_flag=True,
+    help="开发模式：同启 Vite（需仓库内 frontend/ 且已 npm install），后端启用 CORS",
+)
 @click.pass_context
-def dashboard(ctx: click.Context, host: str, port: int) -> None:
-    """启动 Dashboard (Web UI)"""
+def dashboard(ctx: click.Context, host: str, port: int, dev: bool) -> None:
+    """启动 Dashboard (Web UI)；`--dev` 时同时启动 Vite，浏览器打开 http://localhost:5173"""
     try:
         import uvicorn
 
         from sprintcycle.dashboard.app import create_app
-
-        app = create_app(project_path=ctx.obj["sc"].project_path)
-        console.print(f"[bold]Dashboard[/bold] 启动: [link]http://{host}:{port}[/link]")
-        uvicorn.run(app, host=host, port=port, log_level="info")
     except ImportError as e:
         err_console.print(f"[red]依赖缺失:[/red] {escape(str(e))}")
         err_console.print("[dim]安装命令:[/dim] pip install fastapi uvicorn")
         sys.exit(1)
+
+    frontend_dir = _dashboard_frontend_dir()
+    vite_proc: Optional[subprocess.Popen] = None
+
+    if dev:
+        pkg_json = frontend_dir / "package.json"
+        if not pkg_json.is_file():
+            err_console.print(
+                "[red]未找到 frontend/ 工程：--dev 仅适用于源码克隆目录[/red] "
+                "（需包含 frontend/package.json）。"
+            )
+            err_console.print(
+                "[dim]或用手动双终端：[/dim] `SPRINTCYCLE_ENV=development sprintcycle dashboard` + `cd frontend && npm run dev`"
+            )
+            sys.exit(1)
+        if not (frontend_dir / "node_modules").is_dir():
+            err_console.print(
+                "[red]缺少 node_modules：[/red] 请先执行 [bold]cd frontend && npm install[/bold]"
+            )
+            sys.exit(1)
+
+        dev_env = os.environ.copy()
+        dev_env["SPRINTCYCLE_ENV"] = "development"
+        dev_env["VITE_PROXY_TARGET"] = f"http://127.0.0.1:{port}"
+
+        try:
+            vite_proc = subprocess.Popen(
+                ["npm", "run", "dev"],
+                cwd=str(frontend_dir),
+                env=dev_env,
+            )
+        except OSError as e:
+            err_console.print(f"[red]无法启动 npm run dev:[/red] {escape(str(e))}")
+            sys.exit(1)
+
+        console.print(
+            f"[bold]Dashboard dev[/bold] 后端 [link]http://127.0.0.1:{port}[/link] · "
+            f"前端 [link]http://localhost:5173[/link]"
+        )
+    else:
+        console.print(f"[bold]Dashboard[/bold] 启动: [link]http://{host}:{port}[/link]")
+
+    app = create_app(project_path=ctx.obj["sc"].project_path)
+    try:
+        uvicorn.run(app, host=host, port=port, log_level="info")
+    finally:
+        if vite_proc is not None and vite_proc.poll() is None:
+            vite_proc.terminate()
+            try:
+                vite_proc.wait(timeout=8)
+            except subprocess.TimeoutExpired:
+                vite_proc.kill()
 
 
 # ─── init ───

@@ -21,6 +21,7 @@ from .hooks.governance_context import (
     CTX_GOVERNANCE_TASK_AFTER_DETAIL,
     CTX_GOVERNANCE_TASK_AFTER_FAILED,
 )
+from .events import ExecutionEventBackend
 from .hooks.sprint_hooks import NoOpSprintLifecycleHooks, SprintLifecycleHooks
 from .hooks.task_hooks import NoOpTaskLifecycleHooks, TaskLifecycleHooks
 from .sprint_types import ExecutionStatus, SprintResult, TaskResult
@@ -52,7 +53,7 @@ class SprintExecutor(CheckpointMixin):
         self._runtime_config = runtime_config
         self._sprint_hooks: SprintLifecycleHooks = sprint_hooks or NoOpSprintLifecycleHooks()
         self._task_hooks: TaskLifecycleHooks = task_hooks or NoOpTaskLifecycleHooks()
-        self._event_bus = None
+        self._event_bus: Optional[ExecutionEventBackend] = None
         self._feedback_loop = feedback_loop
         self._release_plan = release_plan
         self._sprint_count = 0
@@ -144,6 +145,10 @@ class SprintExecutor(CheckpointMixin):
             context.get("_sprint_coding_engine") or context.get("coding_engine", "aider")
         )
         rid, rname = context_plan_id_name(context)
+        cache_llm = True
+        rc = self._runtime_config
+        if rc is not None:
+            cache_llm = bool(getattr(rc, "cache_llm_codegen", True))
         return AgentContext(
             release_plan_id=str(rid),
             release_plan_name=str(rname),
@@ -157,6 +162,7 @@ class SprintExecutor(CheckpointMixin):
                 "quality_level": context.get("quality_level", "L1"),
                 "constraints": task.constraints or [],
             },
+            config={"cache_llm_codegen": cache_llm},
         )
 
     def register_agent_executor(self, agent_type: str, executor: Callable):
@@ -486,7 +492,7 @@ class SprintExecutor(CheckpointMixin):
             logger.warning(f"收集反馈失败: {e}")
             return None
 
-    def set_event_bus(self, event_bus) -> None:
+    def set_event_bus(self, event_bus: Optional[ExecutionEventBackend]) -> None:
         self._event_bus = event_bus
 
     async def _emit_event(self, event_type: str, data: Dict[str, Any]) -> None:

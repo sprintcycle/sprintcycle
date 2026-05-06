@@ -20,18 +20,22 @@ from loguru import logger
 
 from .config import RuntimeConfig
 from .diagnostic.provider import ProjectDiagnostic
-from .execution.events import get_event_bus
+from .execution.cache import configure_execution_cache_from_runtime
+from .execution.events import (
+    ensure_default_execution_event_backend_for_project,
+    get_execution_event_backend,
+)
 from .execution.rollback import RollbackManager
 from .execution.state.state_store import (
     configure_default_store,
     get_state_store,
 )
-from .release_plan.payload_keys import checkpoint_plan_yaml
 from .intent.parser import IntentParser
 from .orchestration.sprint_orchestrator import ExecutionStatus, SprintOrchestrator
 from .release_plan.generator import IntentReleasePlanGenerator
 from .release_plan.models import ReleasePlan
 from .release_plan.parser import ReleasePlanParser
+from .release_plan.payload_keys import checkpoint_plan_yaml
 from .release_plan.validator import ReleasePlanValidator
 from .results import (
     DiagnoseResult,
@@ -58,7 +62,9 @@ class SprintCycle:
         self.project_path = os.path.abspath(project_path)
         base_cfg = config or RuntimeConfig.from_project(self.project_path)
         self.config = base_cfg.merge(base_cfg, {"project_path": self.project_path})
+        configure_execution_cache_from_runtime(self.config, self.project_path)
         configure_default_store(self.project_path, self.config)
+        ensure_default_execution_event_backend_for_project(self.project_path, self.config)
         self._orchestrator: Optional[SprintOrchestrator] = None
 
     @property
@@ -66,7 +72,7 @@ class SprintCycle:
         if self._orchestrator is None:
             self._orchestrator = SprintOrchestrator(
                 config=self.config,
-                event_bus=get_event_bus(),
+                event_bus=get_execution_event_backend(),
                 project_path=self.project_path,
             )
         return self._orchestrator

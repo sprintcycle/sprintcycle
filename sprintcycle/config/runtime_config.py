@@ -39,6 +39,7 @@ _DEFAULT_CONFIG: Dict[str, Any] = {
     "project_path": ".",
     # 执行状态与知识卡片默认同库 SQLite，便于单机自闭环与部署（可改回 json）
     "storage_backend": "sqlite",
+    "execution_event_backend": "sqlite",
     "knowledge_injection_enabled": True,
     "require_knowledge_injection_confirm": False,
     "persist_sprint_knowledge_cards": True,
@@ -60,6 +61,14 @@ _DEFAULT_CONFIG: Dict[str, Any] = {
     "governance_task_after_block_on_failure": False,
     # 启用治理后：将 Planning/Review 包中的 error 降为 warning（不阻断；配合 block_on=none 即「仅观察」）
     "governance_downgrade_errors_to_warnings": True,
+    # 统一执行缓存（diskcache / redis；见 sprintcycle.cache）
+    "cache_enabled": True,
+    "cache_backend": "diskcache",
+    "cache_dir": ".sprintcycle/cache",
+    "cache_redis_url": None,
+    "cache_max_entries": 1000,
+    "cache_default_ttl_hours": 24,
+    "cache_llm_codegen": True,
 }
 
 
@@ -159,6 +168,8 @@ class RuntimeConfig(BaseSettings):
     # P1：存储后端 json | sqlite；知识库与 sqlite 执行记录默认共用 sqlite_path
     storage_backend: str = "sqlite"
     sqlite_path: Optional[str] = None
+    # 执行期领域事件后端：sqlite（默认，本地持久化）| memory（进程内 EventBus，测试/无落盘）
+    execution_event_backend: str = "sqlite"
     knowledge_injection_enabled: bool = True
     # V4.0：run 前若将写入知识叠加层，可先返回待确认结果（见 RunResult.pending_knowledge_confirmation）
     require_knowledge_injection_confirm: bool = False
@@ -186,6 +197,14 @@ class RuntimeConfig(BaseSettings):
     governance_task_after_block_on_failure: bool = False
     # 保守观察：Planning/Review 聚合结果中的 severity=error 降为 warning（仍落盘/日志；不触发 has_error_severity）
     governance_downgrade_errors_to_warnings: bool = True
+    # 统一缓存（ExecutionCache / Coder LLM 路径等；backend=redis 需 ``pip install -e ".[cache-redis]"``）
+    cache_enabled: bool = True
+    cache_backend: str = "diskcache"
+    cache_dir: str = ".sprintcycle/cache"
+    cache_redis_url: Optional[str] = None
+    cache_max_entries: int = 1000
+    cache_default_ttl_hours: int = 24
+    cache_llm_codegen: bool = True
 
     @field_validator("quality_level")
     @classmethod
@@ -203,6 +222,20 @@ class RuntimeConfig(BaseSettings):
         allowed = frozenset({"none", "review_only", "planning_and_review"})
         s = (v or "none").strip().lower()
         return s if s in allowed else "none"
+
+    @field_validator("cache_backend")
+    @classmethod
+    def _normalize_cache_backend(cls, v: str) -> str:
+        allowed = frozenset({"diskcache", "redis"})
+        s = (v or "diskcache").strip().lower()
+        return s if s in allowed else "diskcache"
+
+    @field_validator("execution_event_backend")
+    @classmethod
+    def _normalize_execution_event_backend(cls, v: str) -> str:
+        allowed = frozenset({"sqlite", "memory"})
+        s = (v or "sqlite").strip().lower()
+        return s if s in allowed else "sqlite"
 
     def effective_quality_level(self) -> str:
         """供测量、Dispatcher、SprintExecutor 使用的实际 L 档位（已考虑 quality_profile）。"""

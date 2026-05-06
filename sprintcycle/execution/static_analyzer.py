@@ -86,7 +86,7 @@ def _map_ruff_severity(severity: Dict[str, Any]) -> str:
 class AnalysisConfig:
     """
     分析配置（deprecated in v0.9.1）
-    
+
     推荐直接使用 RuntimeConfig 的相关字段。
     """
     ruff_enabled: bool = True
@@ -109,18 +109,22 @@ class StaticAnalyzer:
     def __init__(self, project_path: str, config: Optional[AnalysisConfig] = None):
         self.project_path = Path(project_path).resolve()
         self.config = config or AnalysisConfig()
-        self._tool_cache: Dict[str, bool] = {}
 
     def _is_tool_available(self, tool: str) -> bool:
-        if tool in self._tool_cache:
-            return self._tool_cache[tool]
+        from .cache import get_cache
+
+        ckey = f"tool_avail:{tool}"
+        c = get_cache()
+        hit = c.get(ckey)
+        if hit is not None:
+            return bool(hit)
         try:
             result = subprocess.run(["which", tool], capture_output=True, text=True, timeout=5)
             available = result.returncode == 0
-            self._tool_cache[tool] = available
+            c.set(ckey, available, ttl_hours=24 * 7)
             return available
         except Exception:
-            self._tool_cache[tool] = False
+            c.set(ckey, False, ttl_hours=24 * 7)
             return False
 
     async def analyze_python(self, files: Optional[List[str]] = None) -> List[AnalysisResult]:

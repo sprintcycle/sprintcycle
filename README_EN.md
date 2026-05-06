@@ -21,6 +21,7 @@ Optional extras (see `pyproject.toml`):
 | Extra | Purpose |
 |--------|---------|
 | `dashboard` / `full` | Web Dashboard (FastAPI + Uvicorn) |
+| `cache-redis` | Redis cache backend (`[cache] backend = redis`) |
 | `mcp-sse` | MCP over SSE (`uvicorn`, `starlette`) |
 | `dev` | Tests, typing, import-linter, etc. |
 | `mutation` | Mutation testing (`mutmut`) |
@@ -63,7 +64,7 @@ Common flags: `--project` / `-p` for repo root, `--format json` for machine-read
 - **status** / **rollback** / **stop**: history, rollback, and cancel in-flight work.
 - **Knowledge cards**: `sprintcycle knowledge search`; execution path supports injection and confirmation policies.
 - **MCP**: `sprintcycle serve` (default **stdio**; `--transport sse` for remote agents).
-- **Dashboard**: `sprintcycle dashboard` (install dashboard extras first).
+- **Dashboard**: `sprintcycle dashboard` (install dashboard extras first). For development from a git clone, `sprintcycle dashboard --dev` starts Vite alongside the API. Before publishing a wheel/sdist with the full UI, run `cd frontend && npm run build`; see **`docs/RELEASE_CHECKLIST.md`**.
 
 ## CLI cheat sheet
 
@@ -79,7 +80,7 @@ Common flags: `--project` / `-p` for repo root, `--format json` for machine-read
 | `sprintcycle import-state` | Import JSON state dir into SQLite |
 | `sprintcycle knowledge search` | Search knowledge cards |
 | `sprintcycle serve` | Start MCP server |
-| `sprintcycle dashboard` | Start Web UI |
+| `sprintcycle dashboard` | Start Web UI (production: build `frontend` first; dev: `--dev`) |
 | `sprintcycle init [path]` | Create `.sprintcycle` layout |
 
 Global options: `-p/--project`, `--format text|json`, `-v/--verbose`.
@@ -99,7 +100,9 @@ Public models and helpers are re-exported from the top-level `sprintcycle` packa
 - `sprintcycle/release_plan/` — models, parse, validate, generate, expand
 - `sprintcycle/intent/` — intent parsing and runner
 - `sprintcycle/mcp/` — MCP server
-- `sprintcycle/dashboard/` — optional Web UI
+- Execution cache: **`docs/CACHE.md`** (`sprintcycle.toml` `[cache]` / `SPRINTCYCLE_CACHE_*`)
+- `frontend/` — Dashboard UI (Vue 3 + Vite)
+- `sprintcycle/dashboard/` — optional Web UI (API + `static/` assets)
 - `tests/` — pytest suite
 
 ## Development

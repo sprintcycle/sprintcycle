@@ -37,6 +37,52 @@ cd sprintcycle
 pip install -e .
 ```
 
+开发 Web Dashboard（Vue 3 + Vite）时，建议同时安装：`pip install -e ".[dashboard,dev]"`，并在 `frontend` 目录安装 Node 依赖：`cd frontend && npm install`。
+
+### Web Dashboard 怎么用
+
+**依赖**：`pip install -e ".[dashboard]"`（或 `full`）。
+
+**生产模式（只起 Python，托管构建后的静态文件）**  
+
+先在前端工程目录打包，再启动服务（默认端口 **8080**）：
+
+```bash
+cd frontend && npm ci && npm run build
+cd ..
+sprintcycle dashboard --host 127.0.0.1 --port 8080
+```
+
+浏览器访问终端里打印的地址；需使用 **构建后的** 完整 UI，而不是仓库里仅占位用的 `static/index.html`。
+
+**一键开发（源码克隆，子进程启动 Vite）**  
+
+确保仓库根下存在 `frontend/`，且已执行 `cd frontend && npm install`：
+
+```bash
+sprintcycle dashboard --dev
+```
+
+- 后端 API：`http://127.0.0.1:8080`（与 `--port` 一致）  
+- 前端开发服务器：`http://localhost:5173` — **请用浏览器打开此地址**（Vite 将 `/api` 代理到后端）。  
+- CLI 会为子进程设置 `VITE_PROXY_TARGET=http://127.0.0.1:<port>`；也可自行导出该变量后运行 `npm run dev`。
+
+**手动双终端**（与 `--dev` 等价）：
+
+```bash
+# 终端 1
+SPRINTCYCLE_ENV=development sprintcycle dashboard --port 8080
+
+# 终端 2
+cd frontend && npm run dev
+```
+
+发版前若要打含完整前端的 wheel，请参阅 **`docs/RELEASE_CHECKLIST.md`**。
+
+### 执行缓存切换（diskcache / Redis / 关闭）
+
+默认使用本地 **diskcache**；多实例或共享缓存可改为 **Redis**（需 `pip install -e ".[cache-redis]"`）。在项目根 **`sprintcycle.toml`** 的 **`[cache]`** 或环境变量 **`SPRINTCYCLE_CACHE_*`** 中切换，详见 **[`docs/CACHE.md`](CACHE.md)**。
+
 ## 环境准备
 
 设置环境变量：

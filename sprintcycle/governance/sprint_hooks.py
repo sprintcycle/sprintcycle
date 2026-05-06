@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from loguru import logger
 
-from ..execution.events import Event, EventBus, EventType
+from ..execution.events import Event, EventType, ExecutionEventBackend
 from ..execution.hooks.sprint_hooks import SprintLifecycleHooks
 from ..execution.sprint_types import SprintResult
 from ..release_plan.models import ReleasePlan, SprintDefinition
@@ -36,7 +36,7 @@ class GovernanceSprintHooks(SprintLifecycleHooks):
         self,
         project_path: str,
         config: "RuntimeConfig",
-        event_bus: Optional[EventBus] = None,
+        event_bus: Optional[ExecutionEventBackend] = None,
     ):
         self._project_path = project_path
         self._config = config

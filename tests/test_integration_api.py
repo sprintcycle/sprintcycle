@@ -170,7 +170,7 @@ class TestAPIRun:
             mock_dispatcher_cls.return_value = mock_dispatcher_instance
 
             # Also need to patch the event_bus
-            with patch('sprintcycle.execution.events.get_event_bus') as mock_event_bus:
+            with patch('sprintcycle.execution.events.get_execution_event_backend') as mock_event_bus:
                 mock_event_bus_instance = MagicMock()
                 mock_event_bus.return_value = mock_event_bus_instance
                 
@@ -219,7 +219,7 @@ sprints:
             mock_dispatcher_instance.execute_release_plan = AsyncMock(return_value=[])
             mock_dispatcher_cls.return_value = mock_dispatcher_instance
 
-            with patch('sprintcycle.execution.events.get_event_bus') as mock_event_bus:
+            with patch('sprintcycle.execution.events.get_execution_event_backend') as mock_event_bus:
                 mock_event_bus_instance = MagicMock()
                 mock_event_bus.return_value = mock_event_bus_instance
                 
@@ -256,7 +256,7 @@ sprints:
         with patch("sprintcycle.api.ReleasePlanValidator") as mock_v, \
              patch("sprintcycle.api.get_state_store") as mock_get_store, \
              patch("sprintcycle.api.SprintOrchestrator") as mock_dispatcher_cls, \
-             patch("sprintcycle.api.get_event_bus"):
+             patch("sprintcycle.api.get_execution_event_backend"):
 
             mock_v.return_value.validate.return_value = MagicMock(is_valid=True)
 
@@ -677,7 +677,7 @@ sprints:
             mock_dispatcher_instance.resume_from_sprint = AsyncMock(return_value=[mock_sprint_result])
             mock_dispatcher_cls.return_value = mock_dispatcher_instance
 
-            with patch('sprintcycle.execution.events.get_event_bus') as mock_event_bus:
+            with patch('sprintcycle.execution.events.get_execution_event_backend') as mock_event_bus:
                 mock_event_bus_instance = MagicMock()
                 mock_event_bus.return_value = mock_event_bus_instance
                 

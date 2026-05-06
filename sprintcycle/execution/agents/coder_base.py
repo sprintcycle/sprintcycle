@@ -4,7 +4,7 @@ Coder Agent Base - 核心执行逻辑
 
 import hashlib
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, cast
 
 from loguru import logger
 
@@ -76,10 +76,32 @@ class CoderAgent(AgentExecutor):
     def _project_cwd(self, context: AgentContext) -> str:
         return str(context.codebase_context.get("project_path") or ".")
 
+    def _coder_gen_cache_key(self, engine: str, prompt: str) -> str:
+        raw = f"v1|{engine}|{prompt}"
+        return hashlib.sha256(raw.encode()).hexdigest()
+
+    def _maybe_get_codegen_cache(self, context: AgentContext, cache_key: str) -> Optional[Dict[str, Any]]:
+        if not context.config.get("cache_llm_codegen", True):
+            return None
+        from ..cache import get_cache
+
+        v = get_cache().get(cache_key)
+        if isinstance(v, dict) and v.get("success"):
+            return cast(Dict[str, Any], v)
+        return None
+
+    def _maybe_put_codegen_cache(self, context: AgentContext, cache_key: str, result: Dict[str, Any]) -> None:
+        if not context.config.get("cache_llm_codegen", True):
+            return
+        if not result.get("success"):
+            return
+        from ..cache import get_cache
+
+        get_cache().set(cache_key, result, ttl_hours=24)
+
     async def _generate_code(self, requirements: Dict[str, Any], context: AgentContext) -> Dict[str, Any]:
         from ..llm_provider import call_llm_async, resolve_provider
 
-        task = requirements.get("task", "")
         engine = self._resolve_coding_engine(context)
         # 与 sprintcycle.config / 文档中的别名对齐
         if engine in ("claude", "claude-code"):
@@ -87,12 +109,22 @@ class CoderAgent(AgentExecutor):
         if engine in ("cursor", "cursor-cookbook"):
             engine = "cursor_cookbook"
 
+        cache_prompt = self._build_generation_prompt(requirements, context)
+        gen_ck = self._coder_gen_cache_key(engine, cache_prompt)
+        cached = self._maybe_get_codegen_cache(context, gen_ck)
+        if cached is not None:
+            return cached
+
+        def _finish_ok(payload: Dict[str, Any]) -> Dict[str, Any]:
+            self._maybe_put_codegen_cache(context, gen_ck, payload)
+            return payload
+
         if engine == "aider":
             from ..engines.aider import check_aider_cli, run_aider_message
 
             if check_aider_cli():
                 cwd = self._project_cwd(context)
-                prompt = self._build_generation_prompt(requirements, context)
+                prompt = cache_prompt
                 cfg = resolve_provider()
                 rc, out, err = await run_aider_message(
                     prompt, cwd=cwd, timeout=600, model=cfg.model if cfg.model else None
@@ -100,12 +132,14 @@ class CoderAgent(AgentExecutor):
                 if rc == 0:
                     combined = (out or "") + ("\n" + err if err else "")
                     quality = self._calculate_quality_score(combined, context)
-                    return {
-                        "success": True,
-                        "code": combined or "(aider 完成，无 stdout)",
-                        "quality": quality,
-                        "feedback": "Generated via Aider CLI",
-                    }
+                    return _finish_ok(
+                        {
+                            "success": True,
+                            "code": combined or "(aider 完成，无 stdout)",
+                            "quality": quality,
+                            "feedback": "Generated via Aider CLI",
+                        }
+                    )
                 logger.warning("Aider 退出码 {}，回退 LiteLLM: {}", rc, err[:500] if err else "")
             else:
                 logger.warning("未检测到 aider 命令，回退 LiteLLM 直调")
@@ -115,17 +149,19 @@ class CoderAgent(AgentExecutor):
 
             if check_claude_code_cli():
                 cwd = self._project_cwd(context)
-                prompt = self._build_generation_prompt(requirements, context)
+                prompt = cache_prompt
                 rc, out, err = await run_claude_print_message(prompt, cwd=cwd, timeout=600)
                 if rc == 0:
                     combined = (out or "") + ("\n" + err if err else "")
                     quality = self._calculate_quality_score(combined, context)
-                    return {
-                        "success": True,
-                        "code": combined or "(Claude Code 完成，无 stdout)",
-                        "quality": quality,
-                        "feedback": "Generated via Claude Code CLI (-p)",
-                    }
+                    return _finish_ok(
+                        {
+                            "success": True,
+                            "code": combined or "(Claude Code 完成，无 stdout)",
+                            "quality": quality,
+                            "feedback": "Generated via Claude Code CLI (-p)",
+                        }
+                    )
                 logger.warning("Claude Code 退出码 {}，回退 LiteLLM: {}", rc, err[:500] if err else "")
             else:
                 logger.warning("未检测到 claude 命令（Claude Code），回退 LiteLLM 直调")
@@ -134,7 +170,7 @@ class CoderAgent(AgentExecutor):
             from ..engines.cursor_cookbook import run_cursor_cookbook_flow
 
             cwd = self._project_cwd(context)
-            prompt = self._build_generation_prompt(requirements, context)
+            prompt = cache_prompt
             cb = context.codebase_context or {}
             overlay = str(cb.get("release_plan_overlay") or "")[:8000]
             arch = str(
@@ -152,17 +188,19 @@ class CoderAgent(AgentExecutor):
             if rc == 0:
                 combined = (out or "") + ("\n" + err if err else "")
                 quality = self._calculate_quality_score(combined, context)
-                return {
-                    "success": True,
-                    "code": combined or "(Cursor Cookbook 已生成)",
-                    "quality": quality,
-                    "feedback": "Cursor Cookbook file (+ optional agent CLI)",
-                }
+                return _finish_ok(
+                    {
+                        "success": True,
+                        "code": combined or "(Cursor Cookbook 已生成)",
+                        "quality": quality,
+                        "feedback": "Cursor Cookbook file (+ optional agent CLI)",
+                    }
+                )
             logger.warning("Cursor Cookbook / Agent 退出码 {}，回退 LiteLLM: {}", rc, err[:500] if err else "")
 
         config = resolve_provider()
 
-        prompt = self._build_generation_prompt(requirements, context)
+        prompt = cache_prompt
         messages = [{"role": "user", "content": prompt}]
 
         try:
@@ -175,12 +213,14 @@ class CoderAgent(AgentExecutor):
                 max_tokens=4096,
             )
             quality = self._calculate_quality_score(code, context)
-            return {
-                "success": True,
-                "code": code,
-                "quality": quality,
-                "feedback": f"Generated {requirements.get('language', 'python')} code"
-            }
+            return _finish_ok(
+                {
+                    "success": True,
+                    "code": code,
+                    "quality": quality,
+                    "feedback": f"Generated {requirements.get('language', 'python')} code",
+                }
+            )
         except Exception as e:
             logger.error(f"Code generation failed: {e}")
             return {"success": False, "error": str(e)}

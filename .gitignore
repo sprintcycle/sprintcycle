@@ -25,6 +25,7 @@ pip-log.txt
 pip-delete-this-directory.txt
 .tox/
 .venv/
+.venv_ci/
 .venv-tmp/
 venv/
 ENV/
@@ -74,12 +75,14 @@ lerna-debug.log*
 # Node.js
 node_modules/
 package-lock.json
+!frontend/package-lock.json
 yarn.lock
 pnpm-lock.yaml
 
 # Build
 *.out
 *.pid
+sprintcycle/dashboard/static/assets/
 
 # SprintCycle
 .sprintcycle/

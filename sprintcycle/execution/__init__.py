@@ -19,7 +19,13 @@ from .agents import (
     TestResult,
     TestType,
 )
-from .cache import CacheEntry, ExecutionCache, get_cache, set_cache
+from .cache import (
+    CacheEntry,
+    ExecutionCache,
+    configure_execution_cache_from_runtime,
+    get_cache,
+    set_cache,
+)
 from .error_handler import ErrorContext, ErrorHandler, FixResult, get_error_handler, reset_error_handler
 
 # 错误处理组件 (新增)
@@ -31,7 +37,17 @@ from .error_knowledge import (
     reset_error_knowledge_base,
 )
 from .error_router import ErrorRouter, RoutingContext, RoutingLevel, RoutingResult, get_error_router
-from .events import Event, EventBus, EventType, get_event_bus
+from .events import (
+    Event,
+    EventBus,
+    EventType,
+    ExecutionEventBackend,
+    configure_execution_event_backend,
+    ensure_default_execution_event_backend_for_project,
+    get_event_bus,
+    get_execution_event_backend,
+)
+from .sqlite_event_backend import SQLiteMQEventBackend, execution_events_sqlite_path
 from .feedback import ExecutionFeedback, FeedbackCategory, FeedbackLevel, FeedbackLoop
 from .hooks.sprint_hooks import ChainedSprintHooks, NoOpSprintLifecycleHooks, SprintLifecycleHooks
 from .rollback import BackupRecord, RollbackConfig, RollbackManager, RollbackResult, get_rollback_manager
@@ -49,12 +65,25 @@ from .strategies import ExecutionResult, ExecutionStrategy, NormalStrategy, get_
 __all__ = [
     "SprintExecutor", "NormalStrategy", "ExecutionStrategy", "get_strategy", "ExecutionResult",
     "ExecutionStatus", "TaskResult", "SprintResult",
-    "EventBus", "Event", "EventType", "get_event_bus",
+    "EventBus",
+    "Event",
+    "EventType",
+    "ExecutionEventBackend",
+    "SQLiteMQEventBackend",
+    "configure_execution_event_backend",
+    "ensure_default_execution_event_backend_for_project",
+    "execution_events_sqlite_path",
+    "get_event_bus",
+    "get_execution_event_backend",
     "StateStore", "ExecutionState", "get_state_store", "configure_default_store", "reset_default_state_store",
     "SqliteExecutionStore",
     "FeedbackLoop", "ExecutionFeedback", "FeedbackLevel", "FeedbackCategory",
     "SprintLifecycleHooks", "NoOpSprintLifecycleHooks", "ChainedSprintHooks",
-    "ExecutionCache", "CacheEntry", "get_cache", "set_cache",
+    "ExecutionCache",
+    "CacheEntry",
+    "get_cache",
+    "set_cache",
+    "configure_execution_cache_from_runtime",
     "AgentType", "AgentContext", "AgentResult", "AgentExecutor", "CoderAgent", "BatchTask", "BatchConfig",
     "EvolutionPath", "TesterAgent", "TestCase", "TestType", "TestResult",
     # 错误处理

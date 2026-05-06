@@ -11,6 +11,7 @@ min_coverage_percent = 80.0
 
 [execution]
 max_verify_fix_rounds = 3
+event_backend = "memory"   # memory | sqlite（默认 sqlite：本地持久化执行事件）
 
 [engine]
 name = "aider"
@@ -23,6 +24,16 @@ model = "deepseek-reasoner"
 backend = "sqlite"
 state_dir = ".sprintcycle/state"
 sqlite_path = ".sprintcycle/data/sprintcycle.db"
+
+# 执行缓存：默认本地 diskcache；详见 docs/CACHE.md
+[cache]
+enabled = true
+backend = "diskcache"
+dir = ".sprintcycle/cache"
+# 改用 Redis（需 pip install -e ".[cache-redis]"）时取消下面注释并改 backend：
+# backend = "redis"
+# redis_url = "redis://localhost:6379/0"
+# 完全关闭缓存：enabled = false
 
 [governance]
 enabled = true

@@ -19,7 +19,13 @@ from loguru import logger
 
 from ..config import RuntimeConfig
 from ..evolution.measurement import MeasurementResult
-from ..execution.events import Event, EventBus, EventType, create_event, get_event_bus
+from ..execution.events import (
+    Event,
+    EventType,
+    ExecutionEventBackend,
+    create_event,
+    get_execution_event_backend,
+)
 from ..execution.feedback import FeedbackLoop
 from ..execution.hooks.sprint_hooks import ChainedSprintHooks, SprintLifecycleHooks
 from ..execution.knowledge.knowledge_hook import KnowledgeInjectionHook
@@ -200,7 +206,7 @@ class SprintOrchestrator:
     def __init__(
         self,
         config: Optional[RuntimeConfig] = None,
-        event_bus: Optional[EventBus] = None,
+        event_bus: Optional[ExecutionEventBackend] = None,
         project_path: Optional[str] = None,
     ):
         self.config = config or RuntimeConfig()
@@ -213,9 +219,9 @@ class SprintOrchestrator:
             "on_sprint_end": self._default_on_sprint_end,
         }
 
-    def _get_event_bus(self) -> EventBus:
+    def _get_event_bus(self) -> ExecutionEventBackend:
         if self.event_bus is None:
-            self.event_bus = get_event_bus()
+            self.event_bus = get_execution_event_backend()
         return self.event_bus
 
     async def _emit(self, event: Event) -> None:

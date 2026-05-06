@@ -85,8 +85,9 @@ class ErrorHandler:
     @property
     def event_bus(self):
         if self._event_bus is None:
-            from .events import get_event_bus
-            self._event_bus = get_event_bus()
+            from .events import get_execution_event_backend
+
+            self._event_bus = get_execution_event_backend()
         return self._event_bus
 
     @property

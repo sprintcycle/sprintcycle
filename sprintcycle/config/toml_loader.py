@@ -61,6 +61,8 @@ def flatten_sprintcycle_toml(nested: Dict[str, Any]) -> Dict[str, Any]:
     execution = _as_dict(nested.get("execution"))
     if "max_verify_fix_rounds" in execution:
         out["max_verify_fix_rounds"] = int(execution["max_verify_fix_rounds"])
+    if "event_backend" in execution:
+        out["execution_event_backend"] = str(execution["event_backend"]).strip().lower()
 
     engine = _as_dict(nested.get("engine"))
     if "name" in engine:
@@ -83,6 +85,26 @@ def flatten_sprintcycle_toml(nested: Dict[str, Any]) -> Dict[str, Any]:
         out["storage_backend"] = str(storage["backend"]).strip().lower()
     if "sqlite_path" in storage:
         out["sqlite_path"] = str(storage["sqlite_path"])
+
+    cache = _as_dict(nested.get("cache"))
+    if "enabled" in cache:
+        out["cache_enabled"] = bool(cache["enabled"])
+    if "backend" in cache:
+        out["cache_backend"] = str(cache["backend"]).strip().lower()
+    if "dir" in cache:
+        out["cache_dir"] = str(cache["dir"]).strip()
+    if "redis_url" in cache:
+        v = cache["redis_url"]
+        out["cache_redis_url"] = str(v).strip() if v is not None else None
+    elif "url" in cache:
+        v = cache["url"]
+        out["cache_redis_url"] = str(v).strip() if v is not None else None
+    if "max_entries" in cache:
+        out["cache_max_entries"] = int(cache["max_entries"])
+    if "default_ttl_hours" in cache:
+        out["cache_default_ttl_hours"] = int(cache["default_ttl_hours"])
+    if "llm_codegen" in cache:
+        out["cache_llm_codegen"] = bool(cache["llm_codegen"])
 
     behavior = _as_dict(nested.get("behavior"))
     if "require_knowledge_injection_confirm" in behavior:

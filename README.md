@@ -21,6 +21,7 @@ pip install -e .
 | Extra | 用途 |
 |--------|------|
 | `dashboard` / `full` | Web Dashboard（FastAPI + Uvicorn） |
+| `cache-redis` | 执行缓存 Redis 后端（`[cache] backend = redis`） |
 | `mcp-sse` | MCP 以 SSE 方式对外提供（需 `uvicorn`、`starlette`） |
 | `dev` | 测试、类型检查、import-linter 等开发依赖 |
 | `mutation` | 突变测试（`mutmut`） |
@@ -63,7 +64,7 @@ sprintcycle "修复 README 中的死链"
 - **status** / **rollback** / **stop**：执行历史、回滚、停止运行中任务。
 - **知识卡片**：`sprintcycle knowledge search` 检索；执行路径上可配合知识注入与确认策略。
 - **MCP**：`sprintcycle serve`（默认 stdio；`--transport sse` 用于远程 Agent）。
-- **Dashboard**：`sprintcycle dashboard`（需安装 dashboard 相关依赖）。
+- **Dashboard**：`sprintcycle dashboard`（需安装 dashboard 相关依赖）；源码开发可用 `sprintcycle dashboard --dev` 同启 Vite。发布前需先 `cd frontend && npm run build`，见 **`docs/RELEASE_CHECKLIST.md`**。
 
 ## CLI 速查
 
@@ -79,7 +80,7 @@ sprintcycle "修复 README 中的死链"
 | `sprintcycle import-state` | JSON 状态目录导入 SQLite |
 | `sprintcycle knowledge search` | 检索知识卡片 |
 | `sprintcycle serve` | 启动 MCP Server |
-| `sprintcycle dashboard` | 启动 Web UI |
+| `sprintcycle dashboard` | 启动 Web UI（生产：先 `frontend` build；开发：`--dev`） |
 | `sprintcycle init [path]` | 初始化 `.sprintcycle` 目录结构 |
 
 全局选项：`-p/--project`、`--format text|json`、`-v/--verbose`。
@@ -99,7 +100,9 @@ sprintcycle "修复 README 中的死链"
 - `sprintcycle/release_plan/` — 计划模型、解析、校验、生成与扩展
 - `sprintcycle/intent/` — 意图解析与 Runner
 - `sprintcycle/mcp/` — MCP 服务
-- `sprintcycle/dashboard/` — 可选 Web 面板
+- 执行缓存配置见 **`docs/CACHE.md`**（`sprintcycle.toml` `[cache]` / `SPRINTCYCLE_CACHE_*`）
+- `frontend/` — Dashboard 前端（Vue 3 + Vite）
+- `sprintcycle/dashboard/` — 可选 Web 面板（API + 静态资源 `static/`）
 - `tests/` — pytest 用例
 
 ## 开发与测试

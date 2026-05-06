@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from loguru import logger
 
-from ..execution.events import EventBus, EventType, create_event
+from ..execution.events import EventType, ExecutionEventBackend, create_event
 from ..execution.hooks.governance_context import (
     CTX_GOVERNANCE_TASK_AFTER_DETAIL,
     CTX_GOVERNANCE_TASK_AFTER_FAILED,
@@ -55,7 +55,7 @@ class GovernanceTaskLifecycleHooks(TaskLifecycleHooks):
         self,
         config: "RuntimeConfig",
         project_root: str,
-        event_bus: Optional[EventBus] = None,
+        event_bus: Optional[ExecutionEventBackend] = None,
     ):
         self._config = config
         self._root = Path(project_root).expanduser().resolve()

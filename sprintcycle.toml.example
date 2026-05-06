@@ -40,6 +40,18 @@ state_dir = ".sprintcycle/state"
 # sqlite 时 executions + knowledge_cards 共用此文件（相对路径相对项目根）
 sqlite_path = ".sprintcycle/data/sprintcycle.db"
 
+# [cache]
+# 统一执行缓存（默认 diskcache；多实例部署可改为 redis）
+# 完整说明见 docs/CACHE.md；环境变量可用 SPRINTCYCLE_CACHE_BACKEND、SPRINTCYCLE_CACHE_ENABLED 等覆盖
+# enabled = true
+# backend = "diskcache"   # 或 "redis"
+# dir = ".sprintcycle/cache"
+# redis_url = "redis://localhost:6379/0"
+# url = "redis://..."     # 与 redis_url 等价（任选其一）
+# max_entries = 1000
+# default_ttl_hours = 24
+# llm_codegen = true     # Coder 成功生成结果是否写入 ExecutionCache
+
 # [behavior]
 # V4.0：知识注入落盘前需显式确认（API confirm_knowledge / CLI --yes）
 # require_knowledge_injection_confirm = false

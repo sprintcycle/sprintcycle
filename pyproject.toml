@@ -37,6 +37,8 @@ full = [
 ]
 # SSE transport for remote agent access (uvicorn for HTTP server, starlette for ASGI)
 mcp-sse = ["uvicorn>=0.23.0", "starlette>=0.27.0"]
+# Redis 缓存后端（RuntimeConfig cache_backend=redis）
+cache-redis = ["redis>=5.0.0"]
 # Development dependencies
 dev = [
     "mypy>=1.0.0",
@@ -55,6 +57,9 @@ sprintcycle = "sprintcycle.cli:cli"
 
 [tool.setuptools.packages.find]
 include = ["sprintcycle*"]
+
+[tool.setuptools.package-data]
+"sprintcycle.dashboard" = ["static/**/*"]
 
 [tool.mypy]
 ignore_missing_imports = true
