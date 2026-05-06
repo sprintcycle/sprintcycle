@@ -11,6 +11,7 @@ from uuid import uuid4
 from loguru import logger
 
 from ..execution.events import Event, EventType, ExecutionEventBackend
+from .decision_normalize import validate_hitl_decision_for_submit
 from .store_sqlite import HitlSqliteStore, default_hitl_db_path
 from .types import HitlDecision, HitlGate, HitlRequestRecord
 
@@ -98,17 +99,16 @@ class HitlCoordinator:
     async def submit_decision(
         self, request_id: str, decision: str, note: Optional[str] = None
     ) -> Optional[HitlRequestRecord]:
-        try:
-            HitlDecision(decision)
-        except ValueError:
+        canon = validate_hitl_decision_for_submit(decision)
+        if canon is None:
             return None
-        ok = await self._store.resolve(request_id, decision, note, from_timeout=False)
+        ok = await self._store.resolve(request_id, canon, note, from_timeout=False)
         if not ok:
             return None
         rec = await self._store.get(request_id)
         if rec:
             await self._emit_resolved(
-                request_id, rec.execution_id, decision, (note or "").strip() or None
+                request_id, rec.execution_id, canon, (note or "").strip() or None
             )
         return rec
 

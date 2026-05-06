@@ -101,6 +101,18 @@ class SprintCycle:
     async def hitl_submit(
         self, request_id: str, decision: str, note: Optional[str] = None
     ) -> Dict[str, Any]:
+        from .hitl.decision_normalize import validate_hitl_decision_for_submit
+
+        if validate_hitl_decision_for_submit(decision) is None:
+            return {
+                "success": False,
+                "error": (
+                    "Invalid HITL decision. Use approve, skip_sprint, or abort_execution "
+                    "(optional aliases: reject/deny/abort/stop/halt→abort_execution; "
+                    "skip→skip_sprint; pass/ok/yes/continue→approve). "
+                    "regen / need_info / modify are not accepted."
+                ),
+            }
         c = self._get_hitl_coordinator()
         if not c:
             return {"success": False, "error": "HITL is disabled"}
@@ -116,6 +128,65 @@ class SprintCycle:
         if not c:
             return {"success": True, "data": []}
         return {"success": True, "data": await c.list_history(execution_id, limit)}
+
+    async def hitl_show(self, request_id: str) -> Dict[str, Any]:
+        """按 ID 返回单条 HITL 记录（不依赖 ``hitl_enabled``，便于查看历史库）。"""
+        from .hitl.store_sqlite import HitlSqliteStore, default_hitl_db_path
+
+        rid = (request_id or "").strip()
+        if not rid:
+            return {"success": False, "error": "request_id required"}
+        raw = getattr(self.config, "hitl_db_path", None)
+        db = (
+            str(raw).strip()
+            if isinstance(raw, str) and str(raw).strip()
+            else default_hitl_db_path(self.project_path)
+        )
+        store = HitlSqliteStore(db)
+        rec = await store.get(rid)
+        if rec is None:
+            return {"success": False, "error": "Request not found"}
+        return {"success": True, "data": rec.to_dict()}
+
+    def execution_events(
+        self,
+        execution_id: str,
+        *,
+        limit: int = 200,
+    ) -> Dict[str, Any]:
+        """只读：从 SQLite MQ 执行事件库按 ``execution_id`` 拉取已持久化事件（``execution_event_backend=sqlite``）。"""
+        eid = (execution_id or "").strip()
+        if not eid:
+            return {"success": False, "error": "execution_id required"}
+        mode = (getattr(self.config, "execution_event_backend", None) or "sqlite").strip().lower()
+        if mode != "sqlite":
+            return {
+                "success": True,
+                "data": [],
+                "backend": mode,
+                "message": (
+                    "Replay is only available when execution_event_backend=sqlite "
+                    "(persisted execution event MQ)."
+                ),
+            }
+        from .execution.sqlite_event_backend import (
+            execution_events_sqlite_path,
+            fetch_execution_events_for_replay,
+        )
+
+        path = execution_events_sqlite_path(self.project_path)
+        rows = fetch_execution_events_for_replay(path, eid, limit=limit)
+        return {"success": True, "data": rows, "backend": "sqlite"}
+
+    def reload_runtime_config(self) -> None:
+        """从磁盘重新加载 ``RuntimeConfig``（含 ``sprintcycle.runtime.yaml``），并重绑缓存 / 状态 / 事件后端。"""
+        base = RuntimeConfig.from_project(self.project_path)
+        self.config = base.merge(base, {"project_path": self.project_path})
+        configure_execution_cache_from_runtime(self.config, self.project_path)
+        configure_default_store(self.project_path, self.config)
+        ensure_default_execution_event_backend_for_project(self.project_path, self.config)
+        self._orchestrator = None
+        self._hitl_coordinator = None
 
     # ─── 1. plan — 看计划，不干活 ───
 

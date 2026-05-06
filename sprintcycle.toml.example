@@ -22,6 +22,8 @@ min_coverage_percent = 80.0
 
 [execution]
 max_verify_fix_rounds = 3
+# 可选：与 CI / 本地「增量测」命令对齐，写入 Sprint 后 run_metadata（见 GOVERNANCE_ENGINEERING §13）
+# incremental_test_command = "pytest -q --lf"
 
 [engine]
 # 编码引擎: aider | claude_code | cursor_cookbook | 其他字符串回退 LiteLLM
@@ -83,6 +85,12 @@ run_import_linter = true
 check_adr = false
 check_compose = false
 # spec_glob = "docs/specs/*.md"   # 未匹配时本就为 warning；block_on=none 时不阻断 Sprint
+# packs = [".sprintcycle/governance-extra.yaml"]   # 顺序合并进主 config_path（若配置）
+# spec_marker = "SPEC>"                            # SDD：在 spec_glob 匹配文件中扫描该标记
+# acceptance_glob = "**/acceptance.yaml"           # SDD：匹配 YAML 存在性与轻量形状
+# planning_validate_release_plan = true            # Planning 内 ReleasePlanValidator + spec_ref 文件检查
+# compose_supply_chain = false                     # Review：:latest 与 build Dockerfile 轻量提示
+# ci_matrix_tags = "py311,linux"                  # 写入 run_metadata，便于 CI 矩阵与测量对齐
 # task_hooks = false              # 任务级 task_after 默认关，避免每任务子进程开销
 
 # 若需 CI 硬失败，改用 block_on = "review_only" 并设 downgrade_errors_to_warnings = false

@@ -15,7 +15,7 @@ dependencies = [
     "loguru>=0.7.0",
     "mcp>=1.0.0",
     "pydantic>=2.0",
-    "pydantic-settings>=2.0",
+    "dynaconf>=3.2.0",
     "litellm>=1.0.0",
     "diskcache>=5.0.0",
     "tenacity>=8.0.0",
@@ -28,12 +28,16 @@ dashboard = [
     "fastapi>=0.100.0",
     "uvicorn[standard]>=0.23.0",
     "httpx>=0.25.0",
+    "watchdog>=4.0.0",
+    "PyYAML>=6.0",
 ]
 # 完整栈：在 dashboard 之外显式列出常用项，便于文档与 CI 一条命令安装
 full = [
     "fastapi>=0.100.0",
     "uvicorn[standard]>=0.23.0",
     "httpx>=0.25.0",
+    "watchdog>=4.0.0",
+    "PyYAML>=6.0",
 ]
 # SSE transport for remote agent access (uvicorn for HTTP server, starlette for ASGI)
 mcp-sse = ["uvicorn>=0.23.0", "starlette>=0.27.0"]

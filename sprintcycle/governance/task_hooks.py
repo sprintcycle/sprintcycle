@@ -16,22 +16,11 @@ from ..execution.hooks.task_hooks import TaskLifecycleHooks
 from ..execution.sprint_types import ExecutionStatus, TaskResult
 from ..release_plan.models import SprintBacklogItem
 from .report import GovernanceViolation
-from .yaml_checks import checks_for_gate, load_governance_yaml, run_argv_item
+from .yaml_checks import checks_for_gate, run_argv_item
+from .yaml_merge import load_merged_governance_data
 
 if TYPE_CHECKING:
     from ..config.runtime_config import RuntimeConfig
-
-
-def _resolve_governance_yaml(project_root: Path, config_path: str) -> Optional[Path]:
-    raw = (config_path or "").strip()
-    if not raw:
-        return None
-    p = Path(raw)
-    if not p.is_absolute():
-        p = (project_root / raw).resolve()
-    else:
-        p = p.expanduser().resolve()
-    return p if p.is_file() else None
 
 
 class GovernanceTaskLifecycleHooks(TaskLifecycleHooks):
@@ -65,9 +54,7 @@ class GovernanceTaskLifecycleHooks(TaskLifecycleHooks):
     def _get_task_after_items(self) -> List[Dict[str, Any]]:
         if self._task_after_items is not None:
             return self._task_after_items
-        cfg_path = getattr(self._config, "governance_config_path", None) or ""
-        yaml_path = _resolve_governance_yaml(self._root, str(cfg_path))
-        data = load_governance_yaml(yaml_path) if yaml_path is not None else {}
+        data = load_merged_governance_data(self._root, self._config)
         self._task_after_items = checks_for_gate(data, "task_after")
         return self._task_after_items
 

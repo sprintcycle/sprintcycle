@@ -37,6 +37,8 @@ export default defineConfig({
           if (id.includes('node_modules')) {
             if (id.includes('element-plus')) return 'el'
             if (id.includes('vue') || id.includes('@vue')) return 'vue'
+            if (id.includes('pinia')) return 'pinia'
+            if (id.includes('vue-router')) return 'vue-router'
             if (id.includes('axios')) return 'axios'
           }
         },

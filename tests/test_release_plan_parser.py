@@ -48,7 +48,25 @@ sprints:
         assert plan.sprints[0].name == "Sprint 1"
         assert len(plan.sprints[0].tasks) == 1
         assert plan.sprints[0].tasks[0].agent == "coder"
-    
+        assert plan.sprints[0].tasks[0].spec_ref is None
+
+    def test_parse_spec_ref_on_task(self):
+        yaml_src = """
+project:
+  name: "p"
+  path: "/tmp/p"
+  version: "v1.0.0"
+mode: "normal"
+sprints:
+  - name: "S1"
+    tasks:
+      - description: "do"
+        agent: "coder"
+        spec_ref: "docs/specs/feature.md"
+"""
+        plan = self.parser.parse_string(yaml_src)
+        assert plan.sprints[0].tasks[0].spec_ref == "docs/specs/feature.md"
+
     def test_parse_evolution_yaml(self):
         """测试解析自进化模式 YAML"""
         yaml_src = """

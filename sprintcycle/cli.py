@@ -15,7 +15,8 @@ SprintCycle CLI — 子命令式入口
   sprintcycle init [path]     → 初始化项目
   sprintcycle import-state    → JSON 状态目录导入 SQLite
   sprintcycle knowledge search → 检索知识卡片
-  sprintcycle hitl pending|submit|history → 人机卡点（[hitl] enabled）
+  sprintcycle hitl pending|submit|history|show → 人机卡点（读库 show 不依赖 enabled）
+  sprintcycle execution-events <id> → 只读 SQLite 执行事件回放
   sprintcycle governance check → 治理门禁（Review/Planning）
   sprintcycle governance model-compare [--quick] → 双跑 pytest 对比失败集合
   sprintcycle product … → Docker Compose 构建/启停日志
@@ -562,6 +563,52 @@ def stop(ctx: click.Context, execution_id: str) -> None:
     _print_result(result, ctx.obj["fmt"])
 
 
+# ─── execution-events（SQLite MQ 回放）───
+
+
+@cli.command("execution-events")
+@click.argument("execution_id")
+@click.option("--limit", default=200, type=int, help="最多返回条数（上限由实现裁剪）")
+@click.pass_context
+def execution_events_cmd(ctx: click.Context, execution_id: str, limit: int) -> None:
+    """只读：列出已持久化到 SQLite MQ 的执行事件（execution_event_backend=sqlite 时才有数据）"""
+    sc: SprintCycle = ctx.obj["sc"]
+    data = sc.execution_events(execution_id, limit=limit)
+    if ctx.obj["fmt"] == "json":
+        click.echo(json.dumps(data, ensure_ascii=False, indent=2))
+        return
+    if not data.get("success"):
+        err_console.print(f"[red]失败[/red] {escape(str(data.get('error', '')))}")
+        raise SystemExit(1)
+    msg = data.get("message")
+    if msg:
+        console.print(Panel.fit(escape(str(msg)), title="execution-events"))
+    rows = data.get("data") or []
+    if not rows:
+        console.print("暂无事件记录（检查 execution_event_backend 与 .sprintcycle/data/exec_events.sqlite）")
+        return
+    t = Table(title="执行事件（时间正序）")
+    t.add_column("时间", max_width=22)
+    t.add_column("类型", max_width=28)
+    t.add_column("摘要", max_width=48)
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        d = r.get("data") if isinstance(r.get("data"), dict) else {}
+        hint = ""
+        for k in ("description", "sprint_index", "status", "message"):
+            v = d.get(k)
+            if v is not None and str(v):
+                hint = f"{k}={str(v)[:40]}"
+                break
+        t.add_row(
+            str(r.get("timestamp") or r.get("created_at") or "")[:20],
+            str(r.get("event_type", "")),
+            escape(hint or "(no data)"),
+        )
+    console.print(t)
+
+
 # ─── import-state（JSON → SQLite）───
 
 
@@ -671,8 +718,8 @@ def hitl_pending(ctx: click.Context, execution_id: Optional[str]) -> None:
 @click.option(
     "--decision",
     required=True,
-    type=click.Choice(["approve", "skip_sprint", "abort_execution"]),
-    help="决策类型",
+    type=str,
+    help="决策：approve / skip_sprint / abort_execution（或 reject→abort、skip→skip_sprint 等别名）",
 )
 @click.option("--note", default=None, help="备注")
 @click.pass_context
@@ -687,6 +734,33 @@ def hitl_submit(ctx: click.Context, request_id: str, decision: str, note: Option
         err_console.print(f"[red]失败[/red] {escape(str(data.get('error', '')))}")
         raise SystemExit(1)
     console.print(Panel.fit("[green]已提交决策[/green]", title="HITL"))
+
+
+@hitl_group.command("show")
+@click.argument("request_id")
+@click.pass_context
+def hitl_show_cmd(ctx: click.Context, request_id: str) -> None:
+    """按 ID 查看单条人机卡点记录（读 SQLite，不依赖 [hitl] enabled）"""
+    sc: SprintCycle = ctx.obj["sc"]
+    data = asyncio.run(sc.hitl_show(request_id))
+    if ctx.obj["fmt"] == "json":
+        click.echo(json.dumps(data, ensure_ascii=False, indent=2))
+        return
+    if not data.get("success"):
+        err_console.print(f"[red]失败[/red] {escape(str(data.get('error', '')))}")
+        raise SystemExit(1)
+    row = data.get("data") or {}
+    if not isinstance(row, dict):
+        row = {}
+    lines = [
+        f"[bold]request_id[/bold] {escape(str(row.get('request_id', '')))}",
+        f"[bold]execution_id[/bold] {escape(str(row.get('execution_id', '')))}",
+        f"[bold]gate[/bold] {escape(str(row.get('gate', '')))}",
+        f"[bold]status[/bold] {escape(str(row.get('status', '')))}",
+        f"[bold]decision[/bold] {escape(str(row.get('decision') or '-'))}",
+        f"[bold]title[/bold] {escape(str(row.get('title', '')))}",
+    ]
+    console.print(Panel.fit("\n".join(lines), title="HITL 记录"))
 
 
 @hitl_group.command("history")
@@ -1041,7 +1115,7 @@ def dashboard(ctx: click.Context, host: str, port: int, dev: bool) -> None:
     try:
         import uvicorn
 
-        from sprintcycle.dashboard.app import create_app
+        from sprintcycle.dashboard.server import create_app
     except ImportError as e:
         err_console.print(f"[red]依赖缺失:[/red] {escape(str(e))}")
         err_console.print("[dim]安装命令:[/dim] pip install fastapi uvicorn")

@@ -14,6 +14,7 @@ const EVENT_TYPES = [
   'heartbeat',
   'ping',
   'connected',
+  'config_changed',
 ] as const
 
 type Listener = (type: string, data: Record<string, unknown>) => void

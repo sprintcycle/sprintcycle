@@ -10,6 +10,8 @@ from typing import Any, Dict
 
 from loguru import logger
 
+from sprintcycle.prompt_sources import ARCHITECT_DOC_SECTION_MARKERS
+
 from .base import AgentContext, AgentExecutor, AgentResult, AgentType
 
 
@@ -133,23 +135,25 @@ class ArchitectureAgent(AgentExecutor):
 
     def _generate_architecture_document(self, design: Dict[str, Any]) -> str:
         """生成架构设计文档"""
+        sec = [s.strip() for s in ARCHITECT_DOC_SECTION_MARKERS.split("\n") if s.strip()]
+        h0, h1, h2 = sec[0], sec[1], sec[2]
         lines = [
             f"# 架构设计: {design.get('summary', '')}",
             "",
-            "## 推荐模式",
+            h0,
         ]
         for pattern in design.get("patterns", []):
             lines.append(f"- {pattern}")
 
         lines.append("")
-        lines.append("## 设计决策")
+        lines.append(h1)
         for decision in design.get("decisions", []):
             lines.append(f"- {decision}")
 
         components = design.get("components", [])
         if components:
             lines.append("")
-            lines.append("## 组件")
+            lines.append(h2)
             for comp in components:
                 lines.append(f"- {comp}")
 

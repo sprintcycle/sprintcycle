@@ -1,7 +1,7 @@
 """
 SprintCycle MCP Server
 
-通过 Model Context Protocol 暴露 SprintCycle 的 6 大核心操作，
+通过 Model Context Protocol 暴露 SprintCycle 核心操作（计划/执行/诊断/状态/回滚/停止 + HITL + 可选事件回放），
 让 AI 工具（Claude Desktop, Cursor, 扣子, OpenClaw）能直接调用。
 
 所有逻辑委托给 SprintCycle API，本文件只做参数适配和 JSON 输出。
@@ -14,7 +14,10 @@ SprintCycle MCP Server
 - sprintcycle_rollback: 回滚
 - sprintcycle_stop:     停止执行
 - sprintcycle_hitl_pending: 待处理人机卡点
-- sprintcycle_hitl_submit: 提交人机卡点决策
+- sprintcycle_hitl_submit: 提交人机卡点决策（字符串，含少量别名，见工具说明）
+- sprintcycle_hitl_history: 人机卡点历史
+- sprintcycle_hitl_show: 按 request_id 查单条 HITL（不依赖 enabled，读库）
+- sprintcycle_execution_events: 只读执行事件回放（SQLite MQ，需 execution_event_backend=sqlite）
 
 传输模式:
 - stdio: 标准输入输出（默认，本地使用）
@@ -204,18 +207,66 @@ class SprintCycleMCPServer:
                 ),
                 Tool(
                     name="sprintcycle_hitl_submit",
-                    description="提交人机卡点决策：approve | skip_sprint | abort_execution",
+                    description=(
+                        "提交人机卡点决策。正式取值：approve | skip_sprint | abort_execution。"
+                        "别名（会规范化为正式值）：reject/deny/abort/stop/halt→abort_execution；"
+                        "skip→skip_sprint；pass/ok/yes/continue→approve。"
+                        "regen / need_info / modify 不接受。"
+                    ),
                     inputSchema={
                         "type": "object",
                         "properties": {
                             "request_id": {"type": "string", "description": "HITL 请求 ID"},
                             "decision": {
                                 "type": "string",
-                                "enum": ["approve", "skip_sprint", "abort_execution"],
+                                "description": (
+                                    "approve | skip_sprint | abort_execution；"
+                                    "或别名 reject/deny/abort/stop/halt、skip、pass/ok/yes/continue"
+                                ),
                             },
                             "note": {"type": "string", "description": "可选备注"},
                         },
                         "required": ["request_id", "decision"],
+                    },
+                ),
+                Tool(
+                    name="sprintcycle_hitl_history",
+                    description="人机卡点历史（需 [hitl] enabled 时经协调器；否则返回空列表）",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "execution_id": {
+                                "type": "string",
+                                "description": "可选，仅该执行 ID 下的记录",
+                            },
+                            "limit": {"type": "integer", "description": "最多条数", "default": 50},
+                        },
+                    },
+                ),
+                Tool(
+                    name="sprintcycle_hitl_show",
+                    description="按 request_id 返回单条 HITL 记录（直接读 hitl SQLite，不依赖 enabled）",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "request_id": {"type": "string", "description": "HITL 请求 ID"},
+                        },
+                        "required": ["request_id"],
+                    },
+                ),
+                Tool(
+                    name="sprintcycle_execution_events",
+                    description=(
+                        "只读：按 execution_id 列出已落库的执行事件（.sprintcycle/data/exec_events.sqlite）。"
+                        "仅当项目配置 execution_event_backend=sqlite 时有数据；否则返回空并带说明。"
+                    ),
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "execution_id": {"type": "string", "description": "执行 ID"},
+                            "limit": {"type": "integer", "description": "最多条数", "default": 200},
+                        },
+                        "required": ["execution_id"],
                     },
                 ),
             ]
@@ -231,6 +282,9 @@ class SprintCycleMCPServer:
                 "sprintcycle_stop": self._handle_stop,
                 "sprintcycle_hitl_pending": self._handle_hitl_pending,
                 "sprintcycle_hitl_submit": self._handle_hitl_submit,
+                "sprintcycle_hitl_history": self._handle_hitl_history,
+                "sprintcycle_hitl_show": self._handle_hitl_show,
+                "sprintcycle_execution_events": self._handle_execution_events,
             }.get(name)
 
             if handler is None:
@@ -293,6 +347,20 @@ class SprintCycleMCPServer:
             str(args["decision"]),
             args.get("note"),
         )
+        return _text_response(json.dumps(data, ensure_ascii=False, indent=2))
+
+    async def _handle_hitl_history(self, args: Dict[str, Any]) -> List[TextContent]:
+        limit = int(args.get("limit", 50))
+        data = await self.sc.hitl_history(execution_id=args.get("execution_id"), limit=limit)
+        return _text_response(json.dumps(data, ensure_ascii=False, indent=2))
+
+    async def _handle_hitl_show(self, args: Dict[str, Any]) -> List[TextContent]:
+        data = await self.sc.hitl_show(str(args["request_id"]))
+        return _text_response(json.dumps(data, ensure_ascii=False, indent=2))
+
+    async def _handle_execution_events(self, args: Dict[str, Any]) -> List[TextContent]:
+        limit = int(args.get("limit", 200))
+        data = self.sc.execution_events(str(args["execution_id"]), limit=limit)
         return _text_response(json.dumps(data, ensure_ascii=False, indent=2))
 
     # ─── Server 生命周期 ───

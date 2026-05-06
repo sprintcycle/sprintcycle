@@ -9,6 +9,8 @@ from typing import Any, Dict, List
 
 from loguru import logger
 
+from sprintcycle.prompt_sources import REGRESSION_REPORT_HEADER
+
 from .base import AgentContext, AgentExecutor, AgentResult, AgentType
 
 
@@ -142,7 +144,8 @@ class RegressionTestAgent(AgentExecutor):
         removed = [d for d in diff if d["status"] == "REMOVED"]
         new = [d for d in diff if d["status"] == "NEW"]
 
-        lines = ["# 回归测试报告", ""]
+        hdr = REGRESSION_REPORT_HEADER.rstrip("\n")
+        lines = [hdr, ""]
 
         if regressions:
             lines.append(f"## ❌ 回归 ({len(regressions)})")

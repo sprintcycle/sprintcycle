@@ -194,6 +194,18 @@ def test_measurement_run_metadata_evolution_env(monkeypatch):
     assert rm.get("evolution_llm_provider_env") == "evo-prov"
 
 
+def test_measurement_run_metadata_ci_matrix_and_incremental():
+    cfg = RuntimeConfig(
+        dry_run=True,
+        quality_level="L2",
+        governance_ci_matrix_tags="py311, ubuntu",
+        test_command_incremental="pytest tests/ -q --lf",
+    )
+    rm = _measurement_run_metadata(cfg)
+    assert rm.get("test_command_incremental") == "pytest tests/ -q --lf"
+    assert sorted(rm.get("ci_matrix_tags", [])) == ["py311", "ubuntu"]
+
+
 class TestTaskResult:
     """任务结果测试"""
 

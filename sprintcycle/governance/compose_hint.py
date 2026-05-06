@@ -63,3 +63,53 @@ def check_compose_hints(compose_path: Path, text: str) -> List[GovernanceViolati
             )
 
     return violations
+
+
+def check_compose_supply_chain_hints(compose_path: Path, services: dict) -> List[GovernanceViolation]:
+    """
+    供应链加深（E-3 v2）：``image:...:latest`` 提示；``build`` 时检查 Dockerfile 是否存在。
+    与 ``check_compose_hints`` 独立，由 ``GovernanceRunner`` 在 ``governance_compose_supply_chain`` 为真时追加调用。
+    """
+    violations: List[GovernanceViolation] = []
+    loc_base = {"file": str(compose_path)}
+    compose_dir = compose_path.parent
+
+    for name, svc in services.items():
+        if not isinstance(svc, dict) or not svc:
+            continue
+        sid = str(name)
+        img = svc.get("image")
+        if isinstance(img, str) and (img.endswith(":latest") or img == "latest"):
+            violations.append(
+                GovernanceViolation(
+                    rule_id="compose:image_latest",
+                    severity="warning",
+                    message=f"服务「{sid}」使用 latest 标签镜像，生产环境建议钉 digest 或固定版本: {img}",
+                    location={**loc_base, "service": sid},
+                )
+            )
+
+        bld = svc.get("build")
+        if bld is None:
+            continue
+        ctx_dir = compose_dir
+        dockerfile = "Dockerfile"
+        if isinstance(bld, str):
+            ctx_dir = (compose_dir / bld).resolve()
+        elif isinstance(bld, dict):
+            ctxt = bld.get("context", ".")
+            ctx_dir = (compose_dir / str(ctxt)).resolve()
+            if bld.get("dockerfile"):
+                dockerfile = str(bld["dockerfile"])
+        df = ctx_dir / dockerfile
+        if not df.is_file():
+            violations.append(
+                GovernanceViolation(
+                    rule_id="compose:dockerfile_missing",
+                    severity="warning",
+                    message=f"服务「{sid}」build 指向的 Dockerfile 不存在: {df}",
+                    location={**loc_base, "service": sid},
+                )
+            )
+
+    return violations

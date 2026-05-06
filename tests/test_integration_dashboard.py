@@ -35,7 +35,7 @@ class TestDashboardHome:
 
     def test_dashboard_home(self, temp_project):
         """test_dashboard_home: GET / → 200 with HTML"""
-        from sprintcycle.dashboard.app import create_app
+        from sprintcycle.dashboard.server import create_app
         app = create_app(project_path=temp_project)
         client = TestClient(app)
         
@@ -51,7 +51,7 @@ class TestDashboardPlan:
 
     def test_dashboard_plan(self, temp_project):
         """test_dashboard_plan: POST /api/plan → 200 with plan result"""
-        with patch('sprintcycle.dashboard.app.SprintCycle') as mock_sc:
+        with patch('sprintcycle.dashboard.server.SprintCycle') as mock_sc:
             mock_instance = MagicMock()
             mock_sc.return_value = mock_instance
             mock_instance.plan.return_value = PlanResult(
@@ -63,7 +63,7 @@ class TestDashboardPlan:
                 duration=0.5,
             )
 
-            from sprintcycle.dashboard.app import create_app
+            from sprintcycle.dashboard.server import create_app
             app = create_app(project_path=temp_project)
             client = TestClient(app)
             
@@ -77,7 +77,7 @@ class TestDashboardPlan:
 
     def test_dashboard_plan_with_mode(self, temp_project):
         """test_dashboard_plan_with_mode: plan respects mode parameter"""
-        with patch('sprintcycle.dashboard.app.SprintCycle') as mock_sc:
+        with patch('sprintcycle.dashboard.server.SprintCycle') as mock_sc:
             mock_instance = MagicMock()
             mock_sc.return_value = mock_instance
             mock_instance.plan.return_value = PlanResult(
@@ -89,7 +89,7 @@ class TestDashboardPlan:
                 duration=0.1,
             )
 
-            from sprintcycle.dashboard.app import create_app
+            from sprintcycle.dashboard.server import create_app
             app = create_app(project_path=temp_project)
             client = TestClient(app)
             
@@ -108,7 +108,7 @@ class TestDashboardRun:
 
     def test_dashboard_run(self, temp_project):
         """test_dashboard_run: POST /api/run → 200 with run result"""
-        with patch('sprintcycle.dashboard.app.SprintCycle') as mock_sc:
+        with patch('sprintcycle.dashboard.server.SprintCycle') as mock_sc:
             mock_instance = MagicMock()
             mock_sc.return_value = mock_instance
             mock_instance.run.return_value = RunResult(
@@ -122,7 +122,7 @@ class TestDashboardRun:
                 duration=10.5,
             )
 
-            from sprintcycle.dashboard.app import create_app
+            from sprintcycle.dashboard.server import create_app
             app = create_app(project_path=temp_project)
             client = TestClient(app)
             
@@ -146,7 +146,7 @@ sprints:
       - description: "Task"
         agent: coder
 """
-        with patch('sprintcycle.dashboard.app.SprintCycle') as mock_sc:
+        with patch('sprintcycle.dashboard.server.SprintCycle') as mock_sc:
             mock_instance = MagicMock()
             mock_sc.return_value = mock_instance
             mock_instance.run.return_value = RunResult(
@@ -154,7 +154,7 @@ sprints:
                 duration=1.0,
             )
 
-            from sprintcycle.dashboard.app import create_app
+            from sprintcycle.dashboard.server import create_app
             app = create_app(project_path=temp_project)
             client = TestClient(app)
             
@@ -168,7 +168,7 @@ sprints:
 
     def test_dashboard_run_failure(self, temp_project):
         """test_dashboard_run_failure: run returns error on failure"""
-        with patch('sprintcycle.dashboard.app.SprintCycle') as mock_sc:
+        with patch('sprintcycle.dashboard.server.SprintCycle') as mock_sc:
             mock_instance = MagicMock()
             mock_sc.return_value = mock_instance
             mock_instance.run.return_value = RunResult(
@@ -177,7 +177,7 @@ sprints:
                 duration=1.0,
             )
 
-            from sprintcycle.dashboard.app import create_app
+            from sprintcycle.dashboard.server import create_app
             app = create_app(project_path=temp_project)
             client = TestClient(app)
             
@@ -194,7 +194,7 @@ class TestDashboardStatus:
 
     def test_dashboard_status(self, temp_project):
         """test_dashboard_status: GET /api/status → 200 with status"""
-        with patch('sprintcycle.dashboard.app.SprintCycle') as mock_sc:
+        with patch('sprintcycle.dashboard.server.SprintCycle') as mock_sc:
             mock_instance = MagicMock()
             mock_sc.return_value = mock_instance
             mock_instance.status.return_value = StatusResult(
@@ -211,7 +211,7 @@ class TestDashboardStatus:
                 duration=0.1,
             )
 
-            from sprintcycle.dashboard.app import create_app
+            from sprintcycle.dashboard.server import create_app
             app = create_app(project_path=temp_project)
             client = TestClient(app)
             
@@ -224,7 +224,7 @@ class TestDashboardStatus:
 
     def test_dashboard_status_with_id(self, temp_project):
         """test_dashboard_status_with_id: status with execution_id"""
-        with patch('sprintcycle.dashboard.app.SprintCycle') as mock_sc:
+        with patch('sprintcycle.dashboard.server.SprintCycle') as mock_sc:
             mock_instance = MagicMock()
             mock_sc.return_value = mock_instance
             mock_instance.status.return_value = StatusResult(
@@ -236,7 +236,7 @@ class TestDashboardStatus:
                 duration=0.1,
             )
 
-            from sprintcycle.dashboard.app import create_app
+            from sprintcycle.dashboard.server import create_app
             app = create_app(project_path=temp_project)
             client = TestClient(app)
             
@@ -256,7 +256,7 @@ class TestDashboardDiagnose:
 
     def test_dashboard_diagnose(self, temp_project):
         """test_dashboard_diagnose: GET /api/diagnose → 200 with diagnostic"""
-        with patch('sprintcycle.dashboard.app.SprintCycle') as mock_sc:
+        with patch('sprintcycle.dashboard.server.SprintCycle') as mock_sc:
             mock_instance = MagicMock()
             mock_sc.return_value = mock_instance
             mock_instance.diagnose.return_value = DiagnoseResult(
@@ -268,7 +268,7 @@ class TestDashboardDiagnose:
                 duration=2.5,
             )
 
-            from sprintcycle.dashboard.app import create_app
+            from sprintcycle.dashboard.server import create_app
             app = create_app(project_path=temp_project)
             client = TestClient(app)
             
@@ -281,7 +281,7 @@ class TestDashboardDiagnose:
 
     def test_dashboard_diagnose_with_issues(self, temp_project):
         """test_dashboard_diagnose_with_issues: diagnose reports issues"""
-        with patch('sprintcycle.dashboard.app.SprintCycle') as mock_sc:
+        with patch('sprintcycle.dashboard.server.SprintCycle') as mock_sc:
             mock_instance = MagicMock()
             mock_sc.return_value = mock_instance
             mock_instance.diagnose.return_value = DiagnoseResult(
@@ -295,7 +295,7 @@ class TestDashboardDiagnose:
                 duration=1.0,
             )
 
-            from sprintcycle.dashboard.app import create_app
+            from sprintcycle.dashboard.server import create_app
             app = create_app(project_path=temp_project)
             client = TestClient(app)
             
@@ -311,7 +311,7 @@ class TestDashboardStop:
 
     def test_dashboard_stop(self, temp_project):
         """test_dashboard_stop: POST /api/stop → 200 with stop result"""
-        with patch('sprintcycle.dashboard.app.SprintCycle') as mock_sc:
+        with patch('sprintcycle.dashboard.server.SprintCycle') as mock_sc:
             mock_instance = MagicMock()
             mock_sc.return_value = mock_instance
             mock_instance.stop.return_value = StopResult(
@@ -322,7 +322,7 @@ class TestDashboardStop:
                 duration=0.1,
             )
 
-            from sprintcycle.dashboard.app import create_app
+            from sprintcycle.dashboard.server import create_app
             app = create_app(project_path=temp_project)
             client = TestClient(app)
             
@@ -339,7 +339,7 @@ class TestDashboardRollback:
 
     def test_dashboard_rollback(self, temp_project):
         """test_dashboard_rollback: POST /api/rollback → 200 with rollback result"""
-        with patch('sprintcycle.dashboard.app.SprintCycle') as mock_sc:
+        with patch('sprintcycle.dashboard.server.SprintCycle') as mock_sc:
             mock_instance = MagicMock()
             mock_sc.return_value = mock_instance
             mock_instance.rollback.return_value = RollbackResult(
@@ -350,7 +350,7 @@ class TestDashboardRollback:
                 duration=1.5,
             )
 
-            from sprintcycle.dashboard.app import create_app
+            from sprintcycle.dashboard.server import create_app
             app = create_app(project_path=temp_project)
             client = TestClient(app)
             
@@ -370,7 +370,7 @@ class TestDashboardSSE:
 
     def test_dashboard_events_stream_exists(self, temp_project):
         """test_dashboard_events_stream_exists: SSE endpoint exists"""
-        from sprintcycle.dashboard.app import create_app
+        from sprintcycle.dashboard.server import create_app
         app = create_app(project_path=temp_project)
         
         # Check that the route exists
@@ -379,7 +379,7 @@ class TestDashboardSSE:
 
     def test_dashboard_events_stream_content_type(self, temp_project):
         """test_dashboard_events_stream_content_type: SSE endpoint returns correct content type"""
-        from sprintcycle.dashboard.app import create_app
+        from sprintcycle.dashboard.server import create_app
         from fastapi.requests import Request
         from fastapi.responses import StreamingResponse
         
@@ -400,10 +400,10 @@ class TestDashboardClients:
 
     def test_dashboard_clients(self, temp_project):
         """test_dashboard_clients: GET /api/clients → returns client count"""
-        with patch('sprintcycle.dashboard.app.get_client_manager') as mock_manager:
+        with patch('sprintcycle.dashboard.server.get_client_manager') as mock_manager:
             mock_manager.return_value.get_client_count.return_value = 3
 
-            from sprintcycle.dashboard.app import create_app
+            from sprintcycle.dashboard.server import create_app
             app = create_app(project_path=temp_project)
             client = TestClient(app)
             
@@ -419,7 +419,7 @@ class TestDashboardLegacy:
 
     def test_dashboard_events_legacy_exists(self, temp_project):
         """test_dashboard_events_legacy_exists: legacy SSE endpoint exists"""
-        from sprintcycle.dashboard.app import create_app
+        from sprintcycle.dashboard.server import create_app
         app = create_app(project_path=temp_project)
         
         routes = [r.path for r in app.routes]
@@ -427,7 +427,7 @@ class TestDashboardLegacy:
 
     def test_dashboard_events_legacy_path_exists(self, temp_project):
         """test_dashboard_events_legacy_path_exists: legacy SSE endpoint /api/events/legacy exists"""
-        from sprintcycle.dashboard.app import create_app
+        from sprintcycle.dashboard.server import create_app
         app = create_app(project_path=temp_project)
         
         routes = [r.path for r in app.routes]

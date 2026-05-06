@@ -76,6 +76,12 @@ lerna-debug.log*
 node_modules/
 package-lock.json
 !frontend/package-lock.json
+frontend/.env.development
+frontend/.env.production
+frontend/openapi-dashboard.json
+frontend/src/api/openapi-gen.ts
+frontend/playwright-report/
+frontend/test-results/
 yarn.lock
 pnpm-lock.yaml
 
@@ -86,6 +92,8 @@ sprintcycle/dashboard/static/assets/
 
 # SprintCycle
 .sprintcycle/
+# Dashboard 写入的运行时覆盖（可选提交；默认忽略便于本地实验）
+sprintcycle.runtime.yaml
 # 意图进化生成的产品代码目录（默认不提交；路径可通过 product_layout 配置）
 products/
 # Knowledge-injection overlay (auto-generated; do not commit)

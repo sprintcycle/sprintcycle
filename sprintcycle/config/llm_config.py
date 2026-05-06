@@ -8,7 +8,7 @@ from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, model_validator
 
-from .runtime_config import _get_api_base_from_env, _get_api_key_from_env, _mask_sensitive, _resolve_env_var
+from .runtime_config import _mask_sensitive, _resolve_env_var
 
 
 class LLMConfig(BaseModel):
@@ -26,17 +26,13 @@ class LLMConfig(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def _resolve_compat(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-        """处理向后兼容的环境变量和 ${VAR} 形式的环境变量引用"""
+    def _resolve_env_interpolation(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         if not isinstance(values, dict):
             return values
-
-        if not values.get("api_key"):
-            values["api_key"] = _get_api_key_from_env()
-        if not values.get("api_base"):
-            values["api_base"] = _get_api_base_from_env()
         if values.get("api_key") and isinstance(values["api_key"], str):
             values["api_key"] = _resolve_env_var(values["api_key"])
+        if values.get("api_base") and isinstance(values["api_base"], str):
+            values["api_base"] = _resolve_env_var(values["api_base"])
         return values
 
     @property

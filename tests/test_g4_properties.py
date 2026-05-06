@@ -9,6 +9,7 @@ from __future__ import annotations
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+from sprintcycle.config import flatten_sprintcycle_toml
 from sprintcycle.config.quality import (
     QUALITY_LEVELS,
     QUALITY_PROFILES,
@@ -16,7 +17,6 @@ from sprintcycle.config.quality import (
     normalize_quality_profile,
     resolve_effective_quality_level,
 )
-from sprintcycle.config.toml_loader import flatten_sprintcycle_toml
 from sprintcycle.release_plan.parser import ReleasePlanParser
 
 

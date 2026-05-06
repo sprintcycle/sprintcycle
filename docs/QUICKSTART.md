@@ -83,6 +83,8 @@ cd frontend && npm run dev
 
 在 **`sprintcycle.toml`** 中增加 **`[hitl]`**（或环境变量 **`SPRINTCYCLE_HITL_*`**）可在执行过程中插入**人工确认**：默认将待决请求写入项目根下 **`.sprintcycle/hitl.db`**（可用 **`db_path`** 覆盖）。决策通过 **同一套 REST / CLI / MCP** 提交，执行协程轮询数据库直至收到决策或超时，因此 **Dashboard 与 `sprintcycle run` 在同一进程时** 打开 Dashboard 页签即可点按钮放行；**纯 CLI 跑、另开终端决策** 时也可工作（依赖共享的 DB 路径与项目根）。
 
+**与「知识注入确认门」的区别**：**知识门**（`require_knowledge_injection_confirm` 等）管的是「是否允许把知识写进执行上下文 / 是否继续跑」；**HITL** 管的是「在指定编排门（如 Sprint 前后、任务后）由人选择 **approve / skip_sprint / abort_execution**」。两者可并存，语义不要混用。
+
 **常用配置项**（完整示例见仓库根 **`sprintcycle.toml.example`**）：
 
 | 键 | 含义 |
@@ -100,17 +102,29 @@ cd frontend && npm run dev
 - **`skip_sprint`**：当前 Sprint 不跑任务，记为跳过。  
 - **`abort_execution`**：中止后续 Sprint（在 **before_sprint** 上还会将当前 Sprint 记为取消）；在 **after_sprint / after_task** 上会在下一 Sprint 边界停止。
 
-**Dashboard**：打开 **「✋ 人机卡点」** 页签，可刷新待办、填备注并提交决策；**「实时事件」** 中会收到 **`hitl_request_open` / `hitl_request_resolved`** SSE。
+**决策别名**（CLI / MCP / REST 提交时会被规范化为上表三种；**不会**自动接受 `regen` / `need_info` / `modify`）：
+
+| 输入别名 | 规范为 |
+|----------|--------|
+| `reject`, `deny`, `abort`, `stop`, `halt` | `abort_execution` |
+| `skip` | `skip_sprint` |
+| `pass`, `ok`, `yes`, `continue` | `approve` |
+
+**Dashboard**：打开 **「✋ 人机卡点」** 页签，可刷新待办、填备注并提交决策；**「实时事件」** 中会收到 **`hitl_request_open` / `hitl_request_resolved`** SSE。单条记录只读接口：**`GET /api/hitl/requests/{request_id}`**（不依赖 `[hitl] enabled`，直接读 HITL SQLite）。
+
+**执行事件只读回放**（落库在 **`.sprintcycle/data/exec_events.sqlite`**，与 **`execution_event_backend = "sqlite"`** 一致时才有数据）：**`GET /api/execution/{execution_id}/events?limit=`**；CLI **`sprintcycle execution-events <execution_id> [--limit N]`**。若当前配置不是 sqlite 后端，接口返回空列表并带说明字段。
 
 **CLI**：
 
 ```bash
 sprintcycle hitl pending
 sprintcycle hitl submit <request_id> --decision approve
+sprintcycle hitl show <request_id>
 sprintcycle hitl history --limit 30
+sprintcycle execution-events <execution_id> --limit 100
 ```
 
-**MCP**：工具 **`sprintcycle_hitl_pending`**、**`sprintcycle_hitl_submit`**（参数与 CLI 对应）。
+**MCP**：**`sprintcycle_hitl_pending`**、**`sprintcycle_hitl_submit`**（`decision` 为字符串，支持上表别名）、**`sprintcycle_hitl_history`**、**`sprintcycle_hitl_show`**、**`sprintcycle_execution_events`**（参数与上列 REST/CLI 对应）。
 
 ### 执行缓存切换（diskcache / Redis / 关闭）
 

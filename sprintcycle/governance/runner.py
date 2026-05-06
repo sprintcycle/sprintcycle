@@ -7,6 +7,8 @@ import shutil
 import subprocess
 import time
 from pathlib import Path
+
+import yaml
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from loguru import logger
@@ -14,9 +16,16 @@ from loguru import logger
 from ..config.quality import runs_architecture_guard, runs_pytest, runs_static_gate
 from ..execution.static_analyzer import AnalysisConfig, StaticAnalyzer
 from .adr_check import check_adr_readme_index, check_adr_readme_strict_glob
-from .compose_hint import check_compose_hints
+from .compose_hint import check_compose_hints, check_compose_supply_chain_hints
 from .report import GovernanceReport, GovernanceViolation, Severity
-from .yaml_checks import checks_for_gate, load_governance_yaml, run_argv_checks
+from .sdd_checks import (
+    violations_acceptance_files,
+    violations_for_task_spec_refs,
+    violations_from_release_plan_validator,
+    violations_spec_marker_in_files,
+)
+from .yaml_checks import checks_for_gate, run_argv_checks
+from .yaml_merge import load_merged_governance_data
 
 if TYPE_CHECKING:
     from ..config.runtime_config import RuntimeConfig
@@ -59,11 +68,7 @@ class GovernanceRunner:
         return Path(project_path).expanduser().resolve()
 
     def _load_yaml_data(self, root: Path) -> Dict[str, Any]:
-        raw = getattr(self._cfg, "governance_config_path", None) or ""
-        path = (root / raw).resolve() if raw and not Path(raw).is_absolute() else Path(raw).expanduser() if raw else None
-        if path is None or not path.is_file():
-            return {}
-        return load_governance_yaml(path)
+        return load_merged_governance_data(root, self._cfg)
 
     async def run_planning_gate(self, project_path: str, extra_context: Optional[Dict[str, Any]] = None) -> GovernanceReport:
         root = self._project(project_path)
@@ -91,6 +96,24 @@ class GovernanceRunner:
                 )
             else:
                 meta["checks_planned"].append(f"spec_glob matched {len(matches)} file(s)")
+                marker = (getattr(self._cfg, "governance_spec_marker", None) or "").strip()
+                if marker:
+                    violations.extend(violations_spec_marker_in_files(root, spec_glob, marker))
+                    meta["checks_planned"].append("spec_marker scan")
+
+        acc_glob = (getattr(self._cfg, "governance_acceptance_glob", None) or "").strip()
+        if acc_glob:
+            violations.extend(violations_acceptance_files(root, acc_glob))
+            meta["checks_planned"].append("acceptance_glob")
+
+        rp = (extra_context or {}).get("release_plan")
+        if rp is not None and getattr(self._cfg, "governance_planning_validate_release_plan", True):
+            from ..release_plan.models import ReleasePlan
+
+            if isinstance(rp, ReleasePlan):
+                violations.extend(violations_from_release_plan_validator(rp))
+                violations.extend(violations_for_task_spec_refs(root, rp))
+                meta["checks_planned"].append("release_plan_validator+spec_ref")
 
         data = self._load_yaml_data(root)
         violations.extend(run_argv_checks(checks_for_gate(data, "planning"), root, "planning"))
@@ -260,14 +283,26 @@ class GovernanceRunner:
                 text = cfile.read_text(encoding="utf-8", errors="replace")
                 violations.extend(check_compose_hints(cfile, text))
                 meta["steps"].append("compose_hint")
+                if getattr(self._cfg, "governance_compose_supply_chain", False):
+                    try:
+                        cdoc = yaml.safe_load(text)
+                    except Exception:
+                        cdoc = None
+                    if isinstance(cdoc, dict) and isinstance(cdoc.get("services"), dict):
+                        violations.extend(check_compose_supply_chain_hints(cfile, cdoc["services"]))
+                        meta["steps"].append("compose_supply_chain")
 
         _maybe_downgrade_errors_to_warnings(self._cfg, violations)
         meta["duration_sec"] = round(time.perf_counter() - t0, 3)
         return GovernanceReport(gate="review", violations=violations, metadata=meta)
 
 
-def run_planning_gate_sync(project_path: str, runtime_config: "RuntimeConfig") -> GovernanceReport:
-    return asyncio.run(GovernanceRunner(runtime_config).run_planning_gate(project_path))
+def run_planning_gate_sync(
+    project_path: str,
+    runtime_config: "RuntimeConfig",
+    extra_context: Optional[Dict[str, Any]] = None,
+) -> GovernanceReport:
+    return asyncio.run(GovernanceRunner(runtime_config).run_planning_gate(project_path, extra_context=extra_context))
 
 
 def run_review_gate_sync(project_path: str, runtime_config: "RuntimeConfig") -> GovernanceReport:

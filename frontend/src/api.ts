@@ -33,6 +33,11 @@ export async function apiStop(executionId: string) {
   return data
 }
 
+export async function apiRollback(executionId: string) {
+  const { data } = await api.post<Record<string, unknown>>('/rollback', { execution_id: executionId })
+  return data
+}
+
 export async function apiDiagnose() {
   const { data } = await api.get<Record<string, unknown>>('/diagnose')
   return data
@@ -65,5 +70,42 @@ export async function apiHitlHistory(executionId?: string, limit = 50) {
       limit,
     },
   })
+  return data
+}
+
+export type ConfigApiEnvelope = {
+  success?: boolean
+  data?: Record<string, unknown>
+  error?: string
+  detail?: unknown
+}
+
+export async function apiConfigGet() {
+  const { data } = await api.get<ConfigApiEnvelope>('/config')
+  return data
+}
+
+export async function apiConfigSchema() {
+  const { data } = await api.get<ConfigApiEnvelope>('/config/schema')
+  return data
+}
+
+export async function apiConfigHistory() {
+  const { data } = await api.get<ConfigApiEnvelope>('/config/history')
+  return data
+}
+
+export async function apiConfigPut(body: { updates: Record<string, unknown> }) {
+  const { data } = await api.put<ConfigApiEnvelope>('/config', body)
+  return data
+}
+
+export async function apiConfigImport(config: Record<string, unknown>) {
+  const { data } = await api.post<ConfigApiEnvelope>('/config/import', { config })
+  return data
+}
+
+export async function apiConfigReload() {
+  const { data } = await api.post<ConfigApiEnvelope>('/config/reload', {})
   return data
 }

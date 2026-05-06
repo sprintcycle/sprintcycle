@@ -8,9 +8,15 @@ import pytest
 
 from sprintcycle.config.runtime_config import RuntimeConfig
 from sprintcycle.execution.events import EventBus, configure_execution_event_backend, get_execution_event_backend
+from sprintcycle.execution.sqlite_event_backend import fetch_execution_events_for_replay
 from sprintcycle.hitl.coordinator import HitlCoordinator
-from sprintcycle.hitl.store_sqlite import HitlSqliteStore
+from sprintcycle.hitl.decision_normalize import (
+    normalize_hitl_decision,
+    validate_hitl_decision_for_submit,
+)
+from sprintcycle.hitl.store_sqlite import HitlSqliteStore, default_hitl_db_path
 from sprintcycle.hitl.types import HitlDecision, HitlGate, HitlRequestRecord, parse_hitl_gates
+from sprintcycle.mq.sqlite_mq import SQLiteMQ
 
 
 @pytest.fixture
@@ -22,6 +28,38 @@ def isolated_event_bus(tmp_path, monkeypatch):
 def test_parse_hitl_gates() -> None:
     assert "before_sprint" in parse_hitl_gates("before_sprint,after_task")
     assert parse_hitl_gates("") == frozenset()
+
+
+def test_hitl_decision_normalize_and_validate() -> None:
+    assert validate_hitl_decision_for_submit("reject") == "abort_execution"
+    assert validate_hitl_decision_for_submit("Approve") == "approve"
+    assert validate_hitl_decision_for_submit("regen") is None
+    assert normalize_hitl_decision("SKIP") == "skip_sprint"
+
+
+def test_fetch_execution_events_for_replay_empty_missing_db(tmp_path) -> None:
+    assert fetch_execution_events_for_replay(str(tmp_path / "missing.sqlite"), "e1") == []
+
+
+def test_fetch_execution_events_for_replay_filters(tmp_path) -> None:
+    db = tmp_path / "ev.sqlite"
+    mq = SQLiteMQ(str(db))
+    mq.enqueue(
+        "sprint_started",
+        {
+            "data": {"execution_id": "e-a", "description": "d"},
+            "timestamp": "2026-01-01T00:00:00+00:00",
+        },
+    )
+    mq.enqueue(
+        "task_done",
+        {"data": {"execution_id": "e-b"}, "timestamp": "2026-01-02T00:00:00+00:00"},
+    )
+    mq.close()
+    rows = fetch_execution_events_for_replay(str(db), "e-a", limit=50)
+    assert len(rows) == 1
+    assert rows[0]["event_type"] == "sprint_started"
+    assert rows[0]["data"].get("execution_id") == "e-a"
 
 
 @pytest.mark.asyncio
@@ -112,3 +150,44 @@ async def test_hitl_submit_unblocks_waiter(tmp_path) -> None:
     assert sub is not None
     out = await asyncio.wait_for(t, timeout=5.0)
     assert out == HitlDecision.SKIP_SPRINT
+
+
+@pytest.mark.asyncio
+async def test_hitl_show_reads_db_without_hitl_enabled(tmp_path, monkeypatch) -> None:
+    from sprintcycle.api import SprintCycle
+
+    monkeypatch.chdir(tmp_path)
+    db = default_hitl_db_path(str(tmp_path.resolve()))
+    store = HitlSqliteStore(db)
+    rid = "req-show-1"
+    await store.insert_open(
+        HitlRequestRecord(
+            request_id=rid,
+            execution_id="ex-1",
+            gate=HitlGate.BEFORE_SPRINT.value,
+            status="open",
+            title="t",
+            summary="s",
+            context={},
+            created_at="2026-01-01T00:00:00",
+            timeout_seconds=60,
+        )
+    )
+    sc = SprintCycle(project_path=str(tmp_path.resolve()))
+    assert sc.config.hitl_enabled is False
+    out = await sc.hitl_show(rid)
+    assert out["success"] is True
+    assert isinstance(out.get("data"), dict)
+    assert out["data"]["request_id"] == rid
+
+
+@pytest.mark.asyncio
+async def test_hitl_submit_rejects_invalid_decision(tmp_path, monkeypatch) -> None:
+    from sprintcycle.api import SprintCycle
+
+    monkeypatch.chdir(tmp_path)
+    cfg = RuntimeConfig.merge({"hitl_enabled": True}, RuntimeConfig())
+    sc = SprintCycle(project_path=str(tmp_path.resolve()), config=cfg)
+    out = await sc.hitl_submit("no-such-id", "regen", None)
+    assert out["success"] is False
+    assert "Invalid" in (out.get("error") or "")

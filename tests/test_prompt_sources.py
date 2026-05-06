@@ -32,6 +32,7 @@ def test_compute_prompt_sources_fingerprint_stable():
     assert fp["prompt_sources_schema"] == 1
     assert len(fp["prompt_sources_aggregate_sha256"]) == 64
     dig = fp["prompt_source_digests"]
+    assert len(stable_prompt_registry()) >= 5
     assert len(dig) == len(stable_prompt_registry())
     for sid, h in dig.items():
         assert len(h) == 64

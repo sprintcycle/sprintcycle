@@ -21,6 +21,7 @@
 - evolution_candidate: 发现进化候选
 - hitl_request_open: 人机卡点待决策
 - hitl_request_resolved: 人机卡点已决策（含超时自动决策）
+- config_changed: Dashboard 配置变更或文件热重载（仅 SSE 广播，不经执行事件后端持久化）
 """
 
 import json
@@ -51,6 +52,7 @@ class EventType(Enum):
     EVOLUTION_CANDIDATE = "evolution_candidate"
     HITL_REQUEST_OPEN = "hitl_request_open"
     HITL_REQUEST_RESOLVED = "hitl_request_resolved"
+    CONFIG_CHANGED = "config_changed"
 
 
 @dataclass

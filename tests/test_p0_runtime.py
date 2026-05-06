@@ -7,9 +7,9 @@ import pytest
 from sprintcycle.config import (
     RuntimeConfig,
     flatten_sprintcycle_toml,
-    load_sprintcycle_toml,
     resolve_effective_quality_level,
 )
+from sprintcycle.config.dynaconf_app import build_dynaconf
 from sprintcycle.evolution.measurement import MeasurementProvider, MeasurementResult
 
 
@@ -51,6 +51,18 @@ def test_flatten_governance_downgrade_flag():
     assert flat["governance_downgrade_errors_to_warnings"] is False
 
 
+def test_flatten_governance_packs_and_execution_incremental():
+    nested = {
+        "governance": {"packs": ["a.yaml", "b.yaml"], "spec_marker": "SPEC>", "ci_matrix_tags": "x,y"},
+        "execution": {"incremental_test_command": "pytest -q --lf"},
+    }
+    flat = flatten_sprintcycle_toml(nested)
+    assert flat["governance_pack_paths"] == ["a.yaml", "b.yaml"]
+    assert flat["governance_spec_marker"] == "SPEC>"
+    assert flat["governance_ci_matrix_tags"] == "x,y"
+    assert flat["test_command_incremental"] == "pytest -q --lf"
+
+
 def test_flatten_cache_section_and_redis_url_alias():
     nested = {
         "cache": {
@@ -84,8 +96,10 @@ def test_flatten_cache_redis_url_wins_over_url():
     assert flat["cache_redis_url"] == "redis://primary/0"
 
 
-def test_load_sprintcycle_toml_missing(tmp_path: Path):
-    assert load_sprintcycle_toml(tmp_path) == {}
+def test_build_dynaconf_no_project_toml(tmp_path: Path) -> None:
+    assert not (Path(tmp_path) / "sprintcycle.toml").exists()
+    d = build_dynaconf(tmp_path)
+    assert "QUALITY" not in d.as_dict()
 
 
 def test_from_project_merges_toml(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):

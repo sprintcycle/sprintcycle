@@ -208,6 +208,12 @@ class ReleasePlanParser:
         if isinstance(constraints, str):
             constraints = [constraints]
 
+        spec_ref = data.get("spec_ref")
+        if spec_ref is not None and not isinstance(spec_ref, str):
+            spec_ref = str(spec_ref).strip() or None
+        elif isinstance(spec_ref, str):
+            spec_ref = spec_ref.strip() or None
+
         return SprintBacklogItem(
             description=task_content,
             agent=agent,
@@ -215,6 +221,7 @@ class ReleasePlanParser:
             constraints=constraints,
             expected_output=data.get("expected_output"),
             timeout=data.get("timeout", 600),
+            spec_ref=spec_ref,
         )
 
     @classmethod

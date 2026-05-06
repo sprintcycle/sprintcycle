@@ -14,7 +14,7 @@ from sprintcycle.execution.hooks.governance_context import (
 )
 from sprintcycle.execution.sprint_types import ExecutionStatus, TaskResult
 from sprintcycle.governance.adr_check import check_adr_readme_index, check_adr_readme_strict_glob
-from sprintcycle.governance.compose_hint import check_compose_hints
+from sprintcycle.governance.compose_hint import check_compose_hints, check_compose_supply_chain_hints
 from sprintcycle.governance.model_compare import run_model_compare
 from sprintcycle.governance.report import GovernanceReport, GovernanceViolation
 from sprintcycle.governance.runner import run_planning_gate_sync, run_review_gate_sync
@@ -323,6 +323,78 @@ services:
     viol = check_compose_hints(p, text)
     assert not any(v.rule_id == "compose:restart_policy" for v in viol)
     assert not any(v.rule_id == "compose:service_healthcheck" for v in viol)
+
+
+def test_merged_governance_packs_sequence(tmp_path: Path) -> None:
+    (tmp_path / "base.yaml").write_text(
+        """
+version: 1
+planning:
+  - id: first
+    argv: ["python", "-c", "import sys; sys.exit(0)"]
+    expect_code: 0
+    severity: warning
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "pack.yaml").write_text(
+        """
+version: 1
+planning:
+  - id: second
+    argv: ["python", "-c", "import sys; sys.exit(0)"]
+    expect_code: 0
+    severity: warning
+""",
+        encoding="utf-8",
+    )
+    cfg = RuntimeConfig(
+        governance_config_path="base.yaml",
+        governance_pack_paths=["pack.yaml"],
+        governance_review_static=False,
+        governance_review_import_linter=False,
+    )
+    from sprintcycle.governance.yaml_merge import load_merged_governance_data
+
+    merged = load_merged_governance_data(tmp_path, cfg)
+    ids = [x.get("id") for x in merged.get("planning", [])]
+    assert ids == ["first", "second"]
+
+
+def test_compose_supply_chain_latest_image_warning(tmp_path: Path) -> None:
+    cfile = tmp_path / "docker-compose.yml"
+    viol = check_compose_supply_chain_hints(
+        cfile,
+        {"web": {"image": "nginx:latest"}, "ok": {"image": "nginx:1.25"}},
+    )
+    assert any(v.rule_id == "compose:image_latest" and "web" in v.message for v in viol)
+
+
+def test_planning_gate_spec_ref_missing_with_release_plan(tmp_path: Path) -> None:
+    from sprintcycle.release_plan.models import (
+        ExecutionMode,
+        ProductAnchor,
+        ReleasePlan,
+        SprintBacklogItem,
+        SprintDefinition,
+    )
+
+    plan = ReleasePlan(
+        project=ProductAnchor(name="x", path=str(tmp_path)),
+        mode=ExecutionMode.NORMAL,
+        sprints=[
+            SprintDefinition(
+                name="S",
+                tasks=[SprintBacklogItem(description="t", agent="coder", spec_ref="missing-spec.md")],
+            )
+        ],
+    )
+    cfg = RuntimeConfig(
+        governance_review_static=False,
+        governance_review_import_linter=False,
+    )
+    rep = run_planning_gate_sync(str(tmp_path), cfg, extra_context={"release_plan": plan})
+    assert any(v.rule_id == "planning:spec_ref_missing" for v in rep.violations)
 
 
 def test_compose_hints_per_service(tmp_path: Path) -> None:

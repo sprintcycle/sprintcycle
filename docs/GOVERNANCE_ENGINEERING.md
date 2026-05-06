@@ -69,8 +69,11 @@
 
 1. **配置**（`sprintcycle.toml` / `RuntimeConfig`）  
    - `governance.enabled`（默认 `false`）  
-   - `governance.config_path` 或 `governance.packs[]`（规则包路径）  
-   - `governance.block_on`：`none` | `review_only` | `planning_and_review`（示例，实现时可收敛枚举）
+   - **规则包**：`governance.config_path`（主包）与 **`governance.packs`**（附加包列表，顺序合并）；实现上合并 `planning` / `review` / `task_after` 与 `gates.*` 中的列表型段落，后者覆盖前者同 id 时以**后出现**为准。  
+   - `governance.block_on`：`none` | `review_only` | `planning_and_review`（示例，实现时可收敛枚举）  
+   - **SDD / Planning 扩展**（可选）：`spec_marker`（在 `spec_glob` 匹配文件中扫描该前缀）、`acceptance_glob`（如 `**/acceptance.yaml` 存在性与轻量形状）、`planning_validate_release_plan`（默认 true：Planning 门在拿到内存中的 `ReleasePlan` 时跑 `ReleasePlanValidator` + backlog 条目的 `spec_ref` 文件存在性）。  
+   - **Review / Compose**：`compose_supply_chain`（默认 false：对 `:latest` / `latest` 镜像与 `build` 缺 Dockerfile 等给出 warning 级提示）。  
+   - **测量与 CI 切片**：`[execution] incremental_test_command`、`[governance] ci_matrix_tags`（逗号分隔标签字符串）写入 Sprint 后 `run_metadata`，并参与 `measurement_context_hash` 绑定（便于矩阵 job 对齐回溯）。
 
 2. **钩子**  
    - `GovernanceSprintHooks`：实现 `SprintLifecycleHooks`，内部调用 `GovernanceRunner`。  
@@ -94,8 +97,8 @@
 ## 5. SDD（规范驱动）与分阶段验证
 
 - **约定目录**：如 `docs/specs/<feature-id>.md`，可选机器可读片段（YAML front matter 或并列 `acceptance.yaml`）。
-- **Planning**：Schema 校验 + 与 Release Plan 中 task 的可追踪引用（task id ↔ spec 章节）。
-- **Daily**：静态分析 + 变更相关 pytest 子集（策略可配置）。
+- **Planning（已实现 v1）**：`spec_glob` 无匹配仍为 warning；若配置 **`governance_spec_marker`**，则在 glob 匹配文件内扫描该标记子串；若配置 **`governance_acceptance_glob`**，则检查匹配路径下 YAML 顶层为 mapping 且含 `criteria` 列表（或等价轻量形状）。编排器将当前 **`ReleasePlan`** 注入 Planning 门上下文；当 **`governance_planning_validate_release_plan`** 为 true 时，调用 **`ReleasePlanValidator`**，并对 backlog 项可选字段 **`spec_ref`**（相对项目根的文件路径）做存在性检查（缺失为 violation）。任务 YAML 中可写 **`spec_ref:`** 以落盘到模型（见 `release_plan` 解析器）。
+- **Daily**：静态分析 + 变更相关 pytest 子集（`[execution] incremental_test_command` 供测量元数据记录；实际增量跑测仍由 `quality_level` / Coder-Tester 闭环主导）。
 - **Review**：L2/L3 下已有 pytest/覆盖率/import-linter 语义；治理层聚合报告并决定是否阻断。
 
 与 `quality_profile`（`off` / `fast` / `default` / `strict`）组合：**fast** 少跑全量；**strict** 收紧 Planning + Review。
@@ -187,8 +190,8 @@
 
 - **阶段 A（已实现）**：`GovernanceRunner` + `GovernanceReport`；`GovernanceSprintHooks`（Planning + Review）；CLI `sprintcycle governance check`；`sprintcycle.toml` `[governance]` 与 `RuntimeConfig` 字段；Review 包聚合静态分析、可选 import-linter、可选 ADR/Compose 轻量检查；报告落盘 `.sprintcycle/governance_planning_last.json` / `governance_last.json`。  
 - **阶段 B（已实现）**：`sprintcycle product`（`docker-build` / `up` / `down` / `logs`）。  
-- **阶段 C（部分完成）**：`sprintcycle governance model-compare`（含 ``--quick`` → 默认 ``-m golden``）、golden 约定文档 ``docs/GOVERNANCE_GOLDEN.md``、``pytest`` marker ``golden``；``TaskLifecycleHooks`` + **G-3～G-5**（``task_after``、事件、可选阻断）；**F-3 v4**：`run_metadata` 含 Sprint/任务绑定 ``task_outcome_digest``、``measurement_context_hash``，以及 **稳定 prompt 模板全文摘要**（``sprintcycle.prompt_sources`` 登记的 Coder/Analyzer 模板 → ``prompt_source_digests`` / ``prompt_sources_aggregate_sha256``，不含用户任务或错误日志正文）；Dashboard **governance_gate** 事件展示 Planning/Review 摘要与 ``compose:*`` 规则命中；**E-3 v1**：Compose YAML 逐服务 ``restart``/``healthcheck`` 提示。  
-- **仍待办**：可选增强（如扩展更多 Agent 模板入 ``prompt_sources``、与 CI 矩阵对齐的测量切片）；按需扩展。
+- **阶段 C（已完成相对 v7「二、可落地仍有空间」一揽子）**：`sprintcycle governance model-compare`（含 ``--quick`` → 默认 ``-m golden``）、golden 约定文档 ``docs/GOVERNANCE_GOLDEN.md``、``pytest`` marker ``golden``；``TaskLifecycleHooks`` + **G-3～G-5**（``task_after``、事件、可选阻断）；**F-3 v4**：`run_metadata` 含 Sprint/任务绑定 ``task_outcome_digest``、``measurement_context_hash``，以及 **稳定 prompt 模板全文摘要**（``sprintcycle.prompt_sources`` 含 Coder / Analyzer / Architect / Tester / RegressionTester 等登记模板 → ``prompt_source_digests`` / ``prompt_sources_aggregate_sha256``）；**F-3 v5**：``test_command_incremental``、``ci_matrix_tags`` / ``ci_matrix_tags_joined`` 写入 ``run_metadata`` 并参与哈希绑定；Dashboard **governance_gate** 事件展示 Planning/Review 摘要与 ``compose:*`` 规则命中；**E-3 v1**：Compose YAML 逐服务 ``restart``/``healthcheck`` 提示；**E-3 v2**：可选 **compose 供应链轻量提示**（``:latest``、缺 Dockerfile）；**多包合并**（``config_path`` + ``packs``）；**SDD Planning**（``spec_marker``、``acceptance_glob``、内存 ``ReleasePlan`` + Validator + ``spec_ref``）。  
+- **仍待办（远期）**：OPA/Rego、更重的供应链扫描、L3 AI 自动修复与核心强绑定等（见 §4「刻意不做」与 v7 愿景）。
 
 ### 13.1 配置示例（`sprintcycle.toml`）
 
@@ -200,6 +203,12 @@ block_on = "review_only"   # none | review_only | planning_and_review
 # 保守观察：true 时 Planning/Review 聚合结果中 severity=error 降为 warning（默认 true，见 RuntimeConfig）
 # downgrade_errors_to_warnings = true
 spec_glob = "docs/specs/*.md"
+# packs = [".sprintcycle/governance-team.yaml"]   # 顺序合并进主 config_path（若有）
+# spec_marker = "SPEC>"                           # 在 spec_glob 匹配文件中要求出现该前缀
+# acceptance_glob = "**/acceptance.yaml"         # 存在性 + 轻量 YAML 形状检查
+# planning_validate_release_plan = true         # Planning 门内跑 ReleasePlanValidator + spec_ref 文件检查
+# compose_supply_chain = false                  # Review：:latest 与 build.context Dockerfile 提示
+# ci_matrix_tags = "py311,linux"                # 写入 run_metadata，供 CI 矩阵与测量对齐
 run_static = true
 run_import_linter = true
 check_adr = false
@@ -210,6 +219,13 @@ report_dir = ".sprintcycle"
 task_hooks = false          # 任务级治理钩子（需 enabled=true）
 # G v3：task_after 子进程失败时是否将已成功任务标为 failed（可被 YAML 单条 block_on_failure 覆盖）
 # task_after_block_on_failure = false
+```
+
+与 Sprint 后测量绑定（可选，写在 **`[execution]`**）：
+
+```toml
+[execution]
+# incremental_test_command = "pytest -q --lf"   # 写入 run_metadata.test_command_incremental
 ```
 
 ### 13.2 治理 YAML：`task_after`（任务级 / Daily v1）
@@ -255,6 +271,8 @@ task_after:
 | B-1 | `GovernanceSprintHooks` | Planning + Review；异常吞掉并打日志 | **已完成** |
 | B-2 | 编排注册链式钩子 | `SprintOrchestrator._build_sprint_hooks` | **已完成** |
 | B-3 | Planning 包 v0 | `checks_planned` + `spec_glob` + YAML planning | **已完成** |
+| B-4 | Planning：内存 `ReleasePlan` + Validator + `spec_ref` | `SprintOrchestrator` 注入上下文；`governance_planning_validate_release_plan`；`sdd_checks` | **已完成** |
+| B-5 | 多规则包合并 | `config_path` + `packs[]` → `yaml_merge.load_merged_governance_data` | **已完成** |
 
 ### Epic C — CLI 与本地可执行
 
@@ -269,6 +287,8 @@ task_after:
 |----|------|------------------|------|
 | D-1 | Planning：`spec_glob` | 无匹配 → warning | **已完成**（v0） |
 | D-2 | ADR 索引一致性 | v0：README vs `docs/adr/*.md`；v1：``adr_glob`` 时 README basename 与 glob 集合双向一致（error） | **已完成** |
+| D-3 | SDD：`spec_marker` / `acceptance_glob` | Planning 门内 `sprintcycle.governance.sdd_checks` | **已完成** |
+| D-4 | Backlog `spec_ref` | 任务 YAML → `SprintBacklogItem.spec_ref`；Planning 存在性检查 | **已完成** |
 
 ### Epic E — Docker / Product
 
@@ -276,7 +296,7 @@ task_after:
 |----|------|------------------|------|
 | E-1 | `product docker-build` | `docker compose build` | **已完成** |
 | E-2 | `up` / `down` / `logs` | 非零退出码 | **已完成** |
-| E-3 | Compose 轻量规则 | 全文 healthcheck + YAML 解析后逐服务 ``restart`` / ``healthcheck`` 提示 | **已完成**（v1） |
+| E-3 | Compose 轻量规则 | 全文 healthcheck + YAML 解析后逐服务 ``restart`` / ``healthcheck`` 提示；可选 **供应链提示**（``:latest``、build Dockerfile） | **已完成**（v1 + v2 可选） |
 
 ### Epic F — 回归与模型升级
 
@@ -284,7 +304,7 @@ task_after:
 |----|------|------------------|------|
 | F-1 | golden / marker 文档 | `docs/GOVERNANCE_GOLDEN.md` + `pyproject` markers | **已完成** |
 | F-2 | `governance model-compare` | 双跑 pytest + junit；``--quick`` 默认 golden | **已完成** |
-| F-3 | measurement 衔接 | `run_metadata`：配置指纹 + LLM 环境 + ``sprint_*`` / ``task_outcome_digest`` / ``measurement_context_hash`` + 稳定 prompt 模板摘要；知识卡片同步 | **已完成**（v4） |
+| F-3 | measurement 衔接 | `run_metadata`：配置指纹 + LLM 环境 + ``sprint_*`` / ``task_outcome_digest`` / ``measurement_context_hash`` + 稳定 prompt 模板摘要；**增量测命令与 CI 矩阵标签**；知识卡片同步 | **已完成**（v5） |
 
 ### Epic G — 可选任务钩子（P1）
 

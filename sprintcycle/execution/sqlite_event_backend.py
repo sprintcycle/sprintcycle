@@ -186,3 +186,97 @@ def execution_events_sqlite_path(project_path: str) -> str:
 
     root = Path(project_path).expanduser().resolve()
     return str(root / ".sprintcycle" / "data" / "exec_events.sqlite")
+
+
+def fetch_execution_events_for_replay(
+    sqlite_path: str,
+    execution_id: str,
+    *,
+    limit: int = 200,
+) -> list[dict[str, Any]]:
+    """
+    只读：从 ``SQLiteMQ`` 落库的 ``mq_messages`` 中筛选 ``payload.data.execution_id`` 匹配的事件，
+    按时间正序返回（便于时间线回放）。若 SQLite 不支持 ``json_extract`` 则退化为 Python 过滤。
+    """
+    import json
+    import sqlite3
+
+    from pathlib import Path
+
+    path = Path(sqlite_path).expanduser().resolve()
+    if not path.is_file():
+        return []
+
+    eid = (execution_id or "").strip()
+    if not eid:
+        return []
+
+    lim = max(1, min(int(limit), 2000))
+
+    def _row_to_item(row: sqlite3.Row) -> dict[str, Any]:
+        topic = str(row["topic"])
+        raw = row["payload"]
+        data: dict[str, Any] = {}
+        ts: Any = None
+        try:
+            obj = json.loads(raw) if isinstance(raw, str) else {}
+            if isinstance(obj, dict):
+                inner = obj.get("data")
+                if isinstance(inner, dict):
+                    data = dict(inner)
+                ts = obj.get("timestamp")
+        except json.JSONDecodeError:
+            pass
+        return {
+            "id": str(row["id"]),
+            "event_type": topic,
+            "timestamp": ts or str(row["created_at"]),
+            "created_at": str(row["created_at"]),
+            "data": data,
+        }
+
+    conn = sqlite3.connect(str(path))
+    conn.row_factory = sqlite3.Row
+    try:
+        try:
+            cur = conn.execute(
+                """
+                SELECT id, topic, payload, created_at FROM mq_messages
+                WHERE json_valid(payload)
+                  AND json_extract(payload, '$.data.execution_id') = ?
+                ORDER BY created_at ASC, id ASC
+                LIMIT ?
+                """,
+                (eid, lim),
+            )
+            rows = cur.fetchall()
+            return [_row_to_item(r) for r in rows]
+        except sqlite3.OperationalError:
+            pass
+
+        cur = conn.execute(
+            """
+            SELECT id, topic, payload, created_at FROM mq_messages
+            ORDER BY created_at DESC, id DESC
+            LIMIT ?
+            """,
+            (lim * 20,),
+        )
+        out: list[dict[str, Any]] = []
+        for r in cur.fetchall():
+            try:
+                obj = json.loads(r["payload"])
+                if not isinstance(obj, dict):
+                    continue
+                inner = obj.get("data")
+                if not isinstance(inner, dict):
+                    continue
+                if str(inner.get("execution_id") or "") != eid:
+                    continue
+            except (json.JSONDecodeError, TypeError, KeyError):
+                continue
+            out.append(_row_to_item(r))
+        out.sort(key=lambda x: (x.get("created_at") or "", x.get("id") or ""))
+        return out[-lim:]
+    finally:
+        conn.close()

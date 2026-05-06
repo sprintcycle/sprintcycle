@@ -121,6 +121,13 @@ def _measurement_run_metadata(
     out["prompt_sources_schema"] = pf["prompt_sources_schema"]
 
     ctx_bind["prompt_sources_aggregate_sha256"] = out["prompt_sources_aggregate_sha256"]
+    inc = getattr(config, "test_command_incremental", None)
+    if inc:
+        out["test_command_incremental"] = str(inc).strip()
+    tags = (getattr(config, "governance_ci_matrix_tags", None) or "").strip()
+    if tags:
+        out["ci_matrix_tags"] = [t.strip() for t in tags.split(",") if t.strip()]
+        ctx_bind["ci_matrix_tags_joined"] = ",".join(sorted(out["ci_matrix_tags"]))
     out["measurement_context_hash"] = hashlib.sha256(
         json.dumps(ctx_bind, sort_keys=True, ensure_ascii=False).encode("utf-8")
     ).hexdigest()[:16]
@@ -292,6 +299,7 @@ class SprintOrchestrator:
             "release_plan_id": str(meta.get("id", "")),
             "coding_engine": self.config.coding_engine,
             "quality_level": self.config.effective_quality_level(),
+            "release_plan": release_plan,
         }
 
     async def _post_sprint_measurement(
