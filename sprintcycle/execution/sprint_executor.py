@@ -15,12 +15,12 @@ from typing import Any, Callable, Dict, List, Optional, Set
 
 from loguru import logger
 
-from ..release_plan.models import ReleasePlan, EvolutionParams, SprintDefinition, SprintBacklogItem
+from ..release_plan.models import ReleasePlan, SprintDefinition, SprintBacklogItem
 from .hooks.sprint_hooks import NoOpSprintLifecycleHooks, SprintLifecycleHooks
 from .sprint_types import ExecutionStatus, SprintResult, TaskResult
 from .state.checkpoint import CheckpointMixin
 from .state.state_store import StateStore, get_state_store
-from .state.wire_compat import context_plan_id_name
+from ..release_plan.payload_keys import context_plan_id_name
 
 
 class SprintExecutor(CheckpointMixin):
@@ -33,7 +33,6 @@ class SprintExecutor(CheckpointMixin):
         max_parallel: int = 3,
         feedback_loop: Optional[Any] = None,
         release_plan: Optional[ReleasePlan] = None,
-        evolution_engine: Optional[Any] = None,
         error_handler: Optional[Any] = None,
         state_store: Optional[StateStore] = None,
         max_verify_fix_rounds: int = 3,
@@ -50,7 +49,6 @@ class SprintExecutor(CheckpointMixin):
         self._feedback_loop = feedback_loop
         self._release_plan = release_plan
         self._sprint_count = 0
-        self._evolution_engine = evolution_engine
         self._error_handler = error_handler
         self._state_store = state_store
         self._execution_id: str = ""
@@ -73,9 +71,6 @@ class SprintExecutor(CheckpointMixin):
 
     def set_release_plan(self, release_plan: ReleasePlan) -> None:
         self._release_plan = release_plan
-
-    def set_evolution_engine(self, evolution_engine) -> None:
-        self._evolution_engine = evolution_engine
 
     def set_error_handler(self, error_handler) -> None:
         self._error_handler = error_handler
@@ -314,7 +309,7 @@ class SprintExecutor(CheckpointMixin):
         self,
         sprints: List[SprintDefinition],
         mode: str = "normal",
-        evolution_config: Optional[EvolutionParams] = None,
+        evolution_config: Optional[Any] = None,
         context: Optional[Dict[str, Any]] = None,
         execution_id: Optional[str] = None,
         resume: bool = False,
@@ -327,8 +322,11 @@ class SprintExecutor(CheckpointMixin):
                 execution_id, sprints, context, release_plan=release_plan, sprint_index_offset=sprint_index_offset
             )
         self._execution_id = execution_id or self._init_execution_state()
-        if mode == "evolution" and self._evolution_engine:
-            return await self._execute_evolution_sprints(sprints, evolution_config, context or {})
+        if mode == "evolution":
+            logger.warning(
+                "SprintExecutor mode='evolution' is removed; running as normal. "
+                "Use expand_release_plan_for_execution + SprintOrchestrator."
+            )
         return await self._execute_normal_sprints(
             sprints, context or {}, release_plan=release_plan, sprint_index_offset=sprint_index_offset
         )
@@ -464,27 +462,6 @@ class SprintExecutor(CheckpointMixin):
         except Exception as e:
             logger.warning(f"收集反馈失败: {e}")
             return None
-
-    async def _execute_evolution_sprints(self, sprints: List[SprintDefinition], evolution_config: Optional[EvolutionParams], context: Optional[Dict[str, Any]] = None) -> List[SprintResult]:
-        results = []
-        max_generations = evolution_config.iterations if evolution_config else 3
-        for sprint in sprints:
-            assert self._evolution_engine is not None
-            result = await self._evolution_engine.evolve_sprint(sprint=sprint, max_generations=max_generations)
-            sprint_result = self._convert_evolution_result(sprint, result)
-            results.append(sprint_result)
-            if self._execution_id:
-                self._save_checkpoint(0, sprint.name, sprint_result)
-        return results
-
-    def _convert_evolution_result(self, sprint: SprintDefinition, evo_result: Any) -> SprintResult:
-        success = evo_result.success if hasattr(evo_result, "success") else True
-        sprint_result = SprintResult(
-            sprint=sprint,
-            status=ExecutionStatus.SUCCESS if success else ExecutionStatus.FAILED,
-            duration=evo_result.execution_time if hasattr(evo_result, "execution_time") else 0.0,
-        )
-        return sprint_result
 
     def set_event_bus(self, event_bus) -> None:
         self._event_bus = event_bus

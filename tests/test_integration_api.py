@@ -231,6 +231,95 @@ sprints:
                     release_plan_yaml
                 )
 
+    def test_run_release_plan_success(self):
+        """run_release_plan: validated in-memory ReleasePlan → RunResult (same stack as run)."""
+        from sprintcycle.release_plan.models import (
+            ExecutionMode,
+            ProductAnchor,
+            ReleasePlan,
+            SprintBacklogItem,
+            SprintDefinition,
+        )
+
+        mock_plan = ReleasePlan(
+            project=ProductAnchor(name="DirectPlan", path=self.temp_dir),
+            mode=ExecutionMode.NORMAL,
+            sprints=[
+                SprintDefinition(
+                    name="Sprint 1",
+                    goals=["G"],
+                    tasks=[SprintBacklogItem(description="T", agent="coder")],
+                )
+            ],
+        )
+
+        with patch("sprintcycle.api.ReleasePlanValidator") as mock_v, \
+             patch("sprintcycle.api.get_state_store") as mock_get_store, \
+             patch("sprintcycle.api.SprintOrchestrator") as mock_dispatcher_cls, \
+             patch("sprintcycle.api.get_event_bus"):
+
+            mock_v.return_value.validate.return_value = MagicMock(is_valid=True)
+
+            mock_store = MagicMock(spec=StateStore)
+            mock_get_store.return_value = mock_store
+            mock_store.list_executions.return_value = [
+                MagicMock(execution_id="exec-rp"),
+            ]
+
+            mock_task = MagicMock()
+            mock_task.status = ExecutionStatus.SUCCESS
+            mock_task.success_count = 1
+            mock_sprint_result = MagicMock()
+            mock_sprint_result.status = ExecutionStatus.SUCCESS
+            mock_sprint_result.success_count = 1
+            mock_sprint_result.task_results = [mock_task]
+            mock_sprint_result.duration = 0.5
+
+            mock_dispatcher_instance = MagicMock()
+            mock_dispatcher_instance.execute_release_plan = AsyncMock(
+                return_value=[mock_sprint_result],
+            )
+            mock_dispatcher_cls.return_value = mock_dispatcher_instance
+
+            sc2 = SprintCycle(project_path=self.temp_dir)
+            result = sc2.run_release_plan(mock_plan)
+
+        assert isinstance(result, RunResult)
+        assert result.success is True
+        assert result.release_plan_name == "DirectPlan"
+
+    def test_run_release_plan_validation_failure(self):
+        """run_release_plan returns failed RunResult when validator rejects plan."""
+        from sprintcycle.release_plan.models import (
+            ExecutionMode,
+            ProductAnchor,
+            ReleasePlan,
+            SprintBacklogItem,
+            SprintDefinition,
+        )
+
+        mock_plan = ReleasePlan(
+            project=ProductAnchor(name="Bad", path=self.temp_dir),
+            mode=ExecutionMode.NORMAL,
+            sprints=[
+                SprintDefinition(
+                    name="S1",
+                    goals=["G"],
+                    tasks=[SprintBacklogItem(description="T", agent="coder")],
+                )
+            ],
+        )
+
+        with patch("sprintcycle.api.ReleasePlanValidator") as mock_v:
+            mock_v.return_value.validate.return_value = MagicMock(is_valid=False)
+            sc = SprintCycle(project_path=self.temp_dir)
+            result = sc.run_release_plan(mock_plan)
+
+        assert isinstance(result, RunResult)
+        assert result.success is False
+        assert result.error is not None
+        assert "验证" in result.error
+
 
 class TestAPIStatus:
     """Test status operation"""

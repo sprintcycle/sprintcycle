@@ -36,7 +36,7 @@ from rich.table import Table
 from rich.traceback import install as install_rich_traceback
 
 from sprintcycle.api import SprintCycle
-from sprintcycle.execution.state.wire_compat import dict_plan_name
+from sprintcycle.release_plan.payload_keys import dict_plan_name
 from sprintcycle.logging_setup import configure_sprintcycle_logging
 from sprintcycle.results import (
     DiagnoseResult,

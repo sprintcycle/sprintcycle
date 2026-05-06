@@ -1,21 +1,24 @@
 """
-诊断驱动的 **进化用执行计划**（``EvolutionReleasePlan``）生成。
+诊断驱动的 ``ReleasePlan`` 生成。
 
 - 规则优先层：P0/P1 问题由 ``ReleasePlanRuleEngine`` 直接生成计划草案
 - LLM 综合层：复杂场景由 ``LLMReleasePlanGenerator`` 推理补全
 """
 
-from typing import List, Optional
+import json
+import re
+from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
-from ..evolution.evolution_plan_source import EvolutionPlanSourceType, EvolutionReleasePlan
+from ..release_plan.builders import release_plan_from_diagnostic_slices
+from ..release_plan.models import ReleasePlan
 from .health_report import ProjectHealthReport
-from .release_plan_rules import ReleasePlanRule, ReleasePlanRuleEngine, ReleasePlanRulePriority
+from .release_plan_rules import ReleasePlanRuleEngine
 
 
 class LLMReleasePlanGenerator:
-    """调用 LLM 生成复杂场景下的 ``EvolutionReleasePlan`` 草案。"""
+    """调用 LLM 生成复杂场景下的 ``ReleasePlan`` 草案。"""
 
     def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None, api_base: Optional[str] = None, provider: Optional[str] = None):
         from sprintcycle.llm_provider import resolve_provider
@@ -24,7 +27,7 @@ class LLMReleasePlanGenerator:
         self._model = cfg.model
         self._api_base = cfg.api_base
 
-    def generate(self, report: ProjectHealthReport, project_path: str) -> List[EvolutionReleasePlan]:
+    def generate(self, report: ProjectHealthReport, project_path: str) -> List[ReleasePlan]:
         from sprintcycle.llm_provider import call_llm
         if not self._api_key:
             logger.warning("LLM_API_KEY未设置，跳过LLM生成")
@@ -44,7 +47,7 @@ class LLMReleasePlanGenerator:
             return []
 
     def _build_prompt(self, report: ProjectHealthReport, project_path: str) -> str:
-        return f"""基于以下项目健康报告，生成改进建议的**多 Sprint 执行计划**（JSON，结构与 EvolutionReleasePlan 兼容：name、version、path、goals、sprints 等）。
+        return f"""基于以下项目健康报告，生成改进建议的**多 Sprint 执行计划**（JSON，结构与 ReleasePlan 兼容：project.name、project.path、sprints[].name、goals、tasks[].description 等）。
 
 项目: {report.target}
 健康评分: {report.health_score:.1f}
@@ -66,9 +69,7 @@ class LLMReleasePlanGenerator:
 
 仅输出 JSON（对象或对象数组），不要 Markdown 围栏。"""
 
-    def _parse_llm_response(self, content: str, project_path: str) -> List[EvolutionReleasePlan]:
-        import json
-        import re
+    def _parse_llm_response(self, content: str, project_path: str) -> List[ReleasePlan]:
         json_match = re.search(r"\{[\s\S]*\}|\[[\s\S]*\]", content)
         if not json_match:
             return []
@@ -76,16 +77,27 @@ class LLMReleasePlanGenerator:
             data = json.loads(json_match.group())
             if isinstance(data, dict):
                 data = [data]
-            plans: List[EvolutionReleasePlan] = []
+            plans: List[ReleasePlan] = []
             for item in data:
+                if not isinstance(item, dict):
+                    continue
+                name = item.get("name", "LLM生成执行计划")
+                sprints_raw = item.get("sprints", [])
+                sprint_dicts = [sp for sp in sprints_raw if isinstance(sp, dict)]
+                if not sprint_dicts:
+                    continue
                 plans.append(
-                    EvolutionReleasePlan(
-                    name=item.get("name", "LLM生成执行计划"), version="v1.0.0", path=project_path,
-                    goals=item.get("goals", []), sprints=item.get("sprints", []),
-                    source_type=EvolutionPlanSourceType.DIAGNOSTIC, metadata={"generator": "llm"},
-                    confidence=0.7, expected_benefit=item.get("expected_benefit", 5.0),
-                    priority=item.get("priority", 50),
-                ))
+                    release_plan_from_diagnostic_slices(
+                        plan_name=str(name),
+                        project_path=project_path,
+                        sprint_dicts=sprint_dicts,
+                        rule="llm",
+                        confidence=0.7,
+                        expected_benefit=float(item.get("expected_benefit", 5.0)),
+                        priority=int(item.get("priority", 50)),
+                        extra_metadata={"generator": "llm"},
+                    )
+                )
             return plans
         except json.JSONDecodeError as e:
             logger.warning(f"LLM响应JSON解析失败: {e}")
@@ -99,22 +111,22 @@ class DiagnosticReleasePlanGenerator:
         self._rule_engine = rule_engine or ReleasePlanRuleEngine()
         self._llm_generator = llm_generator
 
-    def generate(self, report: ProjectHealthReport, project_path: str) -> List[EvolutionReleasePlan]:
-        # 1. 规则引擎生成P0/P1 ReleasePlan
+    def generate(self, report: ProjectHealthReport, project_path: str) -> List[ReleasePlan]:
         rule_plans = self._rule_engine.evaluate(report)
-        # 2. LLM补充（仅在健康评分较低时）
-        llm_plans: List[EvolutionReleasePlan] = []
+        llm_plans: List[ReleasePlan] = []
         if report.health_score < 60 and self._llm_generator:
             llm_plans = self._llm_generator.generate(report, project_path)
-        # 3. 合并去重
         seen: set[str] = set()
-        unique_plans: List[EvolutionReleasePlan] = []
+        unique_plans: List[ReleasePlan] = []
         for plan in rule_plans + llm_plans:
-            if plan.name not in seen:
-                seen.add(plan.name)
+            key = plan.project.name
+            if key not in seen:
+                seen.add(key)
                 unique_plans.append(plan)
-        # 4. 按优先级排序
-        unique_plans.sort(key=lambda x: x.priority, reverse=True)
+        unique_plans.sort(
+            key=lambda p: int(p.metadata.get("diagnostic_priority", 0)),
+            reverse=True,
+        )
         logger.info(
             f"生成执行计划: 规则{len(rule_plans)}个, LLM{len(llm_plans)}个, 去重后{len(unique_plans)}个"
         )

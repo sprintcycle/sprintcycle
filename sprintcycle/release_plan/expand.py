@@ -1,5 +1,9 @@
 """
-自进化 Release Plan → 与普通模式相同的多 Sprint 结构（单一执行路径）。
+自进化 Release Plan → 与普通模式相同的多 Sprint 结构（**主架构**的一环）。
+
+与 ``SprintCycle``、``SprintOrchestrator`` 对齐的推荐链为：
+``ReleasePlan`` → **本模块** ``expand_release_plan_for_execution`` → ``SprintOrchestrator.execute_release_plan``
+→ ``SprintExecutor``（normal）。
 
 执行前将 ``mode: evolution`` + ``evolution.targets`` 展开为
 ``SprintDefinition`` / ``SprintBacklogItem``（优化类任务使用 ``coder`` + constraints）。

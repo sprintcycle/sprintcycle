@@ -4,11 +4,13 @@ SprintCycle Intent 模块测试
 
 import pytest
 from sprintcycle.intent import (
-    IntentParser,
-    ParsedIntent,
     ActionType,
+    IntentParser,
     IntentResult,
+    ParsedIntent,
+    RunnerHandler,
 )
+from sprintcycle.results import RunResult
 
 
 class TestActionType:
@@ -269,3 +271,66 @@ class TestIntentParser:
         parser = IntentParser()
         r = parser.parse("进化 product: Foo 的模块", product="Bar")
         assert r.product == "Bar"
+
+
+class TestIntentResultFromRunResult:
+    """IntentResult.from_run_result 与 RunnerHandler 弃用提示"""
+
+    def test_from_run_result_success(self):
+        from sprintcycle.release_plan.models import (
+            ExecutionMode,
+            ProductAnchor,
+            ReleasePlan,
+            SprintBacklogItem,
+            SprintDefinition,
+        )
+
+        plan = ReleasePlan(
+            project=ProductAnchor(name="P", path="."),
+            mode=ExecutionMode.NORMAL,
+            sprints=[
+                SprintDefinition(
+                    name="S1",
+                    goals=["g"],
+                    tasks=[SprintBacklogItem(description="t", agent="coder")],
+                )
+            ],
+        )
+        rr = RunResult(
+            success=True,
+            release_plan_name="P",
+            completed_sprints=1,
+            completed_tasks=1,
+            total_sprints=1,
+            total_tasks=1,
+        )
+        ir = IntentResult.from_run_result(plan, rr)
+        assert ir.success is True
+        assert ir.completed_sprints == 1
+        assert ir.sprint_results == []
+
+    def test_from_run_result_pending_knowledge(self):
+        from sprintcycle.release_plan.models import (
+            ExecutionMode,
+            ProductAnchor,
+            ReleasePlan,
+        )
+
+        plan = ReleasePlan(
+            project=ProductAnchor(name="P", path="."),
+            mode=ExecutionMode.NORMAL,
+            sprints=[],
+        )
+        rr = RunResult(
+            success=False,
+            pending_knowledge_confirmation=True,
+            message="请确认",
+            knowledge_injection_preview={"diff_text": "x"},
+        )
+        ir = IntentResult.from_run_result(plan, rr)
+        assert ir.success is False
+        assert ir.details.get("pending_knowledge_confirmation") is True
+
+    def test_runner_handler_emits_deprecation(self):
+        with pytest.warns(DeprecationWarning, match="run_release_plan"):
+            RunnerHandler(project_path=".")

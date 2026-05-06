@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 from loguru import logger
 
 from ..sprint_types import ExecutionStatus
-from .wire_compat import checkpoint_plan_yaml
+from ...release_plan.payload_keys import checkpoint_plan_yaml
 
 if TYPE_CHECKING:
     from ...config.runtime_config import RuntimeConfig

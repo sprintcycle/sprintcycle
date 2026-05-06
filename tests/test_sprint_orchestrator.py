@@ -23,8 +23,6 @@ class TestSprintOrchestrator:
     def test_orchestrator_initialization(self):
         """测试编排器初始化"""
         assert self.orchestrator is not None
-        assert self.orchestrator.evolution_pipeline is None
-    
     def test_execute_normal_release_plan(self):
         """测试执行普通 ReleasePlan"""
         plan = ReleasePlan(
@@ -101,7 +99,6 @@ class TestSprintOrchestrator:
         """测试获取摘要"""
         summary = self.orchestrator.get_summary()
         
-        assert "evolution_pipeline" in summary
         assert "callbacks" in summary
         assert isinstance(summary["callbacks"], list)
 

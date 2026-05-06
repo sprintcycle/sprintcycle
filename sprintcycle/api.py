@@ -4,10 +4,11 @@ SprintCycle 统一 API
 Dashboard / CLI / MCP / SDK 共用的唯一入口。
 所有操作通过此类暴露，三端只做参数适配和展示格式化。
 
-六大操作: plan / run / diagnose / status / rollback / stop
+主操作: plan / run / run_release_plan / diagnose / status / rollback / stop
 
 产品与技术叙述以仓库 ``docs/PRODUCT_TECH_V4.md`` 与 ``SPRINTCYCLE_PRODUCT_TECH_PLAN.md``
-（V4.0 工程真理源）为准；``run``/resume 主路径经 ``SprintOrchestrator`` → ``SprintExecutor``。
+（V4.0 工程真理源）为准；``run``/resume **主路径**为 ``ReleasePlan`` → ``expand_release_plan_for_execution``
+→ ``SprintOrchestrator`` → ``SprintExecutor``。
 """
 
 import asyncio
@@ -25,10 +26,11 @@ from .execution.state.state_store import (
     configure_default_store,
     get_state_store,
 )
-from .execution.state.wire_compat import checkpoint_plan_yaml
+from .release_plan.payload_keys import checkpoint_plan_yaml
 from .intent.parser import IntentParser
 from .orchestration.sprint_orchestrator import ExecutionStatus, SprintOrchestrator
 from .release_plan.generator import IntentReleasePlanGenerator
+from .release_plan.models import ReleasePlan
 from .release_plan.parser import ReleasePlanParser
 from .release_plan.validator import ReleasePlanValidator
 from .results import (
@@ -42,7 +44,11 @@ from .results import (
 
 
 class SprintCycle:
-    """SprintCycle 统一 API — Dashboard / CLI / MCP / SDK 共用"""
+    """SprintCycle 统一 API — Dashboard / CLI / MCP / SDK 共用。
+
+    **执行主架构**：``ReleasePlan`` → ``expand_release_plan_for_execution`` →
+    ``SprintOrchestrator.execute_release_plan`` → ``SprintExecutor``。自进化与普通迭代在执行栈上汇合。
+    """
 
     def __init__(
         self,
@@ -143,6 +149,32 @@ class SprintCycle:
             return run_result
         except Exception as e:
             logger.exception("run failed")
+            return RunResult(success=False, error=str(e), duration=time.time() - start)
+
+    def run_release_plan(
+        self,
+        release_plan: ReleasePlan,
+        *,
+        confirm_knowledge: bool = False,
+    ) -> RunResult:
+        """执行已解析的 Release Plan（与 ``run(release_plan_yaml=…)`` 共用知识门与编排路径）。"""
+        start = time.time()
+        validation = ReleasePlanValidator().validate(release_plan)
+        if not validation.is_valid:
+            return RunResult(
+                success=False,
+                error="Release Plan 验证失败",
+                duration=time.time() - start,
+            )
+        try:
+            run_result, _ = self._run_resolved_plan(
+                release_plan,
+                start,
+                confirm_knowledge=confirm_knowledge,
+            )
+            return run_result
+        except Exception as e:
+            logger.exception("run_release_plan failed")
             return RunResult(success=False, error=str(e), duration=time.time() - start)
 
     # ─── 3. diagnose — 项目体检 ───

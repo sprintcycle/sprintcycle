@@ -1,11 +1,14 @@
 """
-Runner 意图处理器
+已解析 Release Plan 的执行适配（弃用路径）
 
-从已解析的 Release Plan 执行交付：委托 ``SprintCycle._run_resolved_plan``，
-与 ``SprintCycle.run`` 共用知识门、并发度（``parallel_tasks``）与编排器配置。
+首选：``SprintCycle.run_release_plan(release_plan)``，返回与 ``run()`` 一致的 ``RunResult``。
+
+``RunnerHandler`` 仅保留向后兼容，委托 ``run_release_plan`` 并映射为 ``IntentResult``。
 """
 
-import time
+from __future__ import annotations
+
+import warnings
 from typing import TYPE_CHECKING, Optional
 
 from loguru import logger
@@ -19,9 +22,13 @@ if TYPE_CHECKING:
     from ..release_plan.models import ReleasePlan
 
 
+def parse_release_plan_file(file_path: str) -> "ReleasePlan":
+    """从 YAML 文件解析 Release Plan。"""
+    return ReleasePlanParser().parse_file(file_path)
+
 
 class RunnerHandler(IntentHandler):
-    """从 Release Plan 对象执行（与 ``SprintCycle.run(release_plan_yaml=…)`` 行为对齐）。"""
+    """已弃用：请使用 ``SprintCycle.run_release_plan``；需 ``IntentResult`` 时用 ``IntentResult.from_run_result``。"""
 
     def __init__(
         self,
@@ -30,6 +37,12 @@ class RunnerHandler(IntentHandler):
         project_path: str = ".",
         config: Optional["RuntimeConfig"] = None,
     ):
+        warnings.warn(
+            "RunnerHandler is deprecated; use SprintCycle.run_release_plan(release_plan) "
+            "and IntentResult.from_run_result(plan, run_result) if you need IntentResult.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         super().__init__()
         if api is not None:
             self._api = api
@@ -39,50 +52,15 @@ class RunnerHandler(IntentHandler):
             self._api = _SprintCycle(project_path=project_path, config=config)
 
     def execute(self, release_plan: "ReleasePlan") -> IntentResult:
-        """执行已解析计划（经 ``SprintCycle`` 统一路径）。"""
+        """执行已解析计划（委托 ``SprintCycle.run_release_plan``）。"""
         logger.info("🚀 开始执行 Release Plan: {}", release_plan.project.name)
-
-        if not self.validate_release_plan(release_plan):
-            return IntentResult(
-                success=False,
-                release_plan=release_plan,
-                error="Release Plan 验证失败",
-            )
-
-        start = time.time()
-        try:
-            run_result, sprint_results = self._api._run_resolved_plan(
-                release_plan,
-                start,
-                confirm_knowledge=False,
-            )
-            if run_result.pending_knowledge_confirmation:
-                return IntentResult(
-                    success=False,
-                    release_plan=release_plan,
-                    error=run_result.message or "知识注入待确认",
-                    details={
-                        "pending_knowledge_confirmation": True,
-                        "knowledge_injection_preview": run_result.knowledge_injection_preview,
-                    },
-                )
-            if not run_result.success:
-                return IntentResult(
-                    success=False,
-                    release_plan=release_plan,
-                    error=run_result.error or "执行失败",
-                )
-
-            return self._build_result(run_result.success, release_plan, sprint_results)
-        except Exception as e:
-            logger.exception("Release Plan 执行失败")
-            return IntentResult(
-                success=False,
-                release_plan=release_plan,
-                error=str(e),
-            )
+        run_result = self._api.run_release_plan(
+            release_plan,
+            confirm_knowledge=False,
+        )
+        return IntentResult.from_run_result(release_plan, run_result)
 
     @staticmethod
     def parse_release_plan_file(file_path: str) -> "ReleasePlan":
-        """从 YAML 文件解析 Release Plan。"""
-        return ReleasePlanParser().parse_file(file_path)
+        """从 YAML 文件解析 Release Plan（等价于模块级 ``parse_release_plan_file``）。"""
+        return parse_release_plan_file(file_path)

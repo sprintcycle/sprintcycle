@@ -116,3 +116,12 @@ def test_api_knowledge_search(tmp_path: Path) -> None:
     out = sc.knowledge_search(query="unique-phrase-xyz")
     assert out["success"] is True
     assert out["count"] == 1
+
+
+def test_init_db_fresh_sqlite(tmp_path: Path) -> None:
+    from sprintcycle.persistence.session import create_engine_for_path, init_db
+
+    db = tmp_path / "fresh.sqlite"
+    engine = create_engine_for_path(str(db))
+    init_db(engine)
+    engine.dispose()

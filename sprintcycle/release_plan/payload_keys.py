@@ -1,7 +1,7 @@
 """
-执行状态 / 事件负载中的 **规范键名** 与小型读取辅助函数。
+Release plan 在 **松结构负载**（断点、metadata、Agent 上下文等）中的规范键名与读取辅助。
 
-断点、metadata、上下文字段一律使用 ``release_plan_*`` 键名；不再识别或迁移历史 ``prd_*`` 键。
+一律使用 ``release_plan_*`` 键名，由执行层、API、CLI 共用，避免魔法字符串分叉。
 """
 
 from __future__ import annotations

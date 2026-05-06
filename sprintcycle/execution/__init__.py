@@ -1,8 +1,9 @@
 """
-Execution 模块 - 统一执行引擎
-"""
+Execution 模块。
 
-# Use execution.engine.ExecutionEngine._get_evolution_engine() instead
+**推荐执行入口**：``SprintCycle``（``ReleasePlan`` → ``expand_release_plan_for_execution`` →
+``SprintOrchestrator``）。
+"""
 from ..evolution.types import SprintContext
 from .agents import (
     AgentContext,
@@ -19,7 +20,6 @@ from .agents import (
     TestType,
 )
 from .cache import CacheEntry, ExecutionCache, get_cache, set_cache
-from .engine import ExecutionEngine
 from .error_handler import ErrorContext, ErrorHandler, FixResult, get_error_handler, reset_error_handler
 
 # 错误处理组件 (新增)
@@ -44,20 +44,10 @@ from .state.state_store import (
     get_state_store,
     reset_default_state_store,
 )
-from .strategies import EvolutionStrategy as StrategyEvolutionStrategy
-from .strategies import ExecutionStrategy, NormalStrategy, get_strategy
-
-EvolutionStrategy = StrategyEvolutionStrategy
-
-
-def _get_evolution_pipeline():
-    """Lazy import to avoid circular dependency with evolution module"""
-    from ..evolution.evolution_plan_source import DiagnosticReleasePlanSource, ManualReleasePlanSource
-    from ..evolution.pipeline import EvolutionPipeline
-    return EvolutionPipeline, ManualReleasePlanSource, DiagnosticReleasePlanSource
+from .strategies import ExecutionResult, ExecutionStrategy, NormalStrategy, get_strategy
 
 __all__ = [
-    "ExecutionEngine", "SprintExecutor", "NormalStrategy", "EvolutionStrategy", "ExecutionStrategy", "get_strategy",
+    "SprintExecutor", "NormalStrategy", "ExecutionStrategy", "get_strategy", "ExecutionResult",
     "ExecutionStatus", "TaskResult", "SprintResult",
     "EventBus", "Event", "EventType", "get_event_bus",
     "StateStore", "ExecutionState", "get_state_store", "configure_default_store", "reset_default_state_store",

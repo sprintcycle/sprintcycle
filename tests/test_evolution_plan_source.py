@@ -1,91 +1,19 @@
 """
-Tests for evolution plan sources
-
-测试场景:
-1. ManualReleasePlanSource - YAML 文件加载
-2. DiagnosticReleasePlanSource - 诊断驱动计划生成
-3. EvolutionReleasePlan 数据结构
+Tests for plan sources — 产出 ``ReleasePlan``。
 """
 
-import pytest
 import tempfile
-import yaml
 from pathlib import Path
 
+import pytest
+import yaml
+
 from sprintcycle.evolution.evolution_plan_source import (
-    EvolutionReleasePlan,
-    ManualReleasePlanSource,
     DiagnosticReleasePlanSource,
     EvolutionPlanSourceType,
+    ManualReleasePlanSource,
 )
-
-
-class TestEvolutionReleasePlan:
-    """EvolutionReleasePlan 测试"""
-
-    def test_basic_creation(self):
-        plan = EvolutionReleasePlan(
-            name="Test ReleasePlan",
-            version="v1.0.0",
-            path="/test/project",
-            goals=["Goal 1", "Goal 2"],
-            sprints=[{"name": "Sprint 1", "tasks": []}],
-        )
-
-        assert plan.name == "Test ReleasePlan"
-        assert plan.version == "v1.0.0"
-        assert len(plan.goals) == 2
-        assert len(plan.sprints) == 1
-
-    def test_total_tasks(self):
-        plan = EvolutionReleasePlan(
-            name="Test",
-            version="v1.0",
-            path="/test",
-            sprints=[
-                {"name": "S1", "tasks": [{"description": "T1"}, {"description": "T2"}]},
-                {"name": "S2", "tasks": [{"description": "T3"}]},
-            ],
-        )
-
-        assert plan.total_tasks == 3
-
-    def test_metadata(self):
-        plan = EvolutionReleasePlan(
-            name="Test",
-            version="v1.0",
-            path="/test",
-            metadata={"key": "value"},
-            confidence=0.8,
-            expected_benefit=10.0,
-            priority=5,
-        )
-
-        assert plan.confidence == 0.8
-        assert plan.expected_benefit == 10.0
-        assert plan.priority == 5
-        assert plan.metadata["key"] == "value"
-
-    def test_to_dict(self):
-        plan = EvolutionReleasePlan(
-            name="Test ReleasePlan",
-            version="v1.0.0",
-            path="/test/project",
-            goals=["Goal 1"],
-            sprints=[{"name": "Sprint 1", "tasks": []}],
-            source_type=EvolutionPlanSourceType.MANUAL,
-            confidence=0.9,
-        )
-
-        data = plan.to_dict()
-
-        assert data["name"] == "Test ReleasePlan"
-        assert data["version"] == "v1.0.0"
-        assert data["source_type"] == "manual"
-        assert data["confidence"] == 0.9
-        assert data["total_tasks"] == 0
-
-
+from sprintcycle.release_plan.builders import release_plan_from_diagnostic_slices
 class TestManualReleasePlanSource:
     """ManualReleasePlanSource 测试类"""
 
@@ -111,8 +39,10 @@ class TestManualReleasePlanSource:
         yaml_fixture = {
             "project": {
                 "name": "Test Project",
+                "path": ".",
                 "version": "v1.0.0",
             },
+            "mode": "normal",
             "sprints": [
                 {
                     "name": "Sprint 1",
@@ -130,7 +60,7 @@ class TestManualReleasePlanSource:
             plan_dir.mkdir()
 
             yaml_file = plan_dir / "test.yaml"
-            with open(yaml_file, "w") as f:
+            with open(yaml_file, "w", encoding="utf-8") as f:
                 yaml.dump(yaml_fixture, f)
 
             source = ManualReleasePlanSource()
@@ -138,30 +68,37 @@ class TestManualReleasePlanSource:
 
             assert len(plans) == 1
             plan = plans[0]
-            assert plan.name == "Test Project"
-            assert plan.version == "v1.0.0"
-            assert len(plan.goals) == 2
+            assert plan.project.name == "Test Project"
+            assert plan.project.version == "v1.0.0"
             assert len(plan.sprints) == 1
-            assert len(plan.sprints[0]["tasks"]) == 2
+            assert len(plan.sprints[0].tasks) == 2
+            assert plan.metadata.get("diagnostic_priority") == 100
 
-    def test_generate_with_priority(self):
+    def test_generate_metadata_priority(self):
         yaml_fixture = {
-            "project": {"name": "Test"},
-            "sprints": [],
+            "project": {"name": "Test", "path": ".", "version": "v1.0"},
+            "mode": "normal",
+            "sprints": [
+                {
+                    "name": "S1",
+                    "goals": [],
+                    "tasks": [{"description": "t", "agent": "coder"}],
+                }
+            ],
         }
 
         with tempfile.TemporaryDirectory() as tmpdir:
             plan_dir = Path(tmpdir) / "release_plan"
             plan_dir.mkdir()
 
-            with open(plan_dir / "test.yaml", "w") as f:
+            with open(plan_dir / "test.yaml", "w", encoding="utf-8") as f:
                 yaml.dump(yaml_fixture, f)
 
             source = ManualReleasePlanSource()
             plans = source.generate(tmpdir)
 
-            assert plans[0].priority == 100
-            assert plans[0].confidence == 1.0
+            assert plans[0].metadata.get("diagnostic_priority") == 100
+            assert plans[0].metadata.get("diagnostic_confidence") == 1.0
 
 
 class TestDiagnosticReleasePlanSource:
@@ -183,18 +120,59 @@ class TestDiagnosticReleasePlanSource:
     def test_filter_plans(self):
         source = DiagnosticReleasePlanSource()
 
+        def one_task_sprint() -> list:
+            return [
+                {
+                    "name": "S1",
+                    "goals": [],
+                    "tasks": [{"description": "x", "agent": "coder"}],
+                }
+            ]
+
         plans = [
-            EvolutionReleasePlan("P1", "v1", "/test", confidence=0.9, expected_benefit=10),
-            EvolutionReleasePlan("P2", "v1", "/test", confidence=0.3, expected_benefit=5),
-            EvolutionReleasePlan("P3", "v1", "/test", confidence=0.6, expected_benefit=-1),
-            EvolutionReleasePlan("P4", "v1", "/test", confidence=0.7, expected_benefit=3),
+            release_plan_from_diagnostic_slices(
+                plan_name="P1",
+                project_path="/test",
+                sprint_dicts=one_task_sprint(),
+                rule="r",
+                confidence=0.9,
+                expected_benefit=10.0,
+                priority=1,
+            ),
+            release_plan_from_diagnostic_slices(
+                plan_name="P2",
+                project_path="/test",
+                sprint_dicts=one_task_sprint(),
+                rule="r",
+                confidence=0.3,
+                expected_benefit=5.0,
+                priority=1,
+            ),
+            release_plan_from_diagnostic_slices(
+                plan_name="P3",
+                project_path="/test",
+                sprint_dicts=one_task_sprint(),
+                rule="r",
+                confidence=0.6,
+                expected_benefit=-1.0,
+                priority=1,
+            ),
+            release_plan_from_diagnostic_slices(
+                plan_name="P4",
+                project_path="/test",
+                sprint_dicts=one_task_sprint(),
+                rule="r",
+                confidence=0.7,
+                expected_benefit=3.0,
+                priority=1,
+            ),
         ]
 
         filtered = source._filter_plans(plans)
 
         assert len(filtered) == 2
-        assert filtered[0].name == "P1"
-        assert filtered[1].name == "P4"
+        assert filtered[0].project.name == "P1"
+        assert filtered[1].project.name == "P4"
 
 
 class TestEvolutionPlanSourceType:

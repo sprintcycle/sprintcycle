@@ -4,9 +4,9 @@ Sprint 执行编排（主实现模块；类 ``SprintOrchestrator``）
 **Scrum 语境**：本模块负责把 **Release Plan**（``ReleasePlan`` YAML）转为按 Sprint 顺序的**交付编排**，
 不是日历「排期」。``execute_release_plan`` / ``resume_from_sprint`` 即一次 **Sprint 序列的执行**。
 
-**主执行路径**：``SprintCycle.run`` / 断点续跑经 ``SprintOrchestrator.execute_release_plan``；
-自进化模式在入口由 ``expand_release_plan_for_execution`` 展开为与普通模式相同的 ``sprints``，
-随后统一由 ``SprintExecutor.execute_sprints`` 驱动。
+**主执行路径（唯一推荐）**：``ReleasePlan`` → ``expand_release_plan_for_execution``（自进化 YAML 在此并入）
+→ ``SprintOrchestrator.execute_release_plan`` → ``SprintExecutor.execute_sprints``（``mode=normal``）。
+``SprintCycle.run`` / 断点续跑经本模块。
 """
 
 import os
@@ -18,7 +18,6 @@ from loguru import logger
 
 from ..config import RuntimeConfig
 from ..evolution.measurement import MeasurementResult
-from ..evolution.pipeline import EvolutionPipeline
 from ..execution.events import Event, EventBus, EventType, create_event, get_event_bus
 from ..execution.feedback import FeedbackLoop
 from ..execution.hooks.sprint_hooks import ChainedSprintHooks, SprintLifecycleHooks
@@ -104,13 +103,11 @@ class SprintOrchestrator:
     def __init__(
         self,
         config: Optional[RuntimeConfig] = None,
-        evolution_pipeline: Optional[EvolutionPipeline] = None,
         event_bus: Optional[EventBus] = None,
         project_path: Optional[str] = None,
     ):
         self.config = config or RuntimeConfig()
         self._project_root = os.path.abspath(project_path or ".")
-        self.evolution_pipeline = evolution_pipeline
         self.event_bus = event_bus
         self._callbacks: Dict[str, Callable] = {
             "on_task_start": self._default_on_task_start,
@@ -316,7 +313,6 @@ class SprintOrchestrator:
 
     def get_summary(self) -> Dict[str, Any]:
         return {
-            "evolution_pipeline": self.evolution_pipeline is not None,
             "callbacks": list(self._callbacks.keys()),
             "event_bus": self.event_bus is not None,
         }

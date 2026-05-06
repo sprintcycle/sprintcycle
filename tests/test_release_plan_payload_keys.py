@@ -1,10 +1,8 @@
-"""执行状态规范键与 ``wire_compat`` 读取辅助。"""
+"""``release_plan.payload_keys``：松结构负载中的规范键与读取辅助。"""
 
 from __future__ import annotations
 
-from pathlib import Path
-
-from sprintcycle.execution.state.wire_compat import (
+from sprintcycle.release_plan.payload_keys import (
     KEY_PLAN_ID,
     KEY_PLAN_NAME,
     KEY_PLAN_YAML,
@@ -32,12 +30,3 @@ def test_context_plan_id_name_and_dict_plan_name() -> None:
     assert rid == "a" and name == "n"
     assert dict_plan_name({KEY_PLAN_NAME: "P"}) == "P"
     assert dict_plan_name({}) == ""
-
-
-def test_init_db_fresh_sqlite(tmp_path: Path) -> None:
-    from sprintcycle.persistence.session import create_engine_for_path, init_db
-
-    db = tmp_path / "fresh.sqlite"
-    engine = create_engine_for_path(str(db))
-    init_db(engine)
-    engine.dispose()

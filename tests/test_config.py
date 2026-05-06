@@ -11,6 +11,7 @@ from sprintcycle.config import (
     CodingClaudeConfig,
 
     CodingConfig,
+    RuntimeConfig,
     SprintCycleConfig,
     load_config_from_env,
     validate_config,
@@ -270,3 +271,26 @@ class TestValidateConfig:
         errors = validate_config(config)
         # 有效配置，无错误
         assert len(errors) == 0
+
+
+class TestRuntimeConfigBasics:
+    """RuntimeConfig（运行态）字段默认值与构造。"""
+
+    def test_default_values(self):
+        config = RuntimeConfig()
+
+        assert config.max_sprints == 10
+        assert config.max_tasks_per_sprint == 5
+        assert config.dry_run is False
+        assert config.evolution_enabled is True
+
+    def test_custom_values(self):
+        config = RuntimeConfig(
+            max_sprints=5,
+            max_tasks_per_sprint=50,
+            dry_run=True,
+        )
+
+        assert config.max_sprints == 5
+        assert config.max_tasks_per_sprint == 50
+        assert config.dry_run is True

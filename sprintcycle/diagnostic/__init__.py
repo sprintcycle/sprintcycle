@@ -1,7 +1,7 @@
 """
 Diagnostic Module - 项目诊断模块
 
-提供多维度项目体检与 **进化用执行计划**（``EvolutionReleasePlan``）生成能力:
+提供多维度项目体检与 **诊断用 ``ReleasePlan``** 生成能力:
 - ProjectDiagnostic: 项目诊断提供者
 - ProjectHealthReport: 健康报告
 - DiagnosticReleasePlanGenerator / ReleasePlanRuleEngine: 规则 + LLM 生成计划
@@ -30,7 +30,7 @@ __all__ = [
     "Severity",
     # 诊断提供者
     "ProjectDiagnostic",
-    # 执行计划生成（进化子域用 EvolutionReleasePlan）
+    # 执行计划生成（主线 ReleasePlan）
     "DiagnosticReleasePlanGenerator",
     "ReleasePlanRuleEngine",
     "ReleasePlanRule",

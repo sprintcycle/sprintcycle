@@ -1,7 +1,8 @@
 """
 SprintCycle Evolution Module
 
-v0.9.0: 统一进化管道 — ``EvolutionPipeline`` + ``EvolutionPlanSource`` + Diagnostic；人工 YAML 默认目录 **`release_plan/`**（见 ``ManualReleasePlanSource``）。
+**执行主路径**在 ``SprintCycle`` + ``ReleasePlan`` + ``expand_release_plan_for_execution`` +
+``SprintOrchestrator``；本包提供测量、记忆、回滚，以及 ``ManualReleasePlanSource`` 等（磁盘扫描与诊断辅助）。
 """
 
 # ========== Core Types ==========
@@ -9,7 +10,6 @@ from .evolution_plan_source import (
     DiagnosticReleasePlanSource,
     EvolutionPlanSource,
     EvolutionPlanSourceType,
-    EvolutionReleasePlan,
     ManualReleasePlanSource,
 )
 
@@ -23,12 +23,6 @@ from .memory_store import (
     MemoryStore,
 )
 
-# ========== Unified Pipeline (v0.9.0) ==========
-from .pipeline import (
-    EvolutionPipeline,
-    EvolutionReleasePlanResult,
-    SprintExecutionResult,
-)
 from .rollback_manager import (
     EvolutionRollbackManager,
     RollbackError,
@@ -40,13 +34,9 @@ __version__ = "0.9.1"
 
 __all__ = [
     "SprintContext",
-    "EvolutionPipeline",
-    "EvolutionReleasePlanResult",
-    "SprintExecutionResult",
     "EvolutionPlanSource",
     "ManualReleasePlanSource",
     "DiagnosticReleasePlanSource",
-    "EvolutionReleasePlan",
     "EvolutionPlanSourceType",
     "MeasurementProvider",
     "MeasurementResult",

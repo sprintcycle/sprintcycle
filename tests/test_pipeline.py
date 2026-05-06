@@ -1,240 +1,98 @@
 """
-Tests for EvolutionPipeline - 统一进化管道测试
+主执行路径回归：``ReleasePlan`` → ``SprintOrchestrator`` / ``SprintCycle.run_release_plan``。
 
-v0.9.1: 更新测试以匹配移除 run() 方法后的新 API
+（取代已删除的 ``EvolutionPipeline`` 覆盖场景。）
 """
 
+import asyncio
 from pathlib import Path
 
 import pytest
 
+from sprintcycle.api import SprintCycle
 from sprintcycle.config import RuntimeConfig
-from sprintcycle.evolution.pipeline import (
-    EvolutionPipeline,
-    EvolutionReleasePlanResult,
-    SprintExecutionResult,
+from sprintcycle.orchestration.sprint_orchestrator import SprintOrchestrator
+from sprintcycle.release_plan.models import (
+    ExecutionMode,
+    ProductAnchor,
+    ReleasePlan,
+    SprintBacklogItem,
+    SprintDefinition,
 )
-from sprintcycle.evolution.evolution_plan_source import (
-    EvolutionReleasePlan,
-    EvolutionPlanSourceType,
-)
-from sprintcycle.execution.sprint_types import ExecutionStatus
 
 
-class TestEvolutionPipeline:
-    """EvolutionPipeline测试类"""
+def _plan(project_path: str, *, sprints: list) -> ReleasePlan:
+    return ReleasePlan(
+        project=ProductAnchor(name="Test ReleasePlan", path=project_path, version="v1.0.0"),
+        mode=ExecutionMode.NORMAL,
+        sprints=sprints,
+        metadata={"plan_source_type": "manual"},
+    )
 
-    def test_init_default(self):
-        """测试默认初始化"""
-        pipeline = EvolutionPipeline(project_path="/test/project")
 
-        assert pipeline.project_path == "/test/project"
-        # Default initializes with ManualReleasePlanSource
-        from sprintcycle.evolution.evolution_plan_source import ManualReleasePlanSource
-        assert isinstance(pipeline._plan_source, ManualReleasePlanSource)
+class TestSprintOrchestratorMainPath:
+    """与旧 EvolutionPipeline 等价的编排器执行。"""
 
-    def test_init_with_config(self):
-        """测试带RuntimeConfig初始化"""
-        config = RuntimeConfig(
-            max_sprints=3,
-            max_tasks_per_sprint=10,
-            dry_run=True,
-        )
-        pipeline = EvolutionPipeline(
-            project_path="/test/project",
-            config=config,
-        )
-
-        assert pipeline._config is config
-        assert pipeline._config.max_sprints == 3
-        assert pipeline._config.max_tasks_per_sprint == 10
-        assert pipeline._config.dry_run is True
-
-    def test_init_with_memory_store(self):
-        """测试带MemoryStore初始化"""
-        from sprintcycle.evolution.memory_store import MemoryStore
-
-        memory_store = MemoryStore(storage_path="/tmp/memory")
-        pipeline = EvolutionPipeline(
-            project_path="/test/project",
-            memory_store=memory_store,
-        )
-
-        assert pipeline._memory_store is memory_store
-
-    def test_execute_with_sprint_success(self):
-        """测试执行带Sprint的成功场景"""
-        plan = EvolutionReleasePlan(
-            name="Test ReleasePlan",
-            version="v1.0.0",
-            path="/test/project",
-            sprints=[{
-                "name": "Sprint 1",
-                "goals": [],
-                "tasks": [{"description": "Task 1", "agent": "coder"}],
-            }],
-            source_type=EvolutionPlanSourceType.MANUAL,
-        )
-
-        pipeline = EvolutionPipeline(
-            project_path="/test/project",
-        )
-
-        result = pipeline.execute(plan)
-
-        assert result.release_plan == plan
-        assert len(result.sprint_results) == 1
-
-    def test_execute_delegates_when_runtime_config(self, tmp_path: Path):
-        """有 RuntimeConfig 时走 SprintOrchestrator（dry_run，不触网）。"""
-        plan = EvolutionReleasePlan(
-            name="delegated",
-            version="1.0",
-            path=str(tmp_path),
+    def test_execute_single_sprint_dry_run(self):
+        plan = _plan(
+            "/test/project",
             sprints=[
-                {
-                    "name": "S1",
-                    "tasks": [{"description": "noop", "agent": "coder"}],
-                }
+                SprintDefinition(
+                    name="Sprint 1",
+                    goals=[],
+                    tasks=[SprintBacklogItem(description="Task 1", agent="coder")],
+                )
             ],
+        )
+        orch = SprintOrchestrator(config=RuntimeConfig(dry_run=True, quality_level="L1"))
+        results = asyncio.run(orch.execute_release_plan(plan))
+        assert len(results) == 1
+        assert results[0].sprint.name == "Sprint 1"
+
+    def test_execute_dry_run_with_project_path(self, tmp_path: Path):
+        plan = ReleasePlan(
+            project=ProductAnchor(name="delegated", path=str(tmp_path), version="1.0"),
+            mode=ExecutionMode.NORMAL,
+            sprints=[
+                SprintDefinition(
+                    name="S1",
+                    goals=[],
+                    tasks=[SprintBacklogItem(description="noop", agent="coder")],
+                )
+            ],
+            metadata={},
         )
         cfg = RuntimeConfig(dry_run=True, quality_level="L1")
-        pipeline = EvolutionPipeline(project_path=str(tmp_path), config=cfg)
-        result = pipeline.execute(plan)
-        assert result.success
-        assert len(result.sprint_results) == 1
-        assert result.sprint_results[0].sprint_name == "S1"
+        orch = SprintOrchestrator(config=cfg, project_path=str(tmp_path))
+        results = asyncio.run(orch.execute_release_plan(plan))
+        assert len(results) == 1
+        assert results[0].sprint.name == "S1"
 
     def test_execute_empty_sprints(self):
-        """测试执行空Sprints"""
-        plan = EvolutionReleasePlan(
-            name="Test ReleasePlan",
-            version="v1.0.0",
-            path="/test/project",
-            sprints=[],
-            source_type=EvolutionPlanSourceType.MANUAL,
-        )
-
-        pipeline = EvolutionPipeline(
-            project_path="/test/project",
-        )
-
-        result = pipeline.execute(plan)
-
-        # Empty sprints results in success=True with 0 sprint results
-        # This is expected behavior - no sprints means nothing to fail
-        assert len(result.sprint_results) == 0
-
-    @pytest.mark.asyncio
-    async def test_evolve_sprint_with_config(self, tmp_path: Path) -> None:
-        from sprintcycle.release_plan.models import SprintDefinition, SprintBacklogItem
-
-        cfg = RuntimeConfig(dry_run=True)
-        pl = EvolutionPipeline(str(tmp_path), config=cfg)
-        sp = SprintDefinition(name="evo-s", goals=["g"], tasks=[SprintBacklogItem(description="work", agent="coder")])
-        r = await pl.evolve_sprint(sprint=sp)
-        assert r.success is True
-
-    def test_pipeline_status_property(self):
-        """测试status属性"""
-        pipeline = EvolutionPipeline(project_path="/test/project")
-
-        # Initial status should be IDLE
-        assert pipeline.status == ExecutionStatus.IDLE
-
-    def test_pipeline_result_to_dict(self):
-        """测试 EvolutionReleasePlanResult 序列化"""
-        plan = EvolutionReleasePlan(
-            name="Test ReleasePlan",
-            version="v1.0.0",
-            path="/test/project",
-            sprints=[],
-            source_type=EvolutionPlanSourceType.MANUAL,
-        )
-        result = EvolutionReleasePlanResult(
-            release_plan=plan,
-            success=True,
-        )
-
-        data = result.to_dict()
-
-        assert data["release_plan_name"] == "Test ReleasePlan"
-        assert data["success"] is True
+        plan = _plan("/test/project", sprints=[])
+        orch = SprintOrchestrator(config=RuntimeConfig(dry_run=True, quality_level="L1"))
+        results = asyncio.run(orch.execute_release_plan(plan))
+        assert len(results) == 0
 
 
-class TestRuntimeConfig:
-    """RuntimeConfig测试类"""
+class TestSprintCycleRunReleasePlan:
+    """``SprintCycle.run_release_plan`` 与编排器同栈。"""
 
-    def test_default_values(self):
-        """测试默认值"""
-        config = RuntimeConfig()
-
-        assert config.max_sprints == 10
-        assert config.max_tasks_per_sprint == 5
-        assert config.dry_run is False
-        assert config.evolution_enabled is True
-
-    def test_custom_values(self):
-        """测试自定义值"""
-        config = RuntimeConfig(
-            max_sprints=5,
-            max_tasks_per_sprint=50,
-            dry_run=True,
-        )
-
-        assert config.max_sprints == 5
-        assert config.max_tasks_per_sprint == 50
-        assert config.dry_run is True
-
-
-class TestSprintExecutionResult:
-    """SprintExecutionResult测试类"""
-
-    def test_success_result(self):
-        """测试成功结果"""
-        result = SprintExecutionResult(
-            sprint_name="Sprint 1",
-            success=True,
-            task_results=[
-                {"description": "Task 1", "success": True},
-                {"description": "Task 2", "success": True},
+    def test_run_release_plan_dry_run(self, tmp_path: Path):
+        cfg = RuntimeConfig(dry_run=True, quality_level="L1")
+        sc = SprintCycle(project_path=str(tmp_path), config=cfg)
+        plan = ReleasePlan(
+            project=ProductAnchor(name="api-run", path=str(tmp_path), version="1.0"),
+            mode=ExecutionMode.NORMAL,
+            sprints=[
+                SprintDefinition(
+                    name="S1",
+                    goals=[],
+                    tasks=[SprintBacklogItem(description="x", agent="coder")],
+                )
             ],
-            duration=5.0,
+            metadata={},
         )
-
-        assert result.success is True
-        assert result.duration == 5.0
-        assert len(result.task_results) == 2
-
-    def test_failure_result(self):
-        """测试失败结果"""
-        result = SprintExecutionResult(
-            sprint_name="Sprint 1",
-            success=False,
-            task_results=[
-                {"description": "Task 1", "success": False, "error": "Failed"},
-            ],
-            duration=3.0,
-            error="Sprint failed",
-        )
-
-        assert result.success is False
-        assert result.error == "Sprint failed"
-
-    def test_to_dict(self):
-        """测试序列化"""
-        result = SprintExecutionResult(
-            sprint_name="Sprint 1",
-            success=True,
-            duration=3.5,
-        )
-
-        data = result.to_dict()
-
-        assert data["sprint_name"] == "Sprint 1"
-        assert data["success"] is True
-        assert data["duration"] == 3.5
-
-
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
+        rr = sc.run_release_plan(plan)
+        assert rr.success is True
+        assert rr.completed_sprints >= 1

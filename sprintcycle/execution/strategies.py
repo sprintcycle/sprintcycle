@@ -1,8 +1,8 @@
 """
-执行策略 - Normal 和 Evolution 两种策略
+执行策略 — 仅保留 ``NormalStrategy``（与 ``SprintCycle`` 主路径一致）。
 
-策略模式实现，所有策略共用 SprintExecutor。
-Evolution 作为 Sprint 的增强能力，由 SprintExecutor 内部调用。
+历史 ``ExecutionEngine`` / ``EvolutionStrategy`` 已移除；自进化 YAML 请使用
+``expand_release_plan_for_execution`` 后走编排器。
 """
 
 import time
@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
-from ..release_plan.models import ReleasePlan, ExecutionMode
+from ..release_plan.models import ReleasePlan
 from .sprint_executor import ExecutionStatus, SprintExecutor, SprintResult
 
 
@@ -54,47 +54,20 @@ class ExecutionResult:
 
 
 class ExecutionStrategy(ABC):
-    """
-    执行策略基类
-    
-    所有策略都必须实现 execute 方法，并共享 SprintExecutor。
-    """
+    """执行策略基类：共享 ``SprintExecutor``。"""
 
     def __init__(self, sprint_executor: SprintExecutor):
-        """
-        初始化策略
-        
-        Args:
-            sprint_executor: 共享的 Sprint 执行器
-        """
         self.sprint_executor = sprint_executor
 
     @abstractmethod
     async def execute(self, release_plan: ReleasePlan) -> ExecutionResult:
-        """
-        执行 ReleasePlan
-        
-        Args:
-            release_plan: ReleasePlan 对象
-            
-        Returns:
-            ExecutionResult: 执行结果
-        """
         pass
 
 
 class NormalStrategy(ExecutionStrategy):
-    """
-    普通任务策略
-    
-    直接执行 Sprint 迭代，适用于开发其他项目。
-    
-    流程：
-    Sprint 1 → Sprint 2 → Sprint 3 → ... → 完成
-    """
+    """标准 Sprint 顺序交付。"""
 
     async def execute(self, release_plan: ReleasePlan) -> ExecutionResult:
-        """执行普通任务"""
         start_time = time.time()
         logger.info(f"📋 Normal 策略执行: {release_plan.project.name}")
 
@@ -103,7 +76,6 @@ class NormalStrategy(ExecutionStrategy):
             release_plan.sprints, mode="normal", release_plan=release_plan, sprint_index_offset=0
         )
 
-        # 判断整体成功
         success = all(r.status == ExecutionStatus.SUCCESS for r in sprint_results)
 
         duration = time.time() - start_time
@@ -118,82 +90,9 @@ class NormalStrategy(ExecutionStrategy):
         )
 
 
-class EvolutionStrategy(ExecutionStrategy):
-    """
-    自进化策略 - 通过 SprintExecutor 执行
-    
-    方案 A：Evolution 成为 Sprint 的增强能力，而非独立流程。
-    底层复用 SprintExecutor，由其内部调用 EvolutionEngine。
-    
-    流程：
-    Sprint 1 → EvolutionEngine.evolve_sprint() → SprintResult
-    Sprint 2 → EvolutionEngine.evolve_sprint() → SprintResult
-    ...
-    
-    关键：EvolutionEngine 通过 SprintExecutor 间接使用
-    """
-
-    def __init__(
-        self,
-        sprint_executor: SprintExecutor,
-    ):
-        """
-        初始化自进化策略
-        
-        Args:
-            sprint_executor: 共享的 Sprint 执行器（已注入 EvolutionEngine）
-        """
-        super().__init__(sprint_executor)
-        # 不再直接持有 evolution_engine，而是通过 SprintExecutor 使用
-
-    async def execute(self, release_plan: ReleasePlan) -> ExecutionResult:
-        """执行自进化 - 统一走 SprintExecutor"""
-        start_time = time.time()
-        logger.info(f"🔄 Evolution 策略执行: {release_plan.project.name}")
-
-        # 调用 SprintExecutor 的 evolution 模式
-        # EvolutionEngine 已在 SprintExecutor 内部，通过 _execute_evolution_sprints 调用
-        self.sprint_executor.set_release_plan(release_plan)
-        sprint_results = await self.sprint_executor.execute_sprints(
-            sprints=release_plan.sprints,
-            mode="evolution",
-            evolution_config=release_plan.evolution,
-            release_plan=release_plan,
-            sprint_index_offset=0,
-        )
-
-        success = all(r.status == ExecutionStatus.SUCCESS for r in sprint_results)
-        duration = time.time() - start_time
-
-        logger.info(f"{'✅' if success else '❌'} Evolution 策略完成 ({duration:.2f}s)")
-
-        return ExecutionResult(
-            success=success,
-            release_plan=release_plan,
-            sprint_results=sprint_results,
-            duration=duration,
-        )
-
-
-# 策略工厂
 def get_strategy(
-    mode: ExecutionMode,
+    mode: Any,
     sprint_executor: SprintExecutor,
 ) -> ExecutionStrategy:
-    """
-    根据模式获取对应的策略
-    
-    方案 A：EvolutionStrategy 不再直接持有 EvolutionEngine，
-    而是依赖 SprintExecutor 内部注入的 EvolutionEngine。
-    
-    Args:
-        mode: 执行模式
-        sprint_executor: Sprint 执行器（已注入 EvolutionEngine）
-        
-    Returns:
-        ExecutionStrategy: 对应的策略实例
-    """
-    if mode == ExecutionMode.EVOLUTION:
-        return EvolutionStrategy(sprint_executor)
-    else:
-        return NormalStrategy(sprint_executor)
+    """始终返回 ``NormalStrategy``（``mode`` 参数忽略，保留签名供极少旧代码）。"""
+    return NormalStrategy(sprint_executor)

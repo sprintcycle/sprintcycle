@@ -16,7 +16,7 @@ from ...persistence.models import ExecutionRow
 from ...persistence.session import create_engine_for_path, init_db
 from ..sprint_types import ExecutionStatus
 from .state_store import ExecutionState
-from .wire_compat import checkpoint_plan_yaml
+from ...release_plan.payload_keys import checkpoint_plan_yaml
 
 
 class SqliteExecutionStore:

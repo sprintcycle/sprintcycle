@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 if TYPE_CHECKING:
     from ..orchestration.sprint_orchestrator import SprintResult
     from ..release_plan.models import ReleasePlan
+    from ..results import RunResult
 
 
 @dataclass
@@ -35,6 +36,50 @@ class IntentResult:
             "error": self.error,
             "details": self.details,
         }
+
+    @classmethod
+    def from_run_result(
+        cls,
+        release_plan: "ReleasePlan",
+        run_result: "RunResult",
+    ) -> "IntentResult":
+        """由 ``SprintCycle.run_release_plan`` 的 ``RunResult`` 组装（``sprint_results`` 为空列表）。"""
+        from ..results import RunResult
+
+        if not isinstance(run_result, RunResult):
+            raise TypeError("run_result must be RunResult")
+
+        if run_result.pending_knowledge_confirmation:
+            return cls(
+                success=False,
+                release_plan=release_plan,
+                error=run_result.message or "知识注入待确认",
+                total_sprints=run_result.total_sprints,
+                total_tasks=run_result.total_tasks,
+                details={
+                    "pending_knowledge_confirmation": True,
+                    "knowledge_injection_preview": run_result.knowledge_injection_preview,
+                },
+            )
+
+        if not run_result.success:
+            return cls(
+                success=False,
+                release_plan=release_plan,
+                error=run_result.error or "执行失败",
+                total_sprints=run_result.total_sprints,
+                total_tasks=run_result.total_tasks,
+            )
+
+        return cls(
+            success=True,
+            release_plan=release_plan,
+            completed_sprints=run_result.completed_sprints,
+            completed_tasks=run_result.completed_tasks,
+            total_sprints=run_result.total_sprints,
+            total_tasks=run_result.total_tasks,
+            sprint_results=[],
+        )
 
 
 class IntentHandler(ABC):
