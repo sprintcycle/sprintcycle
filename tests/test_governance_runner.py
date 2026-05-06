@@ -82,6 +82,36 @@ review:
     assert not any("ok-echo" in v.rule_id for v in rep.violations)
 
 
+def test_planning_argv_failure_downgraded_when_flag_on(tmp_path: Path) -> None:
+    gov = tmp_path / "gov.yaml"
+    gov.write_text(
+        """
+version: 1
+planning:
+  - id: bad-cmd
+    argv: ["python", "-c", "import sys; sys.exit(1)"]
+    expect_code: 0
+    severity: error
+""",
+        encoding="utf-8",
+    )
+    base = dict(
+        governance_config_path="gov.yaml",
+        governance_review_static=False,
+        governance_review_import_linter=False,
+    )
+    rep_on = run_planning_gate_sync(str(tmp_path), RuntimeConfig(governance_downgrade_errors_to_warnings=True, **base))
+    v_on = [v for v in rep_on.violations if "bad-cmd" in v.rule_id]
+    assert v_on
+    assert v_on[0].severity == "warning"
+    assert not rep_on.has_error_severity()
+
+    rep_off = run_planning_gate_sync(str(tmp_path), RuntimeConfig(governance_downgrade_errors_to_warnings=False, **base))
+    v_off = [v for v in rep_off.violations if "bad-cmd" in v.rule_id]
+    assert v_off[0].severity == "error"
+    assert rep_off.has_error_severity()
+
+
 def test_governance_block_on_validator_invalid_becomes_none():
     cfg = RuntimeConfig(governance_block_on="invalid_mode_xyz")
     assert cfg.governance_block_on == "none"

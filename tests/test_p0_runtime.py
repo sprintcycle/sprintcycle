@@ -45,6 +45,12 @@ def test_flatten_quality_profile():
     assert flat["quality_profile"] == "strict"
 
 
+def test_flatten_governance_downgrade_flag():
+    nested = {"governance": {"downgrade_errors_to_warnings": False}}
+    flat = flatten_sprintcycle_toml(nested)
+    assert flat["governance_downgrade_errors_to_warnings"] is False
+
+
 def test_load_sprintcycle_toml_missing(tmp_path: Path):
     assert load_sprintcycle_toml(tmp_path) == {}
 

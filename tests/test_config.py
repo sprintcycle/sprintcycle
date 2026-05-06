@@ -286,6 +286,7 @@ class TestRuntimeConfigBasics:
         assert config.quality_level == "L2"
         assert config.storage_backend == "sqlite"
         assert config.effective_quality_level() == "L2"
+        assert config.governance_downgrade_errors_to_warnings is True
 
     def test_custom_values(self):
         config = RuntimeConfig(

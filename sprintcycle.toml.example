@@ -46,11 +46,21 @@ sqlite_path = ".sprintcycle/data/sprintcycle.db"
 # Sprint 结束后写入 knowledge_cards 结构化摘要
 # persist_sprint_knowledge_cards = true
 
-# [governance]
-# 产品级门禁：复制 release_plan/templates/governance_product_iteration.example.yaml
-# 为 .sprintcycle/governance.yaml 后启用
-# enabled = true
+# ── 「开箱即审」保守组合（仅观察：不阻断 Planning / Review；CLI 不因 error 退出）──
+# 复制本段到 sprintcycle.toml 即可；可选复制 governance_product_iteration.example.yaml
+# 为 .sprintcycle/governance.yaml 并在下方填写 config_path。
+[governance]
+enabled = true
+block_on = "none"
+# 无文件亦可：仅跑内置 Planning/Review 包；有文件时合并 YAML 中的 planning/review/task_after
 # config_path = ".sprintcycle/governance.yaml"
-# block_on = "review_only"
-# spec_glob = "docs/specs/*.md"
-# check_compose = true
+# 将聚合结果中的 error 一律降为 warning（仍写入报告与日志）
+downgrade_errors_to_warnings = true
+run_static = true
+run_import_linter = true
+check_adr = false
+check_compose = false
+# spec_glob = "docs/specs/*.md"   # 未匹配时本就为 warning；block_on=none 时不阻断 Sprint
+# task_hooks = false              # 任务级 task_after 默认关，避免每任务子进程开销
+
+# 若需 CI 硬失败，改用 block_on = "review_only" 并设 downgrade_errors_to_warnings = false

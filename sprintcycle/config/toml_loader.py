@@ -125,5 +125,7 @@ def flatten_sprintcycle_toml(nested: Dict[str, Any]) -> Dict[str, Any]:
         out["governance_task_hooks_enabled"] = bool(gov["task_hooks"])
     if "task_after_block_on_failure" in gov:
         out["governance_task_after_block_on_failure"] = bool(gov["task_after_block_on_failure"])
+    if "downgrade_errors_to_warnings" in gov:
+        out["governance_downgrade_errors_to_warnings"] = bool(gov["downgrade_errors_to_warnings"])
 
     return out

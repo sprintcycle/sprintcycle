@@ -58,6 +58,8 @@ _DEFAULT_CONFIG: Dict[str, Any] = {
     "governance_report_dir": ".sprintcycle",
     "governance_task_hooks_enabled": False,
     "governance_task_after_block_on_failure": False,
+    # 启用治理后：将 Planning/Review 包中的 error 降为 warning（不阻断；配合 block_on=none 即「仅观察」）
+    "governance_downgrade_errors_to_warnings": True,
 }
 
 
@@ -182,6 +184,8 @@ class RuntimeConfig(BaseSettings):
     governance_task_hooks_enabled: bool = False
     # G v3：task_after 子进程失败时是否将任务标为 failed（可被 YAML 单条 block_on_failure 覆盖）
     governance_task_after_block_on_failure: bool = False
+    # 保守观察：Planning/Review 聚合结果中的 severity=error 降为 warning（仍落盘/日志；不触发 has_error_severity）
+    governance_downgrade_errors_to_warnings: bool = True
 
     @field_validator("quality_level")
     @classmethod

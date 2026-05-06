@@ -1,5 +1,7 @@
 # 普通产品迭代的治理 YAML 示例（复制到项目根下 `.sprintcycle/governance.yaml`，
 # 并在 sprintcycle.toml 的 [governance] 中设置 enabled=true 与 config_path）。
+# 与 sprintcycle.toml.example「开箱即审」段配合：toml 中 block_on=none +
+# downgrade_errors_to_warnings=true 时，本文件内 argv 检查即使标为 error 也会在落盘前降为 warning。
 #
 # 工程约定（与 release_plan/templates/normal_task.yaml 一致）：
 # - 主语言 Python；Web 前端 Vue 3。

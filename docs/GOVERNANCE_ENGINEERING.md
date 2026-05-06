@@ -18,6 +18,7 @@
 ### 1.2 原则
 
 - **默认低开销**：治理与任务级钩子仍**默认关闭**；质量档位与存储则按「普通产品迭代」预设为 **L2（pytest+覆盖率）** 与 **SQLite 状态库**（无 `sprintcycle.toml` 时亦如此），便于自动化测试与单机自闭环。速写原型可用 `[quality] profile = "fast"` 或 `level = "L0"` 显式降级。
+- **「开箱即审」保守组合（可选）**：见 **`sprintcycle.toml.example`** 中 `[governance]` 整段——`enabled = true`、`block_on = "none"`（**从不**因 Planning/Review 的 error 让 `governance check` 退出失败，也不阻断 Sprint）、`downgrade_errors_to_warnings = true`（聚合包内 **error → warning**，仍落盘/日志/SSE）。需要 CI 硬失败时再改 `block_on` 并关闭 downgrade。
 - **钩子优先、内核稳定**：通过 `SprintLifecycleHooks` / 未来可选任务钩子扩展，少改编排器与执行器核心路径。
 - **复用优于自研**：静态分析、架构边界、容器规范等优先调用成熟 CLI，SprintCycle 负责编排与报告聚合。
 
@@ -196,6 +197,8 @@
 enabled = true
 config_path = ".sprintcycle/governance.yaml"
 block_on = "review_only"   # none | review_only | planning_and_review
+# 保守观察：true 时 Planning/Review 聚合结果中 severity=error 降为 warning（默认 true，见 RuntimeConfig）
+# downgrade_errors_to_warnings = true
 spec_glob = "docs/specs/*.md"
 run_static = true
 run_import_linter = true

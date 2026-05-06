@@ -23,3 +23,12 @@ model = "deepseek-reasoner"
 backend = "sqlite"
 state_dir = ".sprintcycle/state"
 sqlite_path = ".sprintcycle/data/sprintcycle.db"
+
+[governance]
+enabled = true
+block_on = "none"
+downgrade_errors_to_warnings = true
+run_static = true
+run_import_linter = true
+check_adr = false
+check_compose = false

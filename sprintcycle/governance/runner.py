@@ -22,6 +22,15 @@ if TYPE_CHECKING:
     from ..config.runtime_config import RuntimeConfig
 
 
+def _maybe_downgrade_errors_to_warnings(cfg: "RuntimeConfig", violations: List[GovernanceViolation]) -> None:
+    """保守「仅观察」：将 error 降为 warning，避免 has_error_severity / 阻断语义误伤。"""
+    if not getattr(cfg, "governance_downgrade_errors_to_warnings", False):
+        return
+    for v in violations:
+        if v.severity == "error":
+            v.severity = "warning"
+
+
 def _resolve_lint_imports_exe() -> Optional[str]:
     import sys
 
@@ -89,6 +98,7 @@ class GovernanceRunner:
         if extra_context:
             meta["context_keys"] = sorted(str(k) for k in extra_context.keys())
 
+        _maybe_downgrade_errors_to_warnings(self._cfg, violations)
         meta["duration_sec"] = round(time.perf_counter() - t0, 3)
         return GovernanceReport(gate="planning", violations=violations, metadata=meta)
 
@@ -251,6 +261,7 @@ class GovernanceRunner:
                 violations.extend(check_compose_hints(cfile, text))
                 meta["steps"].append("compose_hint")
 
+        _maybe_downgrade_errors_to_warnings(self._cfg, violations)
         meta["duration_sec"] = round(time.perf_counter() - t0, 3)
         return GovernanceReport(gate="review", violations=violations, metadata=meta)
 
