@@ -13,6 +13,8 @@ SprintCycle MCP Server
 - sprintcycle_status:   查状态/历史
 - sprintcycle_rollback: 回滚
 - sprintcycle_stop:     停止执行
+- sprintcycle_hitl_pending: 待处理人机卡点
+- sprintcycle_hitl_submit: 提交人机卡点决策
 
 传输模式:
 - stdio: 标准输入输出（默认，本地使用）
@@ -80,7 +82,7 @@ class SprintCycleMCPServer:
     """
     SprintCycle MCP Server 实现
 
-    通过 MCP 协议暴露 SprintCycle API 的 6 大操作。
+    通过 MCP 协议暴露 SprintCycle API 的核心操作（plan/run/… + 可选 HITL）。
     所有逻辑委托给 SprintCycle API，本类只做参数映射 + JSON 序列化。
     """
 
@@ -97,7 +99,7 @@ class SprintCycleMCPServer:
             )
 
     def _register_tools(self) -> None:
-        """注册 6 个 MCP 工具"""
+        """注册 MCP 工具"""
         if self._server is None:
             return
 
@@ -187,6 +189,35 @@ class SprintCycleMCPServer:
                         "required": ["execution_id"],
                     },
                 ),
+                Tool(
+                    name="sprintcycle_hitl_pending",
+                    description="列出待处理的人机卡点（需 sprintcycle.toml [hitl] enabled）",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "execution_id": {
+                                "type": "string",
+                                "description": "可选，仅返回该执行 ID 下的待办",
+                            },
+                        },
+                    },
+                ),
+                Tool(
+                    name="sprintcycle_hitl_submit",
+                    description="提交人机卡点决策：approve | skip_sprint | abort_execution",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "request_id": {"type": "string", "description": "HITL 请求 ID"},
+                            "decision": {
+                                "type": "string",
+                                "enum": ["approve", "skip_sprint", "abort_execution"],
+                            },
+                            "note": {"type": "string", "description": "可选备注"},
+                        },
+                        "required": ["request_id", "decision"],
+                    },
+                ),
             ]
 
         @self._server.call_tool()
@@ -198,6 +229,8 @@ class SprintCycleMCPServer:
                 "sprintcycle_status": self._handle_status,
                 "sprintcycle_rollback": self._handle_rollback,
                 "sprintcycle_stop": self._handle_stop,
+                "sprintcycle_hitl_pending": self._handle_hitl_pending,
+                "sprintcycle_hitl_submit": self._handle_hitl_submit,
             }.get(name)
 
             if handler is None:
@@ -208,7 +241,7 @@ class SprintCycleMCPServer:
             except Exception as e:
                 return _text_response(json.dumps({"success": False, "error": str(e)}, ensure_ascii=False))
 
-    # ─── 6 个 handler ───
+    # ─── tool handlers ───
 
     async def _handle_plan(self, args: Dict[str, Any]) -> List[TextContent]:
         result = self.sc.plan(
@@ -249,6 +282,18 @@ class SprintCycleMCPServer:
     async def _handle_stop(self, args: Dict[str, Any]) -> List[TextContent]:
         result = self.sc.stop(execution_id=args["execution_id"])
         return _text_response(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
+
+    async def _handle_hitl_pending(self, args: Dict[str, Any]) -> List[TextContent]:
+        data = await self.sc.hitl_pending(execution_id=args.get("execution_id"))
+        return _text_response(json.dumps(data, ensure_ascii=False, indent=2))
+
+    async def _handle_hitl_submit(self, args: Dict[str, Any]) -> List[TextContent]:
+        data = await self.sc.hitl_submit(
+            str(args["request_id"]),
+            str(args["decision"]),
+            args.get("note"),
+        )
+        return _text_response(json.dumps(data, ensure_ascii=False, indent=2))
 
     # ─── Server 生命周期 ───
 

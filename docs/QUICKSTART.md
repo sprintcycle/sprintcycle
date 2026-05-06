@@ -79,6 +79,39 @@ cd frontend && npm run dev
 
 发版前若要打含完整前端的 wheel，请参阅 **`docs/RELEASE_CHECKLIST.md`**。
 
+### 人机卡点（HITL）
+
+在 **`sprintcycle.toml`** 中增加 **`[hitl]`**（或环境变量 **`SPRINTCYCLE_HITL_*`**）可在执行过程中插入**人工确认**：默认将待决请求写入项目根下 **`.sprintcycle/hitl.db`**（可用 **`db_path`** 覆盖）。决策通过 **同一套 REST / CLI / MCP** 提交，执行协程轮询数据库直至收到决策或超时，因此 **Dashboard 与 `sprintcycle run` 在同一进程时** 打开 Dashboard 页签即可点按钮放行；**纯 CLI 跑、另开终端决策** 时也可工作（依赖共享的 DB 路径与项目根）。
+
+**常用配置项**（完整示例见仓库根 **`sprintcycle.toml.example`**）：
+
+| 键 | 含义 |
+|----|------|
+| **`enabled`** | 是否启用 HITL。 |
+| **`gates`** | 逗号分隔：`before_sprint`、`after_sprint`、`after_task`。 |
+| **`default_timeout_seconds`** | 单条卡点最长等待秒数；到期按 **`timeout_behavior`** 自动结案。 |
+| **`timeout_behavior`** | `approve`（默认） / `abort_execution` / `skip_sprint`。 |
+| **`after_task_on_failure`** | 为 `true` 时仅在任务非成功后在 `after_task` 门卡点（默认 `true`）。 |
+| **`after_sprint_always`** | 为 `true` 时每个 Sprint 结束后都在 `after_sprint` 门卡点；默认 `false` 时仅在本 Sprint 聚合状态**非** `success` 时在该门卡点。 |
+
+**决策含义**（与执行器语义一致）：
+
+- **`approve`**：继续后续流程。  
+- **`skip_sprint`**：当前 Sprint 不跑任务，记为跳过。  
+- **`abort_execution`**：中止后续 Sprint（在 **before_sprint** 上还会将当前 Sprint 记为取消）；在 **after_sprint / after_task** 上会在下一 Sprint 边界停止。
+
+**Dashboard**：打开 **「✋ 人机卡点」** 页签，可刷新待办、填备注并提交决策；**「实时事件」** 中会收到 **`hitl_request_open` / `hitl_request_resolved`** SSE。
+
+**CLI**：
+
+```bash
+sprintcycle hitl pending
+sprintcycle hitl submit <request_id> --decision approve
+sprintcycle hitl history --limit 30
+```
+
+**MCP**：工具 **`sprintcycle_hitl_pending`**、**`sprintcycle_hitl_submit`**（参数与 CLI 对应）。
+
 ### 执行缓存切换（diskcache / Redis / 关闭）
 
 默认使用本地 **diskcache**；多实例或共享缓存可改为 **Redis**（需 `pip install -e ".[cache-redis]"`）。在项目根 **`sprintcycle.toml`** 的 **`[cache]`** 或环境变量 **`SPRINTCYCLE_CACHE_*`** 中切换，详见 **[`docs/CACHE.md`](CACHE.md)**。

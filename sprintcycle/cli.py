@@ -15,6 +15,7 @@ SprintCycle CLI — 子命令式入口
   sprintcycle init [path]     → 初始化项目
   sprintcycle import-state    → JSON 状态目录导入 SQLite
   sprintcycle knowledge search → 检索知识卡片
+  sprintcycle hitl pending|submit|history → 人机卡点（[hitl] enabled）
   sprintcycle governance check → 治理门禁（Review/Planning）
   sprintcycle governance model-compare [--quick] → 双跑 pytest 对比失败集合
   sprintcycle product … → Docker Compose 构建/启停日志
@@ -622,6 +623,101 @@ def knowledge_search(ctx: click.Context, query: str, tag: tuple[str, ...], limit
         cid_show = (cid[:8] + "…") if len(cid) > 9 else cid
         body = (c.get("body") or "")[:80]
         t.add_row(escape(cid_show), escape(str(c.get("domain", ""))), escape(body))
+    console.print(t)
+
+
+# ─── hitl（人机卡点）───
+
+
+@cli.group("hitl")
+def hitl_group() -> None:
+    """人机卡点：待决策列表与提交决策（需 [hitl] enabled）"""
+
+
+@hitl_group.command("pending")
+@click.option("--execution-id", default=None, help="仅列出该执行 ID 下的待办")
+@click.pass_context
+def hitl_pending(ctx: click.Context, execution_id: Optional[str]) -> None:
+    """列出待处理的人机卡点"""
+    sc: SprintCycle = ctx.obj["sc"]
+    data = asyncio.run(sc.hitl_pending(execution_id=execution_id))
+    if ctx.obj["fmt"] == "json":
+        click.echo(json.dumps(data, ensure_ascii=False, indent=2))
+        return
+    rows = data.get("data") or []
+    if not rows:
+        console.print(Panel.fit("暂无待处理的人机卡点", title="HITL"))
+        return
+    t = Table(title="待处理人机卡点")
+    t.add_column("request_id", max_width=14)
+    t.add_column("execution", max_width=12)
+    t.add_column("gate")
+    t.add_column("title", max_width=48)
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        rid = str(r.get("request_id", ""))
+        t.add_row(
+            (rid[:10] + "…") if len(rid) > 11 else rid,
+            str(r.get("execution_id", ""))[:10],
+            str(r.get("gate", "")),
+            escape(str(r.get("title", ""))[:46]),
+        )
+    console.print(t)
+
+
+@hitl_group.command("submit")
+@click.argument("request_id")
+@click.option(
+    "--decision",
+    required=True,
+    type=click.Choice(["approve", "skip_sprint", "abort_execution"]),
+    help="决策类型",
+)
+@click.option("--note", default=None, help="备注")
+@click.pass_context
+def hitl_submit(ctx: click.Context, request_id: str, decision: str, note: Optional[str]) -> None:
+    """提交人机卡点决策"""
+    sc: SprintCycle = ctx.obj["sc"]
+    data = asyncio.run(sc.hitl_submit(request_id, decision, note))
+    if ctx.obj["fmt"] == "json":
+        click.echo(json.dumps(data, ensure_ascii=False, indent=2))
+        return
+    if not data.get("success"):
+        err_console.print(f"[red]失败[/red] {escape(str(data.get('error', '')))}")
+        raise SystemExit(1)
+    console.print(Panel.fit("[green]已提交决策[/green]", title="HITL"))
+
+
+@hitl_group.command("history")
+@click.option("--execution-id", default=None)
+@click.option("--limit", default=50, type=int)
+@click.pass_context
+def hitl_history(ctx: click.Context, execution_id: Optional[str], limit: int) -> None:
+    """人机卡点历史"""
+    sc: SprintCycle = ctx.obj["sc"]
+    data = asyncio.run(sc.hitl_history(execution_id=execution_id, limit=limit))
+    if ctx.obj["fmt"] == "json":
+        click.echo(json.dumps(data, ensure_ascii=False, indent=2))
+        return
+    rows = data.get("data") or []
+    if not rows:
+        console.print("暂无记录")
+        return
+    t = Table(title="HITL 历史")
+    t.add_column("时间", max_width=20)
+    t.add_column("gate")
+    t.add_column("决策")
+    t.add_column("标题", max_width=40)
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        t.add_row(
+            str(r.get("created_at", ""))[:19],
+            str(r.get("gate", "")),
+            str(r.get("decision") or "-"),
+            escape(str(r.get("title", ""))[:38]),
+        )
     console.print(t)
 
 

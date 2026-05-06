@@ -175,6 +175,11 @@ class StatusRequest(BaseModel):
     execution_id: Optional[str] = None
 
 
+class HitlDecisionBody(BaseModel):
+    decision: str
+    note: Optional[str] = None
+
+
 # ─── 全局状态 ───
 
 _event_handler: Optional[SSEEventHandler] = None
@@ -265,6 +270,18 @@ def create_app(project_path: str = ".") -> FastAPI:
         result = sc.stop(execution_id=req.execution_id)
         return result.to_dict()
 
+    @app.get("/api/hitl/pending")
+    async def api_hitl_pending(execution_id: Optional[str] = None) -> Dict[str, Any]:
+        return await sc.hitl_pending(execution_id=execution_id)
+
+    @app.post("/api/hitl/{request_id}/decision")
+    async def api_hitl_decision(request_id: str, body: HitlDecisionBody) -> Dict[str, Any]:
+        return await sc.hitl_submit(request_id, body.decision, body.note)
+
+    @app.get("/api/hitl/history")
+    async def api_hitl_history(execution_id: Optional[str] = None, limit: int = 50) -> Dict[str, Any]:
+        return await sc.hitl_history(execution_id=execution_id, limit=limit)
+
     # ─── SSE 事件流 ───
 
     @app.get("/api/events/stream")
@@ -284,6 +301,7 @@ def create_app(project_path: str = ".") -> FastAPI:
         - governance_gate: Planning/Review 门摘要（含 compose:* 规则）
         - execution_complete: 执行完成
         - execution_failed: 执行失败
+        - hitl_request_open / hitl_request_resolved: 人机卡点待决策 / 已决策
         """
         client = await client_manager.create_client()
         client_id = client.client_id

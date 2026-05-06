@@ -43,3 +43,13 @@ run_static = true
 run_import_linter = true
 check_adr = false
 check_compose = false
+
+# 人机卡点（HITL）：在 Sprint/任务边界阻塞等待人工决策；详见 docs/QUICKSTART.md「人机卡点 HITL」
+[hitl]
+enabled = false
+gates = "before_sprint"
+default_timeout_seconds = 300
+timeout_behavior = "approve"
+after_task_on_failure = true
+after_sprint_always = false
+# db_path = ".sprintcycle/hitl.db"

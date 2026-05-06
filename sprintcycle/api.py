@@ -66,6 +66,20 @@ class SprintCycle:
         configure_default_store(self.project_path, self.config)
         ensure_default_execution_event_backend_for_project(self.project_path, self.config)
         self._orchestrator: Optional[SprintOrchestrator] = None
+        self._hitl_coordinator: Optional[Any] = None
+
+    def _get_hitl_coordinator(self) -> Optional[Any]:
+        if not getattr(self.config, "hitl_enabled", False):
+            return None
+        if self._hitl_coordinator is None:
+            from .hitl import create_hitl_coordinator
+
+            self._hitl_coordinator = create_hitl_coordinator(
+                self.project_path,
+                self.config,
+                get_execution_event_backend(),
+            )
+        return self._hitl_coordinator
 
     @property
     def orchestrator(self) -> SprintOrchestrator:
@@ -74,8 +88,34 @@ class SprintCycle:
                 config=self.config,
                 event_bus=get_execution_event_backend(),
                 project_path=self.project_path,
+                hitl_coordinator=self._get_hitl_coordinator(),
             )
         return self._orchestrator
+
+    async def hitl_pending(self, execution_id: Optional[str] = None) -> Dict[str, Any]:
+        c = self._get_hitl_coordinator()
+        if not c:
+            return {"success": True, "data": []}
+        return {"success": True, "data": await c.list_pending(execution_id)}
+
+    async def hitl_submit(
+        self, request_id: str, decision: str, note: Optional[str] = None
+    ) -> Dict[str, Any]:
+        c = self._get_hitl_coordinator()
+        if not c:
+            return {"success": False, "error": "HITL is disabled"}
+        rec = await c.submit_decision(request_id, decision, note)
+        if rec is None:
+            return {"success": False, "error": "Request not found or already resolved"}
+        return {"success": True, "data": rec.to_dict()}
+
+    async def hitl_history(
+        self, execution_id: Optional[str] = None, limit: int = 50
+    ) -> Dict[str, Any]:
+        c = self._get_hitl_coordinator()
+        if not c:
+            return {"success": True, "data": []}
+        return {"success": True, "data": await c.list_history(execution_id, limit)}
 
     # ─── 1. plan — 看计划，不干活 ───
 

@@ -150,4 +150,25 @@ def flatten_sprintcycle_toml(nested: Dict[str, Any]) -> Dict[str, Any]:
     if "downgrade_errors_to_warnings" in gov:
         out["governance_downgrade_errors_to_warnings"] = bool(gov["downgrade_errors_to_warnings"])
 
+    hitl = _as_dict(nested.get("hitl"))
+    if "enabled" in hitl:
+        out["hitl_enabled"] = bool(hitl["enabled"])
+    if "db_path" in hitl:
+        v = hitl["db_path"]
+        out["hitl_db_path"] = str(v).strip() if v is not None else None
+    if "default_timeout_seconds" in hitl:
+        out["hitl_default_timeout_seconds"] = int(hitl["default_timeout_seconds"])
+    if "timeout_behavior" in hitl:
+        out["hitl_timeout_behavior"] = str(hitl["timeout_behavior"]).strip().lower()
+    if "gates" in hitl:
+        g = hitl["gates"]
+        if isinstance(g, str):
+            out["hitl_gates"] = g.strip()
+        elif isinstance(g, list):
+            out["hitl_gates"] = ",".join(str(x).strip() for x in g if str(x).strip())
+    if "after_task_on_failure" in hitl:
+        out["hitl_after_task_on_failure"] = bool(hitl["after_task_on_failure"])
+    if "after_sprint_always" in hitl:
+        out["hitl_after_sprint_always"] = bool(hitl["after_sprint_always"])
+
     return out

@@ -15,6 +15,7 @@ from typing import Any, Callable, Dict, List, Optional, Set
 
 from loguru import logger
 
+from ..hitl.types import CTX_HITL_ABORT_EXECUTION, CTX_HITL_SPRINT_ACTION
 from ..release_plan.models import ReleasePlan, SprintBacklogItem, SprintDefinition
 from ..release_plan.payload_keys import context_plan_id_name
 from .hooks.governance_context import (
@@ -351,6 +352,11 @@ class SprintExecutor(CheckpointMixin):
                 execution_id, sprints, context, release_plan=release_plan, sprint_index_offset=sprint_index_offset
             )
         self._execution_id = execution_id or self._init_execution_state()
+        if release_plan is not None:
+            try:
+                setattr(release_plan, "execution_id", self._execution_id)
+            except Exception:
+                pass
         if mode == "evolution":
             logger.warning(
                 "SprintExecutor mode='evolution' is removed; running as normal. "
@@ -377,12 +383,21 @@ class SprintExecutor(CheckpointMixin):
             return []
         start_sprint_idx = resume_point.get("current_sprint", 0)
         self._execution_id = execution_id
+        if release_plan is not None:
+            try:
+                setattr(release_plan, "execution_id", self._execution_id)
+            except Exception:
+                pass
         self.state_store.update_status(execution_id, ExecutionStatus.RUNNING)
         results: List[SprintResult] = []
         ctx = context or {}
+        ctx["execution_id"] = self._execution_id
         for i, sprint in enumerate(sprints):
             if i < start_sprint_idx:
                 continue
+            if ctx.get(CTX_HITL_ABORT_EXECUTION):
+                logger.info("HITL: 已请求中止后续 Sprint（续跑路径）")
+                break
             ctx["sprint_index"] = sprint_index_offset + i
             ctx["sprint_name"] = sprint.name
             ctx["project_goals"] = " ".join(sprint.goals)
@@ -390,6 +405,28 @@ class SprintExecutor(CheckpointMixin):
                 await self._sprint_hooks.on_before_sprint(ctx["sprint_index"], sprint, ctx, release_plan)
             except Exception as e:
                 logger.warning("on_before_sprint hook failed: {}", e)
+            act = ctx.pop(CTX_HITL_SPRINT_ACTION, None)
+            if act == "skip":
+                results.append(
+                    SprintResult(
+                        sprint=sprint,
+                        status=ExecutionStatus.SKIPPED,
+                        task_results=[],
+                        duration=0.0,
+                    )
+                )
+                continue
+            if act == "abort":
+                results.append(
+                    SprintResult(
+                        sprint=sprint,
+                        status=ExecutionStatus.CANCELLED,
+                        task_results=[],
+                        duration=0.0,
+                    )
+                )
+                self._cancelled = True
+                break
             result = await self.execute_sprint(sprint, ctx, save_checkpoint=True)
             results.append(result)
             try:
@@ -409,9 +446,13 @@ class SprintExecutor(CheckpointMixin):
     ) -> List[SprintResult]:
         results: List[SprintResult] = []
         ctx = context
+        ctx["execution_id"] = self._execution_id
         for i, sprint in enumerate(sprints):
             if self._cancelled:
                 logger.info(f"🛑 执行已取消，跳过剩余 Sprint (已完成 {i}/{len(sprints)})")
+                break
+            if ctx.get(CTX_HITL_ABORT_EXECUTION):
+                logger.info("HITL: 已请求中止后续 Sprint，结束编排")
                 break
 
             global_idx = sprint_index_offset + i
@@ -423,6 +464,29 @@ class SprintExecutor(CheckpointMixin):
                 await self._sprint_hooks.on_before_sprint(global_idx, sprint, ctx, release_plan)
             except Exception as e:
                 logger.warning("on_before_sprint hook failed: {}", e)
+
+            act = ctx.pop(CTX_HITL_SPRINT_ACTION, None)
+            if act == "skip":
+                results.append(
+                    SprintResult(
+                        sprint=sprint,
+                        status=ExecutionStatus.SKIPPED,
+                        task_results=[],
+                        duration=0.0,
+                    )
+                )
+                continue
+            if act == "abort":
+                results.append(
+                    SprintResult(
+                        sprint=sprint,
+                        status=ExecutionStatus.CANCELLED,
+                        task_results=[],
+                        duration=0.0,
+                    )
+                )
+                self._cancelled = True
+                break
 
             result = await self.execute_sprint(sprint, ctx, save_checkpoint=True)
             results.append(result)

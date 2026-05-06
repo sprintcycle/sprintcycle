@@ -40,6 +40,16 @@ state_dir = ".sprintcycle/state"
 # sqlite 时 executions + knowledge_cards 共用此文件（相对路径相对项目根）
 sqlite_path = ".sprintcycle/data/sprintcycle.db"
 
+# [hitl]
+# 人机卡点（默认关闭）：在 Sprint/任务边界阻塞等待 Dashboard / CLI / MCP 决策
+# enabled = true
+# gates = "before_sprint"   # 逗号分隔: before_sprint, after_sprint, after_task
+# default_timeout_seconds = 300
+# timeout_behavior = "approve"   # approve | abort_execution | skip_sprint
+# after_task_on_failure = true
+# after_sprint_always = false
+# db_path = ".sprintcycle/hitl.db"
+
 # [cache]
 # 统一执行缓存（默认 diskcache；多实例部署可改为 redis）
 # 完整说明见 docs/CACHE.md；环境变量可用 SPRINTCYCLE_CACHE_BACKEND、SPRINTCYCLE_CACHE_ENABLED 等覆盖

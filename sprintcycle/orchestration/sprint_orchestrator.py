@@ -28,6 +28,7 @@ from ..execution.events import (
 )
 from ..execution.feedback import FeedbackLoop
 from ..execution.hooks.sprint_hooks import ChainedSprintHooks, SprintLifecycleHooks
+from ..execution.hooks.task_hooks import ChainedTaskHooks, TaskLifecycleHooks
 from ..execution.knowledge.knowledge_hook import KnowledgeInjectionHook
 from ..execution.sprint_executor import SprintExecutor
 from ..execution.sprint_types import ExecutionStatus, SprintResult, TaskResult
@@ -208,10 +209,12 @@ class SprintOrchestrator:
         config: Optional[RuntimeConfig] = None,
         event_bus: Optional[ExecutionEventBackend] = None,
         project_path: Optional[str] = None,
+        hitl_coordinator: Optional[Any] = None,
     ):
         self.config = config or RuntimeConfig()
         self._project_root = os.path.abspath(project_path or ".")
         self.event_bus = event_bus
+        self._hitl_coordinator = hitl_coordinator
         self._callbacks: Dict[str, Callable] = {
             "on_task_start": self._default_on_task_start,
             "on_task_end": self._default_on_task_end,
@@ -241,12 +244,24 @@ class SprintOrchestrator:
             feedback_loop=feedback_loop,
         )
         ex.set_event_bus(self._get_event_bus())
+        task_hooks: Optional[TaskLifecycleHooks] = None
         if getattr(self.config, "governance_enabled", False) and getattr(
             self.config, "governance_task_hooks_enabled", False
         ):
-            ex.set_task_hooks(
-                GovernanceTaskLifecycleHooks(self.config, self._project_root, self._get_event_bus())
+            task_hooks = GovernanceTaskLifecycleHooks(
+                self.config, self._project_root, self._get_event_bus()
             )
+        if self._hitl_coordinator is not None and getattr(self.config, "hitl_enabled", False):
+            from ..hitl.hooks import HitlTaskHooks
+
+            hitl_th = HitlTaskHooks(self.config, self._hitl_coordinator)
+            if task_hooks is not None:
+                # ChainedTaskHooks 逆序调用 on_after：后注册先执行 → (hitl, gov) 则先治理后人机
+                task_hooks = ChainedTaskHooks((hitl_th, task_hooks))
+            else:
+                task_hooks = hitl_th
+        if task_hooks is not None:
+            ex.set_task_hooks(task_hooks)
         return ex
 
     def _build_sprint_hooks(self, release_plan: ReleasePlan) -> SprintLifecycleHooks:
@@ -256,6 +271,10 @@ class SprintOrchestrator:
         ]
         if getattr(self.config, "governance_enabled", False):
             parts.append(GovernanceSprintHooks(self._project_root, self.config, self._get_event_bus()))
+        if self._hitl_coordinator is not None:
+            from ..hitl.hooks import HitlSprintHooks
+
+            parts.append(HitlSprintHooks(self.config, self._hitl_coordinator))
         parts.append(_OrchestratorSprintHooks(self, release_plan))
         return ChainedSprintHooks(tuple(parts))
 

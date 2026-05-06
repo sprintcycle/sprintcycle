@@ -3,7 +3,18 @@ import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 
-import { apiClients, apiDiagnose, apiPlan, apiRun, apiStatus, apiStop, looksLikeYaml } from './api'
+import {
+  apiClients,
+  apiDiagnose,
+  apiHitlHistory,
+  apiHitlPending,
+  apiHitlSubmit,
+  apiPlan,
+  apiRun,
+  apiStatus,
+  apiStop,
+  looksLikeYaml,
+} from './api'
 import { connectSSE, disconnectSSE, subscribeSSE } from './sse'
 
 type EventLine = { type: string; ts: string; display: string; text: string; agent?: string }
@@ -12,6 +23,7 @@ const TAB_PLAN = 'plan'
 const TAB_HISTORY = 'history'
 const TAB_DIAG = 'diag'
 const TAB_EVENTS = 'events'
+const TAB_HITL = 'hitl'
 
 const activeTab = ref(TAB_PLAN)
 const yamlInput = ref('')
@@ -41,6 +53,12 @@ const eventsLogRef = ref<HTMLElement | null>(null)
 
 let unsubSSE: (() => void) | null = null
 let pollClients: ReturnType<typeof setInterval> | null = null
+let hitlPollTimer: ReturnType<typeof setInterval> | null = null
+
+const hitlPending = ref<Record<string, unknown>[]>([])
+const hitlHistory = ref<Record<string, unknown>[]>([])
+const hitlNotes = ref<Record<string, string>>({})
+const hitlBusy = ref(false)
 
 const historyBadge = computed(() => executions.value.length)
 
@@ -57,6 +75,8 @@ const EVENT_META: Record<string, { icon: string; label: string }> = {
   execution_complete: { icon: '🎉', label: 'EXEC DONE' },
   execution_failed: { icon: '💥', label: 'EXEC FAIL' },
   evolution_candidate: { icon: '🧬', label: 'EVOLUTION' },
+  hitl_request_open: { icon: '✋', label: 'HITL 待决策' },
+  hitl_request_resolved: { icon: '✔', label: 'HITL 已决策' },
   heartbeat: { icon: '💓', label: 'HEARTBEAT' },
   ping: { icon: '📶', label: 'PING' },
 }
@@ -87,6 +107,10 @@ function buildEventLine(data: Record<string, unknown>): string {
   if (typeof data.error === 'string') parts.push(`⚠ ${data.error}`)
   if (typeof data.duration === 'number') parts.push(`${data.duration.toFixed(1)}s`)
   if (typeof data.message === 'string' && parts.length === 0) return data.message
+  if (typeof data.title === 'string') parts.push(data.title)
+  if (typeof data.summary === 'string') parts.push(data.summary.slice(0, 120))
+  if (typeof data.request_id === 'string') parts.push(`#${data.request_id.slice(0, 8)}`)
+  if (typeof data.decision === 'string') parts.push(`→ ${data.decision}`)
   return parts.join(' · ')
 }
 
@@ -379,8 +403,45 @@ function clearEvents() {
   liveEventCount.value = 0
 }
 
+async function loadHitl() {
+  hitlBusy.value = true
+  try {
+    const p = await apiHitlPending()
+    const h = await apiHitlHistory(undefined, 30)
+    hitlPending.value = Array.isArray(p.data) ? (p.data as Record<string, unknown>[]) : []
+    hitlHistory.value = Array.isArray(h.data) ? (h.data as Record<string, unknown>[]) : []
+  } catch {
+    /* ignore */
+  } finally {
+    hitlBusy.value = false
+  }
+}
+
+async function submitHitlDecision(requestId: string, decision: string) {
+  try {
+    const note = hitlNotes.value[requestId]?.trim() || undefined
+    const res = await apiHitlSubmit(requestId, decision, note)
+    if (res.success === false) {
+      ElMessage.error(String(res.error ?? '提交失败'))
+      return
+    }
+    ElMessage.success('决策已提交')
+    await loadHitl()
+  } catch (e) {
+    ElMessage.error(fmtErr(e))
+  }
+}
+
 watch(activeTab, (t) => {
   if (t === TAB_HISTORY) void loadHistory()
+  if (hitlPollTimer) {
+    clearInterval(hitlPollTimer)
+    hitlPollTimer = null
+  }
+  if (t === TAB_HITL) {
+    void loadHitl()
+    hitlPollTimer = setInterval(() => void loadHitl(), 4000)
+  }
 })
 
 function scoreColor(score: number) {
@@ -408,6 +469,7 @@ onUnmounted(() => {
   disconnectSSE({ keepListeners: false })
   unsubSSE?.()
   if (pollClients) clearInterval(pollClients)
+  if (hitlPollTimer) clearInterval(hitlPollTimer)
 })
 </script>
 
@@ -544,6 +606,60 @@ onUnmounted(() => {
                 </div>
               </el-card>
             </div>
+          </div>
+        </el-tab-pane>
+
+        <el-tab-pane label="✋ 人机卡点" :name="TAB_HITL">
+          <div class="hitl-wrap">
+            <div class="sc-history-toolbar">
+              <span class="sc-muted">待决策与近期历史（SSE 可实时刷新列表）</span>
+              <el-button size="small" :loading="hitlBusy" @click="loadHitl">🔄 刷新</el-button>
+            </div>
+            <h3 class="section-title">待处理</h3>
+            <div v-if="hitlPending.length === 0" class="sc-muted pad">暂无待处理请求（未启用 HITL 或无运行中卡点）</div>
+            <template v-else>
+              <el-card
+                v-for="req in hitlPending"
+                :key="String(req.request_id)"
+                shadow="hover"
+                class="hitl-card"
+              >
+                <template #header>
+                  <div class="hitl-head">
+                    <b>{{ String(req.title ?? '') }}</b>
+                    <el-tag size="small" type="warning">{{ String(req.gate ?? '') }}</el-tag>
+                  </div>
+                </template>
+                <p class="sc-muted">{{ String(req.summary ?? '') }}</p>
+                <p class="sc-muted small">exec {{ shortId(String(req.execution_id ?? '')) }} · {{ String(req.request_id ?? '').slice(0, 12) }}…</p>
+                <el-input
+                  v-model="hitlNotes[String(req.request_id)]"
+                  type="textarea"
+                  :rows="2"
+                  placeholder="备注（可选）"
+                  class="hitl-note"
+                />
+                <div class="hitl-actions">
+                  <el-button type="success" size="small" @click="submitHitlDecision(String(req.request_id), 'approve')">
+                    批准
+                  </el-button>
+                  <el-button type="info" size="small" @click="submitHitlDecision(String(req.request_id), 'skip_sprint')">
+                    跳过 Sprint
+                  </el-button>
+                  <el-button type="danger" size="small" @click="submitHitlDecision(String(req.request_id), 'abort_execution')">
+                    中止执行
+                  </el-button>
+                </div>
+              </el-card>
+            </template>
+            <h3 class="section-title">近期历史</h3>
+            <div v-if="hitlHistory.length === 0" class="sc-muted pad">暂无</div>
+            <el-table v-else :data="hitlHistory" size="small" stripe class="hitl-table">
+              <el-table-column prop="created_at" label="时间" width="170" />
+              <el-table-column prop="gate" label="门" width="120" />
+              <el-table-column prop="decision" label="决策" width="140" />
+              <el-table-column prop="title" label="标题" />
+            </el-table>
           </div>
         </el-tab-pane>
 
@@ -955,6 +1071,40 @@ html.dark body {
 .event-line.t-sprint_failed,
 .event-line.t-execution_failed {
   background: rgba(239, 68, 68, 0.1);
+}
+.event-line.t-hitl_request_open {
+  background: rgba(245, 158, 11, 0.12);
+}
+.event-line.t-hitl_request_resolved {
+  background: rgba(34, 197, 94, 0.1);
+}
+.hitl-wrap {
+  padding: 0 4px 24px;
+}
+.hitl-card {
+  margin-bottom: 12px;
+  background: #0b1120;
+  border: 1px solid #334155;
+}
+.hitl-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.hitl-note {
+  margin: 10px 0;
+}
+.hitl-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.hitl-table {
+  margin-top: 8px;
+}
+.small {
+  font-size: 11px;
 }
 .ev-ts {
   color: #64748b;

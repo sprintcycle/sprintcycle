@@ -69,6 +69,14 @@ _DEFAULT_CONFIG: Dict[str, Any] = {
     "cache_max_entries": 1000,
     "cache_default_ttl_hours": 24,
     "cache_llm_codegen": True,
+    # HITL（人机卡点；见 sprintcycle.hitl）
+    "hitl_enabled": False,
+    "hitl_db_path": None,
+    "hitl_default_timeout_seconds": 300,
+    "hitl_timeout_behavior": "approve",
+    "hitl_gates": "before_sprint",
+    "hitl_after_task_on_failure": True,
+    "hitl_after_sprint_always": False,
 }
 
 
@@ -205,6 +213,14 @@ class RuntimeConfig(BaseSettings):
     cache_max_entries: int = 1000
     cache_default_ttl_hours: int = 24
     cache_llm_codegen: bool = True
+    # HITL：默认关闭；启用后见 [hitl] / SPRINTCYCLE_HITL_*
+    hitl_enabled: bool = False
+    hitl_db_path: Optional[str] = None
+    hitl_default_timeout_seconds: int = 300
+    hitl_timeout_behavior: str = "approve"
+    hitl_gates: str = "before_sprint"
+    hitl_after_task_on_failure: bool = True
+    hitl_after_sprint_always: bool = False
 
     @field_validator("quality_level")
     @classmethod
@@ -236,6 +252,19 @@ class RuntimeConfig(BaseSettings):
         allowed = frozenset({"sqlite", "memory"})
         s = (v or "sqlite").strip().lower()
         return s if s in allowed else "sqlite"
+
+    @field_validator("hitl_timeout_behavior")
+    @classmethod
+    def _normalize_hitl_timeout_behavior(cls, v: str) -> str:
+        allowed = frozenset({"approve", "abort_execution", "skip_sprint"})
+        s = (v or "approve").strip().lower()
+        return s if s in allowed else "approve"
+
+    @field_validator("hitl_default_timeout_seconds")
+    @classmethod
+    def _normalize_hitl_timeout_seconds(cls, v: int) -> int:
+        n = int(v)
+        return max(1, min(n, 86400))
 
     def effective_quality_level(self) -> str:
         """供测量、Dispatcher、SprintExecutor 使用的实际 L 档位（已考虑 quality_profile）。"""

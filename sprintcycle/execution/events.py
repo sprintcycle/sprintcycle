@@ -19,6 +19,8 @@
 - execution_complete: 执行完成
 - execution_failed: 执行失败
 - evolution_candidate: 发现进化候选
+- hitl_request_open: 人机卡点待决策
+- hitl_request_resolved: 人机卡点已决策（含超时自动决策）
 """
 
 import json
@@ -47,6 +49,8 @@ class EventType(Enum):
     GOVERNANCE_TASK_CHECK = "governance_task_check"
     GOVERNANCE_GATE = "governance_gate"
     EVOLUTION_CANDIDATE = "evolution_candidate"
+    HITL_REQUEST_OPEN = "hitl_request_open"
+    HITL_REQUEST_RESOLVED = "hitl_request_resolved"
 
 
 @dataclass
