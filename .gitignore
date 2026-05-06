@@ -25,6 +25,7 @@ pip-log.txt
 pip-delete-this-directory.txt
 .tox/
 .venv/
+.venv-tmp/
 venv/
 ENV/
 env/

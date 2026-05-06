@@ -1,5 +1,10 @@
 # 普通任务 PRD 模板
 # 适用于：功能开发、代码优化、缺陷修复等常规任务
+#
+# 产品迭代工程默认（与无 toml 时 RuntimeConfig 一致：quality L2 + sqlite 状态库）：
+# - 主实现语言 Python；Web 前端 Vue 3。
+# - 尽量少引入不可自持的外部依赖；持久化优先 SQLite 等可随仓库/镜像自闭环方案。
+# - 交付面向自动化：pytest/覆盖率、可重复的 golden 回归、Docker Compose 可部署、生产级错误处理与可观测性。
 
 project:
   name: "项目名称"
@@ -11,8 +16,9 @@ mode: "normal"  # 执行模式: normal=普通任务, evolution=自进化模式
 sprints:
   - name: "Sprint 1: 需求实现"
     goals:
-      - "完成核心功能开发"
-      - "保证代码质量"
+      - "完成核心功能开发（Python 后端 + Vue 3 前端，与现有栈一致）"
+      - "保证代码质量：单元/集成测试可自动化执行，关键路径可回归"
+      - "数据与集成：优先 SQLite 等自闭环组件；若新增外部依赖须在任务说明中论证"
     tasks:
       - description: |
           实现用户登录功能
@@ -24,6 +30,8 @@ sprints:
         constraints:
           - "使用现有的错误处理机制"
           - "保持 API 兼容"
+          - "后端 Python；与前端 Vue 3 的契约（OpenAPI 或共享类型）需同步更新"
+          - "涉及持久化时优先 SQLite；禁止在无 ADR/规格说明时引入新的外部独占服务"
 
       - description: |
           实现数据导出功能

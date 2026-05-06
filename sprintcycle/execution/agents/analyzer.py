@@ -2,12 +2,15 @@
 Bug Analyzer Agent - Bug 分析执行器
 """
 
+import json
 import re
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from loguru import logger
+
+from sprintcycle.prompt_sources import format_analyzer_bug_llm_prompt
 
 from .base import AgentConfig, AgentContext, AgentExecutor, AgentResult, AgentType
 from .bug_models import (
@@ -193,25 +196,8 @@ class BugAnalyzerAgent(AgentExecutor):
             return None
 
         try:
-            import json
             context_str = "\n".join([f"=== {k} ===\n{v[:1000]}" for k, v in code_context.items()])
-
-            prompt = f"""你是专业的 Bug 分析专家。请分析以下错误并生成修复报告。
-错误日志：
-{error_log}
-相关代码：
-{context_str or "无相关代码上下文"}
-请以 JSON 格式输出分析报告：
-{{
-    "error_type": "错误类型",
-    "root_cause": "根本原因分析（简洁，不超过100字）",
-    "file_path": "问题文件路径（如能确定）",
-    "line_number": 问题行号（如能确定）,
-    "severity": "critical|high|medium|low",
-    "suggestions": ["修复建议1", "修复建议2"],
-    "confidence": 0.0-1.0
-}}
-只输出 JSON，不要有其他内容。"""
+            prompt = format_analyzer_bug_llm_prompt(error_log, context_str)
 
             response = await self._llm_client.chat(prompt)
             data = json.loads(response)

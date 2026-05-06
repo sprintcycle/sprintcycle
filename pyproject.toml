@@ -63,6 +63,9 @@ python_version = "3.11"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "strict"
+markers = [
+    "golden: 模型或环境切换时必须保持通过的用例（见 docs/GOVERNANCE_GOLDEN.md）",
+]
 
 [tool.ruff]
 line-length = 120

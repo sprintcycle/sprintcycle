@@ -1,5 +1,11 @@
 # SprintCycle 项目配置示例（复制为 sprintcycle.toml 后按需修改）
 # 环境变量 SPRINTCYCLE_* 可覆盖同名字段
+#
+# 普通产品迭代默认方向（与 RuntimeConfig 无文件时一致）：
+# - quality.level=L2：静态门禁 + pytest + 覆盖率，便于自动化测试与回归
+# - storage.backend=sqlite：执行状态与 knowledge_cards 默认同库，单机自闭环
+# - 技术栈约定见 release_plan/templates/normal_task.yaml 与
+#   release_plan/templates/governance_product_iteration.example.yaml
 
 [project]
 path = "."
@@ -7,8 +13,10 @@ parallel_tasks = 3
 max_sprints = 10
 
 [quality]
-level = "L1"
-# 预设档位（V4.0 §6.3）：default | off | fast | strict；非 default 时覆盖 level 映射到 L0/L1/L3
+level = "L2"
+# 预设档位（V4.0 §6.3）：default | off | fast | strict
+# - fast → 等效 L1（速写原型）
+# - strict → 等效 L3（+ 架构 import-linter 等）
 # profile = "strict"
 min_coverage_percent = 80.0
 
@@ -26,14 +34,23 @@ provider = "deepseek"
 model = "deepseek-reasoner"
 
 [storage]
-# 执行状态：json（默认，每执行一个 JSON 文件）或 sqlite
-# backend = "sqlite"
+# 执行状态：json（仅文件、无 DB）或 sqlite（推荐产品迭代）
+backend = "sqlite"
 state_dir = ".sprintcycle/state"
 # sqlite 时 executions + knowledge_cards 共用此文件（相对路径相对项目根）
-# sqlite_path = ".sprintcycle/data/sprintcycle.db"
+sqlite_path = ".sprintcycle/data/sprintcycle.db"
 
 # [behavior]
 # V4.0：知识注入落盘前需显式确认（API confirm_knowledge / CLI --yes）
 # require_knowledge_injection_confirm = false
 # Sprint 结束后写入 knowledge_cards 结构化摘要
 # persist_sprint_knowledge_cards = true
+
+# [governance]
+# 产品级门禁：复制 release_plan/templates/governance_product_iteration.example.yaml
+# 为 .sprintcycle/governance.yaml 后启用
+# enabled = true
+# config_path = ".sprintcycle/governance.yaml"
+# block_on = "review_only"
+# spec_glob = "docs/specs/*.md"
+# check_compose = true

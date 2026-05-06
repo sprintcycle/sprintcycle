@@ -15,12 +15,17 @@ from typing import Any, Callable, Dict, List, Optional, Set
 
 from loguru import logger
 
-from ..release_plan.models import ReleasePlan, SprintDefinition, SprintBacklogItem
+from ..release_plan.models import ReleasePlan, SprintBacklogItem, SprintDefinition
+from ..release_plan.payload_keys import context_plan_id_name
+from .hooks.governance_context import (
+    CTX_GOVERNANCE_TASK_AFTER_DETAIL,
+    CTX_GOVERNANCE_TASK_AFTER_FAILED,
+)
 from .hooks.sprint_hooks import NoOpSprintLifecycleHooks, SprintLifecycleHooks
+from .hooks.task_hooks import NoOpTaskLifecycleHooks, TaskLifecycleHooks
 from .sprint_types import ExecutionStatus, SprintResult, TaskResult
 from .state.checkpoint import CheckpointMixin
 from .state.state_store import StateStore, get_state_store
-from ..release_plan.payload_keys import context_plan_id_name
 
 
 class SprintExecutor(CheckpointMixin):
@@ -38,6 +43,7 @@ class SprintExecutor(CheckpointMixin):
         max_verify_fix_rounds: int = 3,
         runtime_config: Optional[Any] = None,
         sprint_hooks: Optional[SprintLifecycleHooks] = None,
+        task_hooks: Optional[TaskLifecycleHooks] = None,
     ):
         self._agent_executors: Dict[str, Callable] = {}
         self._callbacks: Dict[str, Callable] = {}
@@ -45,6 +51,7 @@ class SprintExecutor(CheckpointMixin):
         self._max_verify_fix_rounds = max(1, int(max_verify_fix_rounds))
         self._runtime_config = runtime_config
         self._sprint_hooks: SprintLifecycleHooks = sprint_hooks or NoOpSprintLifecycleHooks()
+        self._task_hooks: TaskLifecycleHooks = task_hooks or NoOpTaskLifecycleHooks()
         self._event_bus = None
         self._feedback_loop = feedback_loop
         self._release_plan = release_plan
@@ -78,6 +85,22 @@ class SprintExecutor(CheckpointMixin):
     def set_sprint_hooks(self, sprint_hooks: Optional[SprintLifecycleHooks]) -> None:
         """注册 Sprint 生命周期钩子（None 表示使用无操作实现）。"""
         self._sprint_hooks = sprint_hooks or NoOpSprintLifecycleHooks()
+
+    def set_task_hooks(self, task_hooks: Optional[TaskLifecycleHooks]) -> None:
+        """注册任务级钩子（None 表示无操作；默认不调用以保性能）。"""
+        self._task_hooks = task_hooks or NoOpTaskLifecycleHooks()
+
+    async def _invoke_task_hooks(
+        self,
+        task: SprintBacklogItem,
+        sprint_name: str,
+        context: Dict[str, Any],
+        task_result: TaskResult,
+    ) -> None:
+        try:
+            await self._task_hooks.on_after_task_complete(task, sprint_name, context, task_result)
+        except Exception as e:
+            logger.warning("task_hooks on_after_task_complete: {}", e)
 
     def get_feedback_history(self) -> List[Any]:
         if self._feedback_loop:
@@ -485,7 +508,6 @@ class SprintExecutor(CheckpointMixin):
         )
         context = ctx_base
         task_count = len(sprint.tasks)
-        completed: Set[int] = set()
         task_semaphore = asyncio.Semaphore(self._max_parallel)
 
         async def execute_with_semaphore(task: SprintBacklogItem, idx: int) -> TaskResult:
@@ -556,11 +578,38 @@ class SprintExecutor(CheckpointMixin):
                     "\n[重要] 本次为失败重试，请特别注意上述问题。"
                 )
             output = await executor(task, enriched_context)
-            task_result = TaskResult(work_item=task, sprint_name=sprint_name, status=ExecutionStatus.SUCCESS, output=output, duration=time.time() - start_time)
+            task_result = TaskResult(
+                work_item=task,
+                sprint_name=sprint_name,
+                status=ExecutionStatus.SUCCESS,
+                output=output,
+                duration=time.time() - start_time,
+            )
             self._log_task_execution(task, task_result)
+            await self._invoke_task_hooks(task, sprint_name, enriched_context, task_result)
+            dur = time.time() - start_time
+            if enriched_context.get(CTX_GOVERNANCE_TASK_AFTER_FAILED):
+                detail = enriched_context.get(CTX_GOVERNANCE_TASK_AFTER_DETAIL) or "task_after 未通过"
+                logger.warning(
+                    "task_after 阻断任务: sprint={} agent={} desc={}",
+                    sprint_name,
+                    task.agent,
+                    (task.description or "")[:120],
+                )
+                return TaskResult(
+                    work_item=task,
+                    sprint_name=sprint_name,
+                    status=ExecutionStatus.FAILED,
+                    output=output,
+                    error=str(detail)[:8000],
+                    duration=dur,
+                )
+            task_result.duration = dur
             return task_result
         except Exception as e:
-            return TaskResult(work_item=task, sprint_name=sprint_name, status=ExecutionStatus.FAILED, error=str(e), duration=time.time() - start_time)
+            failed = TaskResult(work_item=task, sprint_name=sprint_name, status=ExecutionStatus.FAILED, error=str(e), duration=time.time() - start_time)
+            await self._invoke_task_hooks(task, sprint_name, enriched_context, failed)
+            return failed
 
     async def _execute_coder_task(self, task: SprintBacklogItem, context: Dict[str, Any]) -> str:
         if self._dry_run():
@@ -627,11 +676,11 @@ class SprintExecutor(CheckpointMixin):
     ) -> Dict[int, Set[int]]:
         """
         分析任务间的依赖关系
-        
+
         Args:
             tasks: 任务列表
             context: 执行上下文
-            
+
         Returns:
             Dict[int, Set[int]]: 任务索引到其依赖任务索引集合的映射
         """
@@ -751,10 +800,10 @@ class SprintExecutor(CheckpointMixin):
     def get_execution_order(self, tasks: List[SprintBacklogItem]) -> List[List[int]]:
         """
         获取任务的拓扑排序执行顺序
-        
+
         Args:
             tasks: 任务列表
-            
+
         Returns:
             List[List[int]]: 分批执行的任务索引列表
             例如: [[0, 1], [2], [3, 4]] 表示任务分三批执行

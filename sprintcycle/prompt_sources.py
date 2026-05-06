@@ -1,0 +1,90 @@
+"""
+稳定 Prompt 来源（F-3 扩展）：仓库内 **模板全文** 的 SHA-256，不含任务/错误日志等运行时变量。
+
+用于 ``run_metadata`` 的 ``prompt_source_digests`` / ``prompt_sources_aggregate_sha256``；
+与 ``CoderAgent`` / ``AnalyzerAgent`` 实际组装的用户消息共用同一模板常量，避免漂移。
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+from typing import Any, Dict, List, Tuple
+
+# --- Coder：仅模板；{language} / {task} / {arch_section} 在 format 时填入 ---
+CODER_GENERATION_PROMPT_TEMPLATE = """请为以下任务生成高质量的 {language} 代码：
+
+任务：{task}{arch_section}
+
+要求：
+1. 代码应遵循最佳实践
+2. 包含必要的错误处理
+3. 添加清晰的注释
+4. 保持代码简洁和可读性
+5. 如有架构设计指导，请严格遵循
+"""
+
+
+def format_coder_generation_prompt(
+    language: str,
+    task: str,
+    architecture_design: str | None,
+) -> str:
+    arch_section = ""
+    if architecture_design:
+        arch_section = f"\n\n架构设计指导：\n{architecture_design}\n"
+    return CODER_GENERATION_PROMPT_TEMPLATE.format(
+        language=language or "python",
+        task=task or "",
+        arch_section=arch_section,
+    )
+
+
+# --- Analyzer LLM：模板；{error_log} / {context_str} 为运行时片段 ---
+ANALYZER_BUG_LLM_PROMPT_TEMPLATE = """你是专业的 Bug 分析专家。请分析以下错误并生成修复报告。
+错误日志：
+{error_log}
+相关代码：
+{context_str}
+请以 JSON 格式输出分析报告：
+{{
+    "error_type": "错误类型",
+    "root_cause": "根本原因分析（简洁，不超过100字）",
+    "file_path": "问题文件路径（如能确定）",
+    "line_number": 问题行号（如能确定）,
+    "severity": "critical|high|medium|low",
+    "suggestions": ["修复建议1", "修复建议2"],
+    "confidence": 0.0-1.0
+}}
+只输出 JSON，不要有其他内容。"""
+
+
+def format_analyzer_bug_llm_prompt(error_log: str, context_str: str) -> str:
+    return ANALYZER_BUG_LLM_PROMPT_TEMPLATE.format(
+        error_log=error_log,
+        context_str=context_str or "无相关代码上下文",
+    )
+
+
+def stable_prompt_registry() -> List[Tuple[str, str]]:
+    """(source_id, template_body_utf8) 有序列表；新增来源时同步登记。"""
+    return [
+        ("execution.agents.coder_generation", CODER_GENERATION_PROMPT_TEMPLATE),
+        ("execution.agents.analyzer_bug_llm", ANALYZER_BUG_LLM_PROMPT_TEMPLATE),
+    ]
+
+
+def compute_prompt_sources_fingerprint() -> Dict[str, Any]:
+    """各来源模板全文 SHA-256 + 聚合摘要（全量 64 字符 hex）。"""
+    items = stable_prompt_registry()
+    per: Dict[str, str] = {
+        sid: hashlib.sha256(body.encode("utf-8")).hexdigest() for sid, body in items
+    }
+    aggregate = hashlib.sha256(
+        json.dumps(per, sort_keys=True, ensure_ascii=False).encode("utf-8")
+    ).hexdigest()
+    return {
+        "prompt_source_digests": per,
+        "prompt_sources_aggregate_sha256": aggregate,
+        "prompt_sources_schema": 1,
+    }

@@ -251,6 +251,8 @@ def create_app(project_path: str = ".") -> FastAPI:
         - task_start: 任务开始
         - task_complete: 任务完成
         - task_failed: 任务失败
+        - governance_task_check: 任务级治理 task_after 检查
+        - governance_gate: Planning/Review 门摘要（含 compose:* 规则）
         - execution_complete: 执行完成
         - execution_failed: 执行失败
         """
@@ -454,6 +456,8 @@ textarea.plan-editor-input::placeholder{color:var(--text-muted)}
 .event-row.task_start{background:rgba(251,191,36,.10);border-left:2px solid #fbbf24}
 .event-row.task_complete{background:rgba(34,197,94,.10);border-left:2px solid #22c55e}
 .event-row.task_failed{background:rgba(239,68,68,.12);border-left:2px solid #ef4444}
+.event-row.governance_task_check{background:rgba(14,165,233,.12);border-left:2px solid #0ea5e9}
+.event-row.governance_gate{background:rgba(20,184,166,.12);border-left:2px solid #14b8a6}
 .event-row.execution_complete{background:rgba(34,197,94,.18);border-left:2px solid #22c55e}
 .event-row.execution_failed{background:rgba(239,68,68,.18);border-left:2px solid #ef4444}
 .event-row.evolution_candidate{background:rgba(236,72,153,.12);border-left:2px solid #ec4899}
@@ -467,6 +471,8 @@ textarea.plan-editor-input::placeholder{color:var(--text-muted)}
 .ev-type.task_start{color:#fcd34d}
 .ev-type.task_complete{color:#4ade80}
 .ev-type.task_failed{color:#f87171}
+.ev-type.governance_task_check{color:#38bdf8}
+.ev-type.governance_gate{color:#2dd4bf}
 .ev-type.execution_complete{color:#4ade80}
 .ev-type.execution_failed{color:#f87171}
 .ev-type.evolution_candidate{color:#f472b6}
@@ -584,11 +590,11 @@ var executionsCache=[];
 async function apiPost(path,body){var r=await fetch('/api/'+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});return r.json()}
 async function apiGet(path){var r=await fetch('/api/'+path);return r.json()}
 $$('.tab').forEach(function(tab){tab.addEventListener('click',function(){$$('.tab').forEach(function(t){t.classList.remove('active')});tab.classList.add('active');$$('.panel').forEach(function(p){p.classList.remove('active')});$('panel-'+tab.dataset.tab).classList.add('active');if(tab.dataset.tab==='history')loadHistory()})});
-function connectSSE(){if(eventSource)eventSource.close();eventSource=new EventSource('/api/events/stream');eventSource.onopen=function(){setDot('sseDot','green');$('sseStatus').textContent='connected';updateClientCount()};eventSource.onerror=function(){setDot('sseDot','red');$('sseStatus').textContent='reconnecting...';setTimeout(connectSSE,3000)};var types=['execution_start','sprint_start','sprint_complete','sprint_failed','task_start','task_complete','task_failed','execution_complete','execution_failed','evolution_candidate','heartbeat','ping','connected'];types.forEach(function(type){eventSource.addEventListener(type,function(e){try{var data=JSON.parse(e.data);if(type!=='connected')appendEvent({event_type:type},data)}catch(err){console.error('Parse error:',err)}})})}
+function connectSSE(){if(eventSource)eventSource.close();eventSource=new EventSource('/api/events/stream');eventSource.onopen=function(){setDot('sseDot','green');$('sseStatus').textContent='connected';updateClientCount()};eventSource.onerror=function(){setDot('sseDot','red');$('sseStatus').textContent='reconnecting...';setTimeout(connectSSE,3000)};var types=['execution_start','sprint_start','sprint_complete','sprint_failed','task_start','task_complete','task_failed','governance_task_check','governance_gate','execution_complete','execution_failed','evolution_candidate','heartbeat','ping','connected'];types.forEach(function(type){eventSource.addEventListener(type,function(e){try{var data=JSON.parse(e.data);if(type!=='connected')appendEvent({event_type:type},data)}catch(err){console.error('Parse error:',err)}})})}
 function setDot(id,cls){var dot=$(id);if(cls)dot.className='dot '+cls;else dot.className='dot'}
 async function updateClientCount(){try{var d=await apiGet('clients');$('clientCount').textContent=d.client_count||0}catch(_){}}
-var EVENT_META={execution_start:{icon:'🚀',label:'EXEC START'},sprint_start:{icon:'📦',label:'SPRINT START'},sprint_complete:{icon:'✅',label:'SPRINT DONE'},sprint_failed:{icon:'❌',label:'SPRINT FAIL'},task_start:{icon:'📋',label:'TASK START'},task_complete:{icon:'✅',label:'TASK DONE'},task_failed:{icon:'❌',label:'TASK FAIL'},execution_complete:{icon:'🎉',label:'EXEC DONE'},execution_failed:{icon:'💥',label:'EXEC FAIL'},evolution_candidate:{icon:'🧬',label:'EVOLUTION'},heartbeat:{icon:'💓',label:'HEARTBEAT'},ping:{icon:'📶',label:'PING'}};
-function buildEventContent(data){var parts=[];if(data.execution_id)parts.push('['+data.execution_id.substring(0,8)+']');if(data.sprint_name)parts.push(data.sprint_name);if(data.description)parts.push(data.description);if(data.agent_type)parts.push('@'+data.agent_type);if(data.error)parts.push('⚠ '+data.error);if(data.duration!==undefined&&data.duration!==null)parts.push(data.duration.toFixed(1)+'s');return parts.join(' · ')||data.message||''}
+var EVENT_META={execution_start:{icon:'🚀',label:'EXEC START'},sprint_start:{icon:'📦',label:'SPRINT START'},sprint_complete:{icon:'✅',label:'SPRINT DONE'},sprint_failed:{icon:'❌',label:'SPRINT FAIL'},task_start:{icon:'📋',label:'TASK START'},task_complete:{icon:'✅',label:'TASK DONE'},task_failed:{icon:'❌',label:'TASK FAIL'},governance_task_check:{icon:'🛡',label:'GOV TASK'},governance_gate:{icon:'📐',label:'GOV GATE'},execution_complete:{icon:'🎉',label:'EXEC DONE'},execution_failed:{icon:'💥',label:'EXEC FAIL'},evolution_candidate:{icon:'🧬',label:'EVOLUTION'},heartbeat:{icon:'💓',label:'HEARTBEAT'},ping:{icon:'📶',label:'PING'}};
+function buildEventContent(data){var parts=[];if(data.execution_id)parts.push('['+data.execution_id.substring(0,8)+']');if(data.sprint_name)parts.push(data.sprint_name);if(data.gate)parts.push('gate:'+data.gate);if(data.compose_rule_ids&&data.compose_rule_ids.length)parts.push('compose: '+data.compose_rule_ids.join(', '));if(data.compose_hits&&data.compose_hits.length){data.compose_hits.slice(0,2).forEach(function(h){parts.push(String(h.rule_id||'')+': '+(h.message||'').substring(0,100))})}if(data.error_count!==undefined||data.warning_count!==undefined)parts.push('err '+(data.error_count||0)+' / warn '+(data.warning_count||0));if(data.check_id)parts.push('#'+data.check_id);if(data.description)parts.push(data.description);if(data.agent_type)parts.push('@'+data.agent_type);if(data.error)parts.push('⚠ '+data.error);if(data.duration!==undefined&&data.duration!==null)parts.push(data.duration.toFixed(1)+'s');return parts.join(' · ')||data.message||''}
 function appendEvent(base,data){var log=$('eventsLog');var type=base.event_type;var meta=EVENT_META[type]||{icon:'?',label:type.toUpperCase()};var ts=data.timestamp?new Date(data.timestamp).toLocaleTimeString('zh-CN',{hour12:false}):'';var content=buildEventContent(data);var agentBadge=data.agent_type?'<span class="ev-badge agent">'+data.agent_type+'</span>':'';var row=document.createElement('div');row.className='event-row '+type;row.innerHTML='<span class="ev-ts">'+ts+'</span><span class="ev-type '+type+'">'+meta.icon+' '+meta.label+'</span><span class="ev-content">'+escHtml(content)+agentBadge+'</span>';log.appendChild(row);eventCount++;$('eventCount').textContent=eventCount;$('liveBadge').textContent=eventCount;if($('autoScroll').checked)log.scrollTop=log.scrollHeight}
 function clearEvents(){$('eventsLog').innerHTML='';eventCount=0;$('eventCount').textContent='0';$('liveBadge').textContent='0'}
 function escHtml(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}

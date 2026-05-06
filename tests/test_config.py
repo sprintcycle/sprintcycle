@@ -283,6 +283,9 @@ class TestRuntimeConfigBasics:
         assert config.max_tasks_per_sprint == 5
         assert config.dry_run is False
         assert config.evolution_enabled is True
+        assert config.quality_level == "L2"
+        assert config.storage_backend == "sqlite"
+        assert config.effective_quality_level() == "L2"
 
     def test_custom_values(self):
         config = RuntimeConfig(

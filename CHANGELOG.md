@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+### Changed defaults（普通产品迭代）
+- **`RuntimeConfig` 默认**：`quality_level` **L1 → L2**（启用 pytest 与覆盖率门禁，利于自动化测试与回归）；`storage_backend` **json → sqlite**（执行状态与知识卡片默认同库，路径默认 `.sprintcycle/data/sprintcycle.db`，见 `state_store.resolve_sqlite_database_path`）。`normalize_quality_level` 对空/非法输入的回退档位同步为 **L2**。
+- **`sprintcycle.toml` / `sprintcycle.toml.example`**：与上述默认对齐；示例增加产品迭代说明与可选 `[governance]`。
+- **`release_plan/templates/normal_task.yaml`**：补充 Python + Vue 3、SQLite/自闭环依赖、自动化测试与部署相关的目标与约束说明。
+- **治理示例**：`release_plan/templates/governance_product_iteration.example.yaml`（可复制为 `.sprintcycle/governance.yaml`）。
+
 ### Breaking / 命名收敛
 - **移除 ``prd_*`` 执行态兼容**：断点、状态 JSON、反馈文件、metadata 与上下文字段 **仅** 识别 **`release_plan_yaml` / `release_plan_id` / `release_plan_name`**；不再读取或折叠历史键 **`prd_yaml` / `prd_id` / `prd_name`**。**`init_db`** 不再将 SQLite **`executions.prd_name`** 列重命名为 **`release_plan_name`**；若库表仍为旧列名，请自行迁移后再使用当前 ORM。
 - **`IntentResult`**：字段 **`prd` → `release_plan`**；**`IntentHandler.validate_prd` → `validate_release_plan`**；**`execute(release_plan=…)`**（原 `prd` 参数名）。**`RunnerHandler`** 不再自建无配置的 ``SprintOrchestrator``，默认构造内建 **`SprintCycle(project_path, config)`** 并委托 **`SprintCycle._run_resolved_plan`**（与 **`run()`** 共用知识门与 **`parallel_tasks`**）；可选 **`RunnerHandler(api=existing_sprint_cycle)`** 注入同一 API 实例。**`RunnerHandler.parse_prd_file`** 重命名为 **`parse_release_plan_file`**。
@@ -22,6 +28,16 @@
 - **Evolution 子域 Scrum 对等命名（无旧名导出）**：仅保留 `EvolutionReleasePlan`、`EvolutionPlanSource`、`EvolutionPlanSourceType`、`EvolutionReleasePlanResult`（字段 `release_plan`）、`evolution_release_plan_to_prd`、`EvolutionPipeline(plan_source=…)`；`EvolutionReleasePlanResult.to_dict()` 使用 `release_plan_name` / `release_plan_version`。边界说明见 `evolution/pipeline.py`、`evolution/evolution_plan_source.py`。
 
 ### Features
+- **治理与质量门禁（阶段 A/B/C）**：`sprintcycle.governance`（`GovernanceRunner`、`GovernanceReport`、YAML `argv`、`adr_check` README 索引、`model_compare` 双跑 pytest）；`[governance]` 增加 **`task_hooks`**；`GovernanceTaskLifecycleHooks` + `TaskLifecycleHooks` / `ChainedTaskHooks` 挂入 `SprintExecutor`；CLI **`sprintcycle governance check`** / **`model-compare`** / **`product`**（docker compose）；文档 **`docs/GOVERNANCE_GOLDEN.md`**；`pyproject` 注册 **`golden`** pytest marker；详见 `docs/GOVERNANCE_ENGINEERING.md`
+- **Sprint 后测量元数据（F-3 v0）**：`_post_sprint_measurement` 在 `MeasurementResult.details["run_metadata"]` 写入 **`llm_provider` / `llm_model` / `coding_engine` / `quality_level`**；`persist_sprint_outcome_card` 将同名摘要写入知识卡片 **`scores.run_metadata`**
+- **治理 D-2 v1（ADR 严格 glob）**：`[governance] adr_glob` → `governance_adr_glob`；`check_adr=true` 且非空时走 `check_adr_readme_strict_glob`（README 与 glob 匹配集一致；缺 README 报 `adr:readme_required`）
+- **治理 G-3（任务钩子 `task_after`）**：治理 YAML 顶层 ``task_after`` 列表；每项可设 ``run_when``（success / failure / always）；子进程注入 ``SPRINTCYCLE_TASK_*`` 环境；失败按 severity 打日志（不修改 ``TaskResult``）；``yaml_checks.run_argv_item`` / ``run_argv_checks`` 支持 ``extra_env``；``GovernanceTaskLifecycleHooks(config, project_root, event_bus?)``
+- **治理 G-4 / F-3 v1**：``EventType.GOVERNANCE_TASK_CHECK`` + Dashboard SSE；Sprint 后 ``run_metadata`` 增加 ``config_fingerprint``、``dry_run``、``project_path``、可选 ``llm_model_env``（``LLM_MODEL`` 与配置并存时写入）
+- **治理 G-5 / F-3 v2 / E-3 v1**：``[governance] task_after_block_on_failure`` + YAML ``block_on_failure`` → 成功后 ``task_after`` 失败将任务标为 **failed**；``run_metadata`` 纳入 ``EVOLUTION_LLM_PROVIDER`` / ``EVOLUTION_LLM_MODEL`` 环境值与指纹；Compose 门禁解析 YAML 后逐服务提示 ``restart`` 与 ``healthcheck``（``compose_hint``）
+- **F-3 v3（测量与 Sprint 绑定）**：``run_metadata`` 增加 ``release_plan_name``、``execution_id``、``sprint_index``、``sprint_name``、``task_outcome_digest``（任务 agent/描述摘要/状态）、``measurement_context_hash``（与配置指纹组合；不含全文 prompt）
+- **F-3 v4（稳定 prompt 模板摘要 + 治理门事件）**：新增 ``sprintcycle.prompt_sources``（Coder 生成模板、Analyzer Bug LLM 模板；与运行时 ``format_*`` 共用常量）；``run_metadata`` 写入 ``prompt_source_digests`` / ``prompt_sources_aggregate_sha256`` / ``prompt_sources_schema``，并纳入 ``measurement_context_hash`` 绑定；``EventType.GOVERNANCE_GATE`` + ``GovernanceSprintHooks`` 在 Planning/Review 后广播（含 ``compose:*`` 命中列表）；Dashboard 实时事件展示 **GOV GATE** 与 compose 摘要；``docs/QUICKSTART.md`` 增加 ``model-compare --quick`` 示例
+- **CLI**：``sprintcycle governance model-compare --quick`` 在未传 pytest 参数时默认 ``-m golden``；``docs/GOVERNANCE_GOLDEN.md`` 同步说明
+- **工程卫生**：移除 ``SprintExecutor.execute_sprint_parallel`` 未使用变量；修正若干 docstring 空行尾随空格（W293）
 - P1 Scrum：`scrum` 根包导出；CLI/MCP/Dashboard「执行计划」话术；`SprintResult`/`TaskResult` Scrum docstring（`docs/DESIGN_SCRUM_NAMING_MIGRATION.md`）
 - V4.0：`require_knowledge_injection_confirm` / `persist_sprint_knowledge_cards`（`[behavior]` + `SPRINTCYCLE_*`）；`KnowledgeInjector.inject_for_sprint(..., persist_overlay=False)` 预览；`RunResult.pending_knowledge_confirmation`；CLI `run --yes`；MCP `confirm_knowledge`
 - V4.0：Coder 任务按 `max_verify_fix_rounds` 验证-修复重试；单 Sprint 锁定 `_sprint_coding_engine`；Sprint 结束可选写入 `knowledge_cards`（`sprint_knowledge_card.persist_sprint_outcome_card`）
@@ -32,7 +48,11 @@
 - ci: 校验 `docs-dev/dev-setup.sh` 存在；独立 **`architecture-gate`** job（import-linter）；可选 `mutation.yml` + `semgrep.yml`；`pyproject` `[mutation]`、`dev` 含 **hypothesis**
 - g4: `tests/test_g4_properties.py`（Hypothesis）；import-linter 增加 **release_plan** / **execution** 不得依赖 `dashboard`
 
+### Bug Fixes
+- `diagnostic`：`ReleasePlanRulePriority` 从 `release_plan_rules` 导出（修复 `release_plan_generator` 误导出导致的导入错误）；`tests/test_diagnostic.py` 同步调整 import
+
 ### Documentation
+- docs: `docs/GOVERNANCE_GOLDEN.md`（golden / model-compare）；`docs/GOVERNANCE_ENGINEERING.md` 与 QUICKSTART 互链更新
 - docs: V4.0 canonical entry `docs/PRODUCT_TECH_V4.md`；README 真理源；`SPRINTCYCLE_PRODUCT_TECH_PLAN.md` 顶栏；`evolution/pipeline`、`orchestration/sprint_orchestrator`、`config/quality` 与 G1–G4 说明
 
 ## [v0.9.2] - 2025-12-20

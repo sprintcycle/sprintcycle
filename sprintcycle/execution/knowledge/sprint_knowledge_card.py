@@ -76,6 +76,9 @@ def persist_sprint_outcome_card(
             "correctness": measurement.correctness,
             "code_quality": measurement.code_quality,
         }
+        rm = (measurement.details or {}).get("run_metadata")
+        if isinstance(rm, dict) and rm:
+            scores["run_metadata"] = dict(rm)
 
     domain = getattr(release_plan.project, "name", "") or "sprint"
     outcome = "success" if ok else "failed"

@@ -9,8 +9,9 @@ Sprint 执行编排（主实现模块；类 ``SprintOrchestrator``）
 ``SprintCycle.run`` / 断点续跑经本模块。
 """
 
+import hashlib
+import json
 import os
-from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
@@ -24,8 +25,99 @@ from ..execution.hooks.sprint_hooks import ChainedSprintHooks, SprintLifecycleHo
 from ..execution.knowledge.knowledge_hook import KnowledgeInjectionHook
 from ..execution.sprint_executor import SprintExecutor
 from ..execution.sprint_types import ExecutionStatus, SprintResult, TaskResult
+from ..governance.sprint_hooks import GovernanceSprintHooks
+from ..governance.task_hooks import GovernanceTaskLifecycleHooks
+from ..prompt_sources import compute_prompt_sources_fingerprint
 from ..release_plan.expand import expand_release_plan_for_execution
-from ..release_plan.models import ReleasePlan, SprintDefinition, SprintBacklogItem
+from ..release_plan.models import ReleasePlan, SprintBacklogItem, SprintDefinition
+
+
+def _measurement_run_metadata(
+    config: RuntimeConfig,
+    *,
+    release_plan: Optional[ReleasePlan] = None,
+    sprint_index: int = 0,
+    sprint: Optional[SprintDefinition] = None,
+    sprint_result: Optional[SprintResult] = None,
+) -> Dict[str, Any]:
+    """F-3 v1–v4：配置指纹 + LLM 环境轨道 + Sprint/任务摘要 + 稳定 prompt 模板全文摘要（无用户任务正文）。"""
+    env_model = os.environ.get("LLM_MODEL") or ""
+    ev_p = os.environ.get("EVOLUTION_LLM_PROVIDER") or ""
+    ev_m = os.environ.get("EVOLUTION_LLM_MODEL") or ""
+    fp_src: Dict[str, Any] = {
+        "llm_provider": config.llm_provider,
+        "llm_model": config.llm_model,
+        "coding_engine": config.coding_engine,
+        "quality_level": config.effective_quality_level(),
+        "dry_run": bool(getattr(config, "dry_run", False)),
+        "test_command": config.test_command,
+        "llm_model_env": env_model,
+        "evolution_llm_provider_env": ev_p,
+        "evolution_llm_model_env": ev_m,
+    }
+    fp = hashlib.sha256(
+        json.dumps(fp_src, sort_keys=True, ensure_ascii=False).encode("utf-8")
+    ).hexdigest()[:16]
+    out: Dict[str, Any] = {
+        "llm_provider": config.llm_provider,
+        "llm_model": config.llm_model,
+        "coding_engine": config.coding_engine,
+        "quality_level": config.effective_quality_level(),
+        "dry_run": fp_src["dry_run"],
+        "project_path": getattr(config, "project_path", ".") or ".",
+        "config_fingerprint": fp,
+    }
+    if env_model:
+        out["llm_model_env"] = env_model
+    if ev_p:
+        out["evolution_llm_provider_env"] = ev_p
+    if ev_m:
+        out["evolution_llm_model_env"] = ev_m
+
+    if release_plan is not None:
+        out["release_plan_name"] = release_plan.project.name
+        eid = getattr(release_plan, "execution_id", None)
+        meta = getattr(release_plan, "metadata", None) or {}
+        out["execution_id"] = str(eid) if eid is not None else str(meta.get("id", "") or "")
+
+    if sprint is not None:
+        out["sprint_index"] = int(sprint_index)
+        out["sprint_name"] = sprint.name
+
+    if sprint_result is not None:
+        lines: List[Dict[str, Any]] = []
+        for tr in sprint_result.task_results:
+            wi = tr.work_item
+            st = tr.status.value if hasattr(tr.status, "value") else str(tr.status)
+            lines.append(
+                {
+                    "agent": wi.agent,
+                    "description_preview": (wi.description or "")[:240],
+                    "status": st,
+                }
+            )
+        out["task_outcome_digest"] = hashlib.sha256(
+            json.dumps(lines, ensure_ascii=False).encode("utf-8")
+        ).hexdigest()[:16]
+
+    ctx_bind: Dict[str, Any] = {
+        "config_fingerprint": out.get("config_fingerprint"),
+        "sprint_index": out.get("sprint_index"),
+        "sprint_name": out.get("sprint_name"),
+        "release_plan_name": out.get("release_plan_name"),
+        "execution_id": out.get("execution_id"),
+        "task_outcome_digest": out.get("task_outcome_digest"),
+    }
+    pf = compute_prompt_sources_fingerprint()
+    out["prompt_source_digests"] = pf["prompt_source_digests"]
+    out["prompt_sources_aggregate_sha256"] = pf["prompt_sources_aggregate_sha256"]
+    out["prompt_sources_schema"] = pf["prompt_sources_schema"]
+
+    ctx_bind["prompt_sources_aggregate_sha256"] = out["prompt_sources_aggregate_sha256"]
+    out["measurement_context_hash"] = hashlib.sha256(
+        json.dumps(ctx_bind, sort_keys=True, ensure_ascii=False).encode("utf-8")
+    ).hexdigest()[:16]
+    return out
 
 
 class _OrchestratorSprintHooks(SprintLifecycleHooks):
@@ -83,7 +175,12 @@ class _OrchestratorSprintHooks(SprintLifecycleHooks):
                 )
             )
         if p is not None:
-            m = await self._orchestrator._post_sprint_measurement(p)
+            m = await self._orchestrator._post_sprint_measurement(
+                p,
+                sprint_index=sprint_index,
+                sprint=sprint,
+                sprint_result=result,
+            )
             from ..execution.knowledge.sprint_knowledge_card import persist_sprint_outcome_card
 
             persist_sprint_outcome_card(
@@ -138,15 +235,23 @@ class SprintOrchestrator:
             feedback_loop=feedback_loop,
         )
         ex.set_event_bus(self._get_event_bus())
+        if getattr(self.config, "governance_enabled", False) and getattr(
+            self.config, "governance_task_hooks_enabled", False
+        ):
+            ex.set_task_hooks(
+                GovernanceTaskLifecycleHooks(self.config, self._project_root, self._get_event_bus())
+            )
         return ex
 
     def _build_sprint_hooks(self, release_plan: ReleasePlan) -> SprintLifecycleHooks:
-        return ChainedSprintHooks(
-            (
-                KnowledgeInjectionHook(self._project_root, self.config),
-                _OrchestratorSprintHooks(self, release_plan),
-            )
-        )
+        # 顺序：知识注入 → 治理（Planning/Review）→ 编排事件与测量（见 governance/sprint_hooks 模块注释）
+        parts: List[SprintLifecycleHooks] = [
+            KnowledgeInjectionHook(self._project_root, self.config),
+        ]
+        if getattr(self.config, "governance_enabled", False):
+            parts.append(GovernanceSprintHooks(self._project_root, self.config, self._get_event_bus()))
+        parts.append(_OrchestratorSprintHooks(self, release_plan))
+        return ChainedSprintHooks(tuple(parts))
 
     def _base_runner_context(self, release_plan: ReleasePlan) -> Dict[str, Any]:
         """每 Sprint 的索引/目标由 SprintExecutor 在编排循环内写入 context。"""
@@ -164,7 +269,14 @@ class SprintOrchestrator:
             "quality_level": self.config.effective_quality_level(),
         }
 
-    async def _post_sprint_measurement(self, release_plan: ReleasePlan) -> Optional[MeasurementResult]:
+    async def _post_sprint_measurement(
+        self,
+        release_plan: ReleasePlan,
+        *,
+        sprint_index: int = 0,
+        sprint: Optional[SprintDefinition] = None,
+        sprint_result: Optional[SprintResult] = None,
+    ) -> Optional[MeasurementResult]:
         """每个 Sprint 结束后按 quality_level 运行测量（与 RuntimeConfig 一致）。返回测量结果供知识卡片等复用。"""
         from ..config.quality import runs_pytest
         from ..evolution.measurement import MeasurementProvider
@@ -178,6 +290,14 @@ class SprintOrchestrator:
             repo = raw_root or "."
         prov = MeasurementProvider(repo_path=repo, runtime_config=self.config)
         m = prov.measure_all()
+        # F-3：测量结果附带运行期模型/引擎元数据 + Sprint/任务绑定摘要（v3）
+        m.details["run_metadata"] = _measurement_run_metadata(
+            self.config,
+            release_plan=release_plan,
+            sprint_index=sprint_index,
+            sprint=sprint,
+            sprint_result=sprint_result,
+        )
         if not prov.check_quality_gate(m):
             logger.warning(
                 "Sprint 后质量测量未通过: level=%s overall=%.2f correctness=%.2f details=%s",

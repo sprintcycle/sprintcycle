@@ -8,6 +8,8 @@ from typing import Any, Dict, Optional
 
 from loguru import logger
 
+from sprintcycle.prompt_sources import format_coder_generation_prompt
+
 from .base import AgentContext, AgentExecutor, AgentResult, AgentType
 from .coder_types import BatchConfig
 
@@ -56,24 +58,12 @@ class CoderAgent(AgentExecutor):
 
     def _build_generation_prompt(self, requirements: Dict[str, Any], context: AgentContext) -> str:
         task = requirements.get("task", "")
-        arch_section = ""
-        if requirements.get("architecture_design"):
-            arch_section = f"""
-
-架构设计指导：
-{requirements["architecture_design"]}
-"""
-        return f"""请为以下任务生成高质量的 {requirements.get('language', 'python')} 代码：
-
-任务：{task}{arch_section}
-
-要求：
-1. 代码应遵循最佳实践
-2. 包含必要的错误处理
-3. 添加清晰的注释
-4. 保持代码简洁和可读性
-5. 如有架构设计指导，请严格遵循
-"""
+        arch = requirements.get("architecture_design")
+        return format_coder_generation_prompt(
+            language=str(requirements.get("language", "python")),
+            task=str(task),
+            architecture_design=str(arch) if arch else None,
+        )
 
     def _resolve_coding_engine(self, context: AgentContext) -> str:
         return (

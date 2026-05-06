@@ -6,7 +6,7 @@ parallel_tasks = 3
 max_sprints = 10
 
 [quality]
-level = "L1"
+level = "L2"
 min_coverage_percent = 80.0
 
 [execution]
@@ -20,4 +20,6 @@ provider = "deepseek"
 model = "deepseek-reasoner"
 
 [storage]
+backend = "sqlite"
 state_dir = ".sprintcycle/state"
+sqlite_path = ".sprintcycle/data/sprintcycle.db"

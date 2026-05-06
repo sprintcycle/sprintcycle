@@ -19,9 +19,8 @@ from .release_plan_generator import (
     DiagnosticReleasePlanGenerator,
     LLMReleasePlanGenerator,
     ReleasePlanRuleEngine,
-    ReleasePlanRulePriority,
 )
-from .release_plan_rules import ReleasePlanRule
+from .release_plan_rules import ReleasePlanRule, ReleasePlanRulePriority
 
 __all__ = [
     # 健康报告

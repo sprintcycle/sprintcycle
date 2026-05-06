@@ -100,4 +100,30 @@ def flatten_sprintcycle_toml(nested: Dict[str, Any]) -> Dict[str, Any]:
     if "subdir" in product_layout:
         out["products_subdir"] = str(product_layout["subdir"]).strip()
 
+    gov = _as_dict(nested.get("governance"))
+    if "enabled" in gov:
+        out["governance_enabled"] = bool(gov["enabled"])
+    if "config_path" in gov:
+        out["governance_config_path"] = str(gov["config_path"]).strip()
+    if "block_on" in gov:
+        out["governance_block_on"] = str(gov["block_on"]).strip().lower()
+    if "spec_glob" in gov:
+        out["governance_spec_glob"] = str(gov["spec_glob"]).strip()
+    if "run_static" in gov:
+        out["governance_review_static"] = bool(gov["run_static"])
+    if "run_import_linter" in gov:
+        out["governance_review_import_linter"] = bool(gov["run_import_linter"])
+    if "check_adr" in gov:
+        out["governance_check_adr"] = bool(gov["check_adr"])
+    if "adr_glob" in gov:
+        out["governance_adr_glob"] = str(gov["adr_glob"]).strip()
+    if "check_compose" in gov:
+        out["governance_check_compose"] = bool(gov["check_compose"])
+    if "report_dir" in gov:
+        out["governance_report_dir"] = str(gov["report_dir"]).strip()
+    if "task_hooks" in gov:
+        out["governance_task_hooks_enabled"] = bool(gov["task_hooks"])
+    if "task_after_block_on_failure" in gov:
+        out["governance_task_after_block_on_failure"] = bool(gov["task_after_block_on_failure"])
+
     return out

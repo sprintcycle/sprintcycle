@@ -13,6 +13,16 @@
 
 完整分级改造见 **[`docs/DESIGN_SCRUM_NAMING_MIGRATION.md`](DESIGN_SCRUM_NAMING_MIGRATION.md)**。
 
+代码治理、质量门禁与 Docker 产品一键启动的**工程方案与可执行 Issue 列表**见 **[`docs/GOVERNANCE_ENGINEERING.md`](GOVERNANCE_ENGINEERING.md)**；golden / `model-compare` 见 **[`docs/GOVERNANCE_GOLDEN.md`](GOVERNANCE_GOLDEN.md)**。
+
+在同一项目根下做**双遍 pytest 对比**且未传 pytest 参数时，`--quick` 会默认只跑 **`golden`** 标记用例（大仓库更省时间）；可按需叠加 `--env1` / `--env2` `KEY=VALUE` 切换模型等环境：
+
+```bash
+sprintcycle governance model-compare --quick
+```
+
+未提供 `sprintcycle.toml` 时，运行态默认 **质量档位 L2**（会跑 pytest / 覆盖率相关门禁）且执行状态使用 **SQLite**（`.sprintcycle/data/sprintcycle.db`）。原型速写可设 `[quality] profile = "fast"` 或 `level = "L0"`；完整约定见仓库内 **`sprintcycle.toml.example`** 与普通任务模板 **`sprintcycle/release_plan/templates/normal_task.yaml`**。
+
 ## 安装
 
 ```bash

@@ -5,22 +5,24 @@ Tests the CLI subcommands using click.testing.CliRunner
 covering all commands: plan, run, diagnose, status, stop, etc.
 """
 
-import pytest
-import tempfile
-import shutil
 import json
+import shutil
+import tempfile
 from pathlib import Path
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import MagicMock, patch
 
+import pytest
 from click.testing import CliRunner
 
 from sprintcycle.cli import cli
 from sprintcycle.results import (
-    PlanResult, RunResult, DiagnoseResult,
-    StatusResult, RollbackResult, StopResult,
+    DiagnoseResult,
+    PlanResult,
+    RollbackResult,
+    RunResult,
+    StatusResult,
+    StopResult,
 )
-from sprintcycle.execution.sprint_types import ExecutionStatus
-from sprintcycle.execution.state.state_store import ExecutionState
 
 
 @pytest.fixture
@@ -399,6 +401,60 @@ class TestCLIInit:
             assert (init_path / ".sprintcycle" / "logs").exists()
         finally:
             shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+class TestCLIGovernanceModelCompare:
+    """governance model-compare CLI（双跑 pytest 由 run_model_compare 实现；此处冒烟 mock）。"""
+
+    def test_cli_governance_model_compare_json_smoke(self, cli_runner, temp_project):
+        fake = {
+            "exit_code_run1": 0,
+            "exit_code_run2": 0,
+            "failed_count_run1": 0,
+            "failed_count_run2": 0,
+            "failure_sets_equal": True,
+        }
+        with patch("sprintcycle.governance.model_compare.run_model_compare", return_value=fake):
+            result = cli_runner.invoke(
+                cli,
+                [
+                    "-p",
+                    temp_project,
+                    "--format",
+                    "json",
+                    "governance",
+                    "model-compare",
+                    "--",
+                    "tests/test_governance_runner.py",
+                    "-q",
+                ],
+            )
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data.get("failure_sets_equal") is True
+        assert data.get("should_fail_ci") is False
+        assert "report_path" in data
+
+    def test_cli_governance_model_compare_quick_uses_golden_marker(self, cli_runner, temp_project):
+        captured: dict = {}
+
+        def _capture(root, args, env1, env2):
+            captured["args"] = list(args)
+            return {
+                "exit_code_run1": 0,
+                "exit_code_run2": 0,
+                "failed_count_run1": 0,
+                "failed_count_run2": 0,
+                "failure_sets_equal": True,
+            }
+
+        with patch("sprintcycle.governance.model_compare.run_model_compare", side_effect=_capture):
+            result = cli_runner.invoke(
+                cli,
+                ["-p", temp_project, "governance", "model-compare", "--quick"],
+            )
+        assert result.exit_code == 0
+        assert captured.get("args") == ["tests/", "-q", "--tb=no", "-m", "golden"]
 
 
 class TestCLIVersion:

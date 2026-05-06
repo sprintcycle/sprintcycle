@@ -30,19 +30,34 @@ _DEFAULT_CONFIG: Dict[str, Any] = {
     "coverage_command": "python -m pytest --cov --cov-report=json",
     "complexity_threshold": 10, "diagnostic_timeout": 300,
     "dry_run": False, "verbose": False, "quiet": False,
-    "quality_level": "L1",
+    # 普通产品迭代默认：L2 = 静态门禁 + pytest + 覆盖率，便于自动化测试与回归
+    "quality_level": "L2",
     "quality_profile": "default",
     "max_verify_fix_rounds": 3,
     "coding_engine": "aider",
     "min_coverage_percent": 80.0,
     "project_path": ".",
-    "storage_backend": "json",
+    # 执行状态与知识卡片默认同库 SQLite，便于单机自闭环与部署（可改回 json）
+    "storage_backend": "sqlite",
     "knowledge_injection_enabled": True,
     "require_knowledge_injection_confirm": False,
     "persist_sprint_knowledge_cards": True,
     # 非自进化时：产品代码根（相对 SprintCycle project_path 解析）与 products 子目录名
     "product_code_root": ".",
     "products_subdir": "products",
+    # 治理（见 docs/GOVERNANCE_ENGINEERING.md）
+    "governance_enabled": False,
+    "governance_config_path": None,
+    "governance_block_on": "none",
+    "governance_spec_glob": None,
+    "governance_review_static": True,
+    "governance_review_import_linter": True,
+    "governance_check_adr": False,
+    "governance_adr_glob": None,
+    "governance_check_compose": False,
+    "governance_report_dir": ".sprintcycle",
+    "governance_task_hooks_enabled": False,
+    "governance_task_after_block_on_failure": False,
 }
 
 
@@ -133,14 +148,14 @@ class RuntimeConfig(BaseSettings):
     # 项目根（用于 Agent / 测量工作目录；SprintCycle API 会写入与 project_path 一致）
     project_path: str = "."
     # V4.0 P0: 质量档位 L0–L3、验证修复轮次、编码引擎（与 sprintcycle.toml 对齐）
-    quality_level: str = "L1"
+    quality_level: str = "L2"
     # V4.0 §6.3：off / fast / default / strict；非 default 时覆盖 quality_level 映射到 L 档位
     quality_profile: str = "default"
     max_verify_fix_rounds: int = 3
     coding_engine: str = "aider"
     min_coverage_percent: float = 80.0
     # P1：存储后端 json | sqlite；知识库与 sqlite 执行记录默认共用 sqlite_path
-    storage_backend: str = "json"
+    storage_backend: str = "sqlite"
     sqlite_path: Optional[str] = None
     knowledge_injection_enabled: bool = True
     # V4.0：run 前若将写入知识叠加层，可先返回待确认结果（见 RunResult.pending_knowledge_confirmation）
@@ -151,16 +166,39 @@ class RuntimeConfig(BaseSettings):
     # product_code_root 为相对路径时，相对于 SprintCycle 构造时的 project_path（代码根）
     product_code_root: str = "."
     products_subdir: str = "products"
+    # 治理与质量门禁（默认关闭，不改变既有行为）
+    governance_enabled: bool = False
+    governance_config_path: Optional[str] = None
+    governance_block_on: str = "none"
+    governance_spec_glob: Optional[str] = None
+    governance_review_static: bool = True
+    governance_review_import_linter: bool = True
+    governance_check_adr: bool = False
+    # D-2 v1：非空时 README 索引 basename 须与该 glob（相对项目根）匹配的 *.md 集合一致
+    governance_adr_glob: Optional[str] = None
+    governance_check_compose: bool = False
+    governance_report_dir: str = ".sprintcycle"
+    # 任务级治理钩子（需 governance_enabled；默认关闭）
+    governance_task_hooks_enabled: bool = False
+    # G v3：task_after 子进程失败时是否将任务标为 failed（可被 YAML 单条 block_on_failure 覆盖）
+    governance_task_after_block_on_failure: bool = False
 
     @field_validator("quality_level")
     @classmethod
     def _normalize_quality_level(cls, v: str) -> str:
-        return normalize_quality_level(v or "L1")
+        return normalize_quality_level(v or "L2")
 
     @field_validator("quality_profile")
     @classmethod
     def _normalize_quality_profile(cls, v: str) -> str:
         return normalize_quality_profile(v or "default")
+
+    @field_validator("governance_block_on")
+    @classmethod
+    def _normalize_governance_block_on(cls, v: str) -> str:
+        allowed = frozenset({"none", "review_only", "planning_and_review"})
+        s = (v or "none").strip().lower()
+        return s if s in allowed else "none"
 
     def effective_quality_level(self) -> str:
         """供测量、Dispatcher、SprintExecutor 使用的实际 L 档位（已考虑 quality_profile）。"""

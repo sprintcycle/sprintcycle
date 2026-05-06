@@ -9,6 +9,8 @@
 - task_start: 任务开始
 - task_complete: 任务完成
 - task_failed: 任务失败
+- governance_task_check: 任务级治理 ``task_after`` 子进程检查完成
+- governance_gate: Planning / Review 治理门结束摘要（含 compose 规则命中）
 - execution_complete: 执行完成
 - execution_failed: 执行失败
 - evolution_candidate: 发现进化候选
@@ -34,6 +36,8 @@ class EventType(Enum):
     TASK_START = "task_start"
     TASK_COMPLETE = "task_complete"
     TASK_FAILED = "task_failed"
+    GOVERNANCE_TASK_CHECK = "governance_task_check"
+    GOVERNANCE_GATE = "governance_gate"
     EVOLUTION_CANDIDATE = "evolution_candidate"
 
 

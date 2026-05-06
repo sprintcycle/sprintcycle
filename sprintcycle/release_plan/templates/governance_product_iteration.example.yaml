@@ -1,0 +1,13 @@
+# 普通产品迭代的治理 YAML 示例（复制到项目根下 `.sprintcycle/governance.yaml`，
+# 并在 sprintcycle.toml 的 [governance] 中设置 enabled=true 与 config_path）。
+#
+# 工程约定（与 release_plan/templates/normal_task.yaml 一致）：
+# - 主语言 Python；Web 前端 Vue 3。
+# - 持久化优先 SQLite 等可随仓库/镜像自闭环的组件；新增外部 SaaS/托管依赖须在 spec/ADR 中说明理由。
+# - 交付需考虑：自动化测试、回归（pytest marker / model-compare）、容器化部署（Compose + healthcheck）。
+
+version: 1
+
+planning: []
+
+review: []

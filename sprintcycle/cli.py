@@ -15,12 +15,16 @@ SprintCycle CLI — 子命令式入口
   sprintcycle init [path]     → 初始化项目
   sprintcycle import-state    → JSON 状态目录导入 SQLite
   sprintcycle knowledge search → 检索知识卡片
+  sprintcycle governance check → 治理门禁（Review/Planning）
+  sprintcycle governance model-compare [--quick] → 双跑 pytest 对比失败集合
+  sprintcycle product … → Docker Compose 构建/启停日志
 """
 
 from __future__ import annotations
 
 import asyncio
 import json
+import subprocess
 import sys
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
@@ -36,8 +40,8 @@ from rich.table import Table
 from rich.traceback import install as install_rich_traceback
 
 from sprintcycle.api import SprintCycle
-from sprintcycle.release_plan.payload_keys import dict_plan_name
 from sprintcycle.logging_setup import configure_sprintcycle_logging
+from sprintcycle.release_plan.payload_keys import dict_plan_name
 from sprintcycle.results import (
     DiagnoseResult,
     PlanResult,
@@ -618,6 +622,250 @@ def knowledge_search(ctx: click.Context, query: str, tag: tuple[str, ...], limit
         body = (c.get("body") or "")[:80]
         t.add_row(escape(cid_show), escape(str(c.get("domain", ""))), escape(body))
     console.print(t)
+
+
+# ─── governance（治理与质量门禁）───
+
+
+@cli.group("governance")
+def governance_group() -> None:
+    """代码治理与质量门禁（见 docs/GOVERNANCE_ENGINEERING.md）"""
+
+
+@governance_group.command("check")
+@click.option(
+    "--gate",
+    type=click.Choice(["review", "planning", "both"]),
+    default="review",
+    help="执行的检查包",
+)
+@click.pass_context
+def governance_check(ctx: click.Context, gate: str) -> None:
+    """对项目根执行 Review / Planning 治理（不跑完整 Sprint）"""
+    from sprintcycle.config.runtime_config import RuntimeConfig
+    from sprintcycle.governance.runner import run_planning_gate_sync, run_review_gate_sync
+
+    sc: SprintCycle = ctx.obj["sc"]
+    cfg = RuntimeConfig.from_project(sc.project_path)
+    planning_report = None
+    review_report = None
+    if gate in ("planning", "both"):
+        planning_report = run_planning_gate_sync(sc.project_path, cfg)
+    if gate in ("review", "both"):
+        review_report = run_review_gate_sync(sc.project_path, cfg)
+
+    block_on = (cfg.governance_block_on or "none").strip().lower()
+    fail = False
+    if gate in ("planning", "both") and planning_report is not None:
+        if block_on == "planning_and_review" and planning_report.has_error_severity():
+            fail = True
+    if gate in ("review", "both") and review_report is not None:
+        if block_on in ("review_only", "planning_and_review") and review_report.has_error_severity():
+            fail = True
+
+    if ctx.obj["fmt"] == "json":
+        out: dict[str, Any] = {}
+        if planning_report is not None:
+            out["planning"] = planning_report.to_dict()
+        if review_report is not None:
+            out["review"] = review_report.to_dict()
+        out["should_fail_ci"] = fail
+        click.echo(json.dumps(out, ensure_ascii=False, indent=2))
+    else:
+        if planning_report is not None:
+            console.print(Panel.fit(f"[bold]Planning[/bold] violations={len(planning_report.violations)}", title="治理"))
+            for v in planning_report.violations[:15]:
+                console.print(f"  [{v.severity}] {escape(v.rule_id)}: {escape(v.message[:200])}")
+        if review_report is not None:
+            console.print(Panel.fit(f"[bold]Review[/bold] violations={len(review_report.violations)}", title="治理"))
+            for v in review_report.violations[:15]:
+                console.print(f"  [{v.severity}] {escape(v.rule_id)}: {escape(v.message[:200])}")
+        if fail:
+            err_console.print("[red]根据 governance_block_on 配置，本次检查视为失败。[/red]")
+
+    if fail:
+        raise SystemExit(1)
+
+
+@governance_group.command("model-compare")
+@click.option(
+    "--env1",
+    multiple=True,
+    default=(),
+    help="第一遍 pytest 前附加的环境变量 KEY=VALUE（可重复）",
+)
+@click.option(
+    "--env2",
+    multiple=True,
+    default=(),
+    help="第二遍 pytest 前附加的环境变量 KEY=VALUE（可重复）",
+)
+@click.option(
+    "--output",
+    "out_path",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="写入 JSON 报告路径；默认 <report_dir>/model_compare_last.json",
+)
+@click.option(
+    "--quick",
+    is_flag=True,
+    default=False,
+    help="未传 pytest 参数时使用 tests/ -q --tb=no -m golden（大仓库模型对比更快）",
+)
+@click.argument("pytest_args", nargs=-1)
+@click.pass_context
+def governance_model_compare(
+    ctx: click.Context,
+    env1: tuple[str, ...],
+    env2: tuple[str, ...],
+    out_path: Optional[Path],
+    quick: bool,
+    pytest_args: tuple[str, ...],
+) -> None:
+    """同一仓库连续跑两遍 pytest（junitxml），对比失败用例集合与退出码。
+
+    用于切换 ``LLM_MODEL`` 等环境后的回归基线对比。未传 pytest 参数时默认 ``tests/ -q --tb=no``；
+    使用 ``--quick`` 时默认追加 ``-m golden``（见 ``docs/GOVERNANCE_GOLDEN.md``）。
+    """
+    from sprintcycle.config.runtime_config import RuntimeConfig
+    from sprintcycle.governance.model_compare import run_model_compare
+
+    sc: SprintCycle = ctx.obj["sc"]
+    cfg = RuntimeConfig.from_project(sc.project_path)
+    if pytest_args:
+        args = list(pytest_args)
+    elif quick:
+        args = ["tests/", "-q", "--tb=no", "-m", "golden"]
+    else:
+        args = ["tests/", "-q", "--tb=no"]
+    rep = run_model_compare(Path(sc.project_path), args, env1, env2)
+
+    rel = getattr(cfg, "governance_report_dir", None) or ".sprintcycle"
+    root = Path(sc.project_path).resolve()
+    out_dir = root / rel if not Path(rel).is_absolute() else Path(rel)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    dest = out_path or (out_dir / "model_compare_last.json")
+    dest.write_text(json.dumps(rep, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    diff_failures = not rep.get("failure_sets_equal", True)
+    diff_exit = rep.get("exit_code_run1") != rep.get("exit_code_run2")
+    fail = diff_failures or diff_exit
+
+    if ctx.obj["fmt"] == "json":
+        out = dict(rep)
+        out["report_path"] = str(dest)
+        out["should_fail_ci"] = fail
+        click.echo(json.dumps(out, ensure_ascii=False, indent=2))
+    else:
+        console.print(
+            Panel.fit(
+                f"run1 exit={rep.get('exit_code_run1')} failures={rep.get('failed_count_run1')}\n"
+                f"run2 exit={rep.get('exit_code_run2')} failures={rep.get('failed_count_run2')}\n"
+                f"failure_sets_equal={rep.get('failure_sets_equal')}\n"
+                f"报告 → {escape(str(dest))}",
+                title="[bold]model-compare[/bold]",
+            )
+        )
+        if rep.get("failed_only_run1"):
+            console.print("[yellow]仅在 run1 失败:[/yellow]", escape(str(rep["failed_only_run1"][:10])))
+        if rep.get("failed_only_run2"):
+            console.print("[yellow]仅在 run2 失败:[/yellow]", escape(str(rep["failed_only_run2"][:10])))
+
+    if fail:
+        err_console.print("[red]两次运行结果不一致（退出码或失败用例集合）。[/red]")
+        raise SystemExit(1)
+
+
+def _docker_compose_cmd(compose_file: Optional[str]) -> list[str]:
+    cmd = ["docker", "compose"]
+    if compose_file:
+        cmd.extend(["-f", compose_file])
+    return cmd
+
+
+def _run_docker_compose(
+    cwd: Path,
+    compose_file: Optional[str],
+    args: list[str],
+) -> int:
+    cmd = _docker_compose_cmd(compose_file) + args
+    p = subprocess.run(cmd, cwd=str(cwd))
+    return int(p.returncode)
+
+
+# ─── product（Docker Compose 一键）───
+
+
+@cli.group("product")
+def product_group() -> None:
+    """用户产品仓库 Docker Compose（需已安装 docker compose v2）"""
+
+
+@product_group.command("docker-build")
+@click.option(
+    "--project-directory",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+    help="含 compose 文件的目录；默认使用当前 -p 项目路径",
+)
+@click.option("--compose-file", default=None, help="compose 文件名（默认 docker compose 在目录内解析）")
+@click.pass_context
+def product_docker_build(ctx: click.Context, project_directory: Optional[Path], compose_file: Optional[str]) -> None:
+    """在项目目录执行 docker compose build"""
+    sc: SprintCycle = ctx.obj["sc"]
+    cwd = Path(project_directory).resolve() if project_directory else Path(sc.project_path).resolve()
+    code = _run_docker_compose(cwd, compose_file, ["build"])
+    if code != 0:
+        err_console.print(f"[red]docker compose build 退出码 {code}[/red]")
+        raise SystemExit(code)
+
+
+@product_group.command("up")
+@click.option("--project-directory", type=click.Path(file_okay=False, path_type=Path), default=None)
+@click.option("--compose-file", default=None)
+@click.pass_context
+def product_up(ctx: click.Context, project_directory: Optional[Path], compose_file: Optional[str]) -> None:
+    """docker compose up -d"""
+    sc: SprintCycle = ctx.obj["sc"]
+    cwd = Path(project_directory).resolve() if project_directory else Path(sc.project_path).resolve()
+    code = _run_docker_compose(cwd, compose_file, ["up", "-d"])
+    if code != 0:
+        err_console.print(f"[red]docker compose up 退出码 {code}[/red]")
+        raise SystemExit(code)
+
+
+@product_group.command("down")
+@click.option("--project-directory", type=click.Path(file_okay=False, path_type=Path), default=None)
+@click.option("--compose-file", default=None)
+@click.pass_context
+def product_down(ctx: click.Context, project_directory: Optional[Path], compose_file: Optional[str]) -> None:
+    """docker compose down"""
+    sc: SprintCycle = ctx.obj["sc"]
+    cwd = Path(project_directory).resolve() if project_directory else Path(sc.project_path).resolve()
+    code = _run_docker_compose(cwd, compose_file, ["down"])
+    if code != 0:
+        err_console.print(f"[red]docker compose down 退出码 {code}[/red]")
+        raise SystemExit(code)
+
+
+@product_group.command("logs")
+@click.option("--project-directory", type=click.Path(file_okay=False, path_type=Path), default=None)
+@click.option("--compose-file", default=None)
+@click.option("--tail", default="100", help="docker compose logs --tail")
+@click.pass_context
+def product_logs(
+    ctx: click.Context,
+    project_directory: Optional[Path],
+    compose_file: Optional[str],
+    tail: str,
+) -> None:
+    """docker compose logs（默认 tail=100）"""
+    sc: SprintCycle = ctx.obj["sc"]
+    cwd = Path(project_directory).resolve() if project_directory else Path(sc.project_path).resolve()
+    code = _run_docker_compose(cwd, compose_file, ["logs", "--tail", tail])
+    if code != 0:
+        raise SystemExit(code)
 
 
 # ─── serve (MCP Server) ───

@@ -23,11 +23,11 @@ from sprintcycle.diagnostic.provider import (
 )
 
 from sprintcycle.diagnostic.release_plan_generator import (
-    ReleasePlanRuleEngine,
-    LLMReleasePlanGenerator,
-    ReleasePlanRulePriority,
     DiagnosticReleasePlanGenerator,
+    LLMReleasePlanGenerator,
+    ReleasePlanRuleEngine,
 )
+from sprintcycle.diagnostic.release_plan_rules import ReleasePlanRulePriority
 
 
 class TestProjectHealthReport:

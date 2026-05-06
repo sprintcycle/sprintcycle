@@ -3,7 +3,7 @@
 
 与 **G1–G4 质量门禁**（见 ``SPRINTCYCLE_PRODUCT_TECH_PLAN.md`` §2.3、``docs/PRODUCT_TECH_V4.md``）对应关系（概念层）：
 
-- **G1** 静态与规范 → L1+ 侧由 ``runs_static_gate`` 等体现；L0 跳过静态门禁。
+- **G1** 静态与规范 → L1+ 侧由 ``runs_static_gate`` 等体现；L0 跳过静态门禁。（``RuntimeConfig`` 默认档位为 **L2**。）
 - **G2** 测试与覆盖 → L2/L3 由 ``runs_pytest`` / ``runs_coverage_gate`` 体现。
 - **G3** 适应度与回归 → 与测量、反馈闭环结合（L3 下 Sprint 后测量等）。
 - **G4** 架构不变量 → L3 下 ``runs_architecture_guard``（import-linter 等 CI 硬门禁）。
@@ -26,8 +26,8 @@ QUALITY_PROFILES = frozenset({"default", "off", "fast", "strict"})
 
 
 def normalize_quality_level(level: str) -> str:
-    u = (level or "L1").strip().upper()
-    return u if u in QUALITY_LEVELS else "L1"
+    u = (level or "L2").strip().upper()
+    return u if u in QUALITY_LEVELS else "L2"
 
 
 def normalize_quality_profile(profile: str) -> str:

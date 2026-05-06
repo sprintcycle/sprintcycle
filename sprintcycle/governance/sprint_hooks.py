@@ -1,0 +1,155 @@
+"""
+Sprint 生命周期钩子：治理 Planning（before）与 Review（after）。
+
+链顺序（见 ``SprintOrchestrator._build_sprint_hooks``）::
+
+    ChainedSprintHooks((
+        KnowledgeInjectionHook,   # before: 知识注入
+        GovernanceSprintHooks,     # before: Planning；after: Review
+        _OrchestratorSprintHooks,  # before: 事件；after: 测量与知识卡片
+    ))
+
+``on_after_sprint`` 调用顺序为**逆序**，故实际为：编排收尾 → 治理 Review → 知识（no-op）。
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Dict, Optional
+
+from loguru import logger
+
+from ..execution.events import Event, EventBus, EventType
+from ..execution.hooks.sprint_hooks import SprintLifecycleHooks
+from ..execution.sprint_types import SprintResult
+from ..release_plan.models import ReleasePlan, SprintDefinition
+from .report import GovernanceReport
+from .runner import GovernanceRunner, persist_report
+
+if TYPE_CHECKING:
+    from ..config.runtime_config import RuntimeConfig
+
+
+class GovernanceSprintHooks(SprintLifecycleHooks):
+    def __init__(
+        self,
+        project_path: str,
+        config: "RuntimeConfig",
+        event_bus: Optional[EventBus] = None,
+    ):
+        self._project_path = project_path
+        self._config = config
+        self._event_bus = event_bus
+
+    async def _emit_gate_summary(
+        self,
+        gate: str,
+        sprint: SprintDefinition,
+        report: GovernanceReport,
+    ) -> None:
+        if self._event_bus is None:
+            return
+        viol = list(report.violations)
+        compose_hits = [
+            {"rule_id": v.rule_id, "message": (v.message or "")[:400]}
+            for v in viol
+            if str(v.rule_id).startswith("compose:")
+        ]
+        n_err = sum(1 for v in viol if v.severity == "error")
+        n_warn = sum(1 for v in viol if v.severity == "warning")
+        await self._event_bus.emit(
+            Event(
+                type=EventType.GOVERNANCE_GATE,
+                data={
+                    "gate": gate,
+                    "sprint_name": sprint.name,
+                    "error_count": n_err,
+                    "warning_count": n_warn,
+                    "compose_rule_ids": [h["rule_id"] for h in compose_hits],
+                    "compose_hits": compose_hits[:15],
+                    "violation_rule_ids_sample": [v.rule_id for v in viol[:24]],
+                },
+            )
+        )
+
+    def _enabled(self) -> bool:
+        return bool(getattr(self._config, "governance_enabled", False))
+
+    async def on_before_sprint(
+        self,
+        sprint_index: int,
+        sprint: SprintDefinition,
+        context: Dict[str, Any],
+        release_plan: Optional[ReleasePlan],
+    ) -> None:
+        if not self._enabled():
+            return
+        try:
+            runner = GovernanceRunner(self._config)
+            raw = (context or {}).get("project_path") or self._project_path
+            report = await runner.run_planning_gate(str(raw), extra_context=context)
+            context["governance_planning_report"] = report.to_dict()
+            n_warn = sum(1 for v in report.violations if v.severity == "warning")
+            n_err = sum(1 for v in report.violations if v.severity == "error")
+            logger.info(
+                "治理 Planning gate: sprint={} violations error={} warning={} duration_sec={}",
+                sprint.name,
+                n_err,
+                n_warn,
+                report.metadata.get("duration_sec"),
+            )
+            for v in report.violations[:20]:
+                log = logger.warning if v.severity != "error" else logger.error
+                log("  [{}] {}", v.rule_id, v.message)
+            root = Path(str(raw)).expanduser().resolve()
+            rel = getattr(self._config, "governance_report_dir", None) or ".sprintcycle"
+            out_dir = root / rel if not Path(rel).is_absolute() else Path(rel)
+            out_dir.mkdir(parents=True, exist_ok=True)
+            (out_dir / "governance_planning_last.json").write_text(
+                json.dumps(report.to_dict(), ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            await self._emit_gate_summary("planning", sprint, report)
+        except Exception as e:
+            logger.warning("Governance planning gate skipped: {}", e)
+
+    async def on_after_sprint(
+        self,
+        sprint_index: int,
+        sprint: SprintDefinition,
+        result: SprintResult,
+        context: Dict[str, Any],
+        release_plan: Optional[ReleasePlan],
+    ) -> None:
+        if not self._enabled():
+            return
+        try:
+            runner = GovernanceRunner(self._config)
+            raw = (context or {}).get("project_path") or self._project_path
+            report = await runner.run_review_gate(str(raw))
+            context["governance_review_report"] = report.to_dict()
+            n_err = sum(1 for v in report.violations if v.severity == "error")
+            n_warn = sum(1 for v in report.violations if v.severity == "warning")
+            logger.info(
+                "治理 Review gate: sprint={} status={} violations error={} warning={} duration_sec={}",
+                sprint.name,
+                getattr(result.status, "value", result.status),
+                n_err,
+                n_warn,
+                report.metadata.get("duration_sec"),
+            )
+            for v in report.violations[:30]:
+                log = logger.warning if v.severity != "error" else logger.error
+                log("  [{}] {}", v.rule_id, v.message)
+            persist_report(report, str(raw), self._config)
+            block = getattr(self._config, "governance_block_on", "none") or "none"
+            if report.should_block_ci(block) and block != "none":
+                logger.error(
+                    "治理 Review 存在 error 级别违规；当前 Sprint 已完成，请在本地或 CI 运行 "
+                    "`sprintcycle governance check` 并修复（governance_block_on={})",
+                    block,
+                )
+            await self._emit_gate_summary("review", sprint, report)
+        except Exception as e:
+            logger.warning("Governance review gate skipped: {}", e)
