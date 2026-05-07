@@ -2,116 +2,320 @@
 
 [中文](README.md)
 
-**Intent-driven, self-evolving agile delivery framework** — describe goals in natural language, materialize a runnable **Release Plan** (YAML), then execute it through Sprint orchestration. The CLI, MCP server, optional Web Dashboard, and Python API all share the same **`SprintCycle`** entry point.
+**Intent-Driven Self-Evolving Agile Development Framework** — Describe goals in natural language, generate executable Release Plans (YAML), and orchestrate execution by Sprints. CLI, MCP, optional Web Dashboard, and Python API all share the same `SprintCycle` entrypoint.
 
-Current version: **0.9.2** (aligned with `sprintcycle.__version__`)
+Current Version: **0.9.2** (matches `sprintcycle.__version__`)
 
-## Requirements
+---
+
+## ✨ Core Features
+
+### 🎯 Intent-Driven Development
+- **Natural language goals** → Auto-generate Release Plans → Execute by Sprints
+- Checkpoint resume and recovery support
+- Intelligent plan expansion and validation
+
+### 🔧 Built-in Governance Engine
+- **Multi-source validation plugin system** (powered by pluggy)
+  - Architecture contract checking (import-linter)
+  - Static code analysis (ruff + mypy)
+  - YAML/Compose file validation
+  - ADR (Architecture Decision Record) checking
+  - Mutation testing (mutmut)
+  - Dependency security scanning (pip-audit)
+  - Extensible third-party plugins
+
+- **Layered gate mechanism**
+  - Planning Gate: Validation after plan generation
+  - Review Gate: Quality check after execution completes
+
+### 📊 Modern Dashboard
+- Vue 3 + Element Plus frontend
+- Real-time execution status monitoring
+- Governance check result visualization
+- Sprint execution history and trends
+- Runtime configuration management
+- SSE real-time push updates
+
+### ⚙️ Flexible Configuration System
+- **dynaconf** multi-source configuration loading
+- **pydantic** type-safe validation
+- Environment variable overrides
+- Configuration file hot-reload
+- Profile support (dev/test/prod)
+
+### 🤖 MCP Server Integration
+- Standard MCP protocol support
+- SSE transport mode
+- Integratable with any AI Agent
+
+### 🔌 Extensible Architecture
+- **Cache abstraction layer** (local memory → Redis)
+- **Message queue abstraction layer** (extension point reserved)
+- **Human-in-the-Loop** interaction
+- Plugin-based validation system
+
+---
+
+## 📋 Requirements
 
 - Python **≥ 3.11**
 
-## Installation
+---
+
+## 🚀 Installation
+
+### Basic Installation
 
 ```bash
 pip install -e .
 ```
 
-Optional extras (see `pyproject.toml`):
-
-| Extra | Purpose |
-|--------|---------|
-| `dashboard` / `full` | Web Dashboard (FastAPI + Uvicorn) |
-| `cache-redis` | Redis cache backend (`[cache] backend = redis`) |
-| `mcp-sse` | MCP over SSE (`uvicorn`, `starlette`) |
-| `dev` | Tests, typing, import-linter, etc. |
-| `mutation` | Mutation testing (`mutmut`) |
-
-Example:
+### Full Installation (Recommended)
 
 ```bash
 pip install -e ".[full,dev]"
 ```
 
-## Quick start
+### Optional Capabilities (install extras as needed)
 
-Initialize per-project directories (state and logs):
+| Extra | Purpose |
+|--------|---------|
+| `dashboard` / `full` | Web Dashboard (FastAPI + Uvicorn) |
+| `cache-redis` | Execution cache Redis backend (`[cache] backend = redis`) |
+| `mcp-sse` | Expose MCP via SSE (requires `uvicorn`, `starlette`) |
+| `dev` | Testing, type checking, import-linter, and other development dependencies |
+| `mutation` | Mutation testing (`mutmut`) |
+
+---
+
+## ⚡ Quick Start
+
+### Initialize
+
+Initialize data directory (state and logs) in project root:
 
 ```bash
 sprintcycle init
 ```
 
-**Plan only (no execution):**
+### Generate Plan (Without Execution)
 
 ```bash
-sprintcycle plan "Add unit tests for the login flow" -m auto
+sprintcycle plan "Add unit tests for login flow" -m auto
 ```
 
-**Run (default group command forwards bare args to `run`):**
+### Direct Execution
 
 ```bash
-sprintcycle run "Fix dead links in README"
-# same as:
-sprintcycle "Fix dead links in README"
+sprintcycle run "Fix broken links in README"
+# Equivalent to:
+sprintcycle "Fix broken links in README"
 ```
 
-Common flags: `--project` / `-p` for repo root, `--format json` for machine-readable output, `--mode` one of `auto`, `evolution`, `normal`, `fix`, `test`, `--release-plan` for an existing YAML, `--resume` with `--execution-id` to continue. If knowledge injection requires confirmation, pass `--yes`.
+### Enable Governance Checks
 
-## Capabilities
+```bash
+sprintcycle run "Refactor configuration module" --governance-level standard
+```
 
-- **plan**: intent → validated / expanded Release Plan; no tasks executed.
-- **run**: orchestrated Sprints via `SprintExecutor`; checkpoints and resume supported.
-- **diagnose**: project health summary and issues.
-- **status** / **rollback** / **stop**: history, rollback, and cancel in-flight work.
-- **Knowledge cards**: `sprintcycle knowledge search`; execution path supports injection and confirmation policies.
-- **MCP**: `sprintcycle serve` (default **stdio**; `--transport sse` for remote agents).
-- **Dashboard**: `sprintcycle dashboard` (install dashboard extras first). For development from a git clone, `sprintcycle dashboard --dev` starts Vite alongside the API. Before publishing a wheel/sdist with the full UI, run `cd frontend && npm run build`; see **`docs/RELEASE_CHECKLIST.md`**.
+### Start Dashboard
 
-## CLI cheat sheet
+```bash
+# Production mode (requires frontend build first)
+sprintcycle dashboard
+
+# Development mode (start FastAPI + Vite together)
+sprintcycle dashboard --dev
+```
+
+### Common Options
+
+- `--project` / `-p`: Specify project path
+- `--format json`: Machine-readable output
+- `--mode`: Execution mode (`auto`, `evolution`, `normal`, `fix`, `test`)
+- `--release-plan`: Use existing YAML plan
+- `--resume` + `--execution-id`: Resume from checkpoint
+- `--yes`: Auto-confirm knowledge injection
+
+---
+
+## 🎮 CLI Command Reference
+
+### Core Workflow
 
 | Command | Description |
-|--------|-------------|
-| `sprintcycle wizard` | Interactive plan / run / diagnose / status |
+|---------|-------------|
+| `sprintcycle wizard` | Interactive selection: plan / run / diagnose / status |
 | `sprintcycle plan <intent>` | Generate execution plan |
-| `sprintcycle run [intent]` | Execute sprints |
-| `sprintcycle diagnose` | Health check |
-| `sprintcycle status [execution_id]` | Single run or list |
-| `sprintcycle rollback <execution_id>` | Roll back |
-| `sprintcycle stop <execution_id>` | Stop a run |
-| `sprintcycle import-state` | Import JSON state dir into SQLite |
+| `sprintcycle run [intent]` | Execute Sprint |
+| `sprintcycle validate` | Run governance validation checks |
+
+### Project Management
+
+| Command | Description |
+|---------|-------------|
+| `sprintcycle diagnose` | Project health analysis |
+| `sprintcycle status [execution_id]` | Single execution status or history list |
+| `sprintcycle rollback <execution_id>` | Rollback execution |
+| `sprintcycle stop <execution_id>` | Stop running task |
+
+### Knowledge Management
+
+| Command | Description |
+|---------|-------------|
 | `sprintcycle knowledge search` | Search knowledge cards |
-| `sprintcycle serve` | Start MCP server |
-| `sprintcycle dashboard` | Start Web UI (production: build `frontend` first; dev: `--dev`) |
-| `sprintcycle init [path]` | Create `.sprintcycle` layout |
+| `sprintcycle knowledge list` | List all knowledge cards |
 
-Global options: `-p/--project`, `--format text|json`, `-v/--verbose`.
+### Configuration Management
 
-## Python API
+| Command | Description |
+|---------|-------------|
+| `sprintcycle config show` | Display current configuration |
+| `sprintcycle config set <key> <value>` | Set configuration item |
+| `sprintcycle config get <key>` | Get configuration item |
 
-Use **`SprintCycle`** from `sprintcycle.api` — `plan`, `run`, `diagnose`, `status`, `rollback`, `stop`, etc., mirroring the CLI for scripts, services, or CI.
+### Services & Integration
 
-Public models and helpers are re-exported from the top-level `sprintcycle` package (`ReleasePlan`, `ReleasePlanParser`, `ReleasePlanValidator`, `SprintOrchestrator`, `SprintExecutor`, …; see `sprintcycle/__init__.py`).
+| Command | Description |
+|---------|-------------|
+| `sprintcycle serve` | Start MCP Server (stdio by default; `--transport sse` for remote Agents) |
+| `sprintcycle dashboard` | Start Web UI (production: build `frontend` first; development: `--dev`) |
 
-## Repository layout (high level)
+### System Commands
 
-- `sprintcycle/api.py` — unified API
-- `sprintcycle/cli.py` — CLI
-- `sprintcycle/orchestration/` — Sprint orchestration
-- `sprintcycle/execution/` — engine, state, agents, knowledge hooks
-- `sprintcycle/release_plan/` — models, parse, validate, generate, expand
-- `sprintcycle/intent/` — intent parsing and runner
-- `sprintcycle/mcp/` — MCP server
-- Execution cache: **`docs/CACHE.md`** (`sprintcycle.toml` `[cache]` / `SPRINTCYCLE_CACHE_*`)
-- `frontend/` — Dashboard UI (Vue 3 + Vite)
-- `sprintcycle/dashboard/` — optional Web UI (API + `static/` assets)
-- `tests/` — pytest suite
+| Command | Description |
+|---------|-------------|
+| `sprintcycle init [path]` | Initialize `.sprintcycle` directory structure |
+| `sprintcycle import-state` | Import JSON state directory to SQLite |
 
-## Development
+**Global options**: `-p/--project` (project path), `--format text|json` (output format), `-v/--verbose` (detailed logs)
 
-```bash
-pip install -e ".[dev]"
-pytest
+---
+
+## 🌐 Python API
+
+Library and CLI share **`SprintCycle`** (`sprintcycle.api`): `plan`, `run`, `diagnose`, `status`, `rollback`, `stop` etc. are semantically aligned with CLI, making it easy to call in scripts, services, or automated pipelines.
+
+Exported models and parsers available in `sprintcycle` package:
+
+```python
+from sprintcycle import (
+    SprintCycle,
+    ReleasePlan,
+    ReleasePlanParser,
+    ReleasePlanValidator,
+    SprintOrchestrator,
+    SprintExecutor,
+    GovernanceRunner,
+)
+
+# Basic usage
+api = SprintCycle()
+result = await api.run("Refactor authentication module", project_path="./my-project")
 ```
 
-## Contributing
+---
 
-Run `pytest` (and project lint rules) before opening PRs. If a license file is added at the repo root, it governs distribution terms.
+## 🏗️ Repository Structure
+
+```
+sprintcycle/
+├── api.py                    # Unified API entrypoint
+├── cli.py                    # Command-line interface
+├── config/                   # Configuration management
+│   ├── settings.py           # dynaconf initialization
+│   ├── runtime_config.py     # pydantic configuration model
+│   ├── manager.py            # Configuration manager
+│   └── backends/             # Configuration backend abstraction
+├── orchestration/            # Sprint orchestration engine
+├── execution/                # Execution engine
+│   ├── agent/                # AI Agent execution
+│   ├── state/                # State management
+│   └── knowledge/            # Knowledge hooks and injection
+├── release_plan/             # Release Plan models and parsing
+├── governance/               # Governance engine
+│   ├── runner.py             # Governance executor
+│   ├── pluggy_host.py        # Plugin system host
+│   ├── report.py             # Governance reports
+│   └── plugins/              # Built-in validation plugins
+├── dashboard/                # Web Dashboard
+│   ├── server.py             # FastAPI backend
+│   ├── routes/               # API routes
+│   └── frontend/             # Vue 3 + Element Plus frontend
+├── events/                   # Event bus
+├── mcp/                      # MCP server
+├── hitl/                     # Human-in-the-Loop
+├── cache/                    # Cache abstraction layer
+├── mq/                       # Message queue abstraction
+└── validation/               # Multi-source validation plugin system
+```
+
+---
+
+## 🔍 Governance & Validation
+
+### Governance Levels
+
+| Level | Checks Performed | Use Case |
+|-------|------------------|----------|
+| `minimal` | Basic syntax checking only | Rapid iteration |
+| `standard` | Static analysis + architecture checks | Daily development |
+| `strict` | All checks + mutation testing | Pre-release validation |
+
+### Built-in Validation Plugins
+
+| Plugin | Functionality | Dependency |
+|--------|---------------|------------|
+| Architecture | Import layer contract checking | import-linter |
+| StaticAnalysis | ruff + mypy static checking | ruff, mypy |
+| YAMLValidation | YAML file syntax validation | pyyaml |
+| ComposeHint | Docker Compose file checking | PyYAML |
+| ADRCheck | Architecture decision record consistency | - |
+| MutmutPlugin | Mutation testing (optional) | mutmut |
+| PipAuditPlugin | Dependency security scanning (optional) | pip-audit |
+
+---
+
+## 📚 Documentation & Resources
+
+- `docs/RELEASE_CHECKLIST.md` — Release checklist
+- `sprintcycle/governance/GOVERNANCE_HEAVY_CHECKS.md` — Heavy governance checks documentation
+- More technical documentation in `docs/` directory
+
+---
+
+## 🧪 Development & Testing
+
+```bash
+# Install development dependencies
+pip install -e ".[dev]"
+
+# Run core tests
+pytest tests/test_p0_runtime.py -v
+
+# Run full test suite
+pytest tests/ -v
+
+# Architecture checking
+lint-imports
+
+# Type checking
+mypy sprintcycle/
+```
+
+---
+
+## 📄 License
+
+MIT License
+
+---
+
+## 🤝 Community & Feedback
+
+Issues and Pull Requests are welcome!
+
+---
+
+**SprintCycle — Let AI be your agile development partner** 🚀
