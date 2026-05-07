@@ -55,6 +55,10 @@ dev = [
 mutation = [
     "mutmut>=2.4.0",
 ]
+# v1 产品形态：可选 pluggy 治理 argv 扩展（[governance] pluggy_argv = true）
+governance-ext = [
+    "pluggy>=1.5.0",
+]
 
 [project.scripts]
 sprintcycle = "sprintcycle.cli:cli"

@@ -38,6 +38,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/governance/latest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Api Governance Latest
+         * @description 只读返回最近一次落盘的 Planning / Review 治理报告（v4.0 观测面）。
+         */
+        get: operations["api_governance_latest_api_governance_latest_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/governance/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Api Governance History
+         * @description 治理报告历史快照列表（新→旧），见 ``governance_history`` 目录。
+         */
+        get: operations["api_governance_history_api_governance_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/governance/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Api Governance Check
+         * @description 执行 Planning/Review 门禁并落盘（与 CLI / validate 对齐）。
+         */
+        post: operations["api_governance_check_api_governance_check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/diagnose": {
         parameters: {
             query?: never;
@@ -302,6 +362,8 @@ export interface paths {
          *     - execution_failed: 执行失败
          *     - hitl_request_open / hitl_request_resolved: 人机卡点待决策 / 已决策
          *     - config_changed: 运行时配置已更新（API 保存、手动 reload 或文件热重载）
+         *
+         *     最近一次落盘治理报告（不含 SSE）：``GET /api/governance/latest``（见 docs/GOVERNANCE_HEAVY_CHECKS.md）。
          */
         get: operations["api_events_stream_api_events_stream_get"];
         put?: never;
@@ -372,6 +434,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/platform/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Api Platform Summary
+         * @description 管理平台总览：HTTP/SSE 指标、执行阶段聚合、最近审计（进程内）。
+         */
+        get: operations["api_platform_summary_api_platform_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/": {
         parameters: {
             query?: never;
@@ -379,7 +461,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**  Spa Index */
+        /** Spa Index */
         get: operations["_spa_index__get"];
         put?: never;
         post?: never;
@@ -396,7 +478,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**  Spa Or File */
+        /** Spa Or File */
         get: operations["_spa_or_file__full_path__get"];
         put?: never;
         post?: never;
@@ -423,6 +505,18 @@ export interface components {
             updates: {
                 [key: string]: unknown;
             };
+        };
+        /**
+         * GovernanceCheckBody
+         * @description HTTP 触发治理门禁（与 ``sprintcycle governance check`` 对齐）。
+         */
+        GovernanceCheckBody: {
+            /**
+             * Gate
+             * @default review
+             * @enum {string}
+             */
+            gate: "review" | "planning" | "both";
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -559,6 +653,96 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["RunRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_governance_latest_api_governance_latest_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    api_governance_history_api_governance_history_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_governance_check_api_governance_check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GovernanceCheckBody"];
             };
         };
         responses: {
@@ -1102,6 +1286,28 @@ export interface operations {
         };
     };
     api_clients_api_clients_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    api_platform_summary_api_platform_summary_get: {
         parameters: {
             query?: never;
             header?: never;

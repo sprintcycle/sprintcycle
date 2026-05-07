@@ -14,7 +14,6 @@ Sprint 生命周期钩子：治理 Planning（before）与 Review（after）。
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
@@ -25,7 +24,7 @@ from ..execution.hooks.sprint_hooks import SprintLifecycleHooks
 from ..execution.sprint_types import SprintResult
 from ..release_plan.models import ReleasePlan, SprintDefinition
 from .report import GovernanceReport
-from .runner import GovernanceRunner, persist_report
+from .runner import GovernanceRunner, persist_planning_report, persist_report
 
 if TYPE_CHECKING:
     from ..config.runtime_config import RuntimeConfig
@@ -102,14 +101,7 @@ class GovernanceSprintHooks(SprintLifecycleHooks):
             for v in report.violations[:20]:
                 log = logger.warning if v.severity != "error" else logger.error
                 log("  [{}] {}", v.rule_id, v.message)
-            root = Path(str(raw)).expanduser().resolve()
-            rel = getattr(self._config, "governance_report_dir", None) or ".sprintcycle"
-            out_dir = root / rel if not Path(rel).is_absolute() else Path(rel)
-            out_dir.mkdir(parents=True, exist_ok=True)
-            (out_dir / "governance_planning_last.json").write_text(
-                json.dumps(report.to_dict(), ensure_ascii=False, indent=2),
-                encoding="utf-8",
-            )
+            persist_planning_report(report, str(raw), self._config)
             await self._emit_gate_summary("planning", sprint, report)
         except Exception as e:
             logger.warning("Governance planning gate skipped: {}", e)

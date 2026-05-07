@@ -365,6 +365,53 @@ class TestDashboardRollback:
             assert data['rollback_point'] == "abc1234"
 
 
+class TestDashboardPlatformSummary:
+    """GET /api/platform/summary — 管理平台聚合"""
+
+    def test_platform_summary(self, temp_project):
+        from sprintcycle.dashboard.platform_state import reset_platform_state_for_tests
+
+        reset_platform_state_for_tests()
+        with patch("sprintcycle.dashboard.server.SprintCycle") as mock_sc:
+            mock_instance = MagicMock()
+            mock_sc.return_value = mock_instance
+            mock_instance.project_path = temp_project
+            mock_instance.status.return_value = StatusResult(
+                success=True,
+                executions=[
+                    {
+                        "execution_id": "exec_run_1",
+                        "status": "running",
+                        "release_plan_name": "Demo",
+                        "current_sprint": 1,
+                        "total_sprints": 3,
+                        "completed_tasks": 4,
+                        "total_tasks": 10,
+                        "updated_at": "2026-01-01T12:00:00",
+                    }
+                ],
+                duration=0.02,
+            )
+            mock_instance.hitl_pending = AsyncMock(
+                return_value={"success": True, "data": [{"request_id": "h1"}]}
+            )
+
+            from sprintcycle.dashboard.server import create_app
+
+            app = create_app(project_path=temp_project)
+            client = TestClient(app)
+            r = client.get("/api/platform/summary")
+            assert r.status_code == 200
+            data = r.json()
+            assert data["success"] is True
+            assert data["project_path"] == temp_project
+            assert data["executions_overview"]["running_count"] == 1
+            assert data["hitl"]["open_requests"] == 1
+            ov0 = data["executions_overview"]["executions"][0]
+            assert ov0["lane_id"] == "running"
+            assert "lane_label_zh" in ov0
+
+
 class TestDashboardSSE:
     """Test SSE event stream"""
 
@@ -412,6 +459,72 @@ class TestDashboardClients:
             assert response.status_code == 200
             data = response.json()
             assert 'client_count' in data
+
+
+def _write_minimal_governance_project(project_dir: str) -> None:
+    """README + sprintcycle.toml：轻量门禁，避免 import linter / static 拖慢集成测试。"""
+    root = Path(project_dir)
+    (root / "README.md").write_text("# p\n", encoding="utf-8")
+    (root / "sprintcycle.toml").write_text(
+        "[quality]\nlevel = \"L0\"\n\n[governance]\nrun_static = false\nrun_import_linter = false\n",
+        encoding="utf-8",
+    )
+
+
+class TestGovernanceLatestApi:
+    """GET /api/governance/latest（v4.0 只读报告）"""
+
+    def test_governance_latest_404_when_missing(self, temp_project):
+        from sprintcycle.dashboard.server import create_app
+
+        app = create_app(project_path=temp_project)
+        client = TestClient(app)
+        r = client.get("/api/governance/latest")
+        assert r.status_code == 404
+
+    def test_governance_latest_returns_review_json(self, temp_project):
+        import json
+        from pathlib import Path
+
+        d = Path(temp_project) / ".sprintcycle"
+        d.mkdir(parents=True, exist_ok=True)
+        payload = {"gate": "review", "violations": [], "metadata": {}}
+        (d / "governance_last.json").write_text(json.dumps(payload), encoding="utf-8")
+
+        from sprintcycle.dashboard.server import create_app
+
+        app = create_app(project_path=temp_project)
+        client = TestClient(app)
+        r = client.get("/api/governance/latest")
+        assert r.status_code == 200
+        body = r.json()
+        assert body["review"]["gate"] == "review"
+
+
+class TestGovernanceHistoryAndCheckApi:
+    """GET /api/governance/history、POST /api/governance/check"""
+
+    def test_governance_history_empty_then_with_entries(self, temp_project):
+        _write_minimal_governance_project(temp_project)
+        from sprintcycle.dashboard.server import create_app
+
+        app = create_app(project_path=temp_project)
+        client = TestClient(app)
+        r0 = client.get("/api/governance/history", params={"limit": 10})
+        assert r0.status_code == 200
+        assert r0.json().get("entries") == []
+
+        r1 = client.post("/api/governance/check", json={"gate": "review"})
+        assert r1.status_code == 200
+        body = r1.json()
+        assert "review" in body
+        assert "should_fail_ci" in body
+
+        r2 = client.get("/api/governance/history", params={"limit": 10})
+        assert r2.status_code == 200
+        entries = r2.json().get("entries") or []
+        assert len(entries) >= 1
+        assert any(e.get("gate") == "review" for e in entries)
 
 
 class TestDashboardLegacy:

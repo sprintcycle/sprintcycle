@@ -11,9 +11,10 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import time
 import uuid
 from pathlib import Path
-from typing import Any, AsyncGenerator, Dict, Optional
+from typing import Any, AsyncGenerator, Awaitable, Callable, Dict, Literal, Optional
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,6 +27,7 @@ from sprintcycle.api import SprintCycle
 from sprintcycle.execution.events import Event, EventType, get_execution_event_backend
 
 from . import config_center
+from . import platform_state
 
 # ─── SSE 客户端管理 ───
 
@@ -182,6 +184,12 @@ class HitlDecisionBody(BaseModel):
     note: Optional[str] = None
 
 
+class GovernanceCheckBody(BaseModel):
+    """HTTP 触发治理门禁（与 ``sprintcycle governance check`` 对齐）。"""
+
+    gate: Literal["review", "planning", "both"] = "review"
+
+
 # ─── 全局状态 ───
 
 _event_handler: Optional[SSEEventHandler] = None
@@ -190,6 +198,14 @@ _event_handler: Optional[SSEEventHandler] = None
 async def _on_event(event: Any) -> None:
     """执行事件后端回调"""
     global _event_handler
+    try:
+        et = getattr(getattr(event, "type", None), "value", None) or str(
+            getattr(event, "type", "")
+        )
+        if et:
+            platform_state.record_sse_event_type(et)
+    except Exception:
+        pass
     if _event_handler:
         await _event_handler.handle_event(event)
 
@@ -202,7 +218,7 @@ def create_app(project_path: str = ".") -> FastAPI:
     sc = SprintCycle(project_path=project_path)
     event_bus = get_execution_event_backend()
 
-    app = FastAPI(title="SprintCycle Dashboard", version="0.9.2")
+    app = FastAPI(title="SprintCycle Console", version="0.9.2")
 
     if _DASHBOARD_DEV:
         app.add_middleware(
@@ -215,6 +231,38 @@ def create_app(project_path: str = ".") -> FastAPI:
             allow_methods=["*"],
             allow_headers=["*"],
         )
+
+    @app.middleware("http")
+    async def _platform_http_metrics(
+        request: Request, call_next: Callable[[Request], Awaitable[Any]]
+    ) -> Any:
+        """管理平台：HTTP 延迟、状态码、按路由计数；结构化日志便于外接采集。"""
+        path = request.url.path
+        if not path.startswith("/api/"):
+            return await call_next(request)
+        method = request.method.upper()
+        t0 = time.perf_counter()
+        status_code = 500
+        try:
+            response = await call_next(request)
+            status_code = getattr(response, "status_code", 200)
+            return response
+        finally:
+            elapsed_ms = (time.perf_counter() - t0) * 1000.0
+            platform_state.record_http_request(
+                route=path,
+                method=method,
+                status_code=status_code,
+                duration_ms=elapsed_ms,
+            )
+            if path not in ("/api/events/stream", "/api/events", "/api/events/legacy"):
+                logger.info(
+                    "dashboard_http method={} path={} status={} duration_ms={:.2f}",
+                    method,
+                    path,
+                    status_code,
+                    elapsed_ms,
+                )
 
     # 初始化 SSE 客户端管理器
     client_manager = get_client_manager()
@@ -254,6 +302,58 @@ def create_app(project_path: str = ".") -> FastAPI:
             execution_id=req.execution_id, resume=req.resume,
         )
         return result.to_dict()
+
+    @app.get("/api/governance/latest")
+    async def api_governance_latest() -> Dict[str, Any]:
+        """只读返回最近一次落盘的 Planning / Review 治理报告（v4.0 观测面）。"""
+        from sprintcycle.config.runtime_config import RuntimeConfig
+
+        cfg = RuntimeConfig.from_project(sc.project_path)
+        root = Path(sc.project_path).expanduser().resolve()
+        rel = (cfg.governance_report_dir or ".sprintcycle").strip() or ".sprintcycle"
+        out_dir = (root / rel).resolve() if not Path(rel).is_absolute() else Path(rel)
+        last = out_dir / "governance_last.json"
+        planning = out_dir / "governance_planning_last.json"
+        if not last.is_file() and not planning.is_file():
+            raise HTTPException(status_code=404, detail="未找到治理报告，请先运行 governance check 或 Sprint 门禁")
+        payload: Dict[str, Any] = {}
+        if planning.is_file():
+            payload["planning"] = json.loads(planning.read_text(encoding="utf-8"))
+        if last.is_file():
+            payload["review"] = json.loads(last.read_text(encoding="utf-8"))
+        return payload
+
+    @app.get("/api/governance/history")
+    async def api_governance_history(limit: int = 50) -> Dict[str, Any]:
+        """治理报告历史快照列表（新→旧），见 ``governance_history`` 目录。"""
+        from sprintcycle.config.runtime_config import RuntimeConfig
+        from sprintcycle.governance.history import list_history_entries
+
+        cfg = RuntimeConfig.from_project(sc.project_path)
+        lim = min(200, max(1, int(limit)))
+        entries = list_history_entries(sc.project_path, cfg, limit=lim)
+        return {"entries": entries}
+
+    @app.post("/api/governance/check")
+    async def api_governance_check(body: GovernanceCheckBody) -> Dict[str, Any]:
+        """执行 Planning/Review 门禁并落盘（与 CLI / validate 对齐）。"""
+        from sprintcycle.config.runtime_config import RuntimeConfig
+        from sprintcycle.governance.runner import run_governance_check_and_persist
+
+        cfg = RuntimeConfig.from_project(sc.project_path)
+        # 门禁内部使用 ``asyncio.run``；在 ASGI 事件循环中须放到线程执行，避免嵌套 loop。
+        planning_report, review_report, fail = await asyncio.to_thread(
+            run_governance_check_and_persist,
+            sc.project_path,
+            cfg,
+            body.gate,
+        )
+        out: Dict[str, Any] = {"should_fail_ci": fail, "gate": body.gate}
+        if planning_report is not None:
+            out["planning"] = planning_report.to_dict()
+        if review_report is not None:
+            out["review"] = review_report.to_dict()
+        return out
 
     @app.get("/api/diagnose")
     async def api_diagnose() -> Dict[str, Any]:
@@ -330,6 +430,8 @@ def create_app(project_path: str = ".") -> FastAPI:
         - execution_failed: 执行失败
         - hitl_request_open / hitl_request_resolved: 人机卡点待决策 / 已决策
         - config_changed: 运行时配置已更新（API 保存、手动 reload 或文件热重载）
+
+        最近一次落盘治理报告（不含 SSE）：``GET /api/governance/latest``（见 docs/GOVERNANCE_HEAVY_CHECKS.md）。
         """
         client = await client_manager.create_client()
         client_id = client.client_id
@@ -387,6 +489,27 @@ def create_app(project_path: str = ".") -> FastAPI:
         return {
             "client_count": client_manager.get_client_count(),
         }
+
+    @app.get("/api/platform/summary")
+    async def api_platform_summary() -> Dict[str, Any]:
+        """管理平台总览：HTTP/SSE 指标、执行阶段聚合、最近审计（进程内）。"""
+        st = sc.status()
+        raw = st.to_dict() if hasattr(st, "to_dict") else {}
+        executions: list = []
+        if raw.get("success") and isinstance(raw.get("executions"), list):
+            executions = raw["executions"]
+        snap = platform_state.get_platform_snapshot(
+            project_path=sc.project_path,
+            sse_client_count=client_manager.get_client_count(),
+            executions=executions,
+        )
+        snap["status_query_ms"] = round(float(raw.get("duration", 0) or 0) * 1000.0, 2)
+        hitl = await sc.hitl_pending()
+        pend = hitl.get("data") if isinstance(hitl, dict) else []
+        snap["hitl"] = {
+            "open_requests": len(pend) if isinstance(pend, list) else 0,
+        }
+        return snap
 
     _mount_dashboard_frontend(app)
     return app

@@ -1,0 +1,11 @@
+# 依赖漏洞扫描示例（需本机安装 pip-audit；默认关闭 enabled）
+# 合并方式：packs 或主 governance.yaml 的 review 段
+version: 1
+review:
+  - id: pip-audit-root
+    enabled: false
+    argv: ["pip-audit", "-r", "requirements.txt"]
+    cwd: "."
+    expect_code: 0
+    timeout_sec: 300
+    severity: warning

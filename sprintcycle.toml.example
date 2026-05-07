@@ -92,5 +92,17 @@ check_compose = false
 # compose_supply_chain = false                     # Review：:latest 与 build Dockerfile 轻量提示
 # ci_matrix_tags = "py311,linux"                  # 写入 run_metadata，便于 CI 矩阵与测量对齐
 # task_hooks = false              # 任务级 task_after 默认关，避免每任务子进程开销
+# v4.0：带 tags: [browser] / [visual] 的 argv 条目总开关（默认 false，见 docs/GOVERNANCE_HEAVY_CHECKS.md）
+# review_browser_e2e = false
+# review_visual = false
+# governance check 写盘后可选派发 GOVERNANCE_GATE（与 Dashboard SSE 对齐）
+# cli_emit_events = false
+# 历史快照目录 governance_history 下最多保留文件数（每次写 *_last.json 时追加一条）
+# history_max_files = 50
+# 是否加载 setuptools entry_points 扩展 argv（见 docs/GOVERNANCE_HEAVY_CHECKS.md §7）
+# argv_entry_points = true
+# 是否启用 pluggy 扩展（需 pip install -e ".[governance-ext]"）
+# pluggy_argv = false
+# packs = ["examples/governance/playwright-visual.example.yaml"]   # 按需启用浏览器/视觉示例条目
 
 # 若需 CI 硬失败，改用 block_on = "review_only" 并设 downgrade_errors_to_warnings = false

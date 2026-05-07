@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 
 import yaml
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from loguru import logger
 
@@ -24,6 +24,7 @@ from .sdd_checks import (
     violations_from_release_plan_validator,
     violations_spec_marker_in_files,
 )
+from .argv_extensions import extend_argv_items_with_plugins
 from .yaml_checks import checks_for_gate, run_argv_checks
 from .yaml_merge import load_merged_governance_data
 
@@ -116,7 +117,8 @@ class GovernanceRunner:
                 meta["checks_planned"].append("release_plan_validator+spec_ref")
 
         data = self._load_yaml_data(root)
-        violations.extend(run_argv_checks(checks_for_gate(data, "planning"), root, "planning"))
+        planning_argv = extend_argv_items_with_plugins("planning", checks_for_gate(data, "planning"), self._cfg, root)
+        violations.extend(run_argv_checks(planning_argv, root, "planning"))
 
         if extra_context:
             meta["context_keys"] = sorted(str(k) for k in extra_context.keys())
@@ -132,9 +134,10 @@ class GovernanceRunner:
         meta: Dict[str, Any] = {"project_path": str(root), "steps": []}
 
         data = self._load_yaml_data(root)
-        yv = run_argv_checks(checks_for_gate(data, "review"), root, "review")
+        review_argv = extend_argv_items_with_plugins("review", checks_for_gate(data, "review"), self._cfg, root)
+        yv = run_argv_checks(review_argv, root, "review")
         violations.extend(yv)
-        if yv or checks_for_gate(data, "review"):
+        if yv or review_argv:
             meta["steps"].append("yaml_review_checks")
 
         level = self._cfg.effective_quality_level()
@@ -321,7 +324,106 @@ def persist_report(report: GovernanceReport, project_path: str, runtime_config: 
 
         payload = report.to_dict()
         path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        from .history import append_history_snapshot
+
+        append_history_snapshot(report, project_path, runtime_config)
         return path
     except Exception as e:
         logger.warning("写入治理报告失败: {}", e)
         return None
+
+
+def persist_planning_report(report: GovernanceReport, project_path: str, runtime_config: "RuntimeConfig") -> Optional[Path]:
+    """将 Planning 门报告写入 ``<report_dir>/governance_planning_last.json``（与 Sprint 钩子路径一致）。"""
+    rel = getattr(runtime_config, "governance_report_dir", None) or ".sprintcycle"
+    root = Path(project_path).expanduser().resolve()
+    out_dir = (root / rel).resolve() if not Path(rel).is_absolute() else Path(rel)
+    try:
+        out_dir.mkdir(parents=True, exist_ok=True)
+        path = out_dir / "governance_planning_last.json"
+        import json
+
+        path.write_text(json.dumps(report.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
+        from .history import append_history_snapshot
+
+        append_history_snapshot(report, project_path, runtime_config)
+        return path
+    except Exception as e:
+        logger.warning("写入 Planning 治理报告失败: {}", e)
+        return None
+
+
+def emit_governance_gate_cli_sync(
+    project_path: str,
+    runtime_config: "RuntimeConfig",
+    gate: str,
+    report: GovernanceReport,
+) -> None:
+    """``sprintcycle governance check`` 可选：向执行事件后端派发 ``GOVERNANCE_GATE``（与 Dashboard SSE 对齐）。"""
+    if not bool(getattr(runtime_config, "governance_cli_emit_events", False)):
+        return
+    from ..execution.events import (
+        Event,
+        EventType,
+        ensure_default_execution_event_backend_for_project,
+        get_execution_event_backend,
+    )
+
+    ensure_default_execution_event_backend_for_project(project_path, runtime_config)
+    bus = get_execution_event_backend()
+    viol = list(report.violations)
+    compose_hits = [
+        {"rule_id": v.rule_id, "message": (v.message or "")[:400]}
+        for v in viol
+        if str(v.rule_id).startswith("compose:")
+    ]
+    n_err = sum(1 for v in viol if v.severity == "error")
+    n_warn = sum(1 for v in viol if v.severity == "warning")
+
+    async def _emit() -> None:
+        await bus.emit(
+            Event(
+                type=EventType.GOVERNANCE_GATE,
+                data={
+                    "gate": gate,
+                    "sprint_name": "__cli__",
+                    "error_count": n_err,
+                    "warning_count": n_warn,
+                    "compose_rule_ids": [h["rule_id"] for h in compose_hits],
+                    "compose_hits": compose_hits[:15],
+                    "violation_rule_ids_sample": [v.rule_id for v in viol[:24]],
+                },
+            )
+        )
+
+    asyncio.run(_emit())
+
+
+def run_governance_check_and_persist(
+    project_path: str,
+    runtime_config: "RuntimeConfig",
+    gate: str,
+) -> Tuple[Optional[GovernanceReport], Optional[GovernanceReport], bool]:
+    """执行 Planning/Review 门禁、落盘、可选 CLI 事件；返回报告与是否应按 block_on 视为失败。"""
+    planning_report: Optional[GovernanceReport] = None
+    review_report: Optional[GovernanceReport] = None
+    if gate in ("planning", "both"):
+        planning_report = run_planning_gate_sync(project_path, runtime_config)
+        if planning_report is not None:
+            persist_planning_report(planning_report, project_path, runtime_config)
+            emit_governance_gate_cli_sync(project_path, runtime_config, "planning", planning_report)
+    if gate in ("review", "both"):
+        review_report = run_review_gate_sync(project_path, runtime_config)
+        if review_report is not None:
+            persist_report(review_report, project_path, runtime_config)
+            emit_governance_gate_cli_sync(project_path, runtime_config, "review", review_report)
+
+    block_on = (runtime_config.governance_block_on or "none").strip().lower()
+    fail = False
+    if gate in ("planning", "both") and planning_report is not None:
+        if block_on == "planning_and_review" and planning_report.has_error_severity():
+            fail = True
+    if gate in ("review", "both") and review_report is not None:
+        if block_on in ("review_only", "planning_and_review") and review_report.has_error_severity():
+            fail = True
+    return planning_report, review_report, fail

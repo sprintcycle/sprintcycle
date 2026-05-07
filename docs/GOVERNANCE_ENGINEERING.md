@@ -188,7 +188,7 @@
 
 ## 13. 演进路线（摘要）
 
-- **阶段 A（已实现）**：`GovernanceRunner` + `GovernanceReport`；`GovernanceSprintHooks`（Planning + Review）；CLI `sprintcycle governance check`；`sprintcycle.toml` `[governance]` 与 `RuntimeConfig` 字段；Review 包聚合静态分析、可选 import-linter、可选 ADR/Compose 轻量检查；报告落盘 `.sprintcycle/governance_planning_last.json` / `governance_last.json`。  
+- **阶段 A（已实现）**：`GovernanceRunner` + `GovernanceReport`；`GovernanceSprintHooks`（Planning + Review）；CLI `sprintcycle governance check` 与等价别名 **`sprintcycle validate`**（**写盘** `governance_planning_last.json` / `governance_last.json`，并轮转 **`governance_history/`**；可选 **`cli_emit_events`** 派发 `GOVERNANCE_GATE`）；`sprintcycle.toml` `[governance]` 与 `RuntimeConfig` 字段（含 **`history_max_files`**、**`argv_entry_points`**、**`pluggy_argv`**）；Review 包聚合静态分析、可选 import-linter、可选 ADR/Compose 轻量检查；**v4.0**：argv 条目 **`enabled`**、**`tags`**（`browser` / `visual`）与总开关 **`review_browser_e2e`** / **`review_visual`**；Dashboard **`GET /api/governance/latest`**、**`GET /api/governance/history`**、**`POST /api/governance/check`**（与 CLI 同路径；ASGI 下经线程调度避免嵌套事件循环）及 **「治理 / 多源验证」** 页。  
 - **阶段 B（已实现）**：`sprintcycle product`（`docker-build` / `up` / `down` / `logs`）。  
 - **阶段 C（已完成相对 v7「二、可落地仍有空间」一揽子）**：`sprintcycle governance model-compare`（含 ``--quick`` → 默认 ``-m golden``）、golden 约定文档 ``docs/GOVERNANCE_GOLDEN.md``、``pytest`` marker ``golden``；``TaskLifecycleHooks`` + **G-3～G-5**（``task_after``、事件、可选阻断）；**F-3 v4**：`run_metadata` 含 Sprint/任务绑定 ``task_outcome_digest``、``measurement_context_hash``，以及 **稳定 prompt 模板全文摘要**（``sprintcycle.prompt_sources`` 含 Coder / Analyzer / Architect / Tester / RegressionTester 等登记模板 → ``prompt_source_digests`` / ``prompt_sources_aggregate_sha256``）；**F-3 v5**：``test_command_incremental``、``ci_matrix_tags`` / ``ci_matrix_tags_joined`` 写入 ``run_metadata`` 并参与哈希绑定；Dashboard **governance_gate** 事件展示 Planning/Review 摘要与 ``compose:*`` 规则命中；**E-3 v1**：Compose YAML 逐服务 ``restart``/``healthcheck`` 提示；**E-3 v2**：可选 **compose 供应链轻量提示**（``:latest``、缺 Dockerfile）；**多包合并**（``config_path`` + ``packs``）；**SDD Planning**（``spec_marker``、``acceptance_glob``、内存 ``ReleasePlan`` + Validator + ``spec_ref``）。  
 - **仍待办（远期）**：OPA/Rego、更重的供应链扫描、L3 AI 自动修复与核心强绑定等（见 §4「刻意不做」与 v7 愿景）。
@@ -219,7 +219,23 @@ report_dir = ".sprintcycle"
 task_hooks = false          # 任务级治理钩子（需 enabled=true）
 # G v3：task_after 子进程失败时是否将已成功任务标为 failed（可被 YAML 单条 block_on_failure 覆盖）
 # task_after_block_on_failure = false
+# ── v4.0 可选：浏览器 / 视觉类 argv（需条目 ``tags: [browser]`` / ``[visual]``）总开关，默认 false
+# review_browser_e2e = false
+# review_visual = false
+# ``governance check`` 成功后向执行事件后端派发 GOVERNANCE_GATE（默认 false）
+# cli_emit_events = false
 ```
+
+### 13.1.1 argv 条目扩展（v4.0 多源）
+
+与 `planning` / `review` / `task_after` 共用子进程字段，另支持：
+
+| 字段 | 说明 |
+|------|------|
+| **`enabled`** | 为 **`false`** 时跳过该条（缺省视为开启）。 |
+| **`tags`** | 字符串列表，大小写不敏感。含 **`browser`** 时，仅当 **`[governance] review_browser_e2e = true`** 执行；含 **`visual`** 时，仅当 **`review_visual = true`** 执行。无 `tags` 的条目不受上述总开关影响。 |
+
+Playwright / 视觉接法、CI 与本地策略见 **`docs/GOVERNANCE_HEAVY_CHECKS.md`**。示例 pack：`examples/governance/playwright-visual.example.yaml`。
 
 与 Sprint 后测量绑定（可选，写在 **`[execution]`**）：
 
@@ -230,7 +246,7 @@ task_hooks = false          # 任务级治理钩子（需 enabled=true）
 
 ### 13.2 治理 YAML：`task_after`（任务级 / Daily v1）
 
-与 `planning` / `review` 相同字段：`id`、`argv`、`cwd`、`expect_code`、`timeout_sec`、`severity`。另支持 **`run_when`**、**`block_on_failure`**（单条覆盖 TOML 默认）。**`run_when`**：`success`（默认）、`failure`、`always`。需 `sprintcycle.toml` 中 **`governance.enabled`** 与 **`task_hooks`** 均为 true，且 **`config_path`** 指向含下列片段的 YAML：
+与 `planning` / `review` 相同字段：`id`、`argv`、`cwd`、`expect_code`、`timeout_sec`、`severity`；亦支持 §13.1.1 的 **`enabled`**、**`tags`**（`task_after` 同样经总开关过滤）。另支持 **`run_when`**、**`block_on_failure`**（单条覆盖 TOML 默认）。**`run_when`**：`success`（默认）、`failure`、`always`。需 `sprintcycle.toml` 中 **`governance.enabled`** 与 **`task_hooks`** 均为 true，且 **`config_path`** 指向含下列片段的 YAML：
 
 ```yaml
 version: 1

@@ -1,0 +1,10 @@
+# 突变测试示例（需 pip install -e ".[mutation]"；默认关闭；建议在 CI 跑全量）
+version: 1
+review:
+  - id: mutmut-smoke
+    enabled: false
+    argv: ["mutmut", "run", "--paths-to-mutate", "sprintcycle/", "--runner", "python -m pytest -x -q"]
+    cwd: "."
+    expect_code: 0
+    timeout_sec: 3600
+    severity: warning

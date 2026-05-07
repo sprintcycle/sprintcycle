@@ -23,7 +23,7 @@ onUnmounted(() => store.unmountDashboard())
   <div class="sc-app">
     <header class="sc-header">
       <div class="sc-logo">
-        🚀 SprintCycle <span class="sc-logo-sub">Dashboard</span>
+        🚀 SprintCycle <span class="sc-logo-sub">控制台</span>
       </div>
       <div class="sc-header-right">
         <span class="sc-pill">
@@ -38,6 +38,9 @@ onUnmounted(() => store.unmountDashboard())
     <el-menu
 mode="horizontal" router :default-active="route.path" class="sc-menu" background-color="#1e293b"
       text-color="#94a3b8" active-text-color="#38bdf8">
+      <el-menu-item index="/platform">
+        📊 运行总览
+      </el-menu-item>
       <el-menu-item index="/plan">
         📝 执行计划
       </el-menu-item>
@@ -54,6 +57,9 @@ mode="horizontal" router :default-active="route.path" class="sc-menu" background
       <el-menu-item index="/events">
         <span>📡 实时事件</span>
         <el-badge :value="liveEventCount" class="tab-badge" />
+      </el-menu-item>
+      <el-menu-item index="/governance">
+        ✅ 治理 / 多源验证
       </el-menu-item>
     </el-menu>
 

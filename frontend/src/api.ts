@@ -43,8 +43,30 @@ export async function apiDiagnose() {
   return data
 }
 
+export async function apiGovernanceLatest() {
+  const { data } = await api.get<Record<string, unknown>>('/governance/latest')
+  return data
+}
+
+export async function apiGovernanceHistory(limit = 50) {
+  const { data } = await api.get<{ entries?: unknown[] }>('/governance/history', {
+    params: { limit },
+  })
+  return data
+}
+
+export async function apiGovernanceCheck(gate: 'review' | 'planning' | 'both' = 'review') {
+  const { data } = await api.post<Record<string, unknown>>('/governance/check', { gate })
+  return data
+}
+
 export async function apiClients() {
   const { data } = await api.get<{ client_count?: number }>('/clients')
+  return data
+}
+
+export async function apiPlatformSummary() {
+  const { data } = await api.get<Record<string, unknown>>('/platform/summary')
   return data
 }
 

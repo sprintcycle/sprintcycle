@@ -457,6 +457,26 @@ class TestCLIGovernanceModelCompare:
         assert captured.get("args") == ["tests/", "-q", "--tb=no", "-m", "golden"]
 
 
+class TestCLIValidateAlias:
+    """``sprintcycle validate`` 与 ``governance check`` 等价。"""
+
+    def test_cli_validate_json_review_smoke(self, cli_runner, temp_project):
+        root = Path(temp_project)
+        (root / "README.md").write_text("# p\n", encoding="utf-8")
+        (root / "sprintcycle.toml").write_text(
+            "[quality]\nlevel = \"L0\"\n\n[governance]\nrun_static = false\nrun_import_linter = false\n",
+            encoding="utf-8",
+        )
+        result = cli_runner.invoke(
+            cli,
+            ["-p", temp_project, "--format", "json", "validate", "--gate", "review"],
+        )
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.output)
+        assert "review" in data
+        assert "should_fail_ci" in data
+
+
 class TestCLIVersion:
     """Test version option"""
 

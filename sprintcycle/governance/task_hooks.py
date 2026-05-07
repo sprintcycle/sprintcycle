@@ -16,7 +16,7 @@ from ..execution.hooks.task_hooks import TaskLifecycleHooks
 from ..execution.sprint_types import ExecutionStatus, TaskResult
 from ..release_plan.models import SprintBacklogItem
 from .report import GovernanceViolation
-from .yaml_checks import checks_for_gate, run_argv_item
+from .yaml_checks import checks_for_gate, filter_argv_items_by_governance_sources, run_argv_item
 from .yaml_merge import load_merged_governance_data
 
 if TYPE_CHECKING:
@@ -38,6 +38,8 @@ class GovernanceTaskLifecycleHooks(TaskLifecycleHooks):
     且**任务本体已成功**（``task_after`` 仍执行），则向 context 写入阻断标记；``SprintExecutor``
     将把该任务标为 **failed**（G v3）。
     若构造时传入 ``event_bus``，每条 ``task_after`` 执行后发送 ``EventType.GOVERNANCE_TASK_CHECK``。
+    **v4.0**：与 planning/review 相同，支持 ``enabled: false`` 跳过；``tags: [browser]`` / ``[visual]`` 受
+    ``review_browser_e2e`` / ``review_visual`` 总开关过滤（见 ``yaml_checks.filter_argv_items_by_governance_sources``）。
     """
 
     def __init__(
@@ -55,7 +57,8 @@ class GovernanceTaskLifecycleHooks(TaskLifecycleHooks):
         if self._task_after_items is not None:
             return self._task_after_items
         data = load_merged_governance_data(self._root, self._config)
-        self._task_after_items = checks_for_gate(data, "task_after")
+        raw = checks_for_gate(data, "task_after")
+        self._task_after_items = filter_argv_items_by_governance_sources(raw, self._config)
         return self._task_after_items
 
     def _extra_env(
@@ -145,6 +148,8 @@ class GovernanceTaskLifecycleHooks(TaskLifecycleHooks):
         extra = self._extra_env(task, sprint_name, task_result)
         for item in items:
             if not isinstance(item, dict):
+                continue
+            if item.get("enabled") is False:
                 continue
             when = str(item.get("run_when", "success"))
             if not self._should_run_item(when, task_ok):

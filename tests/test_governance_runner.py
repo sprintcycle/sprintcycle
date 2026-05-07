@@ -17,9 +17,16 @@ from sprintcycle.governance.adr_check import check_adr_readme_index, check_adr_r
 from sprintcycle.governance.compose_hint import check_compose_hints, check_compose_supply_chain_hints
 from sprintcycle.governance.model_compare import run_model_compare
 from sprintcycle.governance.report import GovernanceReport, GovernanceViolation
-from sprintcycle.governance.runner import run_planning_gate_sync, run_review_gate_sync
+from sprintcycle.governance.history import list_history_entries
+from sprintcycle.governance.runner import (
+    emit_governance_gate_cli_sync,
+    persist_planning_report,
+    persist_report,
+    run_planning_gate_sync,
+    run_review_gate_sync,
+)
 from sprintcycle.governance.task_hooks import GovernanceTaskLifecycleHooks
-from sprintcycle.governance.yaml_checks import run_argv_item
+from sprintcycle.governance.yaml_checks import filter_argv_items_by_governance_sources, run_argv_checks, run_argv_item
 from sprintcycle.release_plan.models import SprintBacklogItem
 
 
@@ -203,6 +210,20 @@ async def test_governance_task_lifecycle_hook_runs(tmp_path: Path) -> None:
     await hook.on_after_task_complete(task, "S1", {}, tr)
 
 
+def test_run_argv_checks_skips_disabled(tmp_path: Path) -> None:
+    items = [
+        {
+            "id": "off",
+            "enabled": False,
+            "argv": ["python", "-c", "import sys; sys.exit(1)"],
+            "expect_code": 0,
+        },
+        {"id": "on", "argv": ["python", "-c", "import sys; sys.exit(0)"], "expect_code": 0},
+    ]
+    viol = run_argv_checks(items, tmp_path, "review")
+    assert viol == []
+
+
 def test_run_argv_item_extra_env(tmp_path: Path) -> None:
     item = {
         "id": "env-print",
@@ -276,6 +297,33 @@ task_after:
     assert seen[0].type == EventType.GOVERNANCE_TASK_CHECK
     assert seen[0].data.get("status") == "passed"
     assert seen[0].data.get("check_id") == "ok-check"
+
+
+@pytest.mark.asyncio
+async def test_task_after_skips_disabled_item(tmp_path: Path, caplog) -> None:
+    gov = tmp_path / "gov.yaml"
+    gov.write_text(
+        """
+task_after:
+  - id: would-fail-if-ran
+    enabled: false
+    argv: ["python", "-c", "import sys; sys.exit(1)"]
+    expect_code: 0
+    run_when: success
+  - id: ok-check
+    argv: ["python", "-c", "import sys; sys.exit(0)"]
+    expect_code: 0
+    run_when: success
+""",
+        encoding="utf-8",
+    )
+    cfg = RuntimeConfig(governance_config_path="gov.yaml")
+    hook = GovernanceTaskLifecycleHooks(cfg, str(tmp_path))
+    task = SprintBacklogItem(description="x", agent="coder")
+    tr = TaskResult(work_item=task, sprint_name="S1", status=ExecutionStatus.SUCCESS, output="x")
+    with caplog.at_level("ERROR"):
+        await hook.on_after_task_complete(task, "S1", {}, tr)
+    assert "would-fail-if-ran" not in caplog.text
 
 
 @pytest.mark.asyncio
@@ -415,6 +463,116 @@ services:
     assert "compose:restart_policy" in ids
     assert "compose:service_healthcheck" in ids
     assert "compose:healthcheck" in ids
+
+
+def test_filter_argv_items_respects_browser_visual_toggles() -> None:
+    items = [
+        {"id": "b", "tags": ["browser"], "argv": ["python", "-c", "import sys; sys.exit(1)"], "expect_code": 0},
+        {"id": "v", "tags": ["visual"], "argv": ["python", "-c", "import sys; sys.exit(1)"], "expect_code": 0},
+        {"id": "plain", "argv": ["python", "-c", "import sys; sys.exit(0)"], "expect_code": 0},
+    ]
+    cfg = RuntimeConfig(governance_review_browser_e2e=False, governance_review_visual=False)
+    out = filter_argv_items_by_governance_sources(items, cfg)
+    assert [x["id"] for x in out] == ["plain"]
+
+    cfg2 = RuntimeConfig(governance_review_browser_e2e=True, governance_review_visual=False)
+    out2 = filter_argv_items_by_governance_sources(items, cfg2)
+    assert {x["id"] for x in out2} == {"b", "plain"}
+
+
+def test_review_skips_browser_tag_when_toml_off(tmp_path: Path) -> None:
+    gov = tmp_path / "gov.yaml"
+    gov.write_text(
+        """
+review:
+  - id: pw-would-fail
+    tags: [browser]
+    argv: ["python", "-c", "import sys; sys.exit(1)"]
+    expect_code: 0
+""",
+        encoding="utf-8",
+    )
+    cfg = RuntimeConfig(
+        governance_config_path="gov.yaml",
+        governance_review_static=False,
+        governance_review_import_linter=False,
+        governance_review_browser_e2e=False,
+    )
+    rep = run_review_gate_sync(str(tmp_path), cfg)
+    assert not any(v.rule_id == "review:pw-would-fail" for v in rep.violations)
+
+
+def test_review_runs_browser_tag_when_toml_on(tmp_path: Path) -> None:
+    gov = tmp_path / "gov.yaml"
+    gov.write_text(
+        """
+review:
+  - id: pw-fail
+    tags: [browser]
+    argv: ["python", "-c", "import sys; sys.exit(1)"]
+    expect_code: 0
+""",
+        encoding="utf-8",
+    )
+    cfg = RuntimeConfig(
+        governance_config_path="gov.yaml",
+        governance_review_static=False,
+        governance_review_import_linter=False,
+        governance_review_browser_e2e=True,
+    )
+    rep = run_review_gate_sync(str(tmp_path), cfg)
+    assert any(v.rule_id == "review:pw-fail" for v in rep.violations)
+
+
+def test_persist_planning_report_writes_file(tmp_path: Path) -> None:
+    rep = GovernanceReport(gate="planning", violations=[], metadata={"k": 1})
+    cfg = RuntimeConfig(governance_report_dir=".sprintcycle")
+    path = persist_planning_report(rep, str(tmp_path), cfg)
+    assert path is not None and path.is_file()
+    assert path.name == "governance_planning_last.json"
+
+
+def test_persist_report_and_planning_append_history(tmp_path: Path) -> None:
+    cfg = RuntimeConfig(
+        governance_report_dir=".sprintcycle",
+        governance_history_max_files=10,
+        governance_review_import_linter=False,
+    )
+    (tmp_path / "README.md").write_text("ok", encoding="utf-8")
+    r_rev = GovernanceReport(gate="review", violations=[], metadata={})
+    r_pl = GovernanceReport(gate="planning", violations=[], metadata={})
+    persist_report(r_rev, str(tmp_path), cfg)
+    persist_planning_report(r_pl, str(tmp_path), cfg)
+    ent = list_history_entries(str(tmp_path), cfg, limit=10)
+    assert len(ent) >= 2
+    gates = {e["gate"] for e in ent}
+    assert "review" in gates and "planning" in gates
+
+
+def test_emit_governance_gate_cli_sync_emits_when_enabled(tmp_path: Path) -> None:
+    from sprintcycle.execution.events import EventType, reset_event_bus
+
+    bus = reset_event_bus()
+    seen: list = []
+
+    async def cap(ev):
+        seen.append(ev)
+
+    bus.on(EventType.GOVERNANCE_GATE, cap)
+    rep = GovernanceReport(
+        gate="review",
+        violations=[GovernanceViolation("compose:x", "warning", "m", {})],
+        metadata={},
+    )
+    cfg = RuntimeConfig(governance_cli_emit_events=False)
+    emit_governance_gate_cli_sync(str(tmp_path), cfg, "review", rep)
+    assert seen == []
+
+    cfg2 = RuntimeConfig(governance_cli_emit_events=True)
+    emit_governance_gate_cli_sync(str(tmp_path), cfg2, "review", rep)
+    assert len(seen) == 1
+    assert seen[0].data["sprint_name"] == "__cli__"
+    assert seen[0].data["gate"] == "review"
 
 
 @pytest.mark.asyncio

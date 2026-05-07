@@ -123,6 +123,34 @@ def run_argv_item(
     return violations
 
 
+def filter_argv_items_by_governance_sources(
+    items: List[Dict[str, Any]],
+    cfg: Any,
+) -> List[Dict[str, Any]]:
+    """
+    v4.0 方式 C：合并 YAML 之后、执行 argv 前，按 ``tags`` 与 TOML 总开关过滤条目。
+
+    - 带 ``tags`` 且含 ``browser``（大小写不敏感）：仅当 ``governance_review_browser_e2e`` 为 true 时保留。
+    - 带 ``tags`` 且含 ``visual``：仅当 ``governance_review_visual`` 为 true 时保留。
+    - 无 ``tags`` 或非 list：不受总开关影响（仍受 ``enabled: false`` 等约束）。
+    """
+    browser_ok = bool(getattr(cfg, "governance_review_browser_e2e", False))
+    visual_ok = bool(getattr(cfg, "governance_review_visual", False))
+    out: List[Dict[str, Any]] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        tags = item.get("tags")
+        if isinstance(tags, list):
+            tag_l = {str(t).strip().lower() for t in tags if isinstance(t, str) and str(t).strip()}
+            if "browser" in tag_l and not browser_ok:
+                continue
+            if "visual" in tag_l and not visual_ok:
+                continue
+        out.append(item)
+    return out
+
+
 def run_argv_checks(
     items: List[Dict[str, Any]],
     project_root: Path,
@@ -134,6 +162,8 @@ def run_argv_checks(
     root = project_root.resolve()
     for item in items:
         if not isinstance(item, dict):
+            continue
+        if item.get("enabled") is False:
             continue
         violations.extend(run_argv_item(item, root, gate_label, extra_env=extra_env))
     return violations

@@ -85,6 +85,34 @@ def test_flatten_cache_section_and_redis_url_alias():
     assert flat["cache_llm_codegen"] is False
 
 
+def test_flatten_governance_v4_browser_visual_cli_emit():
+    nested = {
+        "governance": {
+            "review_browser_e2e": True,
+            "review_visual": False,
+            "cli_emit_events": True,
+        }
+    }
+    flat = flatten_sprintcycle_toml(nested)
+    assert flat["governance_review_browser_e2e"] is True
+    assert flat["governance_review_visual"] is False
+    assert flat["governance_cli_emit_events"] is True
+
+
+def test_flatten_governance_history_argv_pluggy():
+    nested = {
+        "governance": {
+            "history_max_files": 120,
+            "argv_entry_points": False,
+            "pluggy_argv": True,
+        }
+    }
+    flat = flatten_sprintcycle_toml(nested)
+    assert flat["governance_history_max_files"] == 120
+    assert flat["governance_argv_entry_points"] is False
+    assert flat["governance_pluggy_argv"] is True
+
+
 def test_flatten_cache_redis_url_wins_over_url():
     nested = {
         "cache": {

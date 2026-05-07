@@ -18,6 +18,7 @@ SprintCycle CLI — 子命令式入口
   sprintcycle hitl pending|submit|history|show → 人机卡点（读库 show 不依赖 enabled）
   sprintcycle execution-events <id> → 只读 SQLite 执行事件回放
   sprintcycle governance check → 治理门禁（Review/Planning）
+  sprintcycle validate → 与 governance check 等价（v1 文档别名）
   sprintcycle governance model-compare [--quick] → 双跑 pytest 对比失败集合
   sprintcycle product … → Docker Compose 构建/启停日志
 """
@@ -798,41 +799,14 @@ def hitl_history(ctx: click.Context, execution_id: Optional[str], limit: int) ->
 # ─── governance（治理与质量门禁）───
 
 
-@cli.group("governance")
-def governance_group() -> None:
-    """代码治理与质量门禁（见 docs/GOVERNANCE_ENGINEERING.md）"""
-
-
-@governance_group.command("check")
-@click.option(
-    "--gate",
-    type=click.Choice(["review", "planning", "both"]),
-    default="review",
-    help="执行的检查包",
-)
-@click.pass_context
-def governance_check(ctx: click.Context, gate: str) -> None:
-    """对项目根执行 Review / Planning 治理（不跑完整 Sprint）"""
+def _governance_check_run_and_print(ctx: click.Context, gate: str) -> None:
+    """执行门禁、落盘、打印；失败时 ``sys.exit(1)``。"""
     from sprintcycle.config.runtime_config import RuntimeConfig
-    from sprintcycle.governance.runner import run_planning_gate_sync, run_review_gate_sync
+    from sprintcycle.governance.runner import run_governance_check_and_persist
 
     sc: SprintCycle = ctx.obj["sc"]
     cfg = RuntimeConfig.from_project(sc.project_path)
-    planning_report = None
-    review_report = None
-    if gate in ("planning", "both"):
-        planning_report = run_planning_gate_sync(sc.project_path, cfg)
-    if gate in ("review", "both"):
-        review_report = run_review_gate_sync(sc.project_path, cfg)
-
-    block_on = (cfg.governance_block_on or "none").strip().lower()
-    fail = False
-    if gate in ("planning", "both") and planning_report is not None:
-        if block_on == "planning_and_review" and planning_report.has_error_severity():
-            fail = True
-    if gate in ("review", "both") and review_report is not None:
-        if block_on in ("review_only", "planning_and_review") and review_report.has_error_severity():
-            fail = True
+    planning_report, review_report, fail = run_governance_check_and_persist(sc.project_path, cfg, gate)
 
     if ctx.obj["fmt"] == "json":
         out: dict[str, Any] = {}
@@ -856,6 +830,41 @@ def governance_check(ctx: click.Context, gate: str) -> None:
 
     if fail:
         raise SystemExit(1)
+
+
+@cli.group("governance")
+def governance_group() -> None:
+    """代码治理与质量门禁（见 docs/GOVERNANCE_ENGINEERING.md）"""
+
+
+@governance_group.command("check")
+@click.option(
+    "--gate",
+    type=click.Choice(["review", "planning", "both"]),
+    default="review",
+    help="执行的检查包",
+)
+@click.pass_context
+def governance_check(ctx: click.Context, gate: str) -> None:
+    """对项目根执行 Review / Planning 治理（不跑完整 Sprint）。
+
+    成功后写入 ``governance_report_dir`` 下 ``governance_planning_last.json`` / ``governance_last.json``；
+    若 ``[governance] cli_emit_events = true``，另向执行事件后端派发 ``GOVERNANCE_GATE``（与 Dashboard SSE 对齐）。
+    """
+    _governance_check_run_and_print(ctx, gate)
+
+
+@cli.command("validate")
+@click.option(
+    "--gate",
+    type=click.Choice(["review", "planning", "both"]),
+    default="review",
+    help="执行的检查包（与 ``governance check`` 相同）",
+)
+@click.pass_context
+def validate_cmd(ctx: click.Context, gate: str) -> None:
+    """与 ``sprintcycle governance check`` 等价（v1 多源方案文档中的 validate 入口）。"""
+    _governance_check_run_and_print(ctx, gate)
 
 
 @governance_group.command("model-compare")

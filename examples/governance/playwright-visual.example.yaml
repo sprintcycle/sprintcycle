@@ -1,0 +1,21 @@
+# 示例：浏览器 E2E（Playwright）与视觉类检查 — 见 docs/GOVERNANCE_HEAVY_CHECKS.md
+# 使用方式（方式 A）：在 sprintcycle.toml 的 [governance] packs 中按需加入本文件路径。
+# 使用方式（方式 C）：条目带 tags: [browser] / [visual]，由 review_browser_e2e / review_visual 总开关控制。
+
+version: 1
+review:
+  - id: playwright-smoke
+    tags: [browser]
+    enabled: false
+    argv: ["npx", "playwright", "test", "--reporter=line"]
+    cwd: "."
+    expect_code: 0
+    timeout_sec: 900
+    severity: error
+  - id: visual-regression
+    tags: [visual]
+    enabled: false
+    argv: ["node", "scripts/visual-compare.mjs"]
+    expect_code: 0
+    timeout_sec: 600
+    severity: error

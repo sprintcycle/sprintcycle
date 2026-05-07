@@ -287,6 +287,12 @@ class TestRuntimeConfigBasics:
         assert config.storage_backend == "sqlite"
         assert config.effective_quality_level() == "L2"
         assert config.governance_downgrade_errors_to_warnings is True
+        assert config.governance_review_browser_e2e is False
+        assert config.governance_review_visual is False
+        assert config.governance_cli_emit_events is False
+        assert config.governance_history_max_files == 50
+        assert config.governance_argv_entry_points is True
+        assert config.governance_pluggy_argv is False
 
     def test_custom_values(self):
         config = RuntimeConfig(

@@ -157,6 +157,13 @@ class _OrchestratorSprintHooks(SprintLifecycleHooks):
                 message=f"开始 Sprint: {sprint.name}",
             )
         )
+        ex_id = getattr(self._release_plan, "execution_id", None)
+        logger.info(
+            "sprintcycle.phase sprint_start execution_id={} sprint_index={} sprint_name={}",
+            ex_id,
+            sprint_index + 1,
+            sprint.name,
+        )
 
     async def on_after_sprint(
         self,
@@ -356,6 +363,13 @@ class SprintOrchestrator:
         logger.info(
             f"🚀 开始执行 ReleasePlan: {to_run.project.name} | 原始模式: {original_mode} | "
             f"执行 Sprint 数: {len(to_run.sprints)} | 任务: {to_run.total_tasks}"
+        )
+        logger.info(
+            "sprintcycle.phase execution_lane_start execution_id={} plan_name={} total_sprints={} total_tasks={}",
+            getattr(to_run, "execution_id", None),
+            to_run.project.name,
+            len(to_run.sprints),
+            to_run.total_tasks,
         )
         results = await self._execute_normal_mode(to_run, max_concurrent)
         success = all(r.status in (ExecutionStatus.SUCCESS, ExecutionStatus.SKIPPED) for r in results)

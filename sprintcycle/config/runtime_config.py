@@ -84,6 +84,12 @@ _DEFAULT_CONFIG: Dict[str, Any] = {
     "governance_compose_supply_chain": False,
     "test_command_incremental": None,
     "governance_ci_matrix_tags": None,
+    "governance_review_browser_e2e": False,
+    "governance_review_visual": False,
+    "governance_cli_emit_events": False,
+    "governance_history_max_files": 50,
+    "governance_argv_entry_points": True,
+    "governance_pluggy_argv": False,
     "cache_enabled": True,
     "cache_backend": "diskcache",
     "cache_dir": ".sprintcycle/cache",
@@ -270,6 +276,21 @@ def flatten_sprintcycle_toml(nested: Dict[str, Any]) -> Dict[str, Any]:
     if "ci_matrix_tags" in gov:
         ct = str(gov["ci_matrix_tags"]).strip()
         out["governance_ci_matrix_tags"] = ct or None
+    if "review_browser_e2e" in gov:
+        out["governance_review_browser_e2e"] = bool(gov["review_browser_e2e"])
+    if "review_visual" in gov:
+        out["governance_review_visual"] = bool(gov["review_visual"])
+    if "cli_emit_events" in gov:
+        out["governance_cli_emit_events"] = bool(gov["cli_emit_events"])
+    if "history_max_files" in gov:
+        try:
+            out["governance_history_max_files"] = int(gov["history_max_files"])
+        except (TypeError, ValueError):
+            pass
+    if "argv_entry_points" in gov:
+        out["governance_argv_entry_points"] = bool(gov["argv_entry_points"])
+    if "pluggy_argv" in gov:
+        out["governance_pluggy_argv"] = bool(gov["pluggy_argv"])
 
     hitl = _as_dict(nested.get("hitl"))
     if "enabled" in hitl:
@@ -370,6 +391,12 @@ class RuntimeConfig(BaseModel):
     governance_compose_supply_chain: bool = False
     test_command_incremental: Optional[str] = None
     governance_ci_matrix_tags: Optional[str] = None
+    governance_review_browser_e2e: bool = False
+    governance_review_visual: bool = False
+    governance_cli_emit_events: bool = False
+    governance_history_max_files: int = 50
+    governance_argv_entry_points: bool = True
+    governance_pluggy_argv: bool = False
     cache_enabled: bool = True
     cache_backend: str = "diskcache"
     cache_dir: str = ".sprintcycle/cache"
@@ -436,6 +463,13 @@ class RuntimeConfig(BaseModel):
         allowed = frozenset({"none", "review_only", "planning_and_review"})
         s = (v or "none").strip().lower()
         return s if s in allowed else "none"
+
+    @field_validator("governance_history_max_files")
+    @classmethod
+    def _clamp_governance_history_max_files(cls, v: int) -> int:
+        if v < 0:
+            return 0
+        return min(int(v), 10_000)
 
     @field_validator("governance_pack_paths", mode="before")
     @classmethod
