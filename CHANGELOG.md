@@ -1,5 +1,8 @@
 ## [Unreleased]
 
+### Changed（打包 / 依赖）
+- **移除可选 extra `[governance-ext]`**：`pluggy` 已列入核心 `dependencies`；启用 **`[governance] pluggy_argv`** 只需安装 **`sprintcycle`**（或 `pip install -e .`），旧命令 **`pip install ".[governance-ext]"`** 不再存在，请去掉该 extra。
+
 ### Changed defaults（普通产品迭代）
 - **`RuntimeConfig` 默认**：`quality_level` **L1 → L2**（启用 pytest 与覆盖率门禁，利于自动化测试与回归）；`storage_backend` **json → sqlite**（执行状态与知识卡片默认同库，路径默认 `.sprintcycle/data/sprintcycle.db`，见 `state_store.resolve_sqlite_database_path`）。`normalize_quality_level` 对空/非法输入的回退档位同步为 **L2**。
 - **`sprintcycle.toml` / `sprintcycle.toml.example`**：与上述默认对齐；示例增加产品迭代说明与可选 `[governance]`。
@@ -29,7 +32,7 @@
 
 ### Features
 - **治理 v4.0 多源（浏览器 / 视觉可选）**：治理 YAML 支持 **`enabled: false`** 跳过单条 argv；**`tags: [browser]` / `[visual]`** 与 **`[governance] review_browser_e2e` / `review_visual`** 总开关（默认 false）；**`task_after`** 同样过滤。**`sprintcycle governance check`** 成功后 **写盘** `governance_planning_last.json` / `governance_last.json`；可选 **`cli_emit_events`** 派发 **`GOVERNANCE_GATE`**（`sprint_name=__cli__`）。Dashboard **`GET /api/governance/latest`** 只读上述报告。文档 **`docs/GOVERNANCE_HEAVY_CHECKS.md`**；示例 **`examples/governance/playwright-visual.example.yaml`**。已重导 **`frontend/openapi-dashboard.json`** 与 **`frontend/src/api/openapi-gen.ts`**。
-- **治理 v1 产品形态补齐（观测与扩展）**：落盘时追加 **`governance_history/`** 轮转快照（**`history_max_files`**）；Dashboard **`GET /api/governance/history`**、**`POST /api/governance/check`**；CLI **`sprintcycle validate`**（与 **`governance check`** 同路径）；可选 **entry_points**（**`argv_entry_points`**）与 **pluggy**（**`pluggy_argv`**，`pip install -e ".[governance-ext]"`）扩展 argv；Dashboard **「治理 / 多源验证」** 路由；示例 **`examples/governance/pip-audit.example.yaml`**、**`mutmut.example.yaml`**。
+- **治理 v1 产品形态补齐（观测与扩展）**：落盘时追加 **`governance_history/`** 轮转快照（**`history_max_files`**）；Dashboard **`GET /api/governance/history`**、**`POST /api/governance/check`**；CLI **`sprintcycle validate`**（与 **`governance check`** 同路径）；可选 **entry_points**（**`argv_entry_points`**）与 **pluggy**（**`pluggy_argv`**；`pluggy` 为核心依赖）扩展 argv；Dashboard **「治理 / 多源验证」** 路由；示例 **`examples/governance/pip-audit.example.yaml`**、**`mutmut.example.yaml`**。
 - **Dashboard OpenAPI 契约入库**：提交 **`frontend/src/api/openapi-gen.ts`**；**`frontend/src/api/schema.ts`** 再导出 **`paths` / `components` / `operations`**；**`make build-frontend`** 与 CI 在 **`npm run build`** 前执行 **`npm run openapi:sync`**（`openapi-dashboard.json` 仍本地生成、不入库）
 - **人机卡点（HITL）**：`[hitl]` 配置（`sprintcycle.toml` / `SPRINTCYCLE_HITL_*`）；SQLite 持久化请求（默认 `.sprintcycle/hitl.db`）；编排钩子在 **before_sprint / after_sprint / after_task** 等门阻塞并轮询等待决策；**`approve` / `skip_sprint` / `abort_execution`** 与超时策略 **`timeout_behavior`**；事件 **`hitl_request_open` / `hitl_request_resolved`**；Dashboard 页签 **「人机卡点」**、`GET/POST /api/hitl/*`；CLI **`sprintcycle hitl pending|submit|history`**；MCP **`sprintcycle_hitl_pending` / `sprintcycle_hitl_submit`**；`SprintExecutor` 识别 **`_hitl_sprint_action`** / **`_hitl_abort_execution`** 与 **`context["execution_id"]`**；使用说明见 **`docs/QUICKSTART.md`**
 - **HITL / 执行回放补全**：决策字符串**别名**（`reject`→`abort_execution` 等，`decision_normalize`）；**`SprintCycle.hitl_show`**、**`execution_events`**；Dashboard **`GET /api/hitl/requests/{request_id}`**、**`GET /api/execution/{execution_id}/events`**；CLI **`hitl show`**、**`execution-events`**；MCP **`sprintcycle_hitl_history` / `sprintcycle_hitl_show` / `sprintcycle_execution_events`**；SQLite MQ **`fetch_execution_events_for_replay`**；`QUICKSTART` 补充名词对照与 MCP 列表

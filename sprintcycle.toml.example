@@ -101,7 +101,7 @@ check_compose = false
 # history_max_files = 50
 # 是否加载 setuptools entry_points 扩展 argv（见 docs/GOVERNANCE_HEAVY_CHECKS.md §7）
 # argv_entry_points = true
-# 是否启用 pluggy 扩展（需 pip install -e ".[governance-ext]"）
+# 是否启用 pluggy 扩展（pluggy 已随 sprintcycle 核心依赖安装）
 # pluggy_argv = false
 # packs = ["examples/governance/playwright-visual.example.yaml"]   # 按需启用浏览器/视觉示例条目
 

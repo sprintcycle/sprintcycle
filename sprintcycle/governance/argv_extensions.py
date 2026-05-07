@@ -13,7 +13,7 @@
 
 ``planning`` 门使用组名 ``sprintcycle_governance.planning_argv``。
 
-可选 **pluggy**（``pip install sprintcycle[governance-ext]`` 且 ``[governance] pluggy_argv = true``）：
+可选 **pluggy**（``pluggy`` 已随 ``sprintcycle`` 核心依赖安装；需 ``[governance] pluggy_argv = true``）：
 组 ``sprintcycle_governance.pluggy_plugin`` 指向可调用 ``register(pm: PluginManager)``，在 manager 上注册 ``extra_governance_argv`` hookimpl。
 """
 

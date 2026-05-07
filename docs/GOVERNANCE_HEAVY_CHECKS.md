@@ -50,7 +50,7 @@
 - **Entry points**（默认开启，可用 **`[governance] argv_entry_points = false`** 关闭）：
   - 组名 **`sprintcycle_governance.review_argv`** / **`sprintcycle_governance.planning_argv`**。
   - 可调用签名：`() -> list[dict]` 或 **`(runtime_config, project_root: Path) -> list[dict]`**，返回的 dict 与治理 YAML `argv` 条目同形；合并后再做 **`tags` / `enabled`** 过滤。
-- **可选 pluggy**（**`[governance] pluggy_argv = true`**；`pluggy` 已随 `sprintcycle` 核心依赖安装，亦可通过 **`pip install sprintcycle[governance-ext]`** 显式声明治理扩展）：
+- **可选 pluggy**（**`[governance] pluggy_argv = true`**；`pluggy` 已随 `sprintcycle` 核心依赖安装）：
   - 组 **`sprintcycle_governance.pluggy_plugin`**：可调用 **`register(pm)`**，在传入的 `PluginManager` 上注册 **`extra_governance_argv`** hookimpl（见 `sprintcycle/governance/pluggy_host.py`）。
 
 ## 8. Dashboard「治理」页
