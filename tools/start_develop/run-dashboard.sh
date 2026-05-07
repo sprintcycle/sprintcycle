@@ -2,8 +2,11 @@
 # SprintCycle Dashboard 启动脚本
 
 set -e
+
+# 获取项目根目录
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "${SCRIPT_DIR}"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+cd "${PROJECT_ROOT}"
 
 # 加载环境变量
 if [ -f ".env" ]; then
@@ -20,5 +23,4 @@ echo "   地址: http://localhost:8000"
 echo "   按 Ctrl+C 停止"
 echo ""
 
-cd sprintcycle/dashboard
-exec uvicorn app:app --host 0.0.0.0 --port 8000 --reload
+exec sprintcycle dashboard

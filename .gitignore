@@ -112,3 +112,4 @@ docs-dev/
 prd/*.yaml
 prd/*.yml
 *.bak
+.hypothesis/

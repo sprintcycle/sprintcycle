@@ -1,551 +1,224 @@
 #!/bin/bash
 # ==============================================================================
-# SprintCycle 一键开发环境部署脚本 v2.0
-# 支持: macOS (Intel/Apple Silicon) / Linux (Ubuntu/Debian/CentOS/Fedora/Arch)
-# 远程一键部署: curl -fsSL https://raw.githubusercontent.com/sprintcycle/sprintcycle/main/dev-setup.sh | bash
+# SprintCycle 开发环境部署脚本 v2.0
+# 支持: macOS / Linux (Ubuntu/Debian/CentOS/Fedora/Arch)
 # ==============================================================================
 
 set -euo pipefail
-# 兼容 bash 3.2+ (macOS 默认)
-if [ -n "${BASH_VERSION:-}" ]; then
-    set +o posix
-fi
 
 # ==============================================================================
-# 全局配置与变量
+# 全局配置
 # ==============================================================================
 
 VERSION="2.0.0"
-PROJECT_NAME="SprintCycle"
-REPO_URL="git@github.com:sprintcycle/sprintcycle.git"
-REPO_HTTPS_URL="https://github.com/sprintcycle/sprintcycle.git"
-PYTHON_MIN_VERSION="3.10"
+PYTHON_MIN_VERSION="3.11"
 
-# 脚本目录
+# 获取项目根目录
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "${SCRIPT_DIR}"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+cd "${PROJECT_ROOT}"
 
-# 命令行参数默认值
+# 命令行参数
 SKIP_SYSTEM_DEPS=false
-SKIP_NODE=false
-PYTHON_VERSION=""
-GIT_BRANCH="main"
 FORCE_REINSTALL=false
-DRY_RUN=false
-
-# 检测到的环境信息
-OS_TYPE=""
-OS_ARCH=""
-DISTRO=""
-DISTRO_VERSION=""
-PKG_MANAGER=""
-SUDO_CMD=""
-
-# 状态跟踪
-declare -a FAILED_STEPS=()
-declare -a WARNED_STEPS=()
-STEP_STATUS="OK"
 
 # ==============================================================================
-# 颜色输出定义 (兼容不支持颜色的终端)
+# 颜色输出
 # ==============================================================================
 
-# 检测终端是否支持颜色
-if [ -t 1 ] && command -v tput &>/dev/null && [ "$(tput colors 2>/dev/null || echo 0)" -ge 8 ]; then
-    COLOR_RED=$(tput setaf 1)
-    COLOR_GREEN=$(tput setaf 2)
-    COLOR_YELLOW=$(tput setaf 3)
-    COLOR_BLUE=$(tput setaf 4)
-    COLOR_CYAN=$(tput setaf 6)
-    COLOR_BOLD=$(tput bold)
-    COLOR_RESET=$(tput sgr0)
+if [ -t 1 ] && command -v tput >/dev/null 2>&1 && [ "$(tput colors 2>/dev/null || echo 0)" -ge 8 ]; then
+    RED=$(tput setaf 1); GREEN=$(tput setaf 2); YELLOW=$(tput setaf 3)
+    BLUE=$(tput setaf 4); CYAN=$(tput setaf 6); BOLD=$(tput bold); RESET=$(tput sgr0)
 else
-    COLOR_RED=""
-    COLOR_GREEN=""
-    COLOR_YELLOW=""
-    COLOR_BLUE=""
-    COLOR_CYAN=""
-    COLOR_BOLD=""
-    COLOR_RESET=""
+    RED=""; GREEN=""; YELLOW=""; BLUE=""; CYAN=""; BOLD=""; RESET=""
 fi
+
+log_info() { echo "${BLUE}[INFO]${RESET} $1"; }
+log_ok() { echo "${GREEN}[OK]${RESET} $1"; }
+log_warn() { echo "${YELLOW}[WARN]${RESET} $1"; }
+log_fail() { echo "${RED}[FAIL]${RESET} $1"; }
+section() { echo ""; echo "${BOLD}${BLUE}==== $1 ====${RESET}"; }
 
 # ==============================================================================
 # 辅助函数
 # ==============================================================================
 
-# 打印消息
-log_info() { echo "${COLOR_BLUE}[INFO]${COLOR_RESET} $1"; }
-log_success() { echo "${COLOR_GREEN}[OK]${COLOR_RESET} $1"; }
-log_warning() { echo "${COLOR_YELLOW}[WARN]${COLOR_RESET} $1"; WARNED_STEPS+=("$1"); }
-log_error() { echo "${COLOR_RED}[FAIL]${COLOR_RESET} $1"; FAILED_STEPS+=("$1"); STEP_STATUS="FAIL"; }
-log_skip() { echo "${COLOR_CYAN}[SKIP]${COLOR_RESET} $1"; }
-log_section() { echo ""; echo "${COLOR_BOLD}${COLOR_BLUE}==== $1 ====${COLOR_RESET}"; }
-
-# 打印 ASCII Art Banner
-print_banner() {
-    cat << 'EOF'
-
-${COLOR_BOLD}${COLOR_GREEN}
-    _____ _____ _____ _____ _____ _____ _____ _____ _____ 
-   |   __|   __|     |  _  |  _  |   __| __  |  _  |   __|
-   |__   |   __| | | |   __|   __|   __|    -|     |   __|
-   |_____|_____|_|_|_|__|  |__|  |_____|__|__|__|__|_____|
-${COLOR_RESET}
-${COLOR_CYAN}                开发环境一键部署脚本 v${VERSION}
-${COLOR_RESET}
-EOF
-}
-
-# 检查命令是否存在
-command_exists() {
-    command -v "$1" &>/dev/null
-}
-
-# 版本比较 (返回 0 表示 $1 >= $2)
-version_ge() {
-    printf '%s\n%s\n' "$2" "$1" | sort -V -C
-}
-
-# 获取命令版本
-get_version() {
-    if [ $# -eq 1 ]; then
-        case "$1" in
-            python3|python)
-                "$1" -c 'import sys; print(".".join(map(str, sys.version_info[:3])))' 2>/dev/null || echo "未找到"
-                ;;
-            git|node|npm)
-                "$1" --version 2>&1 | head -n1 | sed 's/.*\([0-9]\+\(\.[0-9]\+\)*\).*/\1/'
-                ;;
-            *)
-                "$1" --version 2>&1 | head -n1
-                ;;
-        esac
-    fi
-}
-
-# 确认操作
-confirm() {
-    local prompt="${1:-确认继续？}"
-    local default="${2:-N}"
-    
-    if [ "${FORCE_REINSTALL}" = true ]; then
-        return 0
-    fi
-    
-    if [ "${DRY_RUN}" = true ]; then
-        log_info "[DRY-RUN] 会执行: $prompt"
-        return 0
-    fi
-    
-    local yn
-    read -r -p "${prompt} [${default}/y/N] " yn || return 1
-    case "${yn}" in
-        [yY]|[yY][eE][sS]) return 0 ;;
-        *) return 1 ;;
-    esac
-}
+command_exists() { command -v "$1" >/dev/null 2>&1; }
 
 # ==============================================================================
-# 阶段 1: 系统检测与准备
+# 阶段 1: 系统检测
 # ==============================================================================
 
 phase_system_detection() {
-    log_section "阶段 1: 系统检测与准备"
+    section "阶段 1: 系统检测"
     
-    # 检测操作系统
-    local os
-    os="$(uname -s)"
-    case "${os}" in
-        Linux*)     OS_TYPE="linux" ;;
-        Darwin*)    OS_TYPE="mac" ;;
-        *)          OS_TYPE="unknown" ;;
+    OS_TYPE=$(uname -s)
+    case "${OS_TYPE}" in
+        Linux*)  OS_TYPE="linux" ;;
+        Darwin*) OS_TYPE="mac" ;;
+        *)       log_fail "不支持的操作系统: ${OS_TYPE}"; exit 1 ;;
     esac
-    log_info "操作系统: ${os} ($(uname -m))"
-    OS_ARCH="$(uname -m)"
-    
-    # 检测 Linux 发行版
-    if [ "${OS_TYPE}" = "linux" ]; then
-        if [ -f /etc/os-release ]; then
-            . /etc/os-release
-            DISTRO="${ID:-unknown}"
-            DISTRO_VERSION="${VERSION_ID:-}"
-            log_info "Linux 发行版: ${DISTRO} ${DISTRO_VERSION}"
-        elif command_exists lsb_release; then
-            DISTRO="$(lsb_release -si 2>/dev/null | tr '[:upper:]' '[:lower:]')" || DISTRO="unknown"
-            log_info "Linux 发行版: ${DISTRO}"
-        else
-            DISTRO="unknown"
-            log_warning "无法检测 Linux 发行版"
-        fi
-    fi
-    
-    # 检测是否需要 sudo
-    if [ "${EUID:-$(id -u)}" -eq 0 ]; then
-        SUDO_CMD=""
-        log_info "已以 root 权限运行"
-    elif command_exists sudo && sudo -n true 2>/dev/null; then
-        SUDO_CMD="sudo"
-        log_info "将使用 sudo 安装系统依赖"
-    else
-        SUDO_CMD=""
-        log_info "当前用户无需 sudo 或 sudo 不可用"
-    fi
+    log_info "操作系统: ${OS_TYPE} ($(uname -m))"
     
     # 检测包管理器
     if [ "${OS_TYPE}" = "mac" ]; then
         if command_exists brew; then
             PKG_MANAGER="brew"
-            log_info "包管理器: Homebrew ($(brew --version | head -n1))"
+            log_info "包管理器: Homebrew"
         else
-            PKG_MANAGER="none"
-            log_warning "未检测到 Homebrew"
+            log_fail "请先安装 Homebrew: https://brew.sh"
+            exit 1
         fi
-    elif [ "${OS_TYPE}" = "linux" ]; then
+    else
         if command_exists apt-get; then
             PKG_MANAGER="apt"
-            log_info "包管理器: apt"
         elif command_exists dnf; then
             PKG_MANAGER="dnf"
-            log_info "包管理器: dnf"
         elif command_exists yum; then
             PKG_MANAGER="yum"
-            log_info "包管理器: yum"
         elif command_exists pacman; then
             PKG_MANAGER="pacman"
-            log_info "包管理器: pacman (Arch)"
         else
             PKG_MANAGER="none"
-            log_warning "未检测到包管理器"
         fi
+        log_info "包管理器: ${PKG_MANAGER:-none}"
     fi
     
-    # 检测已有工具版本
-    log_info "检测已有工具版本..."
-    if command_exists git; then
-        log_info "  Git: $(get_version git)"
-    else
-        log_warning "  Git: 未安装"
-    fi
-    
+    # 检查 Python 版本
     if command_exists python3; then
         local py_ver
-        py_ver="$(get_version python3)"
-        log_info "  Python3: ${py_ver}"
-        if ! version_ge "${py_ver}" "${PYTHON_MIN_VERSION}"; then
-            log_warning "Python3 版本低于 ${PYTHON_MIN_VERSION}，需要升级"
+        py_ver=$(python3 -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')
+        log_info "Python: ${py_ver}"
+        if ! python3 -c "import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)"; then
+            log_warn "Python >= 3.11 是必需的，当前 ${py_ver}"
         fi
     else
-        log_warning "  Python3: 未安装"
-    fi
-    
-    if command_exists node; then
-        log_info "  Node.js: $(get_version node)"
-    else
-        log_info "  Node.js: 未安装 (可选)"
+        log_warn "Python3 未安装"
     fi
 }
 
 # ==============================================================================
-# 阶段 2: 系统依赖安装
+# 阶段 2: 安装系统依赖
 # ==============================================================================
 
 phase_install_system_deps() {
     if [ "${SKIP_SYSTEM_DEPS}" = true ]; then
-        log_skip "跳过系统依赖安装 (--skip-system-deps)"
+        log_info "跳过系统依赖安装 (--skip-system-deps)"
         return 0
     fi
     
-    log_section "阶段 2: 安装系统依赖"
+    section "阶段 2: 安装系统依赖"
     
-    local install_status=0
+    local -a deps=()
     
-    # macOS
     if [ "${OS_TYPE}" = "mac" ]; then
-        if [ "${PKG_MANAGER}" != "brew" ]; then
-            echo ""
-            echo "========================================"
-            echo "  Homebrew 未安装，请先安装："
-            echo "  /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
-            echo "========================================"
-            log_error "Homebrew 未安装"
-            return 1
+        if ! command_exists git; then deps+=("git"); fi
+        if ! command_exists python3@3.12 2>/dev/null && ! command_exists python3; then
+            deps+=("python@3.12")
         fi
-        
-        log_info "通过 Homebrew 安装系统依赖..."
-        
-        if ! command_exists git; then
-            log_info "安装 Git..."
-            brew install git || { log_error "Git 安装失败"; return 1; }
-        else
-            log_skip "Git 已安装"
+        if [ ${#deps[@]} -gt 0 ]; then
+            log_info "安装: ${deps[*]}"
+            brew install "${deps[@]}"
         fi
-        
-        local py_ver
-        py_ver="$(get_version python3 2>/dev/null || echo "0")"
-        if ! version_ge "${py_ver}" "${PYTHON_MIN_VERSION}"; then
-            log_info "安装 Python 3.12..."
-            brew install python@3.12 || { log_error "Python 安装失败"; return 1; }
-        else
-            log_skip "Python ${py_ver} 已安装"
-        fi
-    
-    # Linux
-    elif [ "${OS_TYPE}" = "linux" ]; then
-        case "${DISTRO}" in
-            ubuntu|debian|linuxmint|pop)
-                log_info "通过 apt 安装系统依赖..."
-                ${SUDO_CMD} apt-get update -qq || log_warning "apt-get update 失败"
-                
-                local packages=("git" "curl" "build-essential" "libssl-dev" "zlib1g-dev")
-                
-                if ! command_exists python3; then
-                    packages+=("python3" "python3-pip" "python3-venv")
-                else
-                    local py_ver
-                    py_ver="$(get_version python3)"
-                    if ! version_ge "${py_ver}" "${PYTHON_MIN_VERSION}"; then
-                        log_info "系统 Python 版本过低，添加 deadsnakes PPA..."
-                        ${SUDO_CMD} apt-get install -y -qq software-properties-common
-                        ${SUDO_CMD} add-apt-repository -y ppa:deadsnakes/ppa 2>/dev/null || true
-                        packages+=("python3.12" "python3.12-venv" "python3.12-dev")
-                    fi
+    else
+        case "${PKG_MANAGER}" in
+            apt)
+                if ! command_exists git; then deps+=("git"); fi
+                if ! command_exists python3; then deps+=("python3"); fi
+                if ! command_exists python3-venv; then deps+=("python3-venv"); fi
+                if ! command_exists build-essential; then deps+=("build-essential"); fi
+                if [ ${#deps[@]} -gt 0 ]; then
+                    log_info "安装: ${deps[*]}"
+                    sudo apt-get update
+                    sudo apt-get install -y "${deps[@]}"
                 fi
-                
-                log_info "安装包: ${packages[*]}"
-                ${SUDO_CMD} apt-get install -y -qq "${packages[@]}" || { log_error "apt-get install 失败"; return 1; }
                 ;;
-                
-            centos|rhel|rocky|almalinux)
-                log_info "通过 yum 安装系统依赖..."
-                ${SUDO_CMD} yum install -y -q epel-release || true
-                ${SUDO_CMD} yum groupinstall -y -q "Development Tools" || true
-                
-                local packages=("git" "curl" "openssl-devel" "zlib-devel")
-                
-                if ! command_exists python3; then
-                    packages+=("python3" "python3-pip" "python3-devel")
+            dnf)
+                if ! command_exists git; then deps+=("git"); fi
+                if ! command_exists python3; then deps+=("python3"); fi
+                if ! command_exists python3-pip; then deps+=("python3-pip"); fi
+                if ! command_exists python3-devel; then deps+=("python3-devel"); fi
+                if [ ${#deps[@]} -gt 0 ]; then
+                    sudo dnf install -y "${deps[@]}"
                 fi
-                
-                log_info "安装包: ${packages[*]}"
-                ${SUDO_CMD} yum install -y -q "${packages[@]}" || { log_error "yum install 失败"; return 1; }
                 ;;
-                
-            fedora)
-                log_info "通过 dnf 安装系统依赖..."
-                local packages=("git" "curl" "openssl-devel" "zlib-devel" "python3" "python3-pip" "python3-devel")
-                log_info "安装包: ${packages[*]}"
-                ${SUDO_CMD} dnf install -y -q "${packages[@]}" || { log_error "dnf install 失败"; return 1; }
+            yum)
+                if ! command_exists git; then deps+=("git"); fi
+                if ! command_exists python3; then deps+=("python3"); fi
+                if ! command_exists python3-pip; then deps+=("python3-pip"); fi
+                if ! command_exists python3-devel; then deps+=("python3-devel"); fi
+                if [ ${#deps[@]} -gt 0 ]; then
+                    sudo yum install -y "${deps[@]}"
+                fi
                 ;;
-                
-            arch|manjaro|endeavouros)
-                log_info "通过 pacman 安装系统依赖..."
-                local packages=("git" "curl" "base-devel" "openssl" "zlib" "python" "python-pip")
-                log_info "安装包: ${packages[*]}"
-                ${SUDO_CMD} pacman -Sy --noconfirm "${packages[@]}" || { log_error "pacman install 失败"; return 1; }
-                ;;
-                
-            *)
-                log_error "不支持的发行版: ${DISTRO}"
-                return 1
+            pacman)
+                if ! command_exists git; then deps+=("git"); fi
+                if ! command_exists python; then deps+=("python"); fi
+                if ! command_exists base-devel; then deps+=("base-devel"); fi
+                if [ ${#deps[@]} -gt 0 ]; then
+                    sudo pacman -Sy --noconfirm "${deps[@]}"
+                fi
                 ;;
         esac
-    else
-        log_error "不支持的操作系统: ${OS_TYPE}"
-        return 1
     fi
     
-    # 安装 Node.js (可选)
-    if [ "${SKIP_NODE}" != true ] && ! command_exists node; then
-        log_info "安装 Node.js..."
-        if [ "${OS_TYPE}" = "mac" ] && [ "${PKG_MANAGER}" = "brew" ]; then
-            brew install node || log_warning "Homebrew 安装 Node.js 失败"
-        elif [ "${OS_TYPE}" = "linux" ]; then
-            if command_exists curl; then
-                curl -fsSL "https://deb.nodesource.com/setup_lts.x" | ${SUDO_CMD} bash - || log_warning "NodeSource 安装失败"
-                ${SUDO_CMD} apt-get install -y -qq nodejs || log_warning "Node.js 安装失败"
-            fi
-        fi
-    fi
-    
-    return 0
+    log_ok "系统依赖安装完成"
 }
 
 # ==============================================================================
-# 阶段 3: 项目克隆/更新
-# ==============================================================================
-
-phase_project_setup() {
-    log_section "阶段 3: 项目代码准备"
-    
-    local is_sprintcycle_repo=false
-    
-    if [ -d ".git" ]; then
-        local remote_url
-        remote_url="$(git remote get-url origin 2>/dev/null || echo "")"
-        if echo "${remote_url}" | grep -q "sprintcycle"; then
-            is_sprintcycle_repo=true
-        fi
-    fi
-    
-    if [ "${is_sprintcycle_repo}" = true ]; then
-        log_info "当前已是 SprintCycle 仓库"
-        
-        local current_branch
-        current_branch="$(git branch --show-current 2>/dev/null || echo "")"
-        log_info "当前分支: ${current_branch:-unknown}"
-        
-        if confirm "是否拉取最新代码？"; then
-            log_info "拉取最新代码..."
-            git fetch origin
-            git checkout "${GIT_BRANCH}" || git checkout main
-            git pull origin "${GIT_BRANCH:-main}" || log_warning "拉取代码失败"
-        else
-            log_skip "跳过代码更新"
-        fi
-    else
-        log_info "克隆 SprintCycle 仓库..."
-        
-        local clone_url="${REPO_HTTPS_URL}"
-        if command_exists git && ssh -T -o StrictHostKeyChecking=no git@github.com 2>&1 | grep -q "successfully"; then
-            clone_url="${REPO_URL}"
-            log_info "检测到 SSH，将使用 SSH 克隆"
-        fi
-        
-        if [ -d "sprintcycle" ]; then
-            log_warning "sprintcycle 目录已存在，将合并更新"
-            cd sprintcycle
-            git pull origin "${GIT_BRANCH}" || log_warning "合并失败"
-        else
-            git clone -b "${GIT_BRANCH}" "${clone_url}" sprintcycle_temp
-            if [ -d "sprintcycle_temp" ]; then
-                mv sprintcycle_temp sprintcycle
-                cd sprintcycle
-            else
-                log_error "克隆失败"
-                return 1
-            fi
-        fi
-    fi
-    
-    SCRIPT_DIR="$(pwd)"
-    
-    if [ ! -f "pyproject.toml" ]; then
-        log_error "pyproject.toml 不存在，可能不是 SprintCycle 项目"
-        return 1
-    fi
-    
-    log_success "项目准备完成: $(pwd)"
-    return 0
-}
-
-# ==============================================================================
-# 阶段 4: Python 环境配置
+# 阶段 3: Python 环境
 # ==============================================================================
 
 phase_python_env() {
-    log_section "阶段 4: 配置 Python 环境"
+    section "阶段 3: Python 环境"
     
-    local python_cmd="python3"
-    if command_exists python3.12; then
-        python_cmd="python3.12"
-    elif command_exists python3.11; then
-        python_cmd="python3.11"
-    elif command_exists python3.10; then
-        python_cmd="python3.10"
-    elif ! command_exists python3; then
-        log_error "Python3 未安装"
-        return 1
-    fi
-    
-    local py_ver
-    py_ver="$(${python_cmd} -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')"
-    log_info "使用 Python: ${python_cmd} (${py_ver})"
-    
-    local venv_path=".venv"
-    if [ -d "${venv_path}" ]; then
-        if [ "${FORCE_REINSTALL}" = true ]; then
-            log_info "强制重建虚拟环境..."
-            rm -rf "${venv_path}"
-        else
-            log_skip "虚拟环境已存在 (${venv_path})"
-            if confirm "是否重建虚拟环境？"; then
-                log_info "重建虚拟环境..."
-                rm -rf "${venv_path}"
-            fi
-        fi
-    fi
-    
-    if [ ! -d "${venv_path}" ]; then
+    if [ -d ".venv" ] && [ "${FORCE_REINSTALL}" != true ]; then
+        log_info ".venv 已存在，使用现有环境"
+    else
         log_info "创建虚拟环境..."
-        ${python_cmd} -m venv "${venv_path}" || { log_error "虚拟环境创建失败"; return 1; }
+        rm -rf .venv
+        python3 -m venv .venv
     fi
     
-    log_info "激活虚拟环境..."
+    source .venv/bin/activate
     log_info "升级 pip..."
-    "${venv_path}/bin/pip" install --upgrade pip setuptools wheel || { log_error "pip 升级失败"; return 1; }
+    pip install --upgrade pip setuptools wheel -q
     
-    log_success "Python 环境配置完成"
-    return 0
+    log_ok "Python 环境就绪"
 }
 
 # ==============================================================================
-# 阶段 5: 安装 Python 依赖
+# 阶段 4: 安装 Python 依赖
 # ==============================================================================
 
 phase_install_python_deps() {
-    log_section "阶段 5: 安装 Python 依赖"
+    section "阶段 4: 安装 Python 依赖"
     
-    local venv_path=".venv"
-    local pip_cmd="${venv_path}/bin/pip"
+    source .venv/bin/activate
     
-    log_info "安装 SprintCycle 依赖 (editable + dev + mcp-sse)..."
-    ${pip_cmd} install -e ".[dev,mcp-sse]" || { log_error "依赖安装失败"; return 1; }
+    log_info "安装 SprintCycle (开发模式)..."
+    pip install -e ".[full,dev,mcp-sse,mutation]" -q
     
-    if [ -f "requirements.txt" ]; then
-        log_info "安装额外依赖 (requirements.txt)..."
-        ${pip_cmd} install -r requirements.txt || log_warning "requirements.txt 安装时有警告"
-    fi
-    
-    log_info "安装开发辅助工具..."
-    ${pip_cmd} install httpx pytest-cov 2>/dev/null || true
-    
-    log_success "Python 依赖安装完成"
-    return 0
+    log_ok "Python 依赖安装完成"
 }
 
 # ==============================================================================
-# 阶段 6: 环境变量配置
+# 阶段 5: 环境变量配置
 # ==============================================================================
 
 phase_env_config() {
-    log_section "阶段 6: 配置环境变量"
+    section "阶段 5: 配置环境变量"
     
-    local env_file=".env"
-    
-    if [ -f "${env_file}" ]; then
-        log_skip ".env 文件已存在"
-        if confirm "是否重新生成 .env 文件（将覆盖现有文件）？"; then
-            log_info "重新生成 .env 文件..."
-            generate_env_template
-        fi
+    if [ -f ".env" ] && [ "${FORCE_REINSTALL}" != true ]; then
+        log_info ".env 文件已存在"
     else
-        log_info "创建 .env 文件..."
-        generate_env_template
-    fi
-    
-    log_success "环境变量配置完成"
-    return 0
-}
-
-generate_env_template() {
-    cat > ".env" << 'ENVEOF'
+        cat > ".env" << 'ENVEOF'
 # ==============================================================================
 # SprintCycle 环境配置
-# 请根据你的实际情况填写以下配置
 # ==============================================================================
 
 # ===== LLM API 配置 =====
-# 支持的提供商: OpenAI, Anthropic, DeepSeek, 豆包, 通义千问 等
+# 支持: OpenAI, Anthropic, DeepSeek, 豆包, 通义千问 等
 
 # OpenAI (推荐)
 OPENAI_API_KEY=
@@ -553,7 +226,7 @@ OPENAI_API_BASE=https://api.openai.com/v1
 OPENAI_MODEL=gpt-4o
 
 # DeepSeek
-DEEPSEEK_API_KEY=
+# DEEPSEEK_API_KEY=
 # DEEPSEEK_API_BASE=https://api.deepseek.com/v1
 
 # ===== SprintCycle 运行时配置 =====
@@ -563,43 +236,42 @@ SPRINTCYCLE_MAX_ITERATIONS=10
 SPRINTCYCLE_CACHE_DIR=./cache
 
 # ===== MCP Server 配置 =====
-# stdio 传输 (默认，用于本地 CLI)
 MCP_TRANSPORT=stdio
-
-# SSE 传输 (用于远程访问，可选)
-# MCP_SERVER_HOST=0.0.0.0
-# MCP_SERVER_PORT=8765
 
 # ===== LLM 回退配置 =====
 LLM_FALLBACK_ENABLED=true
 LLM_PRIMARY_PROVIDER=openai
 ENVEOF
-
-    log_warning "请编辑 .env 文件，填入你的 API Key"
+        log_warn "请编辑 .env 文件，填入你的 API Key"
+    fi
+    
+    log_ok "环境变量配置完成"
 }
 
 # ==============================================================================
-# 阶段 7: 创建便捷脚本
+# 阶段 6: 创建便捷脚本
 # ==============================================================================
 
 phase_create_scripts() {
-    log_section "阶段 7: 创建便捷脚本"
+    section "阶段 6: 创建便捷脚本"
+    
+    local tools_dir="${PROJECT_ROOT}/tools/start_develop"
     
     # Dashboard 启动脚本
-    create_script "run-dashboard.sh" << 'SCRIPTEOF'
+    cat > "${tools_dir}/run-dashboard.sh" << 'SCRIPT1'
 #!/bin/bash
 # SprintCycle Dashboard 启动脚本
 
 set -e
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "${SCRIPT_DIR}"
 
-# 加载环境变量
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+cd "${PROJECT_ROOT}"
+
 if [ -f ".env" ]; then
     export $(grep -v '^#' .env | grep -v '^$' | xargs 2>/dev/null || true)
 fi
 
-# 激活虚拟环境
 if [ -d ".venv" ]; then
     source .venv/bin/activate
 fi
@@ -609,45 +281,49 @@ echo "   地址: http://localhost:8000"
 echo "   按 Ctrl+C 停止"
 echo ""
 
-cd sprintcycle/dashboard
-exec uvicorn app:app --host 0.0.0.0 --port 8000 --reload
-SCRIPTEOF
-
+exec sprintcycle dashboard
+SCRIPT1
+    chmod +x "${tools_dir}/run-dashboard.sh"
+    log_ok "创建 run-dashboard.sh"
+    
     # MCP Server 启动脚本
-    create_script "run-mcp.sh" << 'SCRIPTEOF'
+    cat > "${tools_dir}/run-mcp.sh" << 'SCRIPT2'
 #!/bin/bash
 # SprintCycle MCP Server 启动脚本
 
 set -e
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "${SCRIPT_DIR}"
 
-# 加载环境变量
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+cd "${PROJECT_ROOT}"
+
 if [ -f ".env" ]; then
     export $(grep -v '^#' .env | grep -v '^$' | xargs 2>/dev/null || true)
 fi
 
-# 激活虚拟环境
 if [ -d ".venv" ]; then
     source .venv/bin/activate
 fi
 
-echo "启动 SprintCycle MCP Server (stdio 模式)..."
+echo "启动 SprintCycle MCP Server..."
+echo "   模式: stdio (默认)"
 echo "   按 Ctrl+C 停止"
 echo ""
 
-exec sprintcycle mcp
-SCRIPTEOF
-
+exec sprintcycle serve
+SCRIPT2
+    chmod +x "${tools_dir}/run-mcp.sh"
+    log_ok "创建 run-mcp.sh"
+    
     # 测试运行脚本
-    create_script "run-tests.sh" << 'SCRIPTEOF'
+    cat > "${tools_dir}/run-tests.sh" << 'SCRIPT3'
 #!/bin/bash
 # SprintCycle 测试运行脚本
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "${SCRIPT_DIR}"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+cd "${PROJECT_ROOT}"
 
-# 激活虚拟环境
 if [ -d ".venv" ]; then
     source .venv/bin/activate
 fi
@@ -655,24 +331,24 @@ fi
 echo "运行 SprintCycle 测试..."
 echo ""
 
-# 加载环境变量
 if [ -f ".env" ]; then
     export $(grep -v '^#' .env | grep -v '^$' | xargs 2>/dev/null || true)
 fi
 
-# 运行测试
 exec python -m pytest tests/ -v --tb=short "$@"
-SCRIPTEOF
-
+SCRIPT3
+    chmod +x "${tools_dir}/run-tests.sh"
+    log_ok "创建 run-tests.sh"
+    
     # Lint 运行脚本
-    create_script "run-lint.sh" << 'SCRIPTEOF'
+    cat > "${tools_dir}/run-lint.sh" << 'SCRIPT4'
 #!/bin/bash
 # SprintCycle 代码质量检查脚本
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "${SCRIPT_DIR}"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+cd "${PROJECT_ROOT}"
 
-# 激活虚拟环境
 if [ -d ".venv" ]; then
     source .venv/bin/activate
 fi
@@ -680,30 +356,30 @@ fi
 echo "运行 SprintCycle 代码质量检查..."
 echo ""
 
-# Ruff lint
 echo ">>> Ruff (Linting)..."
 ruff check sprintcycle/ || true
 
 echo ""
 
-# MyPy 类型检查
 echo ">>> MyPy (Type Checking)..."
 mypy sprintcycle/ --ignore-missing-imports || true
 
 echo ""
 echo "代码检查完成"
-SCRIPTEOF
-
+SCRIPT4
+    chmod +x "${tools_dir}/run-lint.sh"
+    log_ok "创建 run-lint.sh"
+    
     # 环境激活脚本
-    create_script "activate.sh" << 'SCRIPTEOF'
+    cat > "${tools_dir}/activate.sh" << 'SCRIPT5'
 #!/bin/bash
 # SprintCycle 开发环境激活脚本
 # 使用方法: source activate.sh
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "${SCRIPT_DIR}"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+cd "${PROJECT_ROOT}"
 
-# 激活虚拟环境
 if [ -d ".venv" ]; then
     source .venv/bin/activate
 else
@@ -711,7 +387,6 @@ else
     return 1 2>/dev/null || exit 1
 fi
 
-# 加载环境变量
 if [ -f ".env" ]; then
     set -a
     source .env
@@ -739,49 +414,27 @@ echo "  ./run-lint.sh         - 代码检查"
 echo ""
 echo "  deactivate            - 退出虚拟环境"
 echo ""
-SCRIPTEOF
-
-    log_success "便捷脚本创建完成"
-}
-
-create_script() {
-    local script_name="$1"
-    local script_content
-    # 调用方通过 heredoc 传入内容（stdin），不是第二个参数
-    script_content="$(cat)"
+SCRIPT5
+    chmod +x "${tools_dir}/activate.sh"
+    log_ok "创建 activate.sh"
     
-    if [ -f "${script_name}" ] && [ "${FORCE_REINSTALL}" != true ]; then
-        log_skip "${script_name} 已存在"
-        return 0
-    fi
-    
-    printf '%s' "${script_content}" > "${script_name}"
-    chmod +x "${script_name}"
-    log_success "创建 ${script_name}"
+    log_ok "便捷脚本创建完成"
 }
 
 # ==============================================================================
-# 阶段 8: 验证安装
+# 阶段 7: 验证安装
 # ==============================================================================
 
 phase_verify() {
-    log_section "阶段 8: 验证安装"
+    section "阶段 7: 验证安装"
     
-    local verify_status=0
-    
-    if [ -d ".venv" ]; then
-        source .venv/bin/activate
-    else
-        log_error ".venv 目录不存在"
-        return 1
-    fi
+    source .venv/bin/activate
     
     echo -n "  Python: "
-    if python --version &>/dev/null; then
-        log_success "$(python --version)"
+    if python --version >/dev/null 2>&1; then
+        log_ok "$(python --version)"
     else
-        log_error "Python 不可用"
-        verify_status=1
+        log_fail "Python 不可用"
     fi
     
     echo "  检查关键依赖..."
@@ -789,202 +442,98 @@ phase_verify() {
     for dep in "${deps[@]}"; do
         echo -n "    ${dep}: "
         if python -c "import ${dep}" 2>/dev/null; then
-            local ver
-            ver="$(python -c "import ${dep}; print(getattr(${dep}, '__version__', 'unknown'))")"
-            log_success "${ver}"
+            log_ok "已安装"
         else
-            log_error "未安装"
-            verify_status=1
+            log_fail "未安装"
         fi
     done
     
     echo -n "  sprintcycle CLI: "
-    if command -v sprintcycle &>/dev/null; then
-        log_success "可用"
+    if command -v sprintcycle >/dev/null 2>&1; then
+        log_ok "可用"
     else
-        log_error "不可用"
-        verify_status=1
+        log_fail "不可用"
     fi
     
-    echo -n "  sprintcycle 包: "
-    if python -c "import sprintcycle; print(f'v{sprintcycle.__version__}')" 2>/dev/null; then
-        log_success "导入成功"
-    else
-        log_error "导入失败"
-        verify_status=1
-    fi
-    
-    if [ ${verify_status} -eq 0 ]; then
-        log_success "所有验证通过"
-    else
-        log_error "部分验证失败，请检查上方的错误信息"
-    fi
-    
-    return ${verify_status}
+    log_ok "验证完成"
 }
 
 # ==============================================================================
-# 显示完成信息
-# ==============================================================================
-
-show_completion() {
-    echo ""
-    echo "${COLOR_BOLD}${COLOR_GREEN}╔══════════════════════════════════════════════════════════════╗${COLOR_RESET}"
-    echo "${COLOR_BOLD}${COLOR_GREEN}║                  部署完成！                                ║${COLOR_RESET}"
-    echo "${COLOR_BOLD}${COLOR_GREEN}╚══════════════════════════════════════════════════════════════╝${COLOR_RESET}"
-    echo ""
-    echo "${COLOR_CYAN}📁 项目目录:${COLOR_RESET} $(pwd)"
-    echo ""
-    
-    if [ ${#WARNED_STEPS[@]} -gt 0 ]; then
-        echo "${COLOR_YELLOW}⚠️  警告 (${#WARNED_STEPS[@]} 项):${COLOR_RESET}"
-        for warn in "${WARNED_STEPS[@]}"; do
-            echo "  - ${warn}"
-        done
-        echo ""
-    fi
-    
-    if [ ${#FAILED_STEPS[@]} -gt 0 ]; then
-        echo "${COLOR_RED}❌ 失败 (${#FAILED_STEPS[@]} 项):${COLOR_RESET}"
-        for fail in "${FAILED_STEPS[@]}"; do
-            echo "  - ${fail}"
-        done
-        echo ""
-    fi
-    
-    echo "${COLOR_BOLD}🚀 下一步:${COLOR_RESET}"
-    echo ""
-    echo "  1. ${COLOR_YELLOW}编辑 .env 文件，填入你的 API Key${COLOR_RESET}"
-    echo "     vim .env"
-    echo ""
-    echo "  2. ${COLOR_GREEN}激活开发环境${COLOR_RESET}"
-    echo "     source activate.sh"
-    echo ""
-    echo "  3. ${COLOR_CYAN}验证安装${COLOR_RESET}"
-    echo "     sprintcycle --help"
-    echo ""
-    echo "${COLOR_BOLD}📋 便捷脚本:${COLOR_RESET}"
-    echo "  ./run-dashboard.sh   - 启动 Dashboard (http://localhost:8000)"
-    echo "  ./run-mcp.sh        - 启动 MCP Server"
-    echo "  ./run-tests.sh      - 运行测试"
-    echo "  ./run-lint.sh       - 运行代码检查"
-    echo ""
-    echo "${COLOR_BOLD}📚 文档:${COLOR_RESET}"
-    echo "  DEV_SETUP_GUIDE.md  - 详细部署指南"
-    echo "  DEPLOY_CHECKLIST.md - 部署检查清单"
-    echo ""
-    echo "💡 提示: 运行 ${COLOR_YELLOW}source activate.sh${COLOR_RESET} 后，使用 ${COLOR_YELLOW}sprintcycle --help${COLOR_RESET} 查看所有可用命令"
-    echo ""
-}
-
-# ==============================================================================
-# 使用帮助
+# 帮助信息
 # ==============================================================================
 
 show_help() {
-    cat << HELPEOF
-SprintCycle 开发环境一键部署脚本 v${VERSION}
+    cat << HELP
+SprintCycle 开发环境部署脚本 v${VERSION}
 
 用法: ./dev-setup.sh [选项]
 
 选项:
   --skip-system-deps     跳过系统依赖安装
-  --skip-node            跳过 Node.js 安装
-  --python-version VER   指定 Python 版本 (如 3.12)
-  --branch NAME          指定 Git 分支 (默认: main)
-  --force                强制重新安装 (覆盖已有配置)
-  --dry-run              仅显示将要执行的操作
-  -h, --help             显示此帮助信息
+  --force                强制重新安装
+  -h, --help             显示此帮助
 
 示例:
   ./dev-setup.sh                    # 完整安装
-  ./dev-setup.sh --skip-system-deps # 跳过系统依赖
-  ./dev-setup.sh --python-version 3.11 --branch develop  # 指定版本和分支
-  curl -fsSL <url> | bash           # 远程一键部署
-
-支持的平台:
-  - macOS (Intel/Apple Silicon) + Homebrew
-  - Linux: Ubuntu, Debian, CentOS, Fedora, Arch
-HELPEOF
+  ./dev-setup.sh --skip-system-deps
+HELP
 }
 
 # ==============================================================================
-# 命令行参数解析
+# 参数解析
 # ==============================================================================
 
-parse_args() {
-    while [ $# -gt 0 ]; do
-        case "$1" in
-            --skip-system-deps)
-                SKIP_SYSTEM_DEPS=true
-                shift
-                ;;
-            --skip-node)
-                SKIP_NODE=true
-                shift
-                ;;
-            --python-version)
-                PYTHON_VERSION="$2"
-                shift 2
-                ;;
-            --branch)
-                GIT_BRANCH="$2"
-                shift 2
-                ;;
-            --force|-f)
-                FORCE_REINSTALL=true
-                shift
-                ;;
-            --dry-run)
-                DRY_RUN=true
-                shift
-                ;;
-            -h|--help)
-                show_help
-                exit 0
-                ;;
-            *)
-                log_error "未知参数: $1"
-                show_help
-                exit 1
-                ;;
-        esac
-    done
-}
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --skip-system-deps) SKIP_SYSTEM_DEPS=true; shift ;;
+        --force|-f) FORCE_REINSTALL=true; shift ;;
+        -h|--help) show_help; exit 0 ;;
+        *) log_fail "未知参数: $1"; show_help; exit 1 ;;
+    esac
+done
 
 # ==============================================================================
 # 主函数
 # ==============================================================================
 
 main() {
-    parse_args "$@"
-    
     echo ""
     echo "    _____ _____ _____ _____ _____ _____ _____ _____ _____ "
     echo "   |   __|   __|     |  _  |  _  |   __| __  |  _  |   __|"
     echo "   |__   |   __| | | |   __|   __|   __|    -|     |   __|"
     echo "   |_____|_____|_|_|_|__|  |__|  |_____|__|__|__|__|_____|"
     echo ""
-    echo "                开发环境一键部署脚本 v${VERSION}"
-    echo ""
-    
-    echo "开始部署 SprintCycle 开发环境..."
+    echo "                开发环境部署脚本 v${VERSION}"
     echo ""
     
     phase_system_detection
-    phase_install_system_deps || log_warning "系统依赖安装可能有警告"
-    phase_project_setup || { log_error "项目准备失败"; exit 1; }
-    phase_python_env || { log_error "Python 环境配置失败"; exit 1; }
-    phase_install_python_deps || { log_error "Python 依赖安装失败"; exit 1; }
+    phase_install_system_deps
+    phase_python_env
+    phase_install_python_deps
     phase_env_config
     phase_create_scripts
     phase_verify
     
-    show_completion
-    
-    if [ "${STEP_STATUS}" = "FAIL" ]; then
-        exit 1
-    fi
+    echo ""
+    echo "${GREEN}╔══════════════════════════════════════════════════════════════╗${RESET}"
+    echo "${GREEN}║                  部署完成！                                ║${RESET}"
+    echo "${GREEN}╚══════════════════════════════════════════════════════════════╝${RESET}"
+    echo ""
+    echo "${CYAN}🚀 下一步:${RESET}"
+    echo "  1. ${YELLOW}编辑 .env 文件，填入你的 API Key${RESET}"
+    echo "  2. ${GREEN}source activate.sh${RESET} 激活开发环境"
+    echo "  3. ${CYAN}sprintcycle --help${RESET} 查看所有命令"
+    echo ""
+    echo "${BOLD}📋 便捷脚本:${RESET}"
+    echo "  ./run-dashboard.sh   - 启动 Dashboard"
+    echo "  ./run-mcp.sh        - 启动 MCP Server"
+    echo "  ./run-tests.sh      - 运行测试"
+    echo "  ./run-lint.sh       - 代码检查"
+    echo ""
+    echo "${BOLD}📚 文档:${RESET}"
+    echo "  DEVELOPMENT_GUIDE.md - 完整开发指南"
+    echo "  DEPLOY_CHECKLIST.md  - 部署检查清单"
+    echo ""
 }
 
 main "$@"

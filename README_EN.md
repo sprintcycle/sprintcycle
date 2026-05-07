@@ -287,9 +287,14 @@ sprintcycle/
 
 ## 🧪 Development & Testing
 
+### Framework Development (Contributing to SprintCycle)
+
 ```bash
-# Install development dependencies
-pip install -e ".[dev]"
+# One-click development environment setup
+./tools/start_develop/dev-setup.sh
+
+# Activate development environment
+source tools/start_develop/activate.sh
 
 # Run core tests
 pytest tests/test_p0_runtime.py -v
@@ -297,15 +302,45 @@ pytest tests/test_p0_runtime.py -v
 # Run full test suite
 pytest tests/ -v
 
-# Architecture checking
-lint-imports
-
-# Type checking
-mypy sprintcycle/
+# Code quality checks
+./tools/start_develop/run-lint.sh
 ```
+
+### Using SprintCycle to Build Products
+
+**pip install:**
+```bash
+pip install sprintcycle
+# or with full features
+pip install sprintcycle[dashboard,mcp-sse]
+```
+
+**Quick start:**
+```bash
+# Initialize
+sprintcycle init
+
+# Direct execution
+sprintcycle run "Add unit tests for login module"
+
+# Configure LLM: set OPENAI_API_KEY in .env
+```
+
+**Dashboard monitoring:**
+```bash
+sprintcycle dashboard
+```
+
+**MCP integration:**
+```bash
+sprintcycle serve
+```
+
+For detailed guide, see [DEVELOPMENT_GUIDE.md](tools/start_develop/DEVELOPMENT_GUIDE.md).
 
 ---
 
+## 📄 License
 ## 📄 License
 
 MIT License

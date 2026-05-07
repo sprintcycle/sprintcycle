@@ -2,8 +2,10 @@
 # SprintCycle 开发环境激活脚本
 # 使用方法: source activate.sh
 
+# 获取项目根目录（脚本在 tools/start_develop/ 下）
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "${SCRIPT_DIR}"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+cd "${PROJECT_ROOT}"
 
 # 激活虚拟环境
 if [ -d ".venv" ]; then

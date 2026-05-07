@@ -287,9 +287,14 @@ sprintcycle/
 
 ## 🧪 开发与测试
 
+### 框架开发（贡献 SprintCycle）
+
 ```bash
-# 安装开发依赖
-pip install -e ".[dev]"
+# 一键部署开发环境
+./tools/start_develop/dev-setup.sh
+
+# 激活开发环境
+source tools/start_develop/activate.sh
 
 # 运行核心测试
 pytest tests/test_p0_runtime.py -v
@@ -297,15 +302,45 @@ pytest tests/test_p0_runtime.py -v
 # 运行完整测试套件
 pytest tests/ -v
 
-# 架构检查
-lint-imports
-
-# 类型检查
-mypy sprintcycle/
+# 代码质量检查
+./tools/start_develop/run-lint.sh
 ```
+
+### 用 SprintCycle 开发产品
+
+**pip 安装：**
+```bash
+pip install sprintcycle
+# 或完整功能
+pip install sprintcycle[dashboard,mcp-sse]
+```
+
+**快速开始：**
+```bash
+# 初始化
+sprintcycle init
+
+# 直接执行
+sprintcycle run "为登录模块添加单元测试"
+
+# 配置 LLM：在 .env 中填入 OPENAI_API_KEY
+```
+
+**Dashboard 监控：**
+```bash
+sprintcycle dashboard
+```
+
+**MCP 集成：**
+```bash
+sprintcycle serve
+```
+
+详细指南请参阅 [DEVELOPMENT_GUIDE.md](tools/start_develop/DEVELOPMENT_GUIDE.md)。
 
 ---
 
+## 📄 License
 ## 📄 License
 
 MIT License
