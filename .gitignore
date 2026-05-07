@@ -79,7 +79,6 @@ package-lock.json
 frontend/.env.development
 frontend/.env.production
 frontend/openapi-dashboard.json
-frontend/src/api/openapi-gen.ts
 frontend/playwright-report/
 frontend/test-results/
 yarn.lock

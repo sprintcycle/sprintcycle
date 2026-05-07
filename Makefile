@@ -10,7 +10,7 @@ install-frontend:
 	cd frontend && npm ci
 
 build-frontend:
-	cd frontend && npm ci && npm run build
+	cd frontend && npm ci && npm run openapi:sync && npm run build
 
 build: build-frontend
 	@echo "Frontend built into sprintcycle/dashboard/static/"

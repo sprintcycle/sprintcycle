@@ -55,6 +55,8 @@ sprintcycle dashboard --host 127.0.0.1 --port 8080
 
 浏览器访问终端里打印的地址；需使用 **构建后的** 完整 UI，而不是仓库里仅占位用的 `static/index.html`。
 
+**OpenAPI → TypeScript**：仓库包含 **`frontend/src/api/openapi-gen.ts`**（由 `openapi-typescript` 生成）。若你改动了 Dashboard 的 FastAPI 路由，请在仓库根已安装 **`pip install -e ".[dashboard]"`** 的前提下执行 **`cd frontend && npm run openapi:sync`**，并提交更新后的 `openapi-gen.ts`。CI 在 **`npm run build`** 前会执行同一步骤，用当前 Python 侧 schema 覆盖生成文件，避免前端与后端契约长期漂移。
+
 **一键开发（源码克隆，子进程启动 Vite）**  
 
 确保仓库根下存在 `frontend/`，且已执行 `cd frontend && npm install`：

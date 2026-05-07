@@ -17,7 +17,7 @@
 
 **从 sdist/wheel 安装后** `sprintcycle dashboard` 应加载完整 Vue 构建产物，而非仅占位 HTML。
 
-- [ ] `cd frontend && npm ci && npm run build` 成功；产物写入 `sprintcycle/dashboard/static/`（`index.html` + `assets/`）。
+- [ ] `cd frontend && npm ci && npm run openapi:sync && npm run build` 成功（与 CI / `Makefile` 的 `build-frontend` 一致）；产物写入 `sprintcycle/dashboard/static/`（`index.html` + `assets/`）。
 - [ ] 本地 Smoke：`sprintcycle dashboard`，浏览器打开根路径，确认界面为 Vue 应用（非「占位页」说明文字）。
 - [ ]（可选）记录 `npm run build` 产物的 gzip 体积趋势；大版本可考虑按需引入 / 拆包优化（见 `frontend/vite.config.ts`）。
 
@@ -28,7 +28,7 @@
 ## 发布命令（示例）
 
 ```bash
-cd frontend && npm ci && npm run build
+cd frontend && npm ci && npm run openapi:sync && npm run build
 cd ..
 python -m build
 # twine upload dist/…

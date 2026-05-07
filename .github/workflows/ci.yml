@@ -38,6 +38,9 @@ jobs:
       - name: Install dashboard frontend
         working-directory: frontend
         run: npm ci
+      - name: Sync dashboard OpenAPI → TypeScript
+        working-directory: frontend
+        run: npm run openapi:sync
       - name: Build dashboard frontend
         working-directory: frontend
         run: npm run build
