@@ -75,6 +75,7 @@ except ImportError:
     HTTP_AVAILABLE = False
 
 from sprintcycle.api import SprintCycle
+from sprintcycle.config.runtime_config import DashboardPortDefaults
 
 
 def _text_response(text: str) -> List[Any]:
@@ -380,7 +381,7 @@ class SprintCycleMCPServer:
                 self._server.create_initialization_options(),
             )
 
-    async def run_sse(self, host: str = "0.0.0.0", port: int = 8080) -> None:
+    async def run_sse(self, host: str = "0.0.0.0", port: int = DashboardPortDefaults.default_port) -> None:
         """
         启动 MCP Server（SSE 模式）
 
@@ -483,7 +484,7 @@ def main() -> None:
 
     if transport == "sse":
         host = sys.argv[3] if len(sys.argv) > 3 else "0.0.0.0"
-        port = int(sys.argv[4]) if len(sys.argv) > 4 else 8080
+        port = int(sys.argv[4]) if len(sys.argv) > 4 else DashboardPortDefaults.default_port
         asyncio.run(server.run_sse(host=host, port=port))
     else:
         asyncio.run(server.run())

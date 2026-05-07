@@ -222,7 +222,7 @@ result = await api.run("Refactor authentication module", project_path="./my-proj
 ```
 sprintcycle/
 ├── api.py                    # Unified API entrypoint
-├── cli.py                    # Command-line interface
+├── cli/                      # CLI package (`main.py` entry; console script `sprintcycle.cli:cli`)
 ├── config/                   # Configuration management
 │   ├── settings.py           # dynaconf initialization
 │   ├── runtime_config.py     # pydantic configuration model

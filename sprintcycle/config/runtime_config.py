@@ -8,12 +8,20 @@ from __future__ import annotations
 
 import os
 from os import PathLike
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, ClassVar, Dict, List, Optional, Sequence, Union
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .dynaconf_app import build_dynaconf
 from .quality import normalize_quality_level, normalize_quality_profile, resolve_effective_quality_level
+
+
+class DashboardPortDefaults:
+    """Dashboard 与 Vite 开发代理共用的默认端口（非 sprintcycle.toml 字段；与 frontend/vite 环境变量约定一致）。"""
+
+    default_port: ClassVar[int] = 8080
+    dev_port: ClassVar[int] = 5173
+
 
 # ============================================================
 # Default config values（供 to_dict_non_default）

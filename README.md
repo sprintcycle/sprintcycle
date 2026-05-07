@@ -222,7 +222,7 @@ result = await api.run("重构认证模块", project_path="./my-project")
 ```
 sprintcycle/
 ├── api.py                    # 统一 API 入口
-├── cli.py                    # 命令行接口
+├── cli/                      # 命令行包（`main.py` 入口；`pyproject` 脚本 `sprintcycle.cli:cli`）
 ├── config/                   # 配置管理
 │   ├── settings.py           # dynaconf 初始化
 │   ├── runtime_config.py     # pydantic 配置模型

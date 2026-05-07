@@ -27,7 +27,7 @@ from .quality import (
     runs_pytest,
     runs_static_gate,
 )
-from .runtime_config import RuntimeConfig, flatten_sprintcycle_toml
+from .runtime_config import DashboardPortDefaults, RuntimeConfig, flatten_sprintcycle_toml
 from .sprintcycle_config import (
     CodingConfig,
     EvolutionRunConfig,
@@ -37,6 +37,7 @@ from .sprintcycle_config import (
 )
 
 __all__ = [
+    "DashboardPortDefaults",
     "RuntimeConfig",
     "flatten_sprintcycle_toml",
     "QUALITY_LEVELS",

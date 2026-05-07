@@ -50,7 +50,7 @@
 - **Entry points**（默认开启，可用 **`[governance] argv_entry_points = false`** 关闭）：
   - 组名 **`sprintcycle_governance.review_argv`** / **`sprintcycle_governance.planning_argv`**。
   - 可调用签名：`() -> list[dict]` 或 **`(runtime_config, project_root: Path) -> list[dict]`**，返回的 dict 与治理 YAML `argv` 条目同形；合并后再做 **`tags` / `enabled`** 过滤。
-- **可选 pluggy**（**`pip install sprintcycle[governance-ext]`** 且 **`[governance] pluggy_argv = true`**）：
+- **可选 pluggy**（**`[governance] pluggy_argv = true`**；`pluggy` 已随 `sprintcycle` 核心依赖安装，亦可通过 **`pip install sprintcycle[governance-ext]`** 显式声明治理扩展）：
   - 组 **`sprintcycle_governance.pluggy_plugin`**：可调用 **`register(pm)`**，在传入的 `PluginManager` 上注册 **`extra_governance_argv`** hookimpl（见 `sprintcycle/governance/pluggy_host.py`）。
 
 ## 8. Dashboard「治理」页
@@ -63,3 +63,35 @@
 - `examples/governance/pip-audit.example.yaml`、`mutmut.example.yaml`
 - `docs/GOVERNANCE_ENGINEERING.md` §13.1.1
 - `docs/GOVERNANCE_GOLDEN.md`（pytest 标记与模型对比）
+- **§10** Pluggy 插件快速开始与仓库内示例代码
+
+## 10. Pluggy 插件快速开始
+
+### 10.1 何时使用
+
+- **Entry points**（`sprintcycle_governance.review_argv` / `planning_argv`）适合返回静态或简单动态列表。
+- **Pluggy**（`sprintcycle_governance.pluggy_plugin`）适合多插件组合、共享 `PluginManager`、或与既有 pluggy 生态对齐；需 **`[governance] pluggy_argv = true`**。
+
+### 10.2 契约
+
+1. 在 **`pyproject.toml`**（或 setuptools `setup.cfg`）注册可调用 **`register(pm)`**：
+
+```toml
+[project.entry-points."sprintcycle_governance.pluggy_plugin"]
+my_plugin = "your_package.submodule:register"
+```
+
+2. **`register`** 接收 `pluggy.PluginManager`（已由核心注册 `extra_governance_argv` hookspec），在其实例上 **`pm.register(...)`** 你的插件类或实例。
+
+3. 插件对象上实现 **`extra_governance_argv(gate, project_path, runtime_config)`**，使用 **`pluggy.HookimplMarker("sprintcycle_governance")`** 装饰，返回 **`list[dict]`**（与治理 pack 中 `argv` 条目同形），或返回空列表表示不追加。
+
+4. 合并顺序：YAML / entry_points → **pluggy 合并** → 再按 `tags` / `enabled` 过滤（与 §7 一致）。
+
+### 10.3 仓库内完整示例（复制到自有包后改 entry point）
+
+| 文件 | 说明 |
+|------|------|
+| `examples/governance_plugins/minimal_pluggy_plugin.py` | 仅注册、返回空列表 |
+| `examples/governance_plugins/extra_argv_example_plugin.py` | 追加一条示例 `argv`（`enabled: false`） |
+
+实现细节与 `HookspecMarker` 定义见 **`sprintcycle/governance/pluggy_host.py`**。

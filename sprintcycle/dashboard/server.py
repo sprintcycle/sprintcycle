@@ -24,6 +24,7 @@ from loguru import logger
 from pydantic import BaseModel
 
 from sprintcycle.api import SprintCycle
+from sprintcycle.config.runtime_config import DashboardPortDefaults
 from sprintcycle.execution.events import Event, EventType, get_execution_event_backend
 
 from . import config_center
@@ -221,11 +222,12 @@ def create_app(project_path: str = ".") -> FastAPI:
     app = FastAPI(title="SprintCycle Console", version="0.9.2")
 
     if _DASHBOARD_DEV:
+        _p = DashboardPortDefaults.dev_port
         app.add_middleware(
             CORSMiddleware,
             allow_origins=[
-                "http://127.0.0.1:5173",
-                "http://localhost:5173",
+                f"http://127.0.0.1:{_p}",
+                f"http://localhost:{_p}",
             ],
             allow_credentials=True,
             allow_methods=["*"],

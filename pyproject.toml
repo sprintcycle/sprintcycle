@@ -15,6 +15,7 @@ dependencies = [
     "loguru>=0.7.0",
     "mcp>=1.0.0",
     "pydantic>=2.0",
+    "pluggy>=1.5.0",
     "dynaconf>=3.2.0",
     "litellm>=1.0.0",
     "diskcache>=5.0.0",

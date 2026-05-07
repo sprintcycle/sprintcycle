@@ -19,7 +19,7 @@ def merge_argv_via_pluggy(
 
         import pluggy
     except ImportError:
-        logger.warning("未安装 pluggy，跳过 pluggy argv 合并；请 pip install sprintcycle[governance-ext]")
+        logger.warning("未安装 pluggy，跳过 pluggy argv 合并；请 pip install -U sprintcycle 或 pip install pluggy")
         return list(base_items)
 
     hookspec = pluggy.HookspecMarker("sprintcycle_governance")

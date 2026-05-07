@@ -65,9 +65,9 @@ sprintcycle dashboard --host 127.0.0.1 --port 8080
 sprintcycle dashboard --dev
 ```
 
-- 后端 API：`http://127.0.0.1:8080`（与 `--port` 一致）  
-- 前端开发服务器：`http://localhost:5173` — **请用浏览器打开此地址**（Vite 将 `/api` 代理到后端）。  
-- CLI 会为子进程设置 `VITE_PROXY_TARGET=http://127.0.0.1:<port>`；也可自行导出该变量后运行 `npm run dev`。
+- 后端 API：默认 `http://127.0.0.1:8080`（与 `sprintcycle dashboard --port` 及 `DashboardPortDefaults.default_port` 一致）。  
+- 前端开发服务器：默认 `http://localhost:5173`（与 `DashboardPortDefaults.dev_port` 一致）— **请用浏览器打开此地址**（Vite 将 `/api` 代理到后端）。  
+- CLI 在 `--dev` 子进程中会设置 `VITE_PROXY_TARGET=http://127.0.0.1:<port>` 与 `VITE_DEV_SERVER_PORT=<dev_port>`，与 `frontend/vite.config.ts` 读取的环境变量一致。手动 `npm run dev` 时可复制 `frontend/.env.development.example` 为 `.env.development` 并按需修改。
 
 **手动双终端**（与 `--dev` 等价）：
 
@@ -75,7 +75,7 @@ sprintcycle dashboard --dev
 # 终端 1
 SPRINTCYCLE_ENV=development sprintcycle dashboard --port 8080
 
-# 终端 2
+# 终端 2（可选：cp frontend/.env.development.example frontend/.env.development）
 cd frontend && npm run dev
 ```
 
