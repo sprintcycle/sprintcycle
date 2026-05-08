@@ -14,6 +14,7 @@ Dashboard / CLI / MCP / SDK 共用的唯一入口。
 import asyncio
 import os
 import time
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from loguru import logger
@@ -33,7 +34,7 @@ from .execution.state.state_store import (
 from .intent.parser import IntentParser
 from .orchestration.sprint_orchestrator import ExecutionStatus, SprintOrchestrator
 from .release_plan.generator import IntentReleasePlanGenerator
-from .release_plan.models import ReleasePlan
+from .release_plan.models import ExecutionMode, ReleasePlan
 from .release_plan.parser import ReleasePlanParser
 from .release_plan.payload_keys import checkpoint_plan_yaml
 from .release_plan.validator import ReleasePlanValidator
@@ -44,6 +45,14 @@ from .results import (
     RunResult,
     StatusResult,
     StopResult,
+)
+from .run_workspace import (
+    apply_policy_to_tasks,
+    attach_workspace_metadata,
+    effective_write_policy,
+    ensure_project_layout,
+    normalize_reference_paths,
+    normalize_write_policy,
 )
 
 
@@ -192,18 +201,29 @@ class SprintCycle:
 
     def plan(
         self,
-        intent: str,
+        intent: str = "",
         mode: str = "auto",
         target: Optional[str] = None,
+        release_plan_yaml: Optional[str] = None,
         release_plan_path: Optional[str] = None,
         product: Optional[str] = None,
+        reference_paths: Optional[List[str]] = None,
+        write_policy: str = "auto",
         **kwargs: Any,
     ) -> PlanResult:
         """意图 → Release Plan（不执行），返回 release_plan_yaml 供 run() 使用"""
         start = time.time()
         try:
             plan = self._resolve_release_plan(
-                intent, mode, target, None, release_plan_path, product=product, **kwargs
+                intent,
+                mode,
+                target,
+                release_plan_yaml,
+                release_plan_path,
+                product=product,
+                reference_paths=reference_paths,
+                write_policy=write_policy,
+                **kwargs,
             )
             validation = ReleasePlanValidator().validate(plan)
 
@@ -240,6 +260,8 @@ class SprintCycle:
         resume: bool = False,
         confirm_knowledge: bool = False,
         product: Optional[str] = None,
+        reference_paths: Optional[List[str]] = None,
+        write_policy: str = "auto",
         **kwargs: Any,
     ) -> RunResult:
         """执行（一键到底 / 断点续跑 / 从 Release Plan YAML 执行）"""
@@ -248,6 +270,8 @@ class SprintCycle:
             # 断点续跑
             if resume and execution_id:
                 return self._resume_execution(execution_id, start)
+
+            ensure_project_layout(self.project_path)
 
             rp_yaml = release_plan_yaml
             rp_path = release_plan_path
@@ -258,11 +282,15 @@ class SprintCycle:
                 rp_yaml,
                 rp_path,
                 product=product,
+                reference_paths=reference_paths,
+                write_policy=write_policy,
                 **kwargs,
             )
-            run_result, _ = self._run_resolved_plan(
+            run_result, finalize_result = self._run_resolved_plan(
                 plan, start, confirm_knowledge=confirm_knowledge
             )
+            if hasattr(run_result, "release_finalization"):
+                run_result.release_finalization = finalize_result.to_dict() if hasattr(finalize_result, "to_dict") else {}
             return run_result
         except Exception as e:
             logger.exception("run failed")
@@ -284,11 +312,13 @@ class SprintCycle:
                 duration=time.time() - start,
             )
         try:
-            run_result, _ = self._run_resolved_plan(
+            run_result, finalize_result = self._run_resolved_plan(
                 release_plan,
                 start,
                 confirm_knowledge=confirm_knowledge,
             )
+            if hasattr(run_result, "release_finalization"):
+                run_result.release_finalization = finalize_result.to_dict() if hasattr(finalize_result, "to_dict") else {}
             return run_result
         except Exception as e:
             logger.exception("run_release_plan failed")
@@ -369,6 +399,7 @@ class SprintCycle:
                     current_sprint=state.current_sprint,
                     total_sprints=state.total_sprints,
                     sprint_history=state.metadata.get("sprint_history", []),
+                    release_finalization=state.metadata.get("release_finalization", {}),
                     duration=time.time() - start,
                 )
             else:
@@ -496,7 +527,7 @@ class SprintCycle:
         start: float,
         *,
         confirm_knowledge: bool = False,
-    ) -> tuple[RunResult, List[Any]]:
+    ) -> tuple[RunResult, Any]:
         """已解析的 Release Plan：知识门 → Sprint 序列。
 
         返回 ``(run_result, sprint_results_objects)``；若知识门提前返回，则第二项为 ``[]``。
@@ -512,9 +543,15 @@ class SprintCycle:
                 plan, max_concurrent=self.config.parallel_tasks
             )
         )
+        finalize_result = getattr(self.orchestrator, "_last_release_finalization_result", None)
         return (
-            self._build_run_result(plan, sprint_results, start),
-            sprint_results,
+            self._build_run_result(
+                plan,
+                sprint_results,
+                start,
+                release_finalization=finalize_result.to_dict() if hasattr(finalize_result, "to_dict") else {},
+            ),
+            finalize_result,
         )
 
     def _maybe_gate_knowledge_injection(
@@ -573,6 +610,36 @@ class SprintCycle:
             ),
         )
 
+    def _anchor_project_for_intent(self, kwargs: Dict[str, Any]) -> str:
+        raw = kwargs.get("project")
+        if isinstance(raw, str) and raw.strip():
+            return raw.strip()
+        return self.project_path
+
+    def _finalize_workspace_metadata(
+        self,
+        plan: ReleasePlan,
+        *,
+        reference_paths: Optional[List[str]],
+        write_policy: str,
+    ) -> ReleasePlan:
+        """绑定目标目录 -p、参考项目列表与写入策略（写入 plan.metadata 与任务 constraints）。"""
+        refs = normalize_reference_paths(reference_paths)
+        wp = normalize_write_policy(write_policy)
+        abs_target = Path(self.project_path).expanduser().resolve()
+        eff = effective_write_policy(wp, abs_target)
+        # 仅标准 Sprint（NORMAL）对齐 CLI/API ``-p``；进化/产品目录路径由生成器决定，不得覆盖。
+        if plan.mode == ExecutionMode.NORMAL:
+            plan.project.path = str(abs_target)
+        attach_workspace_metadata(
+            plan,
+            reference_paths=refs,
+            write_policy=wp,
+            effective_write_policy=eff,
+        )
+        apply_policy_to_tasks(plan, eff)
+        return plan
+
     def _resolve_release_plan(
         self,
         intent: Optional[str],
@@ -582,27 +649,40 @@ class SprintCycle:
         release_plan_path: Optional[str],
         *,
         product: Optional[str] = None,
+        reference_paths: Optional[List[str]] = None,
+        write_policy: str = "auto",
         **kwargs: Any,
     ):
         """从意图/YAML/文件路径解析为 Release Plan（内存模型）。"""
+        project_for_intent = self._anchor_project_for_intent(kwargs)
         if release_plan_yaml:
-            return ReleasePlanParser().parse_string(release_plan_yaml)
+            plan = ReleasePlanParser().parse_string(release_plan_yaml)
+            return self._finalize_workspace_metadata(
+                plan, reference_paths=reference_paths, write_policy=write_policy
+            )
         if release_plan_path:
-            return ReleasePlanParser().parse_file(release_plan_path)
-        if not intent:
+            plan = ReleasePlanParser().parse_file(release_plan_path)
+            return self._finalize_workspace_metadata(
+                plan, reference_paths=reference_paths, write_policy=write_policy
+            )
+        has_intent = bool(intent and str(intent).strip())
+        if not has_intent:
             raise ValueError("请提供 intent、release_plan_yaml 或 release_plan_path 之一")
         parsed = IntentParser().parse(
-            intent,
+            str(intent),
             mode=mode,
             target=target,
-            project=kwargs.get("project"),
+            project=project_for_intent,
             constraints=kwargs.get("constraints"),
             product=product,
         )
-        return IntentReleasePlanGenerator.generate(
+        plan = IntentReleasePlanGenerator.generate(
             parsed,
             config=self.config,
             anchor_project_path=self.project_path,
+        )
+        return self._finalize_workspace_metadata(
+            plan, reference_paths=reference_paths, write_policy=write_policy
         )
 
     def _build_run_result(
@@ -616,6 +696,7 @@ class SprintCycle:
         message: str = "",
         release_plan_name: Optional[str] = None,
         total_tasks: Optional[int] = None,
+        release_finalization: Optional[Dict[str, Any]] = None,
     ) -> RunResult:
         """从 plan + 原始 Sprint 结果拼装 ``RunResult``（首跑与断点续跑共用）。"""
         success = all(
@@ -660,6 +741,7 @@ class SprintCycle:
             total_tasks=n_tasks,
             current_sprint=current_sprint,
             sprint_results=sr_list,
+            release_finalization=release_finalization or {},
             message=message,
             duration=time.time() - start,
         )

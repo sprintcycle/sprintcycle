@@ -533,7 +533,9 @@ export interface components {
         /** PlanRequest */
         PlanRequest: {
             /** Intent */
-            intent: string;
+            intent?: string;
+            /** Release Plan Yaml */
+            release_plan_yaml?: string | null;
             /**
              * Mode
              * @default auto
@@ -545,6 +547,13 @@ export interface components {
             release_plan_path?: string | null;
             /** Product */
             product?: string | null;
+            /** Reference Project Paths */
+            reference_paths?: string[] | null;
+            /**
+             * Write Policy
+             * @default auto
+             */
+            write_policy?: string;
         };
         /** RollbackRequest */
         RollbackRequest: {
@@ -575,6 +584,13 @@ export interface components {
              * @default false
              */
             resume: boolean;
+            /** Reference Project Paths */
+            reference_paths?: string[] | null;
+            /**
+             * Write Policy
+             * @default auto
+             */
+            write_policy?: string;
         };
         /** StatusRequest */
         StatusRequest: {

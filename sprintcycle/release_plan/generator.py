@@ -72,13 +72,13 @@ class IntentReleasePlanGenerator:
         if parsed.action == ActionType.EVOLVE:
             return IntentReleasePlanGenerator._from_evolve(parsed, cfg, anchor)
         elif parsed.action == ActionType.FIX:
-            return IntentReleasePlanGenerator._from_fix(parsed)
+            return IntentReleasePlanGenerator._from_fix(parsed, anchor)
         elif parsed.action == ActionType.TEST:
-            return IntentReleasePlanGenerator._from_test(parsed)
+            return IntentReleasePlanGenerator._from_test(parsed, anchor)
         elif parsed.action == ActionType.RUN:
-            return IntentReleasePlanGenerator._from_run(parsed)
+            return IntentReleasePlanGenerator._from_run(parsed, anchor)
         else:
-            return IntentReleasePlanGenerator._from_build(parsed)
+            return IntentReleasePlanGenerator._from_build(parsed, anchor)
 
     @staticmethod
     def _infer_mode_from_intent(description: str) -> Optional[ExecutionMode]:
@@ -226,10 +226,11 @@ class IntentReleasePlanGenerator:
         )
 
     @staticmethod
-    def _from_build(parsed: ParsedIntent) -> ReleasePlan:
+    def _from_build(parsed: ParsedIntent, anchor_project_path: str) -> ReleasePlan:
         """从构建意图生成 ``ReleasePlan``"""
-        project_path = parsed.project or os.getcwd()
-        project_name = os.path.basename(os.path.abspath(project_path))
+        project_path = parsed.project or anchor_project_path or os.getcwd()
+        project_path = str(Path(project_path).expanduser().resolve())
+        project_name = os.path.basename(project_path)
         # 确保 path 是字符串
         project_path_str = str(project_path)
 
@@ -259,7 +260,7 @@ class IntentReleasePlanGenerator:
         )
 
     @staticmethod
-    def _from_fix(parsed: ParsedIntent) -> ReleasePlan:
+    def _from_fix(parsed: ParsedIntent, anchor_project_path: str) -> ReleasePlan:
         """从修复意图生成 ``ReleasePlan``（自进化能力）"""
         # 解析错误信息
         error_info = IntentReleasePlanGenerator._parse_error_info(parsed.description)
@@ -267,9 +268,9 @@ class IntentReleasePlanGenerator:
         # 定位问题文件
         target_file = parsed.target or error_info.get("file")
 
-        project_path = parsed.project or os.getcwd()
-        project_name = os.path.basename(os.path.abspath(project_path))
-        project_path_str = str(project_path)
+        project_path = parsed.project or anchor_project_path or os.getcwd()
+        project_path_str = str(Path(project_path).expanduser().resolve())
+        project_name = os.path.basename(project_path_str)
 
         project = ProductAnchor(
             name=project_name,
@@ -331,15 +332,15 @@ class IntentReleasePlanGenerator:
         return info
 
     @staticmethod
-    def _from_test(parsed: ParsedIntent) -> ReleasePlan:
+    def _from_test(parsed: ParsedIntent, anchor_project_path: str) -> ReleasePlan:
         """从测试意图生成 ``ReleasePlan``"""
-        return IntentReleasePlanGenerator._from_build(parsed)
+        return IntentReleasePlanGenerator._from_build(parsed, anchor_project_path)
 
     @staticmethod
-    def _from_run(parsed: ParsedIntent) -> ReleasePlan:
+    def _from_run(parsed: ParsedIntent, anchor_project_path: str) -> ReleasePlan:
         """从「运行执行计划文件」类意图生成"""
         # TODO: 实际解析 YAML 执行计划文件
-        return IntentReleasePlanGenerator._from_build(parsed)
+        return IntentReleasePlanGenerator._from_build(parsed, anchor_project_path)
 
     @staticmethod
     def sample_release_plan() -> ReleasePlan:

@@ -112,11 +112,12 @@ class SprintCycleMCPServer:
             return [
                 Tool(
                     name="sprintcycle_plan",
-                    description="根据用户意图生成 Sprint 执行计划（不执行）。返回 release_plan_yaml（多 Sprint 执行计划 YAML），确认后可传给 sprintcycle_run。",
+                    description="根据用户意图生成 Sprint 执行计划（不执行）。返回 release_plan_yaml（多 Sprint 执行计划 YAML），确认后可传给 sprintcycle_run。intent、release_plan_yaml、release_plan_path 至少填其一。",
                     inputSchema={
                         "type": "object",
                         "properties": {
                             "intent": {"type": "string", "description": "用户意图描述"},
+                            "release_plan_yaml": {"type": "string", "description": "执行计划 YAML 全文（与 intent 二选一）"},
                             "mode": {"type": "string", "enum": ["auto", "evolution", "normal", "fix", "test"], "description": "执行模式"},
                             "target": {"type": "string", "description": "目标文件/模块"},
                             "release_plan_path": {"type": "string", "description": "已有执行计划 YAML 文件路径"},
@@ -124,8 +125,18 @@ class SprintCycleMCPServer:
                                 "type": "string",
                                 "description": "非自进化时英文产品 slug；等价于意图中 product: Name",
                             },
+                            "reference_paths": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "参考项目目录路径列表（只读）；写入仍在 MCP Server 启动时绑定的 project_path",
+                            },
+                            "write_policy": {
+                                "type": "string",
+                                "enum": ["auto", "create", "incremental", "safe"],
+                                "description": "写入策略：auto | create | incremental | safe（仅新增不改已有文件）",
+                                "default": "auto",
+                            },
                         },
-                        "required": ["intent"],
                     },
                 ),
                 Tool(
@@ -149,6 +160,16 @@ class SprintCycleMCPServer:
                                 "type": "boolean",
                                 "description": "require_knowledge_injection_confirm 开启时传 true 以确认知识注入并执行",
                                 "default": False,
+                            },
+                            "reference_paths": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "参考项目目录路径列表（只读）",
+                            },
+                            "write_policy": {
+                                "type": "string",
+                                "enum": ["auto", "create", "incremental", "safe"],
+                                "default": "auto",
                             },
                         },
                     },
@@ -299,16 +320,23 @@ class SprintCycleMCPServer:
     # ─── tool handlers ───
 
     async def _handle_plan(self, args: Dict[str, Any]) -> List[TextContent]:
+        ref = args.get("reference_paths")
+        ref_list = list(ref) if isinstance(ref, list) else None
         result = self.sc.plan(
-            intent=args["intent"],
+            intent=str(args.get("intent") or ""),
             mode=args.get("mode", "auto"),
             target=args.get("target"),
+            release_plan_yaml=args.get("release_plan_yaml"),
             release_plan_path=args.get("release_plan_path"),
             product=args.get("product"),
+            reference_paths=ref_list,
+            write_policy=str(args.get("write_policy") or "auto"),
         )
         return _text_response(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
 
     async def _handle_run(self, args: Dict[str, Any]) -> List[TextContent]:
+        ref = args.get("reference_paths")
+        ref_list = list(ref) if isinstance(ref, list) else None
         result = self.sc.run(
             intent=args.get("intent"),
             mode=args.get("mode", "auto"),
@@ -319,6 +347,8 @@ class SprintCycleMCPServer:
             execution_id=args.get("execution_id"),
             resume=args.get("resume", False),
             confirm_knowledge=bool(args.get("confirm_knowledge", False)),
+            reference_paths=ref_list,
+            write_policy=str(args.get("write_policy") or "auto"),
         )
         return _text_response(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
 

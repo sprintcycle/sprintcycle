@@ -26,6 +26,8 @@ from .events import ExecutionEventBackend
 from .hooks.sprint_hooks import NoOpSprintLifecycleHooks, SprintLifecycleHooks
 from .hooks.task_hooks import NoOpTaskLifecycleHooks, TaskLifecycleHooks
 from .sprint_types import ExecutionStatus, SprintResult, TaskResult
+from .execution_planners import TaskContextBuilder
+from .policies import SprintFeedbackPolicy, SprintRetryPolicy, TaskRetryPolicy
 from .state.checkpoint import CheckpointMixin
 from .state.state_store import StateStore, get_state_store
 
@@ -51,6 +53,9 @@ class SprintExecutor(CheckpointMixin):
         self._callbacks: Dict[str, Callable] = {}
         self._max_parallel = max_parallel
         self._max_verify_fix_rounds = max(1, int(max_verify_fix_rounds))
+        self._task_retry_policy = TaskRetryPolicy(self._max_verify_fix_rounds)
+        self._sprint_retry_policy = SprintRetryPolicy(self._max_verify_fix_rounds)
+        self._sprint_feedback_policy = SprintFeedbackPolicy()
         self._runtime_config = runtime_config
         self._sprint_hooks: SprintLifecycleHooks = sprint_hooks or NoOpSprintLifecycleHooks()
         self._task_hooks: TaskLifecycleHooks = task_hooks or NoOpTaskLifecycleHooks()
@@ -63,6 +68,7 @@ class SprintExecutor(CheckpointMixin):
         self._execution_id: str = ""
         self._cancelled: bool = False
         self._checkpoint_interval = 1
+        self._task_context_builder = TaskContextBuilder()
         self._register_default_executors()
 
     @property
@@ -125,42 +131,23 @@ class SprintExecutor(CheckpointMixin):
     def _build_agent_context(self, task: SprintBacklogItem, sprint_name: str, context: Dict[str, Any]):
         from .agents.base import AgentContext
 
-        deps = dict(context.get("dependencies") or {})
-        cb: Dict[str, Any] = {
-            "project_path": str(context.get("project_path", ".")),
-        }
-        for key in ("architecture_design", "modules", "tech_stack", "issues", "code"):
-            if key in context:
-                cb[key] = context[key]
-        if context.get("task_guidance"):
-            cb["task_guidance"] = context["task_guidance"]
-        if context.get("verify_fix_notes"):
-            vn = str(context["verify_fix_notes"]).strip()
-            if vn:
-                prev = (cb.get("task_guidance") or "").strip()
-                extra = "\n\n[Coder 验证-修复 — 上一轮失败]\n" + vn
-                cb["task_guidance"] = (prev + extra).strip() if prev else extra.strip()
-        if context.get("release_plan_overlay_yaml"):
-            cb["release_plan_overlay"] = context["release_plan_overlay_yaml"]
-        locked_engine = str(
-            context.get("_sprint_coding_engine") or context.get("coding_engine", "aider")
-        )
+        structured = self._task_context_builder.build(task, sprint_name, context)
         rid, rname = context_plan_id_name(context)
         cache_llm = True
         rc = self._runtime_config
         if rc is not None:
             cache_llm = bool(getattr(rc, "cache_llm_codegen", True))
         return AgentContext(
-            release_plan_id=str(rid),
-            release_plan_name=str(rname),
+            release_plan_id=str(rid or structured.release_plan_id),
+            release_plan_name=str(rname or structured.release_plan_name),
             project_goals=str(context.get("project_goals", "")),
-            sprint_name=str(context.get("sprint_name", sprint_name)),
-            sprint_index=int(context.get("sprint_index", 0)),
-            dependencies=deps,
-            codebase_context=cb,
+            sprint_name=str(structured.sprint_name),
+            sprint_index=int(structured.sprint_index),
+            dependencies=structured.dependencies,
+            codebase_context=structured.codebase_context,
             metadata={
-                "coding_engine": locked_engine,
-                "quality_level": context.get("quality_level", "L1"),
+                "coding_engine": structured.coding_engine,
+                "quality_level": structured.quality_level,
                 "constraints": task.constraints or [],
             },
             config={"cache_llm_codegen": cache_llm},
@@ -497,7 +484,8 @@ class SprintExecutor(CheckpointMixin):
                     feedback = self._get_feedback_for_sprint(sprint, result)
                     if feedback:
                         decision = self._feedback_loop.decide(feedback)
-                        if decision["action"] == "retry" and self._should_retry(sprint):
+                        retry_decision = self._sprint_retry_policy.should_retry(sprint)
+                        if decision["action"] == "retry" and retry_decision.should_retry:
                             logger.info(f"Sprint {sprint.name} 根据反馈重试: {decision['reason']}")
                             result = await self._retry_with_feedback(sprint, feedback, decision, ctx)
                             results[-1] = result
@@ -524,17 +512,15 @@ class SprintExecutor(CheckpointMixin):
 
     def _should_retry(self, sprint: SprintDefinition) -> bool:
         """Sprint 失败后反馈闭环重试次数上限（与 max_verify_fix_rounds 对齐，默认 3）"""
-        retry_count = getattr(sprint, "_retry_count", 0)
-        return retry_count < self._max_verify_fix_rounds
+        decision = self._sprint_retry_policy.should_retry(sprint)
+        return decision.should_retry
 
     async def _retry_with_feedback(self, sprint: SprintDefinition, feedback: Any, decision: Dict[str, Any], context: Optional[Dict[str, Any]]) -> SprintResult:
         """根据反馈重试 Sprint"""
         object.__setattr__(sprint, '_retry_count', getattr(sprint, '_retry_count', 0) + 1)
         if context is None:
             context = {}
-        context["retry_feedback"] = feedback.to_dict()
-        context["improvement_suggestions"] = decision.get("suggestions", [])
-        context["retry_from_failure"] = True
+        context.update(self._sprint_feedback_policy.build_context(decision, feedback))
         logger.info(f"重试 Sprint {sprint.name}，携带 {len(decision.get('suggestions', []))} 条改进建议")
         result = await self.execute_sprint(sprint, context, save_checkpoint=True)
         return result
@@ -696,11 +682,12 @@ class SprintExecutor(CheckpointMixin):
             if res.success:
                 return res.output or ""
             last_msg = res.error or last_msg
-            if attempt >= max_r - 1:
+            decision = self._task_retry_policy.should_retry(attempt, last_msg)
+            if not decision.should_retry:
                 raise RuntimeError(last_msg)
             prev = (work.get("verify_fix_notes") or "").strip()
             work["verify_fix_notes"] = (
-                prev + f"\n[attempt {attempt + 1}/{max_r}] {last_msg}"
+                prev + f"\n[attempt {decision.attempt}/{decision.max_attempts}] {last_msg}"
             ).strip()
 
     async def _execute_tester_task(self, task: SprintBacklogItem, context: Dict[str, Any]) -> str:

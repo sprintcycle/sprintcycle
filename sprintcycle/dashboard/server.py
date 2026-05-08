@@ -14,7 +14,7 @@ import os
 import time
 import uuid
 from pathlib import Path
-from typing import Any, AsyncGenerator, Awaitable, Callable, Dict, Literal, Optional
+from typing import Any, AsyncGenerator, Awaitable, Callable, Dict, List, Literal, Optional
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -150,11 +150,14 @@ class SSEEventHandler:
 
 
 class PlanRequest(BaseModel):
-    intent: str
+    intent: str = ""
     mode: str = "auto"
     target: Optional[str] = None
+    release_plan_yaml: Optional[str] = None
     release_plan_path: Optional[str] = None
     product: Optional[str] = None
+    reference_paths: Optional[List[str]] = None
+    write_policy: str = "auto"
 
 
 class RunRequest(BaseModel):
@@ -166,6 +169,8 @@ class RunRequest(BaseModel):
     product: Optional[str] = None
     execution_id: Optional[str] = None
     resume: bool = False
+    reference_paths: Optional[List[str]] = None
+    write_policy: str = "auto"
 
 
 class StopRequest(BaseModel):
@@ -289,8 +294,11 @@ def create_app(project_path: str = ".") -> FastAPI:
             intent=req.intent,
             mode=req.mode,
             target=req.target,
+            release_plan_yaml=req.release_plan_yaml,
             release_plan_path=req.release_plan_path,
             product=req.product,
+            reference_paths=req.reference_paths,
+            write_policy=req.write_policy,
         )
         return result.to_dict()
 
@@ -302,6 +310,8 @@ def create_app(project_path: str = ".") -> FastAPI:
             release_plan_path=req.release_plan_path,
             product=req.product,
             execution_id=req.execution_id, resume=req.resume,
+            reference_paths=req.reference_paths,
+            write_policy=req.write_policy,
         )
         return result.to_dict()
 
@@ -365,7 +375,14 @@ def create_app(project_path: str = ".") -> FastAPI:
     @app.post("/api/status")
     async def api_status(req: StatusRequest) -> Dict[str, Any]:
         result = sc.status(execution_id=req.execution_id)
-        return result.to_dict()
+        payload = result.to_dict()
+        if req.execution_id:
+            try:
+                latest = sc.status(execution_id=req.execution_id)
+                payload["release_finalization"] = getattr(latest, "release_finalization", {})
+            except Exception:
+                payload["release_finalization"] = {}
+        return payload
 
     @app.post("/api/rollback")
     async def api_rollback(req: RollbackRequest) -> Dict[str, Any]:

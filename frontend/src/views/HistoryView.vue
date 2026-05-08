@@ -50,6 +50,26 @@ type="warning" size="small" plain
           <span class="chev" :class="{ open: expanded[String(ex.execution_id)] }">▶</span>
         </div>
         <div v-show="expanded[String(ex.execution_id)]" class="exec-detail">
+          <div class="finalization-card" v-if="store.finalizationForExec(ex) && Object.keys(store.finalizationForExec(ex)).length">
+            <div class="sprint-head">
+              <span class="sprint-dot success" />
+              <b>Release Finalization</b>
+              <span class="sc-muted">
+                {{ String((store.finalizationForExec(ex) as Record<string, unknown>).summary ?? '') }}
+              </span>
+              <span class="sc-muted">
+                ready: {{ String((store.finalizationForExec(ex) as Record<string, unknown>).ready_to_release ?? false) }}
+              </span>
+            </div>
+            <div class="task-row" v-if="Array.isArray((store.finalizationForExec(ex) as Record<string, unknown>).issues) && (store.finalizationForExec(ex) as Record<string, unknown>).issues.length">
+              <span class="sc-muted">Issues</span>
+              <span>{{ (store.finalizationForExec(ex) as Record<string, unknown>).issues.join(' · ') }}</span>
+            </div>
+            <div class="task-row" v-if="Array.isArray((store.finalizationForExec(ex) as Record<string, unknown>).executed_fix_sprints) && (store.finalizationForExec(ex) as Record<string, unknown>).executed_fix_sprints.length">
+              <span class="sc-muted">Fix Sprints</span>
+              <span>{{ (store.finalizationForExec(ex) as Record<string, unknown>).executed_fix_sprints.length }}</span>
+            </div>
+          </div>
           <div v-if="store.sprintRows(ex).length === 0" class="sc-muted pad">暂无详细信息</div>
           <div v-else class="sprint-section">
             <div v-for="(sp, si) in store.sprintRows(ex)" :key="si" class="sprint-card">

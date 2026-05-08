@@ -11,10 +11,10 @@ import hashlib
 import json
 from typing import Any, Dict, List, Tuple
 
-# --- Coder：仅模板；{language} / {task} / {arch_section} 在 format 时填入 ---
+# --- Coder：仅模板；{language} / {task} / {arch_section} / {workspace_section} 在 format 时填入 ---
 CODER_GENERATION_PROMPT_TEMPLATE = """请为以下任务生成高质量的 {language} 代码：
 
-任务：{task}{arch_section}
+任务：{task}{arch_section}{workspace_section}
 
 要求：
 1. 代码应遵循最佳实践
@@ -29,14 +29,18 @@ def format_coder_generation_prompt(
     language: str,
     task: str,
     architecture_design: str | None,
+    *,
+    workspace_section: str = "",
 ) -> str:
     arch_section = ""
     if architecture_design:
         arch_section = f"\n\n架构设计指导：\n{architecture_design}\n"
+    ws = workspace_section or ""
     return CODER_GENERATION_PROMPT_TEMPLATE.format(
         language=language or "python",
         task=task or "",
         arch_section=arch_section,
+        workspace_section=ws,
     )
 
 

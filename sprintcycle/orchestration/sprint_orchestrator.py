@@ -19,6 +19,8 @@ from loguru import logger
 
 from ..config import RuntimeConfig
 from ..evolution.measurement import MeasurementResult
+from .finalization import ReleaseFinalizationPolicy, ReleaseFinalizationRunner
+from .policies import SprintEvaluator, SprintMeasurementPolicy, SprintPersistencePolicy
 from ..execution.events import (
     Event,
     EventType,
@@ -196,22 +198,20 @@ class _OrchestratorSprintHooks(SprintLifecycleHooks):
                 )
             )
         if p is not None:
-            m = await self._orchestrator._post_sprint_measurement(
+            m = await self._orchestrator._sprint_measurement_policy.measure(
+                self._orchestrator,
                 p,
-                sprint_index=sprint_index,
-                sprint=sprint,
-                sprint_result=result,
+                sprint_index,
+                sprint,
+                result,
             )
-            from ..execution.knowledge.sprint_knowledge_card import persist_sprint_outcome_card
-
-            persist_sprint_outcome_card(
-                project_path=self._orchestrator._project_root,
-                config=self._orchestrator.config,
-                release_plan=p,
-                sprint_index=sprint_index,
-                sprint=sprint,
-                sprint_result=result,
-                measurement=m,
+            self._orchestrator._sprint_persistence_policy.persist(
+                self._orchestrator,
+                p,
+                sprint_index,
+                sprint,
+                result,
+                m,
             )
 
 
@@ -235,6 +235,14 @@ class SprintOrchestrator:
             "on_sprint_start": self._default_on_sprint_start,
             "on_sprint_end": self._default_on_sprint_end,
         }
+        self._sprint_evaluator = SprintEvaluator()
+        self._sprint_measurement_policy = SprintMeasurementPolicy()
+        self._sprint_persistence_policy = SprintPersistencePolicy()
+        self._release_finalization_runner = ReleaseFinalizationRunner(
+            ReleaseFinalizationPolicy(),
+            sprint_executor_factory=self._make_sprint_executor,
+        )
+        self._last_release_finalization_result = None
 
     def _get_event_bus(self) -> ExecutionEventBackend:
         if self.event_bus is None:
@@ -309,6 +317,22 @@ class SprintOrchestrator:
             "release_plan": release_plan,
         }
 
+    def _persist_release_finalization(self, release_plan: ReleasePlan, finalize_result: Any) -> None:
+        try:
+            from ..execution.state.state_store import get_state_store
+
+            eid = getattr(release_plan, "execution_id", None)
+            if not eid:
+                return
+            store = get_state_store()
+            state = store.load(eid)
+            if state is None:
+                return
+            state.metadata["release_finalization"] = finalize_result.to_dict() if hasattr(finalize_result, "to_dict") else {}
+            store.save(state)
+        except Exception as e:
+            logger.warning("persist release finalization failed: {}", e)
+
     async def _post_sprint_measurement(
         self,
         release_plan: ReleasePlan,
@@ -372,6 +396,13 @@ class SprintOrchestrator:
             to_run.total_tasks,
         )
         results = await self._execute_normal_mode(to_run, max_concurrent)
+        finalize_result = await self._release_finalization_runner.run(
+            to_run,
+            results,
+            context={"execution_id": getattr(release_plan, "execution_id", None)},
+        )
+        self._last_release_finalization_result = finalize_result
+        self._persist_release_finalization(release_plan, finalize_result)
         success = all(r.status in (ExecutionStatus.SUCCESS, ExecutionStatus.SKIPPED) for r in results)
         await self._emit(
             create_event(
@@ -388,6 +419,12 @@ class SprintOrchestrator:
         logger.info(
             f"\n📊 ReleasePlan 执行完成: 任务={total_tasks} 成功={total_success} "
             f"失败={total_tasks - total_success} 耗时={sum(r.duration for r in results):.2f}s"
+        )
+        logger.info(
+            "release_finalization summary success={} ready_to_release={} issues={}",
+            finalize_result.success,
+            finalize_result.ready_to_release,
+            finalize_result.issues,
         )
         return results
 

@@ -9,6 +9,7 @@ from typing import Any, Dict, Optional, cast
 from loguru import logger
 
 from sprintcycle.prompt_sources import format_coder_generation_prompt
+from sprintcycle.run_workspace import build_workspace_prompt_section
 
 from .base import AgentContext, AgentExecutor, AgentResult, AgentType
 from .coder_types import BatchConfig
@@ -59,10 +60,22 @@ class CoderAgent(AgentExecutor):
     def _build_generation_prompt(self, requirements: Dict[str, Any], context: AgentContext) -> str:
         task = requirements.get("task", "")
         arch = requirements.get("architecture_design")
+        cb = context.codebase_context or {}
+        refs = cb.get("reference_project_paths") or []
+        eff = str(cb.get("effective_write_policy") or "").strip().lower()
+        if not eff:
+            rp = cb.get("release_plan")
+            meta = getattr(rp, "metadata", None) or {} if rp is not None else {}
+            eff = str(meta.get("effective_write_policy") or "").strip().lower()
+        ws = build_workspace_prompt_section(
+            refs if isinstance(refs, list) else [],
+            eff or "incremental",
+        )
         return format_coder_generation_prompt(
             language=str(requirements.get("language", "python")),
             task=str(task),
             architecture_design=str(arch) if arch else None,
+            workspace_section=ws,
         )
 
     def _resolve_coding_engine(self, context: AgentContext) -> str:

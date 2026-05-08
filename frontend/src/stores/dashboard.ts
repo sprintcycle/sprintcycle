@@ -22,6 +22,10 @@ export type EventLine = { type: string; ts: string; display: string; text: strin
 
 export const useDashboardStore = defineStore('dashboard', () => {
   const yamlInput = ref('')
+  /** 参考项目路径，一行一个（可选） */
+  const referencePathsText = ref('')
+  /** auto | create | incremental | safe */
+  const writePolicy = ref('auto')
   const planBusy = ref(false)
   const planMeta = ref('')
   const planMessage = ref('点击 **Plan** 预览执行计划，或直接 **Run** 开始执行')
@@ -56,6 +60,8 @@ export const useDashboardStore = defineStore('dashboard', () => {
   const hitlBusy = ref(false)
 
   const historyBadge = computed(() => executions.value.length)
+  const releaseFinalizationByExec = ref<Record<string, Record<string, unknown>>>({})
+  const releaseFinalizationCurrent = ref<Record<string, unknown>>({})
 
   const EVENT_META: Record<string, { icon: string; label: string }> = {
     execution_start: { icon: '🚀', label: 'EXEC START' },
@@ -177,7 +183,16 @@ export const useDashboardStore = defineStore('dashboard', () => {
 
   function planPayload() {
     const input = yamlInput.value.trim()
-    const body = looksLikeYaml(input) ? { release_plan_yaml: input } : { intent: input }
+    const base = looksLikeYaml(input) ? { release_plan_yaml: input } : { intent: input }
+    const refs = referencePathsText.value
+      .split(/[\n,]+/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+    const body: Record<string, unknown> = {
+      ...base,
+      write_policy: writePolicy.value || 'auto',
+    }
+    if (refs.length) body.reference_paths = refs
     return { input, body }
   }
 
@@ -283,6 +298,16 @@ export const useDashboardStore = defineStore('dashboard', () => {
       }
       const list = data.executions
       executions.value = Array.isArray(list) ? (list as Record<string, unknown>[]) : []
+      const rf: Record<string, Record<string, unknown>> = {}
+      for (const ex of executions.value) {
+        const id = String(ex.execution_id ?? '')
+        const fin = ex.release_finalization
+        if (id && fin && typeof fin === 'object') rf[id] = fin as Record<string, unknown>
+      }
+      releaseFinalizationByExec.value = rf
+      const current = data.release_finalization
+      releaseFinalizationCurrent.value =
+        current && typeof current === 'object' ? (current as Record<string, unknown>) : {}
       historyLoaded.value = true
     } catch (e) {
       ElMessage.error(fmtErr(e))
@@ -308,6 +333,12 @@ export const useDashboardStore = defineStore('dashboard', () => {
     if (Array.isArray(tr)) return tr
     if (Array.isArray(ts)) return ts
     return []
+  }
+
+  function finalizationForExec(ex: Record<string, unknown>) {
+    const id = String(ex.execution_id ?? '')
+    if (id && releaseFinalizationByExec.value[id]) return releaseFinalizationByExec.value[id]
+    return releaseFinalizationCurrent.value
   }
 
   function shortId(id: string) {
@@ -496,6 +527,8 @@ export const useDashboardStore = defineStore('dashboard', () => {
 
   return {
     yamlInput,
+    referencePathsText,
+    writePolicy,
     planBusy,
     planMeta,
     planMessage,
@@ -521,6 +554,8 @@ export const useDashboardStore = defineStore('dashboard', () => {
     hitlNotes,
     hitlBusy,
     historyBadge,
+    releaseFinalizationByExec,
+    releaseFinalizationCurrent,
     handlePlan,
     handleRun,
     clearEditor,
@@ -528,6 +563,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
     toggleExpand,
     sprintRows,
     taskRows,
+    finalizationForExec,
     shortId,
     canResume,
     handleStop,

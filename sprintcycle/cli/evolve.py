@@ -134,6 +134,19 @@ def register(cli: click.Group) -> None:
         help="进化模式下的英文产品名（与意图中 product: Name 等价）；代码写入 products/<name>/",
     )
     @click.option(
+        "--reference",
+        "reference_paths",
+        multiple=True,
+        help="参考项目路径（可重复）；只读借鉴，写入仍在全局 -p 目标项目",
+    )
+    @click.option(
+        "--write-policy",
+        "write_policy",
+        type=click.Choice(["auto", "create", "incremental", "safe"]),
+        default="auto",
+        help="写入策略：auto 按目标是否存在推断 | create 骨架优先 | incremental 增量 | safe 仅新增不改已有文件",
+    )
+    @click.option(
         "--release-plan",
         "release_plan_path",
         default=None,
@@ -146,6 +159,8 @@ def register(cli: click.Group) -> None:
         mode: str,
         target: Optional[str],
         product: Optional[str],
+        reference_paths: tuple[str, ...],
+        write_policy: str,
         release_plan_path: Optional[str],
     ) -> None:
         """生成 Sprint 执行计划（不执行）"""
@@ -155,6 +170,8 @@ def register(cli: click.Group) -> None:
             target=target,
             release_plan_path=release_plan_path,
             product=product,
+            reference_paths=list(reference_paths) if reference_paths else None,
+            write_policy=write_policy,
         )
         _print_result(result, ctx.obj["fmt"])
 
@@ -180,6 +197,19 @@ def register(cli: click.Group) -> None:
         default=None,
         help="执行计划 YAML 文本（与 plan 返回的 release_plan_yaml 同形）",
     )
+    @click.option(
+        "--reference",
+        "reference_paths",
+        multiple=True,
+        help="参考项目路径（可重复）；只读借鉴，写入仍在全局 -p 目标项目",
+    )
+    @click.option(
+        "--write-policy",
+        "write_policy",
+        type=click.Choice(["auto", "create", "incremental", "safe"]),
+        default="auto",
+        help="写入策略：auto | create | incremental | safe（仅新增不改已有文件）",
+    )
     @click.option("--resume", is_flag=True, help="断点续跑")
     @click.option("--execution-id", default=None, help="执行 ID（resume 时使用）")
     @click.option(
@@ -195,6 +225,8 @@ def register(cli: click.Group) -> None:
         mode: str,
         target: Optional[str],
         product: Optional[str],
+        reference_paths: tuple[str, ...],
+        write_policy: str,
         release_plan_path: Optional[str],
         release_plan_yaml: Optional[str],
         resume: bool,
@@ -212,6 +244,8 @@ def register(cli: click.Group) -> None:
             execution_id=execution_id,
             confirm_knowledge=confirm_knowledge,
             product=product,
+            reference_paths=list(reference_paths) if reference_paths else None,
+            write_policy=write_policy,
         )
         _print_result(result, ctx.obj["fmt"])
 

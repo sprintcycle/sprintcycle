@@ -193,12 +193,21 @@ def _print_status(r: StatusResult) -> None:
         t.add_column("状态")
         t.add_column("项目")
         t.add_column("Sprint", justify="right")
+        t.add_column("最终验收", max_width=28)
         for e in r.executions[:10]:
+            fin = e.get("release_finalization") if isinstance(e, dict) else None
+            fin_text = ""
+            if isinstance(fin, dict) and fin:
+                summary = str(fin.get("summary", ""))
+                ready = fin.get("ready_to_release")
+                issues = fin.get("issues") or []
+                fin_text = f"{summary} | ready={ready} | issues={len(issues) if isinstance(issues, list) else 0}"
             t.add_row(
                 escape(str(e.get("execution_id", "?"))),
                 escape(str(e.get("status", "?"))),
                 escape(dict_plan_name(e)),
                 f"{e.get('current_sprint', 0)}/{e.get('total_sprints', 0)}",
+                escape(fin_text or "—"),
             )
         console.print(t)
     else:
@@ -207,6 +216,17 @@ def _print_status(r: StatusResult) -> None:
             f"状态: {escape(r.status)}",
             f"Sprint: {r.current_sprint}/{r.total_sprints}",
         ]
+        if r.release_finalization:
+            fin = r.release_finalization
+            lines.extend(
+                [
+                    f"最终验收: {escape(str(fin.get('summary', '')))}",
+                    f"可发布: {escape(str(fin.get('ready_to_release', False)))}",
+                ]
+            )
+            issues = fin.get("issues") or []
+            if isinstance(issues, list) and issues:
+                lines.append("问题: " + ", ".join(escape(str(i)) for i in issues[:5]))
         if r.sprint_history:
             hist = "\n".join(
                 f"  · {escape(str(h.get('sprint_name', '?')))} → {escape(str(h.get('status', '?')))}"
