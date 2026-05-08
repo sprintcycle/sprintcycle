@@ -3,7 +3,6 @@ Coder Agent Base - 核心执行逻辑
 """
 
 import hashlib
-import os
 from typing import Any, Dict, Optional, cast
 
 from loguru import logger
@@ -51,7 +50,6 @@ class CoderAgent(AgentExecutor):
             requirements["language"] = "javascript"
         elif "rust" in task.lower():
             requirements["language"] = "rust"
-        # 读取 ArchitectureAgent 产出的架构设计
         arch_design = context.get_dependency("architecture_design") or context.codebase_context.get("architecture_design")
         if arch_design:
             requirements["architecture_design"] = arch_design
@@ -82,8 +80,7 @@ class CoderAgent(AgentExecutor):
         return (
             (context.metadata or {}).get("coding_engine")
             or context.codebase_context.get("coding_engine")
-            or os.environ.get("SPRINTCYCLE_CODING_ENGINE", "aider")
-            or "aider"
+            or "cursor"
         ).strip().lower()
 
     def _project_cwd(self, context: AgentContext) -> str:
@@ -113,14 +110,9 @@ class CoderAgent(AgentExecutor):
         get_cache().set(cache_key, result, ttl_hours=24)
 
     async def _generate_code(self, requirements: Dict[str, Any], context: AgentContext) -> Dict[str, Any]:
-        from ..llm_provider import call_llm_async, resolve_provider
-
         engine = self._resolve_coding_engine(context)
-        # 与 sprintcycle.config / 文档中的别名对齐
-        if engine in ("claude", "claude-code"):
-            engine = "claude_code"
-        if engine in ("cursor", "cursor-cookbook"):
-            engine = "cursor_cookbook"
+        if engine not in ("cursor", "claude", "trae"):
+            return {"success": False, "error": f"unsupported coding engine: {engine}"}
 
         cache_prompt = self._build_generation_prompt(requirements, context)
         gen_ck = self._coder_gen_cache_key(engine, cache_prompt)
@@ -132,111 +124,55 @@ class CoderAgent(AgentExecutor):
             self._maybe_put_codegen_cache(context, gen_ck, payload)
             return payload
 
-        if engine == "aider":
-            from ..engines.aider import check_aider_cli, run_aider_message
+        from ..engine_adapters import EngineAdapterConfig, resolve_engine_adapter
 
-            if check_aider_cli():
-                cwd = self._project_cwd(context)
-                prompt = cache_prompt
-                cfg = resolve_provider()
-                rc, out, err = await run_aider_message(
-                    prompt, cwd=cwd, timeout=600, model=cfg.model if cfg.model else None
-                )
-                if rc == 0:
-                    combined = (out or "") + ("\n" + err if err else "")
-                    quality = self._calculate_quality_score(combined, context)
-                    return _finish_ok(
-                        {
-                            "success": True,
-                            "code": combined or "(aider 完成，无 stdout)",
-                            "quality": quality,
-                            "feedback": "Generated via Aider CLI",
-                        }
-                    )
-                logger.warning("Aider 退出码 {}，回退 LiteLLM: {}", rc, err[:500] if err else "")
-            else:
-                logger.warning("未检测到 aider 命令，回退 LiteLLM 直调")
-
-        if engine == "claude_code":
-            from ..engines.claude_code import check_claude_code_cli, run_claude_print_message
-
-            if check_claude_code_cli():
-                cwd = self._project_cwd(context)
-                prompt = cache_prompt
-                rc, out, err = await run_claude_print_message(prompt, cwd=cwd, timeout=600)
-                if rc == 0:
-                    combined = (out or "") + ("\n" + err if err else "")
-                    quality = self._calculate_quality_score(combined, context)
-                    return _finish_ok(
-                        {
-                            "success": True,
-                            "code": combined or "(Claude Code 完成，无 stdout)",
-                            "quality": quality,
-                            "feedback": "Generated via Claude Code CLI (-p)",
-                        }
-                    )
-                logger.warning("Claude Code 退出码 {}，回退 LiteLLM: {}", rc, err[:500] if err else "")
-            else:
-                logger.warning("未检测到 claude 命令（Claude Code），回退 LiteLLM 直调")
-
-        if engine == "cursor_cookbook":
-            from ..engines.cursor_cookbook import run_cursor_cookbook_flow
-
-            cwd = self._project_cwd(context)
-            prompt = cache_prompt
-            cb = context.codebase_context or {}
-            overlay = str(cb.get("release_plan_overlay") or "")[:8000]
-            arch = str(
-                (requirements.get("architecture_design") or cb.get("architecture_design") or "")
-            )[:8000]
-            title = f"SprintCycle — {context.sprint_name or 'coder'}"
-            rc, out, err = await run_cursor_cookbook_flow(
-                cwd=cwd,
-                title=title,
-                task_prompt=prompt,
-                release_plan_overlay_hint=overlay,
-                architecture_hint=arch,
-                timeout=600,
+        adapter = resolve_engine_adapter(
+            engine,
+            EngineAdapterConfig(
+                timeout_seconds=int(context.config.get("engine_timeout_seconds", 900)),
+                cwd=self._project_cwd(context),
+                max_output_chars=int(context.config.get("engine_max_output_chars", 20000)),
+            ),
+        )
+        try:
+            res = await adapter.execute(
+                cache_prompt,
+                {
+                    "project_path": self._project_cwd(context),
+                    "sprint_name": context.sprint_name,
+                    "release_plan_id": context.release_plan_id,
+                    "codebase_context": context.codebase_context,
+                    "architecture_design": requirements.get("architecture_design"),
+                    "quality_level": context.metadata.get("quality_level") if context.metadata else None,
+                },
             )
-            if rc == 0:
-                combined = (out or "") + ("\n" + err if err else "")
-                quality = self._calculate_quality_score(combined, context)
+            if res.success:
+                code = res.output or ""
+                quality = self._calculate_quality_score(code, context)
                 return _finish_ok(
                     {
                         "success": True,
-                        "code": combined or "(Cursor Cookbook 已生成)",
+                        "code": code,
                         "quality": quality,
-                        "feedback": "Cursor Cookbook file (+ optional agent CLI)",
+                        "feedback": f"Generated via {adapter.__class__.__name__}",
+                        "engine": adapter.name,
+                        "engine_metadata": res.metadata or {},
+                        "request_id": res.request_id,
+                        "trace_id": res.trace_id,
                     }
                 )
-            logger.warning("Cursor Cookbook / Agent 退出码 {}，回退 LiteLLM: {}", rc, err[:500] if err else "")
-
-        config = resolve_provider()
-
-        prompt = cache_prompt
-        messages = [{"role": "user", "content": prompt}]
-
-        try:
-            code = await call_llm_async(
-                model=config.model,
-                messages=messages,
-                api_key=config.api_key,
-                api_base=config.api_base,
-                temperature=0.7,
-                max_tokens=4096,
-            )
-            quality = self._calculate_quality_score(code, context)
-            return _finish_ok(
-                {
-                    "success": True,
-                    "code": code,
-                    "quality": quality,
-                    "feedback": f"Generated {requirements.get('language', 'python')} code",
-                }
-            )
+            logger.warning("{} 执行失败: {}", adapter.name, res.error)
+            return {
+                "success": False,
+                "error": res.error or f"{adapter.name} failed",
+                "error_code": res.error_code,
+                "engine_metadata": res.metadata or {},
+                "request_id": res.request_id,
+                "trace_id": res.trace_id,
+            }
         except Exception as e:
-            logger.error(f"Code generation failed: {e}")
-            return {"success": False, "error": str(e)}
+            logger.error("Code generation failed: {}", e)
+            return {"success": False, "error": str(e), "error_code": "adapter_exception", "request_id": "", "trace_id": ""}
 
     def _calculate_quality_score(self, code: str, context: AgentContext) -> float:
         score = 0.5

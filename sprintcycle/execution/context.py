@@ -17,7 +17,7 @@ class TaskExecutionContext:
     project_path: str = "."
     sprint_name: str = ""
     sprint_index: int = 0
-    coding_engine: str = "aider"
+    coding_engine: str = "cursor"
     quality_level: str = "L1"
     release_plan: Optional[ReleasePlan] = None
     release_plan_name: str = ""

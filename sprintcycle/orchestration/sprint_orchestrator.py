@@ -30,6 +30,9 @@ from ..execution.events import (
 )
 from ..execution.feedback import FeedbackLoop
 from ..execution.hooks.sprint_hooks import ChainedSprintHooks, SprintLifecycleHooks
+from ..execution.hooks.skill_hooks import SkillLifecycleHook
+from ..execution.skills import SkillOrchestrator
+from ..execution.skill_store import SkillStore
 from ..execution.hooks.task_hooks import ChainedTaskHooks, TaskLifecycleHooks
 from ..execution.knowledge.knowledge_hook import KnowledgeInjectionHook
 from ..execution.sprint_executor import SprintExecutor
@@ -242,6 +245,8 @@ class SprintOrchestrator:
             ReleaseFinalizationPolicy(),
             sprint_executor_factory=self._make_sprint_executor,
         )
+        self._skill_store = SkillStore()
+        self._skill_orchestrator = SkillOrchestrator()
         self._last_release_finalization_result = None
 
     def _get_event_bus(self) -> ExecutionEventBackend:
@@ -290,6 +295,7 @@ class SprintOrchestrator:
         # 顺序：知识注入 → 治理（Planning/Review）→ 编排事件与测量（见 governance/sprint_hooks 模块注释）
         parts: List[SprintLifecycleHooks] = [
             KnowledgeInjectionHook(self._project_root, self.config),
+            SkillLifecycleHook(self._skill_orchestrator, self._skill_store),
         ]
         if getattr(self.config, "governance_enabled", False):
             parts.append(GovernanceSprintHooks(self._project_root, self.config, self._get_event_bus()))
@@ -312,7 +318,7 @@ class SprintOrchestrator:
             "project_path": proj,
             "release_plan_name": release_plan.project.name,
             "release_plan_id": str(meta.get("id", "")),
-            "coding_engine": self.config.coding_engine,
+            "coding_engine": getattr(self.config, "coding_engine", "cursor"),
             "quality_level": self.config.effective_quality_level(),
             "release_plan": release_plan,
         }

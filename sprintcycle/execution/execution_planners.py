@@ -58,7 +58,7 @@ class TaskContextBuilder:
             project_path=str(raw_context.get("project_path", ".")),
             sprint_name=str(raw_context.get("sprint_name", sprint_name)),
             sprint_index=int(raw_context.get("sprint_index", 0)),
-            coding_engine=locked_engine,
+            coding_engine="cursor" if locked_engine == "aider" else locked_engine,
             quality_level=str(raw_context.get("quality_level", "L1")),
             release_plan=rp_ctx,
             release_plan_name=str(raw_context.get("release_plan_name", "")),

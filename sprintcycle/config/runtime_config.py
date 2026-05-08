@@ -369,7 +369,7 @@ class RuntimeConfig(BaseModel):
     quality_level: str = "L2"
     quality_profile: str = "default"
     max_verify_fix_rounds: int = 3
-    coding_engine: str = "aider"
+    coding_engine: str = "cursor"
     min_coverage_percent: float = 80.0
     storage_backend: str = "sqlite"
     sqlite_path: Optional[str] = None

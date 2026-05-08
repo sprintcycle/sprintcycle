@@ -16,78 +16,44 @@ from ..sprint_types import SprintResult
 
 
 class SprintLifecycleHooks(ABC):
-    """可选 async 钩子；实现类应吞掉非致命异常或交由调用方策略处理。"""
+    @abstractmethod
+    async def on_before_sprint(self, sprint_index: int, sprint: SprintDefinition, context: Dict[str, Any], release_plan: Optional[ReleasePlan]) -> None:
+        pass
 
     @abstractmethod
-    async def on_before_sprint(
-        self,
-        sprint_index: int,
-        sprint: SprintDefinition,
-        context: Dict[str, Any],
-        release_plan: Optional[ReleasePlan],
-    ) -> None:
-        """即将执行该 Sprint（含 context 已写入 sprint_index / sprint_name / project_goals）。"""
+    async def on_after_sprint(self, sprint_index: int, sprint: SprintDefinition, result: SprintResult, context: Dict[str, Any], release_plan: Optional[ReleasePlan]) -> None:
+        pass
 
-    @abstractmethod
-    async def on_after_sprint(
-        self,
-        sprint_index: int,
-        sprint: SprintDefinition,
-        result: SprintResult,
-        context: Dict[str, Any],
-        release_plan: Optional[ReleasePlan],
-    ) -> None:
-        """该 Sprint 本轮最终结果已确定（含反馈重试后的最终结果）。"""
+    async def after_plan(self, sprint_index: int, sprint: SprintDefinition, context: Dict[str, Any], release_plan: Optional[ReleasePlan]) -> None:
+        return None
+
+    async def before_review(self, sprint_index: int, sprint: SprintDefinition, context: Dict[str, Any], release_plan: Optional[ReleasePlan]) -> None:
+        return None
+
+    async def after_retro(self, sprint_index: int, sprint: SprintDefinition, context: Dict[str, Any], release_plan: Optional[ReleasePlan]) -> None:
+        return None
 
 
 class NoOpSprintLifecycleHooks(SprintLifecycleHooks):
-    async def on_before_sprint(
-        self,
-        sprint_index: int,
-        sprint: SprintDefinition,
-        context: Dict[str, Any],
-        release_plan: Optional[ReleasePlan],
-    ) -> None:
+    async def on_before_sprint(self, sprint_index: int, sprint: SprintDefinition, context: Dict[str, Any], release_plan: Optional[ReleasePlan]) -> None:
         return None
 
-    async def on_after_sprint(
-        self,
-        sprint_index: int,
-        sprint: SprintDefinition,
-        result: SprintResult,
-        context: Dict[str, Any],
-        release_plan: Optional[ReleasePlan],
-    ) -> None:
+    async def on_after_sprint(self, sprint_index: int, sprint: SprintDefinition, result: SprintResult, context: Dict[str, Any], release_plan: Optional[ReleasePlan]) -> None:
         return None
 
 
 class ChainedSprintHooks(SprintLifecycleHooks):
-    """按顺序调用多个钩子（before 正序，after 逆序）。"""
-
     def __init__(self, hooks: Sequence[SprintLifecycleHooks]):
         self._hooks = tuple(hooks)
 
-    async def on_before_sprint(
-        self,
-        sprint_index: int,
-        sprint: SprintDefinition,
-        context: Dict[str, Any],
-        release_plan: Optional[ReleasePlan],
-    ) -> None:
+    async def on_before_sprint(self, sprint_index: int, sprint: SprintDefinition, context: Dict[str, Any], release_plan: Optional[ReleasePlan]) -> None:
         for h in self._hooks:
             try:
                 await h.on_before_sprint(sprint_index, sprint, context, release_plan)
             except Exception as e:
                 logger.warning("ChainedSprintHooks on_before [{}]: {}", type(h).__name__, e)
 
-    async def on_after_sprint(
-        self,
-        sprint_index: int,
-        sprint: SprintDefinition,
-        result: SprintResult,
-        context: Dict[str, Any],
-        release_plan: Optional[ReleasePlan],
-    ) -> None:
+    async def on_after_sprint(self, sprint_index: int, sprint: SprintDefinition, result: SprintResult, context: Dict[str, Any], release_plan: Optional[ReleasePlan]) -> None:
         for h in reversed(self._hooks):
             try:
                 await h.on_after_sprint(sprint_index, sprint, result, context, release_plan)

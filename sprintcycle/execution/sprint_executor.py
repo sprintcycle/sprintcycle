@@ -231,7 +231,7 @@ class SprintExecutor(CheckpointMixin):
         ctx_acc.setdefault("sprint_name", sprint.name)
         ctx_acc.setdefault(
             "_sprint_coding_engine",
-            ctx_acc.get("coding_engine", "aider"),
+            ctx_acc.get("coding_engine", "cursor"),
         )
 
         for task in sprint.tasks:
@@ -560,7 +560,7 @@ class SprintExecutor(CheckpointMixin):
         ctx_base = dict(context or {})
         ctx_base.setdefault(
             "_sprint_coding_engine",
-            ctx_base.get("coding_engine", "aider"),
+            ctx_base.get("coding_engine", "cursor"),
         )
         context = ctx_base
         task_count = len(sprint.tasks)
@@ -607,7 +607,7 @@ class SprintExecutor(CheckpointMixin):
             enriched_context.setdefault("sprint_name", sprint_name)
             if self._runtime_config is not None:
                 base_engine = enriched_context.get("coding_engine") or getattr(
-                    self._runtime_config, "coding_engine", "aider"
+                    self._runtime_config, "coding_engine", "cursor"
                 )
                 enriched_context.setdefault("_sprint_coding_engine", base_engine)
                 enriched_context["coding_engine"] = enriched_context["_sprint_coding_engine"]
@@ -619,7 +619,7 @@ class SprintExecutor(CheckpointMixin):
             else:
                 enriched_context.setdefault(
                     "_sprint_coding_engine",
-                    enriched_context.get("coding_engine", "aider"),
+                    enriched_context.get("coding_engine", "cursor"),
                 )
                 enriched_context["coding_engine"] = enriched_context["_sprint_coding_engine"]
             if "improvement_suggestions" in context:
