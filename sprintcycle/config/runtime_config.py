@@ -300,6 +300,42 @@ def flatten_sprintcycle_toml(nested: Dict[str, Any]) -> Dict[str, Any]:
     if "pluggy_argv" in gov:
         out["governance_pluggy_argv"] = bool(gov["pluggy_argv"])
 
+    verify = _as_dict(nested.get("verification"))
+    if "enabled" in verify:
+        out["verification_enabled"] = bool(verify["enabled"])
+    if "run_test" in verify:
+        out["verification_run_test"] = bool(verify["run_test"])
+    if "run_verify" in verify:
+        out["verification_run_verify"] = bool(verify["run_verify"])
+    if "run_arch" in verify:
+        out["verification_run_arch"] = bool(verify["run_arch"])
+    if "run_security" in verify:
+        out["verification_run_security"] = bool(verify["run_security"])
+    if "use_playwright" in verify:
+        out["verification_use_playwright"] = bool(verify["use_playwright"])
+    if "use_cli" in verify:
+        out["verification_use_cli"] = bool(verify["use_cli"])
+    if "use_visual" in verify:
+        out["verification_use_visual"] = bool(verify["use_visual"])
+    if "use_pytest" in verify:
+        out["verification_use_pytest"] = bool(verify["use_pytest"])
+    if "use_import_linter" in verify:
+        out["verification_use_import_linter"] = bool(verify["use_import_linter"])
+    if "use_grimp" in verify:
+        out["verification_use_grimp"] = bool(verify["use_grimp"])
+    if "use_ruff" in verify:
+        out["verification_use_ruff"] = bool(verify["use_ruff"])
+    if "use_typecheck" in verify:
+        out["verification_use_typecheck"] = bool(verify["use_typecheck"])
+    if "use_secret_scan" in verify:
+        out["verification_use_secret_scan"] = bool(verify["use_secret_scan"])
+    if "pack_paths" in verify:
+        pv = verify["pack_paths"]
+        if isinstance(pv, list):
+            out["verification_pack_paths"] = [str(x).strip() for x in pv if str(x).strip()]
+        elif isinstance(pv, str) and pv.strip():
+            out["verification_pack_paths"] = [pv.strip()]
+
     hitl = _as_dict(nested.get("hitl"))
     if "enabled" in hitl:
         out["hitl_enabled"] = bool(hitl["enabled"])
@@ -407,6 +443,22 @@ class RuntimeConfig(BaseModel):
     governance_history_max_files: int = 50
     governance_argv_entry_points: bool = True
     governance_pluggy_argv: bool = False
+    verification_enabled: bool = True
+    verification_run_test: bool = True
+    verification_run_verify: bool = True
+    verification_run_arch: bool = True
+    verification_run_security: bool = True
+    verification_use_playwright: bool = True
+    verification_use_cli: bool = True
+    verification_use_visual: bool = True
+    verification_use_pytest: bool = True
+    verification_use_import_linter: bool = True
+    verification_use_grimp: bool = True
+    verification_use_ruff: bool = True
+    verification_use_typecheck: bool = False
+    verification_use_secret_scan: bool = True
+    verification_pack_paths: List[str] = Field(default_factory=list)
+    verification_metadata: Dict[str, Any] = Field(default_factory=dict)
     cache_enabled: bool = True
     cache_backend: str = "diskcache"
     cache_dir: str = ".sprintcycle/cache"

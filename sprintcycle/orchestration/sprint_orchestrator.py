@@ -36,6 +36,7 @@ from ..execution.sprint_executor import SprintExecutor
 from ..execution.sprint_types import ExecutionStatus, SprintResult, TaskResult
 from ..governance.sprint_hooks import GovernanceSprintHooks
 from ..governance.task_hooks import GovernanceTaskLifecycleHooks
+from ..verification.hooks import VerificationSprintHooks
 from ..prompt_sources import compute_prompt_sources_fingerprint
 from ..release_plan.expand import expand_release_plan_for_execution
 from ..release_plan.models import ReleasePlan, SprintBacklogItem, SprintDefinition
@@ -103,6 +104,8 @@ class SprintOrchestrator:
         parts: List[SprintLifecycleHooks] = [KnowledgeInjectionHook(self._project_root, self.config), SkillLifecycleHook(self._skill_orchestrator, self._skill_store)]
         if getattr(self.config, "governance_enabled", False):
             parts.append(GovernanceSprintHooks(self._project_root, self.config, self._get_event_bus()))
+        if getattr(self.config, "verification_enabled", False):
+            parts.append(VerificationSprintHooks(self._project_root, self.config, self._get_event_bus()))
         if self._hitl_coordinator is not None:
             from ..hitl.hooks import HitlSprintHooks
             parts.append(HitlSprintHooks(self.config, self._hitl_coordinator))

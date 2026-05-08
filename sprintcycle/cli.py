@@ -14,11 +14,15 @@ from .governance.arch_guard.config import ArchGuardConfig
 from .governance.arch_guard.engine import ArchGuardEngine
 from .governance.arch_guard.reporter import GovernanceReportAdapter
 from .release_plan.parser import ReleasePlanParser
+from .verification.cli import verification as verification_group
 
 
 @click.group()
 def cli() -> None:
     """SprintCycle 命令行入口。"""
+
+
+cli.add_command(verification_group)
 
 
 @cli.command()
