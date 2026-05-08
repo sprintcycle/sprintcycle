@@ -35,7 +35,7 @@ from .state.state_store import StateStore, get_state_store
 class SprintExecutor(CheckpointMixin):
     """执行单个 Sprint 的 Sprint Backlog（支持断点续传，经 StateStore）。"""
 
-    def __init__(self, max_parallel: int = 3, feedback_loop: Optional[Any] = None, release_plan: Optional[ReleasePlan] = None, error_handler: Optional[Any] = None, state_store: Optional[StateStore] = None, max_verify_fix_rounds: int = 3, runtime_config: Optional[Any] = None, sprint_hooks: Optional[SprintLifecycleHooks] = None, task_hooks: Optional[TaskLifecycleHooks] = None):
+    def __init__(self, max_parallel: int = 3, feedback_loop: Optional[Any] = None, release_plan: Optional[ReleasePlan] = None, error_handler: Optional[Any] = None, state_store: Optional[StateStore] = None, max_verify_fix_rounds: int = 3, runtime_config: Optional[Any] = None, sprint_hooks: Optional[SprintLifecycleHooks] = None, task_hooks: Optional[TaskLifecycleHooks] = None, evolution_loop: Optional[Any] = None):
         self._agent_executors: Dict[str, Callable] = {}
         self._callbacks: Dict[str, Callable] = {}
         self._max_parallel = max_parallel
@@ -48,6 +48,7 @@ class SprintExecutor(CheckpointMixin):
         self._task_hooks: TaskLifecycleHooks = task_hooks or NoOpTaskLifecycleHooks()
         self._event_bus: Optional[ExecutionEventBackend] = None
         self._feedback_loop = feedback_loop
+        self._evolution_loop = evolution_loop
         self._release_plan = release_plan
         self._sprint_count = 0
         self._error_handler = error_handler
@@ -98,13 +99,18 @@ class SprintExecutor(CheckpointMixin):
         except Exception as e:
             logger.warning("task_hooks on_after_task_complete: {}", e)
 
+    def _register_default_executors(self) -> None:
+        self._agent_executors = {"coder": self._execute_coder_task, "implement": self._execute_coder_task, "tester": self._execute_tester_task, "architect": self._execute_architect_task, "regression_tester": self._execute_regression_tester_task}
+
     def get_feedback_history(self) -> List[Any]:
         if self._feedback_loop:
             return self._feedback_loop.get_history()
         return []
 
-    def _register_default_executors(self) -> None:
-        self._agent_executors = {"coder": self._execute_coder_task, "implement": self._execute_coder_task, "tester": self._execute_tester_task, "architect": self._execute_architect_task, "regression_tester": self._execute_regression_tester_task}
+    def get_intent_evolution_events(self) -> List[Dict[str, Any]]:
+        if self._evolution_loop and hasattr(self._evolution_loop, "events"):
+            return self._evolution_loop.events()
+        return []
 
     def _dry_run(self) -> bool:
         return bool(self._runtime_config and getattr(self._runtime_config, "dry_run", False))
@@ -220,6 +226,7 @@ class SprintExecutor(CheckpointMixin):
         await self._emit_event("sprint_complete" if result.status == ExecutionStatus.SUCCESS else "sprint_failed", {"execution_id": self._execution_id, "sprint_name": sprint.name, "status": result.status.value, "duration": result.duration})
         self._collect_feedback(sprint, result)
         self._persist_sprint_result(sprint, result)
+        self._record_intent_evolution(sprint, result, ctx_acc)
         if save_checkpoint and self._execution_id:
             self._save_checkpoint(0, sprint.name, result)
         return result

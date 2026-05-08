@@ -18,7 +18,6 @@ class ResultBase:
 
     def to_dict(self) -> Dict[str, Any]:
         d = asdict(self)
-        # 移除值为 None 的字段，保持输出干净
         return {k: v for k, v in d.items() if v is not None}
 
 
@@ -29,6 +28,9 @@ class PlanResult(ResultBase):
     sprints: List[Dict[str, Any]] = field(default_factory=list)
     mode: str = ""
     release_plan_name: str = ""
+    evolution_stage: str = ""
+    evolution_signals: List[str] = field(default_factory=list)
+    evolution_context: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -43,10 +45,12 @@ class RunResult(ResultBase):
     current_sprint: int = 0
     sprint_results: List[Dict[str, Any]] = field(default_factory=list)
     release_finalization: Dict[str, Any] = field(default_factory=dict)
-    # V4.0：知识注入需用户确认时返回；此时 success=False 且未执行 Release Plan
     pending_knowledge_confirmation: bool = False
     knowledge_injection_preview: Dict[str, Any] = field(default_factory=dict)
     message: str = ""
+    evolution_stage: str = ""
+    evolution_signals: List[str] = field(default_factory=list)
+    evolution_context: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -72,9 +76,6 @@ class StatusResult(ResultBase):
     last_stable_state: Dict[str, Any] = field(default_factory=dict)
     event_cursor: Optional[int] = None
     state_machine: Dict[str, Any] = field(default_factory=dict)
-    execution_timeline: List[Dict[str, Any]] = field(default_factory=list)
-    last_stable_state: Dict[str, Any] = field(default_factory=dict)
-    event_cursor: Optional[int] = None
 
 
 @dataclass

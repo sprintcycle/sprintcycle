@@ -20,6 +20,15 @@ class ActionType(Enum):
     UNKNOWN = "normal"     # 未知，默认普通模式
 
 
+class IntentEvolutionStage(Enum):
+    """意图演化阶段。"""
+
+    INITIAL = "initial"
+    REVISION = "revision"
+    REPLAN = "replan"
+    UNSURE = "unsure"
+
+
 @dataclass
 class ParsedIntent:
     """解析后的意图"""
@@ -33,6 +42,9 @@ class ParsedIntent:
     mode: str = "auto"
     release_plan_file: Optional[str] = None  # 执行计划 YAML 路径（run 命令）
     intent: str = ""                 # 原始意图文本（用于 Fix 模式获取错误日志）
+    evolution_stage: IntentEvolutionStage = IntentEvolutionStage.INITIAL
+    evolution_signals: List[str] = field(default_factory=list)
+    evolution_context: Dict[str, str] = field(default_factory=dict)
 
 
 class IntentParser:
@@ -70,6 +82,7 @@ class IntentParser:
         mode: str = "auto",
         constraints: Optional[List[str]] = None,
         product: Optional[str] = None,
+        previous_intent: Optional[str] = None,
     ) -> ParsedIntent:
         """解析用户意图"""
 
@@ -87,16 +100,19 @@ class IntentParser:
         else:
             action = self._infer_action(intent)
 
-        # 提取目标文件
         extracted_target = self._extract_target(intent) or target
-
-        # 提取约束条件
         extracted_constraints = self._extract_constraints(intent)
         if constraints:
             extracted_constraints.extend(constraints)
 
         extracted_product = self._extract_product_slug(intent)
         merged_product = (product or "").strip() or extracted_product
+
+        stage, signals = self._infer_evolution_stage(intent, previous_intent, action)
+        evolution_context = {
+            "has_previous_intent": str(bool(previous_intent)),
+            "stage": stage.value,
+        }
 
         return ParsedIntent(
             action=action,
@@ -107,7 +123,10 @@ class IntentParser:
             constraints=extracted_constraints,
             mode=action.value,
             release_plan_file=release_plan_file,
-            intent=intent,  # 保存原始意图用于 Fix 模式
+            intent=intent,
+            evolution_stage=stage,
+            evolution_signals=signals,
+            evolution_context=evolution_context,
         )
 
     def _infer_action(self, intent: str) -> ActionType:
@@ -131,6 +150,54 @@ class IntentParser:
                 return ActionType.BUILD
 
         return ActionType.UNKNOWN
+
+    def _infer_evolution_stage(
+        self,
+        intent: str,
+        previous_intent: Optional[str],
+        action: ActionType,
+    ) -> tuple[IntentEvolutionStage, List[str]]:
+        signals: List[str] = []
+        current = self._normalize_text(intent)
+        previous = self._normalize_text(previous_intent or "")
+
+        if not previous:
+            return IntentEvolutionStage.INITIAL, signals
+
+        if current == previous:
+            return IntentEvolutionStage.UNSURE, ["same_as_previous"]
+
+        if action in (ActionType.FIX, ActionType.EVOLVE):
+            signals.append(f"action:{action.value}")
+
+        if self._has_scope_change(previous, current):
+            signals.append("scope_changed")
+            return IntentEvolutionStage.REPLAN, signals
+
+        if self._has_edit_like_change(previous, current):
+            signals.append("text_modified")
+            return IntentEvolutionStage.REVISION, signals
+
+        signals.append("generic_change")
+        return IntentEvolutionStage.UNSURE, signals
+
+    @staticmethod
+    def _normalize_text(text: str) -> str:
+        return " ".join((text or "").strip().lower().split())
+
+    @staticmethod
+    def _has_scope_change(previous: str, current: str) -> bool:
+        scope_tokens = ["全部", "整条", "重新", "重做", "重规划", "改成", "不要了", "换成"]
+        return any(tok in current and tok not in previous for tok in scope_tokens)
+
+    @staticmethod
+    def _has_edit_like_change(previous: str, current: str) -> bool:
+        prev_tokens = set(previous.split())
+        curr_tokens = set(current.split())
+        if not prev_tokens:
+            return False
+        overlap = len(prev_tokens & curr_tokens) / max(len(prev_tokens), 1)
+        return overlap >= 0.4 and previous != current
 
     def _extract_target(self, text: str) -> Optional[str]:
         """从文本中提取目标文件路径"""

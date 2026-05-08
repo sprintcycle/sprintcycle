@@ -39,122 +39,21 @@ from ..governance.task_hooks import GovernanceTaskLifecycleHooks
 from ..prompt_sources import compute_prompt_sources_fingerprint
 from ..release_plan.expand import expand_release_plan_for_execution
 from ..release_plan.models import ReleasePlan, SprintBacklogItem, SprintDefinition
-
-
-def _measurement_run_metadata(
-    config: RuntimeConfig,
-    *,
-    release_plan: Optional[ReleasePlan] = None,
-    sprint_index: int = 0,
-    sprint: Optional[SprintDefinition] = None,
-    sprint_result: Optional[SprintResult] = None,
-) -> Dict[str, Any]:
-    """配置指纹、LLM 环境轨道、Sprint/任务摘要与 prompt 源摘要。"""
-    env_model = os.environ.get("LLM_MODEL") or ""
-    ev_p = os.environ.get("EVOLUTION_LLM_PROVIDER") or ""
-    ev_m = os.environ.get("EVOLUTION_LLM_MODEL") or ""
-    fp_src: Dict[str, Any] = {
-        "llm_provider": config.llm_provider,
-        "llm_model": config.llm_model,
-        "coding_engine": config.coding_engine,
-        "quality_level": config.effective_quality_level(),
-        "dry_run": bool(getattr(config, "dry_run", False)),
-        "test_command": config.test_command,
-        "llm_model_env": env_model,
-        "evolution_llm_provider_env": ev_p,
-        "evolution_llm_model_env": ev_m,
-    }
-    fp = hashlib.sha256(json.dumps(fp_src, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()[:16]
-    out: Dict[str, Any] = {
-        "llm_provider": config.llm_provider,
-        "llm_model": config.llm_model,
-        "coding_engine": config.coding_engine,
-        "quality_level": config.effective_quality_level(),
-        "dry_run": fp_src["dry_run"],
-        "project_path": getattr(config, "project_path", ".") or ".",
-        "config_fingerprint": fp,
-    }
-    if env_model:
-        out["llm_model_env"] = env_model
-    if ev_p:
-        out["evolution_llm_provider_env"] = ev_p
-    if ev_m:
-        out["evolution_llm_model_env"] = ev_m
-
-    if release_plan is not None:
-        out["release_plan_name"] = release_plan.project.name
-        eid = getattr(release_plan, "execution_id", None)
-        meta = getattr(release_plan, "metadata", None) or {}
-        out["execution_id"] = str(eid) if eid is not None else str(meta.get("id", "") or "")
-
-    if sprint is not None:
-        out["sprint_index"] = int(sprint_index)
-        out["sprint_name"] = sprint.name
-
-    if sprint_result is not None:
-        lines: List[Dict[str, Any]] = []
-        for tr in sprint_result.task_results:
-            wi = tr.work_item
-            st = tr.status.value if hasattr(tr.status, "value") else str(tr.status)
-            lines.append({"agent": wi.agent, "description_preview": (wi.description or "")[:240], "status": st})
-        out["task_outcome_digest"] = hashlib.sha256(json.dumps(lines, ensure_ascii=False).encode("utf-8")).hexdigest()[:16]
-
-    ctx_bind: Dict[str, Any] = {
-        "config_fingerprint": out.get("config_fingerprint"),
-        "sprint_index": out.get("sprint_index"),
-        "sprint_name": out.get("sprint_name"),
-        "release_plan_name": out.get("release_plan_name"),
-        "execution_id": out.get("execution_id"),
-        "task_outcome_digest": out.get("task_outcome_digest"),
-    }
-    pf = compute_prompt_sources_fingerprint()
-    out["prompt_source_digests"] = pf["prompt_source_digests"]
-    out["prompt_sources_aggregate_sha256"] = pf["prompt_sources_aggregate_sha256"]
-    out["prompt_sources_schema"] = pf["prompt_sources_schema"]
-
-    ctx_bind["prompt_sources_aggregate_sha256"] = out["prompt_sources_aggregate_sha256"]
-    inc = getattr(config, "test_command_incremental", None)
-    if inc:
-        out["test_command_incremental"] = str(inc).strip()
-    tags = (getattr(config, "governance_ci_matrix_tags", None) or "").strip()
-    if tags:
-        out["ci_matrix_tags"] = [t.strip() for t in tags.split(",") if t.strip()]
-        ctx_bind["ci_matrix_tags_joined"] = ",".join(sorted(out["ci_matrix_tags"]))
-    out["measurement_context_hash"] = hashlib.sha256(json.dumps(ctx_bind, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()[:16]
-    return out
-
-
-class _OrchestratorSprintHooks(SprintLifecycleHooks):
-    """由 ``SprintOrchestrator`` 注入：负责 Sprint 边界事件与测量。"""
-
-    def __init__(self, orchestrator: "SprintOrchestrator", release_plan: ReleasePlan):
-        self._orchestrator = orchestrator
-        self._release_plan = release_plan
-
-    async def on_before_sprint(self, sprint_index: int, sprint: SprintDefinition, context: Dict[str, Any], release_plan: Optional[ReleasePlan]) -> None:
-        self._orchestrator._callbacks["on_sprint_start"](sprint)
-        await self._orchestrator._emit(create_event(EventType.SPRINT_START, sprint_number=sprint_index + 1, sprint_name=sprint.name, message=f"开始 Sprint: {sprint.name}"))
-
-    async def on_after_sprint(self, sprint_index: int, sprint: SprintDefinition, result: SprintResult, context: Dict[str, Any], release_plan: Optional[ReleasePlan]) -> None:
-        p = release_plan if release_plan is not None else self._release_plan
-        self._orchestrator._callbacks["on_sprint_end"](result)
-        if result.status == ExecutionStatus.FAILED:
-            await self._orchestrator._emit(create_event(EventType.SPRINT_FAILED, sprint_number=sprint_index + 1, sprint_name=sprint.name, status="failed", duration=result.duration))
-        else:
-            await self._orchestrator._emit(create_event(EventType.SPRINT_COMPLETE, sprint_number=sprint_index + 1, sprint_name=sprint.name, status="success", duration=result.duration))
-        if p is not None:
-            m = await self._orchestrator._sprint_measurement_policy.measure(self._orchestrator, p, sprint_index, sprint, result)
-            self._orchestrator._sprint_persistence_policy.persist(self._orchestrator, p, sprint_index, sprint, result, m)
+from ..evolution.intent_evolution_loop import UserIntentEvolutionLoop
+from ..evolution.intent_evolution_loop import UserIntentEvolutionLoop
+from ..evolution.memory_store import MemoryStore
+from ..persistence.knowledge_repository import KnowledgeCardRepository
 
 
 class SprintOrchestrator:
     """Sprint 交付编排（Scrum：按 Release Plan 顺序执行多个 Sprint）。"""
 
-    def __init__(self, config: Optional[RuntimeConfig] = None, event_bus: Optional[ExecutionEventBackend] = None, project_path: Optional[str] = None, hitl_coordinator: Optional[Any] = None):
+    def __init__(self, config: Optional[RuntimeConfig] = None, event_bus: Optional[ExecutionEventBackend] = None, project_path: Optional[str] = None, hitl_coordinator: Optional[Any] = None, evolution_loop: Optional[UserIntentEvolutionLoop] = None):
         self.config = config or RuntimeConfig()
         self._project_root = os.path.abspath(project_path or ".")
         self.event_bus = event_bus
         self._hitl_coordinator = hitl_coordinator
+        self._evolution_loop = evolution_loop or UserIntentEvolutionLoop(memory_store=MemoryStore(runtime_config=self.config), feedback_loop=FeedbackLoop(), knowledge_repo=KnowledgeCardRepository(".sprintcycle/knowledge.db"))
         self._callbacks: Dict[str, Callable] = {
             "on_task_start": self._default_on_task_start,
             "on_task_end": self._default_on_task_end,
@@ -184,7 +83,7 @@ class SprintOrchestrator:
         feedback_loop: Optional[FeedbackLoop] = None
         if not getattr(self.config, "dry_run", False):
             feedback_loop = FeedbackLoop()
-        ex = SprintExecutor(max_parallel=max_concurrent, max_verify_fix_rounds=int(self.config.max_verify_fix_rounds), runtime_config=self.config, feedback_loop=feedback_loop)
+        ex = SprintExecutor(max_parallel=max_concurrent, max_verify_fix_rounds=int(self.config.max_verify_fix_rounds), runtime_config=self.config, feedback_loop=feedback_loop, evolution_loop=self._evolution_loop)
         ex.set_event_bus(self._get_event_bus())
         task_hooks: Optional[TaskLifecycleHooks] = None
         if getattr(self.config, "governance_enabled", False) and getattr(self.config, "governance_task_hooks_enabled", False):

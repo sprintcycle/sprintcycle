@@ -21,6 +21,12 @@ from .models import (
 )
 
 
+class IntentEvolutionContext:
+    def __init__(self, snapshot: Optional[dict[str, Any]] = None, decisions: Optional[Sequence[dict[str, Any]]] = None):
+        self.snapshot = snapshot or {}
+        self.decisions = list(decisions or [])
+
+
 class IntentReleasePlanGenerator:
     """
     将 ParsedIntent 转换为 ``ReleasePlan``。
@@ -41,6 +47,7 @@ class IntentReleasePlanGenerator:
         *,
         config: Optional[RuntimeConfig] = None,
         anchor_project_path: Optional[str] = None,
+        evolution_context: Optional[dict[str, Any]] = None,
     ) -> ReleasePlan:
         """
         从解析后的意图生成 ``ReleasePlan``。
@@ -60,17 +67,22 @@ class IntentReleasePlanGenerator:
         """
         cfg = config or RuntimeConfig()
         anchor = anchor_project_path or os.getcwd()
+        evo_ctx = dict(evolution_context or {})
 
         # 优先级 1: 根据意图描述判断是否为自进化
         if parsed.description:
             inferred_mode = IntentReleasePlanGenerator._infer_mode_from_intent(parsed.description)
             if inferred_mode == ExecutionMode.EVOLUTION:
-                # 意图匹配自进化，强制使用 EVOLVE 动作
-                return IntentReleasePlanGenerator._from_evolve(parsed, cfg, anchor)
+                return IntentReleasePlanGenerator._from_evolve(parsed, cfg, anchor, evo_ctx)
+
+        if evo_ctx.get("decision"):
+            decision = evo_ctx["decision"]
+            if decision.get("should_replan"):
+                return IntentReleasePlanGenerator._from_evolve(parsed, cfg, anchor, evo_ctx)
 
         # 优先级 2: 根据动作类型生成不同的执行计划
         if parsed.action == ActionType.EVOLVE:
-            return IntentReleasePlanGenerator._from_evolve(parsed, cfg, anchor)
+            return IntentReleasePlanGenerator._from_evolve(parsed, cfg, anchor, evo_ctx)
         elif parsed.action == ActionType.FIX:
             return IntentReleasePlanGenerator._from_fix(parsed, anchor)
         elif parsed.action == ActionType.TEST:
@@ -170,6 +182,7 @@ class IntentReleasePlanGenerator:
         parsed: ParsedIntent,
         config: RuntimeConfig,
         anchor_project_path: str,
+        evolution_context: Optional[dict[str, Any]] = None,
     ) -> ReleasePlan:
         """从进化意图生成 ``ReleasePlan``。
 
@@ -210,12 +223,23 @@ class IntentReleasePlanGenerator:
             version=version,
         )
 
+        evo_ctx = dict(evolution_context or {})
+        historical_goals = list(evo_ctx.get("historical_goals") or [])
+        historical_constraints = list(evo_ctx.get("historical_constraints") or [])
+        goals = [parsed.description]
+        if historical_goals:
+            goals = historical_goals[-3:] + goals
+        constraints = list(parsed.constraints)
+        for item in historical_constraints:
+            if item not in constraints:
+                constraints.append(item)
+
         evolution = EvolutionParams(
             targets=[parsed.target] if parsed.target else [],
-            goals=[parsed.description],
-            constraints=parsed.constraints,
-            max_variations=5,
-            iterations=3,
+            goals=goals,
+            constraints=constraints,
+            max_variations=int(evo_ctx.get("max_variations") or 5),
+            iterations=int(evo_ctx.get("iterations") or 3),
         )
 
         return ReleasePlan(

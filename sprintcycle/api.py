@@ -55,6 +55,8 @@ from .run_workspace import (
     normalize_reference_paths,
     normalize_write_policy,
 )
+from .evolution import MemoryStore, UserIntentEvolutionLoop
+from .persistence.knowledge_repository import KnowledgeCardRepository
 
 
 class SprintCycle:
@@ -77,6 +79,40 @@ class SprintCycle:
         ensure_default_execution_event_backend_for_project(self.project_path, self.config)
         self._orchestrator: Optional[SprintOrchestrator] = None
         self._hitl_coordinator: Optional[Any] = None
+        self._memory_store = MemoryStore(runtime_config=self.config)
+        self._knowledge_repo = KnowledgeCardRepository(self._resolve_knowledge_db_path())
+        self._intent_evolution_loop = UserIntentEvolutionLoop(
+            memory_store=self._memory_store,
+            feedback_loop=None,
+            knowledge_repo=self._knowledge_repo,
+        )
+
+    @property
+    def intent_evolution_loop(self) -> UserIntentEvolutionLoop:
+        return self._intent_evolution_loop
+
+    def _resolve_knowledge_db_path(self) -> str:
+        from .execution.knowledge.knowledge_hook import resolve_knowledge_db_path
+
+        return resolve_knowledge_db_path(self.project_path, self.config)
+
+    @property
+    def intent_evolution_loop(self) -> UserIntentEvolutionLoop:
+        return self._intent_evolution_loop
+
+    def _resolve_knowledge_db_path(self) -> str:
+        from .execution.knowledge.knowledge_hook import resolve_knowledge_db_path
+
+        return resolve_knowledge_db_path(self.project_path, self.config)
+
+    @property
+    def intent_evolution_loop(self) -> UserIntentEvolutionLoop:
+        return self._intent_evolution_loop
+
+    def _resolve_knowledge_db_path(self) -> str:
+        from .execution.knowledge.knowledge_hook import resolve_knowledge_db_path
+
+        return resolve_knowledge_db_path(self.project_path, self.config)
 
     def _get_hitl_coordinator(self) -> Optional[Any]:
         if not getattr(self.config, "hitl_enabled", False):
@@ -99,6 +135,7 @@ class SprintCycle:
                 event_bus=get_execution_event_backend(),
                 project_path=self.project_path,
                 hitl_coordinator=self._get_hitl_coordinator(),
+                evolution_loop=self._intent_evolution_loop,
             )
         return self._orchestrator
 
@@ -332,6 +369,14 @@ class SprintCycle:
                 write_policy=write_policy,
                 **kwargs,
             )
+            if intent:
+                self._intent_evolution_loop.start(
+                    str(intent),
+                    mode=mode,
+                    target=target,
+                    phase="plan",
+                    source="plan",
+                )
             validation = ReleasePlanValidator().validate(plan)
 
             sprints = [
@@ -342,6 +387,7 @@ class SprintCycle:
                 for s in plan.sprints
             ]
 
+            evo = getattr(parsed, "evolution_stage", None)
             return PlanResult(
                 success=validation.is_valid,
                 release_plan_yaml=plan.to_yaml(),
@@ -349,6 +395,9 @@ class SprintCycle:
                 mode=plan.mode.value,
                 release_plan_name=plan.project.name,
                 duration=time.time() - start,
+                evolution_stage=evo.value if hasattr(evo, "value") else str(evo or ""),
+                evolution_signals=list(getattr(parsed, "evolution_signals", []) or []),
+                evolution_context=dict(getattr(parsed, "evolution_context", {}) or {}),
             )
         except Exception as e:
             logger.exception("plan failed")
@@ -396,6 +445,14 @@ class SprintCycle:
             run_result, finalize_result = self._run_resolved_plan(
                 plan, start, confirm_knowledge=confirm_knowledge
             )
+            if intent:
+                self._intent_evolution_loop.revise(
+                    str(intent),
+                    mode=mode,
+                    target=target,
+                    phase="run",
+                    source="run",
+                )
             if hasattr(run_result, "release_finalization"):
                 run_result.release_finalization = finalize_result.to_dict() if hasattr(finalize_result, "to_dict") else {}
             return run_result
@@ -785,6 +842,7 @@ class SprintCycle:
         has_intent = bool(intent and str(intent).strip())
         if not has_intent:
             raise ValueError("请提供 intent、release_plan_yaml 或 release_plan_path 之一")
+        previous_intent = kwargs.get("previous_intent")
         parsed = IntentParser().parse(
             str(intent),
             mode=mode,
@@ -792,11 +850,20 @@ class SprintCycle:
             project=project_for_intent,
             constraints=kwargs.get("constraints"),
             product=product,
+            previous_intent=str(previous_intent) if previous_intent else None,
         )
+        snapshots = self._intent_evolution_loop.recent_snapshots()
+        evo_ctx = {
+            "snapshot": snapshots[-1] if snapshots else {},
+            "decision": None,
+            "historical_goals": [s.get("intent", "") for s in snapshots[-3:]],
+            "historical_constraints": [],
+        }
         plan = IntentReleasePlanGenerator.generate(
             parsed,
             config=self.config,
             anchor_project_path=self.project_path,
+            evolution_context=evo_ctx,
         )
         return self._finalize_workspace_metadata(
             plan, reference_paths=reference_paths, write_policy=write_policy

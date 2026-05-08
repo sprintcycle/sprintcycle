@@ -14,6 +14,12 @@ from .evolution_plan_source import (
 )
 
 # ========== Components (retained) ==========
+from .intent_evolution_loop import (
+    IntentDriftType,
+    IntentEvolutionDecision,
+    IntentSnapshot,
+    UserIntentEvolutionLoop,
+)
 from .measurement import (
     MeasurementProvider,
     MeasurementResult,
@@ -30,7 +36,7 @@ from .rollback_manager import (
 )
 from .types import SprintContext
 
-__version__ = "0.9.1"
+__version__ = "0.9.2"
 
 __all__ = [
     "SprintContext",
@@ -45,4 +51,8 @@ __all__ = [
     "EvolutionRollbackManager",
     "VariantBranch",
     "RollbackError",
+    "IntentDriftType",
+    "IntentSnapshot",
+    "IntentEvolutionDecision",
+    "UserIntentEvolutionLoop",
 ]
