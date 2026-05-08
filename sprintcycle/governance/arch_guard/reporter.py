@@ -1,26 +1,27 @@
 from __future__ import annotations
 
-from typing import List
-
-from .model import GuardReport
-from ..report import GovernanceReport, GovernanceViolation
+from .model import GuardFinding, GuardReport
 
 
 class GovernanceReportAdapter:
     @staticmethod
-    def to_governance_report(report: GuardReport) -> GovernanceReport:
-        violations: List[GovernanceViolation] = []
-        for f in report.findings:
-            violations.append(
-                GovernanceViolation(
-                    rule_id=f.rule_id,
-                    severity=f.severity,
-                    message=f.message,
-                    location=dict(f.location),
-                )
+    def to_governance_report(report: GuardReport) -> GuardReport:
+        return report
+
+    @staticmethod
+    def to_guard_report(report: GuardReport) -> GuardReport:
+        return report
+
+    @staticmethod
+    def from_legacy_violations(gate: str, violations, metadata=None) -> GuardReport:
+        findings = [
+            GuardFinding(
+                rule_id=v.rule_id,
+                severity=v.severity,
+                message=v.message,
+                location=dict(getattr(v, "location", {}) or {}),
+                metadata=dict(getattr(v, "metadata", {}) or {}),
             )
-        return GovernanceReport(
-            gate=report.gate,
-            violations=violations,
-            metadata=dict(report.metadata),
-        )
+            for v in violations
+        ]
+        return GuardReport(gate=gate, findings=findings, metadata=dict(metadata or {}))

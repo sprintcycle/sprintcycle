@@ -3,16 +3,16 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from ..report import GovernanceViolation
+from .model import GuardFinding
 from ...release_plan.models import ReleasePlan
 
 
-def check_release_plan(release_plan: ReleasePlan) -> List[GovernanceViolation]:
-    out: List[GovernanceViolation] = []
+def check_release_plan(release_plan: ReleasePlan) -> List[GuardFinding]:
+    out: List[GuardFinding] = []
 
     if not getattr(release_plan, "sprints", None):
         out.append(
-            GovernanceViolation(
+            GuardFinding(
                 rule_id="planning:release_plan_empty",
                 severity="error",
                 message="ReleasePlan 不能为空",
@@ -48,8 +48,8 @@ def check_release_plan(release_plan: ReleasePlan) -> List[GovernanceViolation]:
     return out
 
 
-def check_spec_refs(root: Path, release_plan: ReleasePlan) -> List[GovernanceViolation]:
-    out: List[GovernanceViolation] = []
+def check_spec_refs(root: Path, release_plan: ReleasePlan) -> List[GuardFinding]:
+    out: List[GuardFinding] = []
     for si, sprint in enumerate(getattr(release_plan, "sprints", [])):
         for ti, task in enumerate(getattr(sprint, "tasks", [])):
             ref = getattr(task, "spec_ref", None)
@@ -82,8 +82,8 @@ def check_spec_refs(root: Path, release_plan: ReleasePlan) -> List[GovernanceVio
     return out
 
 
-def check_governance_marker(root: Path, glob_pat: str, marker: str) -> List[GovernanceViolation]:
-    out: List[GovernanceViolation] = []
+def check_governance_marker(root: Path, glob_pat: str, marker: str) -> List[GuardFinding]:
+    out: List[GuardFinding] = []
     if not marker.strip():
         return out
 
@@ -108,8 +108,8 @@ def check_governance_marker(root: Path, glob_pat: str, marker: str) -> List[Gove
     return out
 
 
-def check_hook_context_usage(context: Optional[Dict[str, Any]]) -> List[GovernanceViolation]:
-    out: List[GovernanceViolation] = []
+def check_hook_context_usage(context: Optional[Dict[str, Any]]) -> List[GuardFinding]:
+    out: List[GuardFinding] = []
     if context is None:
         return out
     if not isinstance(context, dict):
@@ -134,8 +134,8 @@ def check_hook_context_usage(context: Optional[Dict[str, Any]]) -> List[Governan
     return out
 
 
-def check_report_shape(report_data: Any) -> List[GovernanceViolation]:
-    out: List[GovernanceViolation] = []
+def check_report_shape(report_data: Any) -> List[GuardFinding]:
+    out: List[GuardFinding] = []
     if report_data is None:
         return out
     if not isinstance(report_data, dict):
@@ -160,8 +160,8 @@ def check_report_shape(report_data: Any) -> List[GovernanceViolation]:
     return out
 
 
-def check_event_shape(event_data: Any) -> List[GovernanceViolation]:
-    out: List[GovernanceViolation] = []
+def check_event_shape(event_data: Any) -> List[GuardFinding]:
+    out: List[GuardFinding] = []
     if event_data is None:
         return out
     if not isinstance(event_data, dict):
@@ -186,8 +186,8 @@ def check_event_shape(event_data: Any) -> List[GovernanceViolation]:
     return out
 
 
-def check_extension_point_usage(context: Optional[Dict[str, Any]]) -> List[GovernanceViolation]:
-    out: List[GovernanceViolation] = []
+def check_extension_point_usage(context: Optional[Dict[str, Any]]) -> List[GuardFinding]:
+    out: List[GuardFinding] = []
     if not isinstance(context, dict):
         return out
     if context.get("governance_extension_bypass"):
@@ -202,8 +202,8 @@ def check_extension_point_usage(context: Optional[Dict[str, Any]]) -> List[Gover
     return out
 
 
-def check_evolution_mainline(context: Optional[Dict[str, Any]]) -> List[GovernanceViolation]:
-    out: List[GovernanceViolation] = []
+def check_evolution_mainline(context: Optional[Dict[str, Any]]) -> List[GuardFinding]:
+    out: List[GuardFinding] = []
     if not isinstance(context, dict):
         return out
     if not context.get("evolution_mainline"):
@@ -218,8 +218,8 @@ def check_evolution_mainline(context: Optional[Dict[str, Any]]) -> List[Governan
     return out
 
 
-def check_compatibility_flags(context: Optional[Dict[str, Any]]) -> List[GovernanceViolation]:
-    out: List[GovernanceViolation] = []
+def check_compatibility_flags(context: Optional[Dict[str, Any]]) -> List[GuardFinding]:
+    out: List[GuardFinding] = []
     if not isinstance(context, dict):
         return out
     if context.get("breaking_change") and not context.get("compatibility_plan"):

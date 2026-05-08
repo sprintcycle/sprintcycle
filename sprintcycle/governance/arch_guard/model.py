@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Literal
+from typing import Any, Dict, List, Literal
 
 GuardSeverity = Literal["error", "warning", "info"]
 GuardAction = Literal["block", "warn", "info"]
@@ -42,20 +42,28 @@ class GuardFinding:
 class GuardPolicy:
     name: str = "default"
     enabled: bool = True
-    rules: list[GuardRule] = field(default_factory=list)
+    rules: List[GuardRule] = field(default_factory=list)
     block_on_error: bool = True
     block_on_warning: bool = False
     metadata: Dict[str, Any] = field(default_factory=dict)
 
-    def enabled_rules_for_gate(self, gate: str) -> list[GuardRule]:
+    def enabled_rules_for_gate(self, gate: str) -> List[GuardRule]:
         return [r for r in self.rules if r.enabled and r.gate == gate]
 
 
 @dataclass
 class GuardReport:
     gate: str
-    findings: list[GuardFinding] = field(default_factory=list)
+    findings: List[GuardFinding] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def violations(self) -> List[GuardFinding]:
+        return self.findings
+
+    @violations.setter
+    def violations(self, value: List[GuardFinding]) -> None:
+        self.findings = value
 
     def to_dict(self) -> Dict[str, Any]:
         return {

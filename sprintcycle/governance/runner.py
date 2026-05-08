@@ -15,28 +15,28 @@ from loguru import logger
 
 from ..config.quality import runs_architecture_guard, runs_pytest, runs_static_gate
 from ..execution.static_analyzer import AnalysisConfig, StaticAnalyzer
-from .adr_check import check_adr_readme_index, check_adr_readme_strict_glob
-from .compose_hint import check_compose_hints, check_compose_supply_chain_hints
-from .report import GovernanceReport, GovernanceViolation, Severity
-from .sdd_checks import (
+from .arch_guard.adr_check import check_adr_readme_index, check_adr_readme_strict_glob
+from .arch_guard.compose_hint import check_compose_hints, check_compose_supply_chain_hints
+from .arch_guard.model import GuardFinding, GuardReport, GuardSeverity
+from .arch_guard.sdd_checks import (
     violations_acceptance_files,
     violations_for_task_spec_refs,
     violations_from_release_plan_validator,
     violations_spec_marker_in_files,
 )
-from .argv_extensions import extend_argv_items_with_plugins
-from .yaml_checks import checks_for_gate, run_argv_checks
+from .arch_guard.argv_extensions import extend_argv_items_with_plugins
+from .arch_guard.yaml_checks import checks_for_gate, run_argv_checks
 from .yaml_merge import load_merged_governance_data
 
 if TYPE_CHECKING:
     from ..config.runtime_config import RuntimeConfig
 
 
-def _maybe_downgrade_errors_to_warnings(cfg: "RuntimeConfig", violations: List[GovernanceViolation]) -> None:
+def _maybe_downgrade_errors_to_warnings(cfg: "RuntimeConfig", findings: List[GuardFinding]) -> None:
     """保守「仅观察」：将 error 降为 warning，避免 has_error_severity / 阻断语义误伤。"""
     if not getattr(cfg, "governance_downgrade_errors_to_warnings", False):
         return
-    for v in violations:
+    for v in findings:
         if v.severity == "error":
             v.severity = "warning"
 
@@ -71,10 +71,10 @@ class GovernanceRunner:
     def _load_yaml_data(self, root: Path) -> Dict[str, Any]:
         return load_merged_governance_data(root, self._cfg)
 
-    async def run_planning_gate(self, project_path: str, extra_context: Optional[Dict[str, Any]] = None) -> GovernanceReport:
+    async def run_planning_gate(self, project_path: str, extra_context: Optional[Dict[str, Any]] = None) -> GuardReport:
         root = self._project(project_path)
         t0 = time.perf_counter()
-        violations: List[GovernanceViolation] = []
+        violations: List[GuardFinding] = []
         meta: Dict[str, Any] = {
             "project_path": str(root),
             "effective_quality_level": self._cfg.effective_quality_level(),
@@ -88,7 +88,7 @@ class GovernanceRunner:
             matches = list(root.glob(spec_glob))
             if not matches:
                 violations.append(
-                    GovernanceViolation(
+                    GuardFinding(
                         rule_id="planning:spec_glob",
                         severity="warning",
                         message=f"spec_glob 未匹配任何文件: {spec_glob}",
@@ -125,12 +125,12 @@ class GovernanceRunner:
 
         _maybe_downgrade_errors_to_warnings(self._cfg, violations)
         meta["duration_sec"] = round(time.perf_counter() - t0, 3)
-        return GovernanceReport(gate="planning", violations=violations, metadata=meta)
+        return GuardReport(gate="planning", findings=violations, metadata=meta)
 
-    async def run_review_gate(self, project_path: str) -> GovernanceReport:
+    async def run_review_gate(self, project_path: str) -> GuardReport:
         root = self._project(project_path)
         t0 = time.perf_counter()
-        violations: List[GovernanceViolation] = []
+        violations: List[GuardFinding] = []
         meta: Dict[str, Any] = {"project_path": str(root), "steps": []}
 
         data = self._load_yaml_data(root)
@@ -156,7 +156,7 @@ class GovernanceRunner:
                 for i, r in enumerate(results):
                     if i >= max_static:
                         violations.append(
-                            GovernanceViolation(
+                            GuardFinding(
                                 rule_id="static:truncated",
                                 severity="warning",
                                 message=f"静态问题仅展示前 {max_static} 条，共 {len(results)} 条",
@@ -164,7 +164,7 @@ class GovernanceRunner:
                             )
                         )
                         break
-                    sev: Severity
+                    sev: GuardSeverity
                     if r.severity == "error":
                         sev = "error"
                     elif r.severity == "warning":
@@ -172,7 +172,7 @@ class GovernanceRunner:
                     else:
                         sev = "info"
                     violations.append(
-                        GovernanceViolation(
+                        GuardFinding(
                             rule_id=f"static:{r.tool}:{r.code}",
                             severity=sev,
                             message=f"{r.file_path}:{r.line} {r.message}",
@@ -187,7 +187,7 @@ class GovernanceRunner:
                     )
             except Exception as e:
                 violations.append(
-                    GovernanceViolation(
+                    GuardFinding(
                         rule_id="static:analyzer",
                         severity="warning",
                         message=f"静态分析异常: {e}",
@@ -203,7 +203,7 @@ class GovernanceRunner:
             if not exe:
                 meta["steps"].append("import_linter_skipped_no_binary")
                 violations.append(
-                    GovernanceViolation(
+                    GuardFinding(
                         rule_id="import_linter:missing",
                         severity="warning",
                         message="未找到 lint-imports，可安装 dev 依赖: pip install import-linter",
@@ -224,7 +224,7 @@ class GovernanceRunner:
                     meta["steps"].append("import_linter")
                     if proc.returncode != 0:
                         violations.append(
-                            GovernanceViolation(
+                            GuardFinding(
                                 rule_id="import_linter:contracts",
                                 severity="error",
                                 message=_truncate(
@@ -236,7 +236,7 @@ class GovernanceRunner:
                         )
                 except Exception as e:
                     violations.append(
-                        GovernanceViolation(
+                        GuardFinding(
                             rule_id="import_linter:error",
                             severity="warning",
                             message=str(e),
@@ -297,22 +297,22 @@ class GovernanceRunner:
 
         _maybe_downgrade_errors_to_warnings(self._cfg, violations)
         meta["duration_sec"] = round(time.perf_counter() - t0, 3)
-        return GovernanceReport(gate="review", violations=violations, metadata=meta)
+        return GuardReport(gate="review", findings=violations, metadata=meta)
 
 
 def run_planning_gate_sync(
     project_path: str,
     runtime_config: "RuntimeConfig",
     extra_context: Optional[Dict[str, Any]] = None,
-) -> GovernanceReport:
+) -> GuardReport:
     return asyncio.run(GovernanceRunner(runtime_config).run_planning_gate(project_path, extra_context=extra_context))
 
 
-def run_review_gate_sync(project_path: str, runtime_config: "RuntimeConfig") -> GovernanceReport:
+def run_review_gate_sync(project_path: str, runtime_config: "RuntimeConfig") -> GuardReport:
     return asyncio.run(GovernanceRunner(runtime_config).run_review_gate(project_path))
 
 
-def persist_report(report: GovernanceReport, project_path: str, runtime_config: "RuntimeConfig") -> Optional[Path]:
+def persist_report(report: GuardReport, project_path: str, runtime_config: "RuntimeConfig") -> Optional[Path]:
     """将最近一次报告写入 ``<report_dir>/governance_last.json``。"""
     rel = getattr(runtime_config, "governance_report_dir", None) or ".sprintcycle"
     root = Path(project_path).expanduser().resolve()
@@ -333,7 +333,7 @@ def persist_report(report: GovernanceReport, project_path: str, runtime_config: 
         return None
 
 
-def persist_planning_report(report: GovernanceReport, project_path: str, runtime_config: "RuntimeConfig") -> Optional[Path]:
+def persist_planning_report(report: GuardReport, project_path: str, runtime_config: "RuntimeConfig") -> Optional[Path]:
     """将 Planning 门报告写入 ``<report_dir>/governance_planning_last.json``（与 Sprint 钩子路径一致）。"""
     rel = getattr(runtime_config, "governance_report_dir", None) or ".sprintcycle"
     root = Path(project_path).expanduser().resolve()
@@ -357,7 +357,7 @@ def emit_governance_gate_cli_sync(
     project_path: str,
     runtime_config: "RuntimeConfig",
     gate: str,
-    report: GovernanceReport,
+    report: GuardReport,
 ) -> None:
     """``sprintcycle governance check`` 可选：向执行事件后端派发 ``GOVERNANCE_GATE``（与 Dashboard SSE 对齐）。"""
     if not bool(getattr(runtime_config, "governance_cli_emit_events", False)):
@@ -403,10 +403,10 @@ def run_governance_check_and_persist(
     project_path: str,
     runtime_config: "RuntimeConfig",
     gate: str,
-) -> Tuple[Optional[GovernanceReport], Optional[GovernanceReport], bool]:
+) -> Tuple[Optional[GuardReport], Optional[GuardReport], bool]:
     """执行 Planning/Review 门禁、落盘、可选 CLI 事件；返回报告与是否应按 block_on 视为失败。"""
-    planning_report: Optional[GovernanceReport] = None
-    review_report: Optional[GovernanceReport] = None
+    planning_report: Optional[GuardReport] = None
+    review_report: Optional[GuardReport] = None
     if gate in ("planning", "both"):
         planning_report = run_planning_gate_sync(project_path, runtime_config)
         if planning_report is not None:
