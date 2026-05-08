@@ -22,15 +22,29 @@ class ResultBase:
 
 
 @dataclass
+class EvolutionSummary:
+    """对外统一的意图演化摘要。"""
+
+    stage: str = ""
+    signals: List[str] = field(default_factory=list)
+    context: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "stage": self.stage,
+            "signals": list(self.signals),
+            "context": dict(self.context),
+        }
+
+
+@dataclass
 class PlanResult(ResultBase):
     """plan() 返回 — 意图 → Release Plan（执行计划 YAML，不执行）"""
     release_plan_yaml: str = ""
     sprints: List[Dict[str, Any]] = field(default_factory=list)
     mode: str = ""
     release_plan_name: str = ""
-    evolution_stage: str = ""
-    evolution_signals: List[str] = field(default_factory=list)
-    evolution_context: Dict[str, Any] = field(default_factory=dict)
+    evolution: EvolutionSummary = field(default_factory=EvolutionSummary)
 
 
 @dataclass
@@ -48,9 +62,7 @@ class RunResult(ResultBase):
     pending_knowledge_confirmation: bool = False
     knowledge_injection_preview: Dict[str, Any] = field(default_factory=dict)
     message: str = ""
-    evolution_stage: str = ""
-    evolution_signals: List[str] = field(default_factory=list)
-    evolution_context: Dict[str, Any] = field(default_factory=dict)
+    evolution: EvolutionSummary = field(default_factory=EvolutionSummary)
 
 
 @dataclass
@@ -97,6 +109,7 @@ class StopResult(ResultBase):
 
 __all__ = [
     "ResultBase",
+    "EvolutionSummary",
     "PlanResult",
     "RunResult",
     "DiagnoseResult",

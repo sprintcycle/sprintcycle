@@ -9,6 +9,14 @@ Dashboard / CLI / MCP / SDK 共用的唯一入口。
 产品与技术叙述以仓库 ``docs/PRODUCT_TECH_V4.md`` 与 ``SPRINTCYCLE_PRODUCT_TECH_PLAN.md``
 （V4.0 工程真理源）为准；``run``/resume **主路径**为 ``ReleasePlan`` → ``expand_release_plan_for_execution``
 → ``SprintOrchestrator`` → ``SprintExecutor``。
+
+代码级边界约束
+- ``api`` 是意图演化的观察与编排入口，不是演化规则的实现中心。
+- ``api`` 可以记录初始意图、修正意图、返回演化阶段，但不应把演化逻辑散落到多个业务分支。
+- ``api`` 负责把 evolution 上下文传给 ``release_plan`` / ``orchestration``，不负责直接修改执行器内部状态。
+- 是否重规划、是否继续执行、是否回滚，由 ``api`` 汇总信号后作出明确决策，不允许由底层模块偷偷触发主链路切换。
+- ``api`` 不应依赖 ``evolution`` 的内部存储实现，只依赖显式接口，保证演化能力可替换、可测试、可隔离。
+- 对外只输出统一演化摘要 ``EvolutionSummary``，不要在 ``PlanResult`` / ``RunResult`` 上散落额外演化字段。
 """
 
 import asyncio
@@ -41,6 +49,7 @@ from .release_plan.payload_keys import checkpoint_plan_yaml
 from .release_plan.validator import ReleasePlanValidator
 from .results import (
     DiagnoseResult,
+    EvolutionSummary,
     PlanResult,
     RollbackResult,
     RunResult,
@@ -86,24 +95,6 @@ class SprintCycle:
             feedback_loop=None,
             knowledge_repo=self._knowledge_repo,
         )
-
-    @property
-    def intent_evolution_loop(self) -> UserIntentEvolutionLoop:
-        return self._intent_evolution_loop
-
-    def _resolve_knowledge_db_path(self) -> str:
-        from .execution.knowledge.knowledge_hook import resolve_knowledge_db_path
-
-        return resolve_knowledge_db_path(self.project_path, self.config)
-
-    @property
-    def intent_evolution_loop(self) -> UserIntentEvolutionLoop:
-        return self._intent_evolution_loop
-
-    def _resolve_knowledge_db_path(self) -> str:
-        from .execution.knowledge.knowledge_hook import resolve_knowledge_db_path
-
-        return resolve_knowledge_db_path(self.project_path, self.config)
 
     @property
     def intent_evolution_loop(self) -> UserIntentEvolutionLoop:
@@ -387,7 +378,7 @@ class SprintCycle:
                 for s in plan.sprints
             ]
 
-            evo = getattr(parsed, "evolution_stage", None)
+                evo_summary = dict(getattr(plan, "metadata", {}).get("evolution_summary", {}) or {})
             return PlanResult(
                 success=validation.is_valid,
                 release_plan_yaml=plan.to_yaml(),
@@ -395,9 +386,11 @@ class SprintCycle:
                 mode=plan.mode.value,
                 release_plan_name=plan.project.name,
                 duration=time.time() - start,
-                evolution_stage=evo.value if hasattr(evo, "value") else str(evo or ""),
-                evolution_signals=list(getattr(parsed, "evolution_signals", []) or []),
-                evolution_context=dict(getattr(parsed, "evolution_context", {}) or {}),
+                evolution=EvolutionSummary(
+                    stage=str(evo_summary.get("stage", "")),
+                    signals=list(evo_summary.get("signals", []) or []),
+                    context=dict(evo_summary.get("context", {}) or {}),
+                ),
             )
         except Exception as e:
             logger.exception("plan failed")
@@ -915,6 +908,7 @@ class SprintCycle:
         if n_tasks is None:
             n_tasks = plan.total_tasks if hasattr(plan, "total_tasks") else 0
 
+        evo = dict(getattr(plan, "metadata", {}).get("evolution_summary", {}) or {}) if hasattr(plan, "metadata") else {}
         return RunResult(
             success=success,
             execution_id=resolved_execution_id,
@@ -928,6 +922,11 @@ class SprintCycle:
             release_finalization=release_finalization or {},
             message=message,
             duration=time.time() - start,
+            evolution=EvolutionSummary(
+                stage=str(evo.get("stage", "")),
+                signals=list(evo.get("signals", []) or []),
+                context=dict(evo.get("context", {}) or {}),
+            ),
         )
 
     @staticmethod
