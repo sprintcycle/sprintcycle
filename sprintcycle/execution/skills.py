@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .marketplace import OpenClawMarketplaceClient
+from .protocols import SkillLifecycleSnapshot
 from .skill_store import SkillStore
 
 
@@ -22,6 +23,17 @@ class SkillMatch:
     checklist: List[Dict[str, Any]] = field(default_factory=list)
     checksum: str = ""
     market_source: str = "openclaw"
+
+    def snapshot(self) -> SkillLifecycleSnapshot:
+        return SkillLifecycleSnapshot(
+            skill_id=self.skill_id,
+            scene=self.scene,
+            version=self.version,
+            source=self.market_source,
+            status=self.status,
+            path=self.path,
+            checksum=self.checksum,
+        )
 
 
 class SkillOrchestrator:
@@ -54,7 +66,7 @@ class SkillOrchestrator:
         matches = self.match_skills(scene)
         self._pending = matches
         context["skill_scene"] = scene
-        context["pending_skills"] = [m.__dict__ for m in matches]
+        context["pending_skills"] = [m.snapshot().to_dict() for m in matches]
         return matches
 
     def before_execute(self, context: Dict[str, Any]) -> Dict[str, Any]:

@@ -366,6 +366,8 @@ class RuntimeConfig(BaseModel):
     verbose: bool = False
     quiet: bool = False
     project_path: str = "."
+    reference_projects: List[str] = Field(default_factory=list)
+    write_policy: str = "incremental"
     quality_level: str = "L2"
     quality_profile: str = "default"
     max_verify_fix_rounds: int = 3
@@ -459,6 +461,14 @@ class RuntimeConfig(BaseModel):
     @classmethod
     def _normalize_quality_level(cls, v: str) -> str:
         return normalize_quality_level(v or "L2")
+
+    @field_validator("write_policy")
+    @classmethod
+    def _normalize_write_policy(cls, v: Any) -> str:
+        policy = str(v or "incremental").strip().lower()
+        if policy not in {"create", "incremental", "safe"}:
+            raise ValueError("write_policy must be one of: create, incremental, safe")
+        return policy
 
     @field_validator("quality_profile")
     @classmethod

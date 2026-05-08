@@ -10,6 +10,7 @@ from loguru import logger
 from sprintcycle.prompt_sources import format_coder_generation_prompt
 from sprintcycle.run_workspace import build_workspace_prompt_section
 
+from ..project_write import ProjectWritePlan
 from .base import AgentContext, AgentExecutor, AgentResult, AgentType
 from .coder_types import BatchConfig
 
@@ -55,25 +56,71 @@ class CoderAgent(AgentExecutor):
             requirements["architecture_design"] = arch_design
         return requirements
 
+    def _resolve_write_policy(self, context: AgentContext) -> str:
+        wp = (context.metadata or {}).get("write_policy") or context.codebase_context.get("write_policy") or "incremental"
+        return str(wp).strip().lower()
+
+    def _resolve_project_write_plan(self, context: AgentContext) -> Optional[ProjectWritePlan]:
+        plan = context.metadata.get("project_write_plan") if context.metadata else None
+        if isinstance(plan, ProjectWritePlan):
+            return plan
+        plan = context.codebase_context.get("project_write_plan")
+        if isinstance(plan, ProjectWritePlan):
+            return plan
+        return self.get_project_write_plan()
+
     def _build_generation_prompt(self, requirements: Dict[str, Any], context: AgentContext) -> str:
         task = requirements.get("task", "")
         arch = requirements.get("architecture_design")
         cb = context.codebase_context or {}
         refs = cb.get("reference_project_paths") or []
-        eff = str(cb.get("effective_write_policy") or "").strip().lower()
-        if not eff:
-            rp = cb.get("release_plan")
-            meta = getattr(rp, "metadata", None) or {} if rp is not None else {}
-            eff = str(meta.get("effective_write_policy") or "").strip().lower()
-        ws = build_workspace_prompt_section(
-            refs if isinstance(refs, list) else [],
-            eff or "incremental",
-        )
+        wp = self._resolve_write_policy(context)
+        ws = build_workspace_prompt_section(refs if isinstance(refs, list) else [], wp)
+        plan = self._resolve_project_write_plan(context)
+        plan_section = ""
+        if plan is not None:
+            references = []
+            for ref in plan.references:
+                if ref.exists:
+                    references.append(f"- {ref.path} | entry_points={','.join(ref.entry_points) or 'none'} | languages={','.join(ref.languages) or 'unknown'}")
+            if not references:
+                references = ["- none"]
+            diff = plan.diff_summary
+            diff_lines = []
+            if diff is not None:
+                hint_lines = []
+                for hint in diff.change_hints:
+                    hint_lines.append(f"- {hint.path}: {hint.action} ({hint.mode}) {hint.reason}".strip())
+                diff_lines = [
+                    f"total_files={diff.total_files}",
+                    f"created={','.join(diff.created_files) or 'none'}",
+                    f"modified={','.join(diff.modified_files) or 'none'}",
+                    f"skipped={','.join(diff.skipped_files) or 'none'}",
+                    f"backups={diff.backup_count}",
+                    "change_hints:",
+                    *(hint_lines or ["- none"]),
+                ]
+            plan_section = "\n".join([
+                "[PROJECT WRITE PLAN]",
+                f"target={plan.target_path}",
+                f"write_policy={plan.write_policy}",
+                f"target_exists={plan.target_exists}",
+                "references:",
+                *references,
+                "diff_summary:",
+                *diff_lines,
+            ])
+        if wp == "create":
+            mode_hint = "你在创建新项目骨架。优先生成清晰、最小、可运行的初始结构。"
+        elif wp == "safe":
+            mode_hint = "你在安全新增模式。只新增文件或代码片段，不要改写已有文件内容。若目标文件已存在，则拒绝覆盖，仅建议追加或新建文件。"
+        else:
+            mode_hint = "你在增量改写模式。优先局部修改，保持已有代码结构，输出局部补丁式改写计划，并明确哪些文件应改、哪些应新建。"
         return format_coder_generation_prompt(
             language=str(requirements.get("language", "python")),
-            task=str(task),
+            task=f"{mode_hint}\n\n{task}",
             architecture_design=str(arch) if arch else None,
-            workspace_section=ws,
+            workspace_section="\n\n".join([ws, plan_section]).strip(),
         )
 
     def _resolve_coding_engine(self, context: AgentContext) -> str:
@@ -144,6 +191,8 @@ class CoderAgent(AgentExecutor):
                     "codebase_context": context.codebase_context,
                     "architecture_design": requirements.get("architecture_design"),
                     "quality_level": context.metadata.get("quality_level") if context.metadata else None,
+                    "project_write_plan": self._resolve_project_write_plan(context),
+                    "write_policy": self._resolve_write_policy(context),
                 },
             )
             if res.success:

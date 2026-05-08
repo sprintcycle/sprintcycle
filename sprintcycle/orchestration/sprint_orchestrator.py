@@ -1,12 +1,8 @@
 """
 Sprint 执行编排（主实现模块；类 ``SprintOrchestrator``）
 
-**Scrum 语境**：本模块负责把 **Release Plan**（``ReleasePlan`` YAML）转为按 Sprint 顺序的**交付编排**，
-不是日历「排期」。``execute_release_plan`` / ``resume_from_sprint`` 即一次 **Sprint 序列的执行**。
-
-**主执行路径（唯一推荐）**：``ReleasePlan`` → ``expand_release_plan_for_execution``（自进化 YAML 在此并入）
-→ ``SprintOrchestrator.execute_release_plan`` → ``SprintExecutor.execute_sprints``（``mode=normal``）。
-``SprintCycle.run`` / 断点续跑经本模块。
+本模块负责将 ``ReleasePlan`` 编排为按 Sprint 顺序执行的交付流程。
+``execute_release_plan`` 与 ``resume_from_sprint`` 是主入口，``SprintCycle.run`` 也会经此模块。
 """
 
 import hashlib
@@ -28,6 +24,7 @@ from ..execution.events import (
     create_event,
     get_execution_event_backend,
 )
+from ..execution.protocols import ExecutionContext, SkillTrace
 from ..execution.feedback import FeedbackLoop
 from ..execution.hooks.sprint_hooks import ChainedSprintHooks, SprintLifecycleHooks
 from ..execution.hooks.skill_hooks import SkillLifecycleHook
@@ -52,7 +49,7 @@ def _measurement_run_metadata(
     sprint: Optional[SprintDefinition] = None,
     sprint_result: Optional[SprintResult] = None,
 ) -> Dict[str, Any]:
-    """F-3 v1–v4：配置指纹 + LLM 环境轨道 + Sprint/任务摘要 + 稳定 prompt 模板全文摘要（无用户任务正文）。"""
+    """配置指纹、LLM 环境轨道、Sprint/任务摘要与 prompt 源摘要。"""
     env_model = os.environ.get("LLM_MODEL") or ""
     ev_p = os.environ.get("EVOLUTION_LLM_PROVIDER") or ""
     ev_m = os.environ.get("EVOLUTION_LLM_MODEL") or ""
@@ -67,9 +64,7 @@ def _measurement_run_metadata(
         "evolution_llm_provider_env": ev_p,
         "evolution_llm_model_env": ev_m,
     }
-    fp = hashlib.sha256(
-        json.dumps(fp_src, sort_keys=True, ensure_ascii=False).encode("utf-8")
-    ).hexdigest()[:16]
+    fp = hashlib.sha256(json.dumps(fp_src, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()[:16]
     out: Dict[str, Any] = {
         "llm_provider": config.llm_provider,
         "llm_model": config.llm_model,
@@ -101,16 +96,8 @@ def _measurement_run_metadata(
         for tr in sprint_result.task_results:
             wi = tr.work_item
             st = tr.status.value if hasattr(tr.status, "value") else str(tr.status)
-            lines.append(
-                {
-                    "agent": wi.agent,
-                    "description_preview": (wi.description or "")[:240],
-                    "status": st,
-                }
-            )
-        out["task_outcome_digest"] = hashlib.sha256(
-            json.dumps(lines, ensure_ascii=False).encode("utf-8")
-        ).hexdigest()[:16]
+            lines.append({"agent": wi.agent, "description_preview": (wi.description or "")[:240], "status": st})
+        out["task_outcome_digest"] = hashlib.sha256(json.dumps(lines, ensure_ascii=False).encode("utf-8")).hexdigest()[:16]
 
     ctx_bind: Dict[str, Any] = {
         "config_fingerprint": out.get("config_fingerprint"),
@@ -133,101 +120,37 @@ def _measurement_run_metadata(
     if tags:
         out["ci_matrix_tags"] = [t.strip() for t in tags.split(",") if t.strip()]
         ctx_bind["ci_matrix_tags_joined"] = ",".join(sorted(out["ci_matrix_tags"]))
-    out["measurement_context_hash"] = hashlib.sha256(
-        json.dumps(ctx_bind, sort_keys=True, ensure_ascii=False).encode("utf-8")
-    ).hexdigest()[:16]
+    out["measurement_context_hash"] = hashlib.sha256(json.dumps(ctx_bind, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()[:16]
     return out
 
 
 class _OrchestratorSprintHooks(SprintLifecycleHooks):
-    """由 ``SprintOrchestrator`` 注入：在 Sprint 边界发事件、调回调、跑测量与知识卡片落盘。"""
+    """由 ``SprintOrchestrator`` 注入：负责 Sprint 边界事件与测量。"""
 
     def __init__(self, orchestrator: "SprintOrchestrator", release_plan: ReleasePlan):
         self._orchestrator = orchestrator
         self._release_plan = release_plan
 
-    async def on_before_sprint(
-        self,
-        sprint_index: int,
-        sprint: SprintDefinition,
-        context: Dict[str, Any],
-        release_plan: Optional[ReleasePlan],
-    ) -> None:
+    async def on_before_sprint(self, sprint_index: int, sprint: SprintDefinition, context: Dict[str, Any], release_plan: Optional[ReleasePlan]) -> None:
         self._orchestrator._callbacks["on_sprint_start"](sprint)
-        await self._orchestrator._emit(
-            create_event(
-                EventType.SPRINT_START,
-                sprint_number=sprint_index + 1,
-                sprint_name=sprint.name,
-                message=f"开始 Sprint: {sprint.name}",
-            )
-        )
-        ex_id = getattr(self._release_plan, "execution_id", None)
-        logger.info(
-            "sprintcycle.phase sprint_start execution_id={} sprint_index={} sprint_name={}",
-            ex_id,
-            sprint_index + 1,
-            sprint.name,
-        )
+        await self._orchestrator._emit(create_event(EventType.SPRINT_START, sprint_number=sprint_index + 1, sprint_name=sprint.name, message=f"开始 Sprint: {sprint.name}"))
 
-    async def on_after_sprint(
-        self,
-        sprint_index: int,
-        sprint: SprintDefinition,
-        result: SprintResult,
-        context: Dict[str, Any],
-        release_plan: Optional[ReleasePlan],
-    ) -> None:
+    async def on_after_sprint(self, sprint_index: int, sprint: SprintDefinition, result: SprintResult, context: Dict[str, Any], release_plan: Optional[ReleasePlan]) -> None:
         p = release_plan if release_plan is not None else self._release_plan
         self._orchestrator._callbacks["on_sprint_end"](result)
         if result.status == ExecutionStatus.FAILED:
-            await self._orchestrator._emit(
-                create_event(
-                    EventType.SPRINT_FAILED,
-                    sprint_number=sprint_index + 1,
-                    sprint_name=sprint.name,
-                    status="failed",
-                    duration=result.duration,
-                )
-            )
+            await self._orchestrator._emit(create_event(EventType.SPRINT_FAILED, sprint_number=sprint_index + 1, sprint_name=sprint.name, status="failed", duration=result.duration))
         else:
-            await self._orchestrator._emit(
-                create_event(
-                    EventType.SPRINT_COMPLETE,
-                    sprint_number=sprint_index + 1,
-                    sprint_name=sprint.name,
-                    status="success",
-                    duration=result.duration,
-                )
-            )
+            await self._orchestrator._emit(create_event(EventType.SPRINT_COMPLETE, sprint_number=sprint_index + 1, sprint_name=sprint.name, status="success", duration=result.duration))
         if p is not None:
-            m = await self._orchestrator._sprint_measurement_policy.measure(
-                self._orchestrator,
-                p,
-                sprint_index,
-                sprint,
-                result,
-            )
-            self._orchestrator._sprint_persistence_policy.persist(
-                self._orchestrator,
-                p,
-                sprint_index,
-                sprint,
-                result,
-                m,
-            )
+            m = await self._orchestrator._sprint_measurement_policy.measure(self._orchestrator, p, sprint_index, sprint, result)
+            self._orchestrator._sprint_persistence_policy.persist(self._orchestrator, p, sprint_index, sprint, result, m)
 
 
 class SprintOrchestrator:
     """Sprint 交付编排（Scrum：按 Release Plan 顺序执行多个 Sprint）。"""
 
-    def __init__(
-        self,
-        config: Optional[RuntimeConfig] = None,
-        event_bus: Optional[ExecutionEventBackend] = None,
-        project_path: Optional[str] = None,
-        hitl_coordinator: Optional[Any] = None,
-    ):
+    def __init__(self, config: Optional[RuntimeConfig] = None, event_bus: Optional[ExecutionEventBackend] = None, project_path: Optional[str] = None, hitl_coordinator: Optional[Any] = None):
         self.config = config or RuntimeConfig()
         self._project_root = os.path.abspath(project_path or ".")
         self.event_bus = event_bus
@@ -241,10 +164,7 @@ class SprintOrchestrator:
         self._sprint_evaluator = SprintEvaluator()
         self._sprint_measurement_policy = SprintMeasurementPolicy()
         self._sprint_persistence_policy = SprintPersistencePolicy()
-        self._release_finalization_runner = ReleaseFinalizationRunner(
-            ReleaseFinalizationPolicy(),
-            sprint_executor_factory=self._make_sprint_executor,
-        )
+        self._release_finalization_runner = ReleaseFinalizationRunner(ReleaseFinalizationPolicy(), sprint_executor_factory=self._make_sprint_executor)
         self._skill_store = SkillStore()
         self._skill_orchestrator = SkillOrchestrator()
         self._last_release_finalization_result = None
@@ -264,26 +184,15 @@ class SprintOrchestrator:
         feedback_loop: Optional[FeedbackLoop] = None
         if not getattr(self.config, "dry_run", False):
             feedback_loop = FeedbackLoop()
-        ex = SprintExecutor(
-            max_parallel=max_concurrent,
-            max_verify_fix_rounds=int(self.config.max_verify_fix_rounds),
-            runtime_config=self.config,
-            feedback_loop=feedback_loop,
-        )
+        ex = SprintExecutor(max_parallel=max_concurrent, max_verify_fix_rounds=int(self.config.max_verify_fix_rounds), runtime_config=self.config, feedback_loop=feedback_loop)
         ex.set_event_bus(self._get_event_bus())
         task_hooks: Optional[TaskLifecycleHooks] = None
-        if getattr(self.config, "governance_enabled", False) and getattr(
-            self.config, "governance_task_hooks_enabled", False
-        ):
-            task_hooks = GovernanceTaskLifecycleHooks(
-                self.config, self._project_root, self._get_event_bus()
-            )
+        if getattr(self.config, "governance_enabled", False) and getattr(self.config, "governance_task_hooks_enabled", False):
+            task_hooks = GovernanceTaskLifecycleHooks(self.config, self._project_root, self._get_event_bus())
         if self._hitl_coordinator is not None and getattr(self.config, "hitl_enabled", False):
             from ..hitl.hooks import HitlTaskHooks
-
             hitl_th = HitlTaskHooks(self.config, self._hitl_coordinator)
             if task_hooks is not None:
-                # ChainedTaskHooks 逆序调用 on_after：后注册先执行 → (hitl, gov) 则先治理后人机
                 task_hooks = ChainedTaskHooks((hitl_th, task_hooks))
             else:
                 task_hooks = hitl_th
@@ -292,41 +201,27 @@ class SprintOrchestrator:
         return ex
 
     def _build_sprint_hooks(self, release_plan: ReleasePlan) -> SprintLifecycleHooks:
-        # 顺序：知识注入 → 治理（Planning/Review）→ 编排事件与测量（见 governance/sprint_hooks 模块注释）
-        parts: List[SprintLifecycleHooks] = [
-            KnowledgeInjectionHook(self._project_root, self.config),
-            SkillLifecycleHook(self._skill_orchestrator, self._skill_store),
-        ]
+        parts: List[SprintLifecycleHooks] = [KnowledgeInjectionHook(self._project_root, self.config), SkillLifecycleHook(self._skill_orchestrator, self._skill_store)]
         if getattr(self.config, "governance_enabled", False):
             parts.append(GovernanceSprintHooks(self._project_root, self.config, self._get_event_bus()))
         if self._hitl_coordinator is not None:
             from ..hitl.hooks import HitlSprintHooks
-
             parts.append(HitlSprintHooks(self.config, self._hitl_coordinator))
         parts.append(_OrchestratorSprintHooks(self, release_plan))
         return ChainedSprintHooks(tuple(parts))
 
-    def _base_runner_context(self, release_plan: ReleasePlan) -> Dict[str, Any]:
-        """每 Sprint 的索引/目标由 SprintExecutor 在编排循环内写入 context。"""
+    def _base_runner_context(self, release_plan: ReleasePlan) -> ExecutionContext:
         raw = (release_plan.project.path or self._project_root or ".").strip()
         try:
             proj = str(Path(raw).resolve())
         except Exception:
             proj = raw or "."
         meta = getattr(release_plan, "metadata", None) or {}
-        return {
-            "project_path": proj,
-            "release_plan_name": release_plan.project.name,
-            "release_plan_id": str(meta.get("id", "")),
-            "coding_engine": getattr(self.config, "coding_engine", "cursor"),
-            "quality_level": self.config.effective_quality_level(),
-            "release_plan": release_plan,
-        }
+        return ExecutionContext(project_path=proj, release_plan_id=str(meta.get("id", "")), coding_engine=getattr(self.config, "coding_engine", "cursor"), quality_level=self.config.effective_quality_level(), project_goals=getattr(release_plan.project, "goals", "") if hasattr(release_plan.project, "goals") else "", metadata={"release_plan_name": release_plan.project.name, "release_plan": release_plan}, codebase_context={})
 
     def _persist_release_finalization(self, release_plan: ReleasePlan, finalize_result: Any) -> None:
         try:
             from ..execution.state.state_store import get_state_store
-
             eid = getattr(release_plan, "execution_id", None)
             if not eid:
                 return
@@ -339,18 +234,9 @@ class SprintOrchestrator:
         except Exception as e:
             logger.warning("persist release finalization failed: {}", e)
 
-    async def _post_sprint_measurement(
-        self,
-        release_plan: ReleasePlan,
-        *,
-        sprint_index: int = 0,
-        sprint: Optional[SprintDefinition] = None,
-        sprint_result: Optional[SprintResult] = None,
-    ) -> Optional[MeasurementResult]:
-        """每个 Sprint 结束后按 quality_level 运行测量（与 RuntimeConfig 一致）。返回测量结果供知识卡片等复用。"""
+    async def _post_sprint_measurement(self, release_plan: ReleasePlan, *, sprint_index: int = 0, sprint: Optional[SprintDefinition] = None, sprint_result: Optional[SprintResult] = None) -> Optional[MeasurementResult]:
         from ..config.quality import runs_pytest
         from ..evolution.measurement import MeasurementProvider
-
         if not runs_pytest(self.config.effective_quality_level()):
             return None
         raw_root = release_plan.project.path or self._project_root
@@ -360,149 +246,45 @@ class SprintOrchestrator:
             repo = raw_root or "."
         prov = MeasurementProvider(repo_path=repo, runtime_config=self.config)
         m = prov.measure_all()
-        # F-3：测量结果附带运行期模型/引擎元数据 + Sprint/任务绑定摘要（v3）
-        m.details["run_metadata"] = _measurement_run_metadata(
-            self.config,
-            release_plan=release_plan,
-            sprint_index=sprint_index,
-            sprint=sprint,
-            sprint_result=sprint_result,
-        )
+        m.details["run_metadata"] = _measurement_run_metadata(self.config, release_plan=release_plan, sprint_index=sprint_index, sprint=sprint, sprint_result=sprint_result)
         if not prov.check_quality_gate(m):
-            logger.warning(
-                "Sprint 后质量测量未通过: level=%s overall=%.2f correctness=%.2f details=%s",
-                self.config.effective_quality_level(),
-                m.overall,
-                m.correctness,
-                m.details,
-            )
+            logger.warning("Sprint 后质量测量未通过: level=%s overall=%.2f correctness=%.2f details=%s", self.config.effective_quality_level(), m.overall, m.correctness, m.details)
         return m
 
     async def execute_release_plan(self, release_plan: ReleasePlan, max_concurrent: int = 3) -> List[SprintResult]:
         original_mode = release_plan.mode.value
         to_run = expand_release_plan_for_execution(release_plan)
-        await self._emit(
-            create_event(
-                EventType.EXECUTION_START,
-                execution_id=getattr(release_plan, "execution_id", None),
-                message=f"开始执行 ReleasePlan: {to_run.project.name}",
-                sprint_name=to_run.project.name,
-                sprint_number=0,
-            )
-        )
-        logger.info(
-            f"🚀 开始执行 ReleasePlan: {to_run.project.name} | 原始模式: {original_mode} | "
-            f"执行 Sprint 数: {len(to_run.sprints)} | 任务: {to_run.total_tasks}"
-        )
-        logger.info(
-            "sprintcycle.phase execution_lane_start execution_id={} plan_name={} total_sprints={} total_tasks={}",
-            getattr(to_run, "execution_id", None),
-            to_run.project.name,
-            len(to_run.sprints),
-            to_run.total_tasks,
-        )
+        await self._emit(create_event(EventType.EXECUTION_START, execution_id=getattr(release_plan, "execution_id", None), message=f"开始执行 ReleasePlan: {to_run.project.name}", sprint_name=to_run.project.name, sprint_number=0))
         results = await self._execute_normal_mode(to_run, max_concurrent)
-        finalize_result = await self._release_finalization_runner.run(
-            to_run,
-            results,
-            context={"execution_id": getattr(release_plan, "execution_id", None)},
-        )
+        finalize_result = await self._release_finalization_runner.run(to_run, results, context={"execution_id": getattr(release_plan, "execution_id", None)})
         self._last_release_finalization_result = finalize_result
         self._persist_release_finalization(release_plan, finalize_result)
         success = all(r.status in (ExecutionStatus.SUCCESS, ExecutionStatus.SKIPPED) for r in results)
-        await self._emit(
-            create_event(
-                EventType.EXECUTION_COMPLETE if success else EventType.EXECUTION_FAILED,
-                execution_id=getattr(release_plan, "execution_id", None),
-                message="ReleasePlan 执行完成",
-                sprint_name=to_run.project.name,
-                sprint_number=len(results),
-                status="success" if success else "failed",
-            )
-        )
-        total_success = sum(r.success_count for r in results)
-        total_tasks = sum(len(r.task_results) for r in results)
-        logger.info(
-            f"\n📊 ReleasePlan 执行完成: 任务={total_tasks} 成功={total_success} "
-            f"失败={total_tasks - total_success} 耗时={sum(r.duration for r in results):.2f}s"
-        )
-        logger.info(
-            "release_finalization summary success={} ready_to_release={} issues={}",
-            finalize_result.success,
-            finalize_result.ready_to_release,
-            finalize_result.issues,
-        )
+        await self._emit(create_event(EventType.EXECUTION_COMPLETE if success else EventType.EXECUTION_FAILED, execution_id=getattr(release_plan, "execution_id", None), message="ReleasePlan 执行完成", sprint_name=to_run.project.name, sprint_number=len(results), status="success" if success else "failed"))
         return results
 
-    async def resume_from_sprint(
-        self,
-        release_plan: ReleasePlan,
-        resume_from_idx: int,
-        previous_results: List[SprintResult],
-        max_concurrent: int = 3,
-    ) -> List[SprintResult]:
+    async def resume_from_sprint(self, release_plan: ReleasePlan, resume_from_idx: int, previous_results: List[SprintResult], max_concurrent: int = 3) -> List[SprintResult]:
         to_run = expand_release_plan_for_execution(release_plan)
-        await self._emit(
-            create_event(
-                EventType.EXECUTION_START,
-                execution_id=getattr(release_plan, "execution_id", None),
-                message=f"断点续跑: 从 Sprint {resume_from_idx} 继续",
-                sprint_name=to_run.project.name,
-                sprint_number=resume_from_idx,
-            )
-        )
-        logger.info(
-            f"🔄 断点续跑: 从 Sprint {resume_from_idx} 继续 | ReleasePlan: {to_run.project.name} | "
-            f"已有: {len(previous_results)} | 待执行: {len(to_run.sprints) - resume_from_idx}"
-        )
+        await self._emit(create_event(EventType.EXECUTION_START, execution_id=getattr(release_plan, "execution_id", None), message=f"断点续跑: 从 Sprint {resume_from_idx} 继续", sprint_name=to_run.project.name, sprint_number=resume_from_idx))
         results = list(previous_results)
         ex = self._make_sprint_executor(max_concurrent)
         ex.set_release_plan(to_run)
         ex.set_sprint_hooks(self._build_sprint_hooks(to_run))
         ctx = self._base_runner_context(to_run)
-        tail = await ex.execute_sprints(
-            to_run.sprints[resume_from_idx:],
-            mode="normal",
-            context=ctx,
-            release_plan=to_run,
-            sprint_index_offset=resume_from_idx,
-        )
+        tail = await ex.execute_sprints(to_run.sprints[resume_from_idx:], mode="normal", context=ctx, release_plan=to_run, sprint_index_offset=resume_from_idx)
         results.extend(tail)
-        for sprint_result in tail:
-            if sprint_result.status == ExecutionStatus.FAILED and sprint_result.failed_count > sprint_result.success_count:
-                logger.warning(f"⚠️  Sprint '{sprint_result.sprint.name}' 失败率较高")
         success = all(r.status in (ExecutionStatus.SUCCESS, ExecutionStatus.SKIPPED) for r in results)
-        await self._emit(
-            create_event(
-                EventType.EXECUTION_COMPLETE if success else EventType.EXECUTION_FAILED,
-                execution_id=getattr(release_plan, "execution_id", None),
-                message="断点续跑完成",
-                sprint_name=to_run.project.name,
-                sprint_number=len(results),
-                status="success" if success else "failed",
-            )
-        )
+        await self._emit(create_event(EventType.EXECUTION_COMPLETE if success else EventType.EXECUTION_FAILED, execution_id=getattr(release_plan, "execution_id", None), message="断点续跑完成", sprint_name=to_run.project.name, sprint_number=len(results), status="success" if success else "failed"))
         return results
 
-    async def _execute_via_sprint_executor(
-        self, release_plan: ReleasePlan, max_concurrent: int
-    ) -> List[SprintResult]:
+    async def _execute_via_sprint_executor(self, release_plan: ReleasePlan, max_concurrent: int) -> List[SprintResult]:
         ex = self._make_sprint_executor(max_concurrent)
         ex.set_release_plan(release_plan)
         ex.set_sprint_hooks(self._build_sprint_hooks(release_plan))
         ctx = self._base_runner_context(release_plan)
-        return await ex.execute_sprints(
-            release_plan.sprints,
-            mode="normal",
-            context=ctx,
-            release_plan=release_plan,
-            sprint_index_offset=0,
-        )
+        return await ex.execute_sprints(release_plan.sprints, mode="normal", context=ctx, release_plan=release_plan, sprint_index_offset=0)
 
-    async def _execute_normal_mode(
-        self, release_plan: ReleasePlan, max_concurrent: int
-    ) -> List[SprintResult]:
-        """与 ``_execute_via_sprint_executor`` 相同（保留名称供测试与外部补丁）。"""
+    async def _execute_normal_mode(self, release_plan: ReleasePlan, max_concurrent: int) -> List[SprintResult]:
         return await self._execute_via_sprint_executor(release_plan, max_concurrent)
 
     def _default_on_task_start(self, task: SprintBacklogItem) -> None:
@@ -519,10 +301,7 @@ class SprintOrchestrator:
 
     def _default_on_sprint_end(self, result: SprintResult) -> None:
         if result.status == ExecutionStatus.FAILED:
-            logger.warning("   ⚠️  Sprint 失败率较高")
+            logger.warning("Sprint 失败率较高")
 
     def get_summary(self) -> Dict[str, Any]:
-        return {
-            "callbacks": list(self._callbacks.keys()),
-            "event_bus": self.event_bus is not None,
-        }
+        return {"callbacks": list(self._callbacks.keys()), "event_bus": self.event_bus is not None}

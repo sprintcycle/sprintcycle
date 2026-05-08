@@ -22,6 +22,8 @@ from tenacity import (
     wait_exponential,
 )
 
+from ..project_write import ProjectWritePlan
+
 # tenacity.before_sleep_log 仅接受 stdlib Logger；经 root 上 InterceptHandler 进 loguru
 _STD_RETRY_LOGGER = logging.getLogger("sprintcycle.interop.tenacity")
 
@@ -50,8 +52,8 @@ class AgentConfig:
     timeout: int = 300
     temperature: float = 0.7
     retry_delay: float = 1.0
-    retry_backoff: float = 1.0  # 指数退避乘数
-    retry_max_delay: float = 60.0  # 最大重试延迟（秒）
+    retry_backoff: float = 1.0
+    retry_max_delay: float = 60.0
     use_cursor: bool = False
     cursor_path: str = "cursor"
     mock_mode: bool = False
@@ -128,17 +130,14 @@ class AgentExecutor(ABC):
     5. _on_error - 错误处理钩子
     6. _after_execute - 后置处理钩子
     7. post_execute - 执行后钩子
-
-    重试机制：使用 tenacity 进行指数退避重试
     """
 
     def __init__(self, config: Optional[AgentConfig] = None):
         self._name = self.__class__.__name__
         self._config = config or AgentConfig()
         self._logger = logger.bind(component=self._name)
-        self._hooks: Dict[str, List[Callable]] = {
-            "pre_execute": [], "post_execute": [], "on_error": [], "on_retry": [],
-        }
+        self._hooks: Dict[str, List[Callable]] = {"pre_execute": [], "post_execute": [], "on_error": [], "on_retry": [],}
+        self._project_write_plan: Optional[ProjectWritePlan] = None
 
     @property
     @abstractmethod
@@ -147,74 +146,57 @@ class AgentExecutor(ABC):
 
     @property
     def config(self) -> AgentConfig:
-        """公开的配置属性，供外部访问"""
         return self._config
+
+    def set_project_write_plan(self, plan: Optional[ProjectWritePlan]) -> None:
+        self._project_write_plan = plan
+
+    def get_project_write_plan(self) -> Optional[ProjectWritePlan]:
+        return self._project_write_plan
 
     def register_hook(self, hook_name: str, callback: Callable) -> None:
         if hook_name in self._hooks:
             self._hooks[hook_name].append(callback)
 
     def _is_retryable(self, exc: Exception) -> bool:
-        """判断异常是否可重试"""
         retryable_types = (ConnectionError, TimeoutError, asyncio.TimeoutError)
         non_retryable_types = (ValueError, TypeError, KeyError, AttributeError)
-
         if isinstance(exc, retryable_types):
             return True
         if isinstance(exc, non_retryable_types):
             return False
-
         error_msg = str(exc).lower()
         retryable_keywords = ["timeout", "connection", "network", "temporary", "rate limit"]
         non_retryable_keywords = ["invalid", "not found", "permission denied", "unauthorized"]
-
         for keyword in retryable_keywords:
             if keyword in error_msg:
                 return True
         for keyword in non_retryable_keywords:
             if keyword in error_msg:
                 return False
-
-        return True  # 默认认为可重试
+        return True
 
     async def execute(self, task: str, context: AgentContext) -> AgentResult:
-        """执行任务（带重试）"""
         start_time = datetime.now()
-
         await self._run_hooks("pre_execute", task, context)
-
-        # 验证
         if not self._validate(task):
             result = AgentResult.from_error(f"任务验证失败: {task[:50]}...", self.agent_type)
             await self._handle_validation_failure(result, task, context)
             await self._run_hooks("post_execute", result, context)
             return result
-
         await self._before_execute(task, context)
-
-        # 执行核心逻辑（带 tenacity 重试）
         result = await self._execute_with_tenacity(task, context)
-
-        # 后置处理
         if not result.success:
             await self._on_error(result, context)
-
         await self._after_execute(result, context)
         result.duration = (datetime.now() - start_time).total_seconds()
         await self._run_hooks("post_execute", result, context)
-
         return result
 
     async def _execute_with_tenacity(self, task: str, context: AgentContext) -> AgentResult:
-        """使用 tenacity 进行重试"""
-
         @retry(
             stop=stop_after_attempt(self._config.max_retries + 1),
-            wait=wait_exponential(
-                multiplier=self._config.retry_backoff,
-                min=4,
-                max=self._config.retry_max_delay,
-            ),
+            wait=wait_exponential(multiplier=self._config.retry_backoff, min=4, max=self._config.retry_max_delay),
             retry=retry_if_exception_type(_AgentRetryableError),
             before_sleep=before_sleep_log(_STD_RETRY_LOGGER, logging.WARNING),
             reraise=True,
@@ -248,9 +230,7 @@ class AgentExecutor(ABC):
                 self._logger.warning(f"钩子 {hook_name} 执行失败: {e}")
 
     def _validate(self, task: str) -> bool:
-        if not task or not task.strip():
-            return False
-        return True
+        return bool(task and task.strip())
 
     async def _handle_validation_failure(self, result: AgentResult, task: str, context: AgentContext) -> None:
         pass
@@ -283,7 +263,6 @@ class AgentExecutor(ABC):
         pass
 
     def validate_config(self) -> bool:
-        """验证配置有效性"""
         if not self._config:
             return False
         if self._config.max_retries < 0:
