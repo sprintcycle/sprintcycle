@@ -22,7 +22,7 @@ from .hooks.governance_context import (
     CTX_GOVERNANCE_TASK_AFTER_DETAIL,
     CTX_GOVERNANCE_TASK_AFTER_FAILED,
 )
-from .events import ExecutionEventBackend
+from .events import ExecutionEventBackend, EventType, create_event
 from .hooks.sprint_hooks import NoOpSprintLifecycleHooks, SprintLifecycleHooks
 from .hooks.task_hooks import NoOpTaskLifecycleHooks, TaskLifecycleHooks
 from .sprint_types import ExecutionStatus, SprintResult, TaskResult
@@ -54,6 +54,7 @@ class SprintExecutor(CheckpointMixin):
         self._state_store = state_store
         self._execution_id: str = ""
         self._cancelled: bool = False
+        self._event_cursor: int = 0
         self._checkpoint_interval = 1
         self._task_context_builder = TaskContextBuilder()
         self._project_write_plan: Optional[ProjectWritePlan] = None
@@ -197,9 +198,12 @@ class SprintExecutor(CheckpointMixin):
         ctx_acc.setdefault("sprint_name", sprint.name)
         ctx_acc.setdefault("execution_context", context if isinstance(context, ExecutionContext) else None)
         ctx_acc.setdefault("_sprint_coding_engine", ctx_acc.get("coding_engine", "cursor"))
+        await self._emit_event("sprint_start", {"execution_id": self._execution_id, "sprint_name": sprint.name, "message": f"start sprint {sprint.name}"})
         for task in sprint.tasks:
+            await self._emit_event("task_start", {"execution_id": self._execution_id, "sprint_name": sprint.name, "agent_type": task.agent, "description": task.description})
             task_result = await self._execute_task(task, sprint.name, ctx_acc)
             result.task_results.append(task_result)
+            await self._emit_event("task_complete" if task_result.status == ExecutionStatus.SUCCESS else "task_failed", {"execution_id": self._execution_id, "sprint_name": sprint.name, "agent_type": task.agent, "description": task.description, "status": task_result.status.value, "duration": task_result.duration, "error": task_result.error})
             if task_result.status == ExecutionStatus.SUCCESS:
                 deps = ctx_acc.setdefault("dependencies", {})
                 if task.agent in ("coder", "implement"):
@@ -213,6 +217,7 @@ class SprintExecutor(CheckpointMixin):
         else:
             result.status = ExecutionStatus.SUCCESS
         result.duration = time.time() - start_time
+        await self._emit_event("sprint_complete" if result.status == ExecutionStatus.SUCCESS else "sprint_failed", {"execution_id": self._execution_id, "sprint_name": sprint.name, "status": result.status.value, "duration": result.duration})
         self._collect_feedback(sprint, result)
         self._persist_sprint_result(sprint, result)
         if save_checkpoint and self._execution_id:
@@ -415,9 +420,11 @@ class SprintExecutor(CheckpointMixin):
 
     async def _emit_event(self, event_type: str, data: Dict[str, Any]) -> None:
         if self._event_bus:
-            from .events import Event, EventType
             try:
-                event = Event(type=EventType[event_type.upper()], data=data)
+                self._event_cursor += 1
+                payload = dict(data)
+                payload.setdefault("event_cursor", self._event_cursor)
+                event = create_event(EventType[event_type.upper()], **payload)
                 await self._event_bus.emit(event)
             except KeyError:
                 pass

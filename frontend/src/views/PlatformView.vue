@@ -1,13 +1,18 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 
-import { apiPlatformSummary } from '@/api'
+import { apiConsoleOverview, apiExecutionDetail, apiExecutionReplay, apiPlatformSummary, apiRollback, apiRun } from '@/api'
 
 type Summary = Record<string, unknown>
 
 const loading = ref(false)
 const error = ref('')
 const summary = ref<Summary | null>(null)
+const consoleOverview = ref<Summary | null>(null)
+const replay = ref<Summary | null>(null)
+const replayExecId = ref('')
+const execDetail = ref<Summary | null>(null)
+const selectedExecId = ref('')
 const pollMs = 4000
 let timer: ReturnType<typeof setInterval> | null = null
 
@@ -43,9 +48,19 @@ async function load() {
   error.value = ''
   try {
     summary.value = await apiPlatformSummary()
+    consoleOverview.value = await apiConsoleOverview(20)
+    const primary = asRecord(asRecord(summary.value?.executions_overview).primary_execution)
+    const execId = selectedExecId.value || (typeof primary.execution_id === 'string' ? primary.execution_id : '')
+    selectedExecId.value = execId
+    replayExecId.value = execId
+    replay.value = execId ? await apiExecutionReplay(execId, 200) : null
+    execDetail.value = execId ? await apiExecutionDetail(execId, 120) : null
   } catch (e) {
     error.value = e instanceof Error ? e.message : String(e)
     summary.value = null
+    consoleOverview.value = null
+    replay.value = null
+    execDetail.value = null
   } finally {
     loading.value = false
   }
@@ -80,6 +95,52 @@ const primaryLine = computed(() => {
   const id = typeof p.execution_id === 'string' ? p.execution_id.slice(0, 10) : ''
   return id ? `${zh} · ${id}` : String(zh)
 })
+
+const consoleRuns = computed(() => asList(asRecord(consoleOverview.value?.data ?? consoleOverview.value).executions))
+const recoverableRuns = computed(() => asList(asRecord(consoleOverview.value?.data ?? consoleOverview.value).recoverable_executions))
+const replaySummary = computed(() => asRecord(replay.value?.data ?? replay.value))
+const replayTimeline = computed(() => asList(replay.value?.timeline))
+const detailState = computed(() => asRecord(execDetail.value?.data ?? execDetail.value).state)
+const detailCheckpoint = computed(() => asRecord(execDetail.value?.data ?? execDetail.value).checkpoint)
+const detailResume = computed(() => asRecord(execDetail.value?.data ?? execDetail.value).resume_point)
+const detailCanResume = computed(() => Boolean((execDetail.value?.data ?? (execDetail.value as Record<string, unknown>))?.can_resume))
+const failureHint = computed(() => {
+  const d = asRecord(execDetail.value?.data ?? execDetail.value)
+  const st = String(asRecord(d.state).status ?? '')
+  if (!d.state || st === 'success' || st === 'completed') return '当前执行未进入失败态'
+  if (detailCanResume.value) return '建议优先续跑；若状态游标不可靠，可先查看 checkpoint 后再回放。'
+  return '建议先查看 checkpoint 与最后稳定态；必要时执行回滚后重新规划。'
+})
+
+async function selectExecution(execId: string) {
+  if (!execId) return
+  selectedExecId.value = execId
+  replayExecId.value = execId
+  replay.value = await apiExecutionReplay(execId, 200)
+  execDetail.value = await apiExecutionDetail(execId, 120)
+}
+
+async function resumeSelectedExecution() {
+  if (!selectedExecId.value) return
+  loading.value = true
+  try {
+    await apiRun({ execution_id: selectedExecId.value, resume: true })
+    await load()
+  } finally {
+    loading.value = false
+  }
+}
+
+async function rollbackSelectedExecution() {
+  if (!selectedExecId.value) return
+  loading.value = true
+  try {
+    await apiRollback(selectedExecId.value)
+    await load()
+  } finally {
+    loading.value = false
+  }
+}
 </script>
 
 <template>
@@ -167,7 +228,7 @@ const primaryLine = computed(() => {
             >
               <el-table-column prop="execution_id" label="执行 ID" width="120">
                 <template #default="{ row }">
-                  <span class="mono">{{ String(row.execution_id ?? '').slice(0, 10) }}</span>
+                  <span class="mono clickable" @click="selectExecution(String(row.execution_id ?? ''))">{{ String(row.execution_id ?? '').slice(0, 10) }}</span>
                 </template>
               </el-table-column>
               <el-table-column prop="release_plan_name" label="计划" min-width="100" />
@@ -191,6 +252,10 @@ const primaryLine = computed(() => {
               </el-table-column>
               <el-table-column prop="updated_at" label="更新" width="160" />
             </el-table>
+            <div class="chips mb" style="margin-top: 12px;">
+              <span class="chip">已选执行: <b>{{ selectedExecId ? selectedExecId.slice(0, 10) : 'primary' }}</b></span>
+              <el-button size="small" @click="selectExecution(String(asList(asRecord(summary.executions_overview).executions)[0]?.execution_id ?? ''))">切换到首条执行</el-button>
+            </div>
           </el-card>
         </el-col>
         <el-col :xs="24" :lg="10">
@@ -203,6 +268,40 @@ const primaryLine = computed(() => {
                 <div class="bar-fill" :style="{ width: b.pct + '%' }" />
               </div>
               <span class="bar-n">{{ b.n }}</span>
+            </div>
+          </el-card>
+          <el-card shadow="never" class="sc-card mb">
+            <template #header>控制台总览</template>
+            <div class="chips mb">
+              <span v-if="consoleRuns.length" class="chip">可观测执行: <b>{{ consoleRuns.length }}</b></span>
+              <span v-if="recoverableRuns.length" class="chip">可恢复: <b>{{ recoverableRuns.length }}</b></span>
+              <span v-if="replaySummary.execution_id" class="chip">回放: <b>{{ replayExecId.slice(0, 10) }}</b></span>
+              <span v-if="detailCanResume" class="chip ok">可续跑</span>
+            </div>
+            <div class="chips mb">
+              <el-button size="small" @click="selectExecution(replayExecId)">刷新当前执行</el-button>
+              <el-button size="small" type="primary" :disabled="!detailCanResume" @click="resumeSelectedExecution">续跑</el-button>
+              <el-button size="small" type="warning" :disabled="!selectedExecId" @click="rollbackSelectedExecution">回滚</el-button>
+            </div>
+            <div class="detail-box">
+              <div class="detail-row mono"><span>失败建议</span><b>{{ failureHint }}</b></div>
+            </div>
+            <div class="timeline">
+              <div v-if="replaySummary.execution_id" class="muted tiny mb">
+                {{ replaySummary.execution_id }} · {{ replaySummary.status }} · last stable: {{ JSON.stringify(replaySummary.last_stable_state ?? {}) }}
+              </div>
+              <div v-if="detailState.execution_id" class="detail-box">
+                <div class="detail-row mono"><span>状态</span><b>{{ String(detailState.status ?? '') }}</b></div>
+                <div class="detail-row mono"><span>当前 Sprint</span><b>{{ String(detailState.current_sprint ?? '') }}/{{ String(detailState.total_sprints ?? '') }}</b></div>
+                <div class="detail-row mono"><span>Checkpoint</span><b>{{ String(detailCheckpoint.sprint_name ?? '') }}</b></div>
+                <div class="detail-row mono"><span>Resume</span><b>{{ String(detailResume.sprint_name ?? '') }}</b></div>
+              </div>
+              <div v-for="(ev, idx) in replayTimeline.slice(-10)" :key="idx" class="timeline-line mono">
+                <span class="muted">{{ String(ev.timestamp ?? ev.created_at ?? '') }}</span>
+                <span>{{ String(ev.event_type ?? '') }}</span>
+                <span class="muted">{{ String(ev.data?.description ?? ev.data?.message ?? '') }}</span>
+              </div>
+              <div v-if="!replayTimeline.length" class="muted">暂无可回放事件</div>
             </div>
           </el-card>
           <el-card shadow="never" class="sc-card">
@@ -317,6 +416,10 @@ const primaryLine = computed(() => {
 .mono {
   font-family: ui-monospace, monospace;
 }
+.clickable {
+  cursor: pointer;
+  text-decoration: underline;
+}
 .bar-row {
   display: flex;
   align-items: center;
@@ -363,5 +466,32 @@ const primaryLine = computed(() => {
 }
 .audit-line .bad {
   color: #f87171;
+}
+.timeline {
+  max-height: 320px;
+  overflow-y: auto;
+}
+.timeline-line {
+  padding: 6px 0;
+  border-bottom: 1px solid #334155;
+  color: #cbd5e1;
+  font-size: 11px;
+  display: grid;
+  grid-template-columns: 180px 140px 1fr;
+  gap: 8px;
+}
+.detail-box {
+  margin: 8px 0 12px;
+  padding: 10px 12px;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  background: #0f172a;
+}
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+  color: #e2e8f0;
 }
 </style>

@@ -27,6 +27,7 @@ from .execution.events import (
     get_execution_event_backend,
 )
 from .execution.rollback import RollbackManager
+from .execution.state import summarize_state_machine
 from .execution.state.state_store import (
     configure_default_store,
     get_state_store,
@@ -186,6 +187,112 @@ class SprintCycle:
         path = execution_events_sqlite_path(self.project_path)
         rows = fetch_execution_events_for_replay(path, eid, limit=limit)
         return {"success": True, "data": rows, "backend": "sqlite"}
+
+    def replay_execution(self, execution_id: str, *, limit: int = 500) -> Dict[str, Any]:
+        """基于事件与状态快照生成可回放视图。"""
+        eid = (execution_id or "").strip()
+        if not eid:
+            return {"success": False, "error": "execution_id required"}
+        store = get_state_store()
+        state = store.load(eid)
+        if state is None:
+            return {"success": False, "error": f"未找到执行记录: {eid}"}
+        timeline = self.execution_events(eid, limit=limit)
+        events = timeline.get("data", []) if isinstance(timeline, dict) else []
+        summary = {
+            "execution_id": eid,
+            "status": state.status.value,
+            "current_sprint": state.current_sprint,
+            "total_sprints": state.total_sprints,
+            "completed_tasks": state.completed_tasks,
+            "total_tasks": state.total_tasks,
+            "last_stable_state": state.last_stable_state,
+            "event_cursor": state.event_cursor,
+            "replay_version": state.replay_version,
+            "event_count": len(events),
+            "latest_event": events[-1] if events else None,
+        }
+        return {"success": True, "data": summary, "timeline": events}
+
+    def execution_detail(self, execution_id: str, *, limit: int = 200) -> Dict[str, Any]:
+        """执行详情：状态、恢复点、回放、状态机摘要一次性返回。"""
+        eid = (execution_id or "").strip()
+        if not eid:
+            return {"success": False, "error": "execution_id required"}
+        store = get_state_store()
+        state = store.load(eid)
+        if state is None:
+            return {"success": False, "error": f"未找到执行记录: {eid}"}
+        checkpoint = state.checkpoint or {}
+        resume_point = store.get_resume_point(eid) or {}
+        replay = self.replay_execution(eid, limit=limit)
+        detail = {
+            "state": state.to_dict(),
+            "checkpoint": checkpoint,
+            "resume_point": resume_point,
+            "replay": replay.get("data", {}),
+            "timeline": replay.get("timeline", []),
+            "state_machine": summarize_state_machine(),
+            "can_resume": store.can_resume(eid),
+            "last_stable_state": state.last_stable_state,
+            "event_cursor": state.event_cursor,
+        }
+        return {"success": True, "data": detail}
+
+    def resume_execution(self, execution_id: str) -> Dict[str, Any]:
+        """控制台恢复入口：按记录的断点继续执行。"""
+        eid = (execution_id or "").strip()
+        if not eid:
+            return {"success": False, "error": "execution_id required"}
+        store = get_state_store()
+        state = store.load(eid)
+        if state is None:
+            return {"success": False, "error": f"未找到执行记录: {eid}"}
+        if not store.can_resume(eid):
+            return {"success": False, "error": f"执行 {eid} 当前不可恢复"}
+        checkpoint = state.checkpoint or {}
+        yml = checkpoint.get("release_plan_yaml") or checkpoint.get("release_plan")
+        if not yml:
+            return {"success": False, "error": "缺少 release plan checkpoint，无法恢复"}
+        try:
+            plan = ReleasePlanParser().parse_string(str(yml))
+        except Exception as e:
+            return {"success": False, "error": f"无法解析 checkpoint: {e}"}
+        results = asyncio.run(
+            self.orchestrator.resume_from_sprint(
+                plan,
+                int(checkpoint.get("sprint_idx", 0) or 0),
+                [],
+                max_concurrent=self.config.parallel_tasks,
+            )
+        )
+        return {"success": True, "data": {"execution_id": eid, "results": [r.to_dict() for r in results]}}
+
+    def console_overview(self, *, limit: int = 20) -> Dict[str, Any]:
+        """控制台总览：当前执行、可恢复执行、最近事件与状态机摘要。"""
+        store = get_state_store()
+        states = store.list_executions(limit=max(1, int(limit)))
+        executions = [s.to_dict() for s in states]
+        recoverable = [s.to_dict() for s in states if store.can_resume(s.execution_id)]
+        running = [s.to_dict() for s in states if str(s.status.value) == "running"]
+        latest = executions[0] if executions else None
+        recent_events: List[Dict[str, Any]] = []
+        if latest and latest.get("execution_id"):
+            try:
+                recent_events = self.execution_events(str(latest["execution_id"]), limit=20).get("data", [])
+            except Exception:
+                recent_events = []
+        return {
+            "success": True,
+            "data": {
+                "executions": executions,
+                "running_executions": running,
+                "recoverable_executions": recoverable,
+                "primary_execution": latest,
+                "recent_events": recent_events,
+                "state_machine": summarize_state_machine(),
+            },
+        }
 
     def reload_runtime_config(self) -> None:
         """从磁盘重新加载 ``RuntimeConfig``（含 ``sprintcycle.runtime.yaml``），并重绑缓存 / 状态 / 事件后端。"""
@@ -392,6 +499,11 @@ class SprintCycle:
                         error=f"未找到执行记录: {execution_id}",
                         duration=time.time() - start,
                     )
+                timeline = []
+                try:
+                    timeline = self.execution_events(execution_id, limit=200).get("data", [])
+                except Exception:
+                    timeline = []
                 return StatusResult(
                     success=True,
                     execution_id=state.execution_id,
@@ -400,6 +512,10 @@ class SprintCycle:
                     total_sprints=state.total_sprints,
                     sprint_history=state.metadata.get("sprint_history", []),
                     release_finalization=state.metadata.get("release_finalization", {}),
+                    execution_timeline=timeline,
+                    last_stable_state=state.last_stable_state,
+                    event_cursor=state.event_cursor,
+                    state_machine=summarize_state_machine(),
                     duration=time.time() - start,
                 )
             else:
@@ -413,6 +529,7 @@ class SprintCycle:
                 return StatusResult(
                     success=True,
                     executions=[s.to_dict() for s in states],
+                    state_machine=summarize_state_machine(),
                     duration=time.time() - start,
                 )
         except Exception as e:
@@ -483,7 +600,7 @@ class SprintCycle:
                 )
 
             # 1. 更新 StateStore 状态
-            store.update_status(execution_id, ExecutionStatus.CANCELLED)
+            store.update_status(execution_id, ExecutionStatus.CANCELLED, last_stable_state=state.last_stable_state, event_cursor=state.event_cursor)
 
             # 2. 触发 SprintExecutor 的 cancel（如果正在运行）
             if self._orchestrator and hasattr(self._orchestrator, '_executor'):

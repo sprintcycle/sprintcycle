@@ -70,6 +70,29 @@ export async function apiPlatformSummary() {
   return data
 }
 
+export async function apiConsoleOverview(limit = 20) {
+  const { data } = await api.get<Record<string, unknown>>('/console/overview', {
+    params: { limit },
+  })
+  return data
+}
+
+export async function apiExecutionReplay(executionId: string, limit = 500) {
+  const { data } = await api.get<Record<string, unknown>>(
+    `/execution/${encodeURIComponent(executionId)}/replay`,
+    { params: { limit } },
+  )
+  return data
+}
+
+export async function apiExecutionDetail(executionId: string, limit = 200) {
+  const { data } = await api.get<Record<string, unknown>>(
+    `/execution/${encodeURIComponent(executionId)}/detail`,
+    { params: { limit } },
+  )
+  return data
+}
+
 export async function apiHitlPending(executionId?: string) {
   const { data } = await api.get<Record<string, unknown>>('/hitl/pending', {
     params: executionId ? { execution_id: executionId } : {},

@@ -68,6 +68,13 @@ class StatusResult(ResultBase):
     sprint_history: List[Dict[str, Any]] = field(default_factory=list)
     release_finalization: Dict[str, Any] = field(default_factory=dict)
     executions: List[Dict[str, Any]] = field(default_factory=list)
+    execution_timeline: List[Dict[str, Any]] = field(default_factory=list)
+    last_stable_state: Dict[str, Any] = field(default_factory=dict)
+    event_cursor: Optional[int] = None
+    state_machine: Dict[str, Any] = field(default_factory=dict)
+    execution_timeline: List[Dict[str, Any]] = field(default_factory=list)
+    last_stable_state: Dict[str, Any] = field(default_factory=dict)
+    event_cursor: Optional[int] = None
 
 
 @dataclass

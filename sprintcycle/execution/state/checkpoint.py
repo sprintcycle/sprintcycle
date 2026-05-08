@@ -19,6 +19,7 @@ class CheckpointMixin:
 
     _execution_id: str
     _release_plan: Optional["ReleasePlan"]
+    _event_cursor: Optional[int]
 
     @property
     def state_store(self) -> "StateStore":
@@ -65,12 +66,21 @@ class CheckpointMixin:
             except Exception as e:
                 logger.warning(f"无法序列化执行计划为 YAML: {e}")
 
+        last_stable_state = {
+            "execution_id": self._execution_id,
+            "sprint_idx": sprint_idx,
+            "sprint_name": sprint_name,
+            "status": ExecutionStatus.RUNNING.value,
+            "task_count": len(task_results),
+        }
         success = self.state_store.create_checkpoint(
             execution_id=self._execution_id,
             sprint_idx=sprint_idx,
             sprint_name=sprint_name,
             task_results=task_results,
             release_plan_yaml=release_plan_yaml,
+            last_stable_state=last_stable_state,
+            event_cursor=getattr(self, "_event_cursor", None),
         )
 
         if success:

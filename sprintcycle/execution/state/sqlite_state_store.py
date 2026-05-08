@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from ...persistence.models import ExecutionRow
 from ...persistence.session import create_engine_for_path, init_db
 from ..sprint_types import ExecutionStatus
+from .machine import validate_transition
 from .state_store import ExecutionState
 from ...release_plan.payload_keys import checkpoint_plan_yaml
 
@@ -47,6 +48,9 @@ class SqliteExecutionStore:
             error=row.error,
             checkpoint=row.checkpoint,
             metadata=dict(row.execution_meta or {}),
+            last_stable_state=row.last_stable_state,
+            event_cursor=row.event_cursor,
+            replay_version=getattr(row, "replay_version", 1) or 1,
         )
 
     def save(self, state: ExecutionState) -> None:
@@ -64,6 +68,9 @@ class SqliteExecutionStore:
             "updated_at": state.updated_at,
             "error": state.error,
             "checkpoint": state.checkpoint,
+            "last_stable_state": state.last_stable_state,
+            "event_cursor": state.event_cursor,
+            "replay_version": state.replay_version,
             "execution_meta": dict(state.metadata or {}),
         }
         s = self._session()
@@ -128,6 +135,8 @@ class SqliteExecutionStore:
         sprint_name: str,
         task_results: List[Dict[str, Any]],
         release_plan_yaml: Optional[str] = None,
+        last_stable_state: Optional[Dict[str, Any]] = None,
+        event_cursor: Optional[int] = None,
     ) -> bool:
         state = self.load(execution_id)
         if state is None:
@@ -140,6 +149,14 @@ class SqliteExecutionStore:
             "timestamp": datetime.now().isoformat(),
             "release_plan_yaml": release_plan_yaml,
         }
+        state.last_stable_state = last_stable_state or {
+            "sprint_idx": sprint_idx,
+            "sprint_name": sprint_name,
+            "status": "stable",
+            "task_count": len(task_results),
+        }
+        if event_cursor is not None:
+            state.event_cursor = event_cursor
         self.save(state)
         return True
 
@@ -162,16 +179,26 @@ class SqliteExecutionStore:
                 "sprint_name": cp.get("sprint_name", ""),
                 "task_results": cp.get("task_results", []),
                 "release_plan_yaml": yml,
+                "last_stable_state": state.last_stable_state,
+                "event_cursor": state.event_cursor,
+                "replay_version": state.replay_version,
             }
         return None
 
-    def update_status(self, execution_id: str, status: ExecutionStatus, error: Optional[str] = None) -> bool:
+    def update_status(self, execution_id: str, status: ExecutionStatus, error: Optional[str] = None, last_stable_state: Optional[Dict[str, Any]] = None, event_cursor: Optional[int] = None) -> bool:
         state = self.load(execution_id)
         if state is None:
             return False
+        err = validate_transition("execution", state.status, status)
+        if err:
+            logger.warning(err)
         state.status = status
         if error:
             state.error = error
+        if last_stable_state is not None:
+            state.last_stable_state = last_stable_state
+        if event_cursor is not None:
+            state.event_cursor = event_cursor
         self.save(state)
         return True
 

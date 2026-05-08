@@ -15,9 +15,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
+from ..events import Event, EventType
+
 from loguru import logger
 
 from ..sprint_types import ExecutionStatus
+from .machine import validate_transition
 from ...release_plan.payload_keys import checkpoint_plan_yaml
 
 if TYPE_CHECKING:
@@ -59,8 +62,8 @@ class SprintCheckpoint:
 class ExecutionState:
     """
     执行状态
-    
-    记录完整的执行上下文，支持断点续传。
+
+    记录完整的执行上下文，支持断点续传与回放。
     """
     execution_id: str
     release_plan_name: str
@@ -75,6 +78,9 @@ class ExecutionState:
     error: Optional[str] = None
     checkpoint: Optional[Dict[str, Any]] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
+    last_stable_state: Optional[Dict[str, Any]] = None
+    event_cursor: Optional[int] = None
+    replay_version: int = 1
 
     def __post_init__(self):
         if not self.created_at:
@@ -97,13 +103,19 @@ class ExecutionState:
             "error": self.error,
             "checkpoint": self.checkpoint,
             "metadata": self.metadata,
+            "last_stable_state": self.last_stable_state,
+            "event_cursor": self.event_cursor,
+            "replay_version": self.replay_version,
         }
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "ExecutionState":
-        """从字典创建（字段名与 ``to_dict`` / 断点结构一致，使用 ``release_plan_*`` 键）。"""
+        """从字典创建（兼容历史字段与增量升级字段）。"""
         data = data.copy()
         data["status"] = ExecutionStatus(data["status"])
+        data.setdefault("last_stable_state", None)
+        data.setdefault("event_cursor", None)
+        data.setdefault("replay_version", 1)
         return cls(**data)
 
 
@@ -226,6 +238,8 @@ class StateStore:
         sprint_name: str,
         task_results: List[Dict[str, Any]],
         release_plan_yaml: Optional[str] = None,
+        last_stable_state: Optional[Dict[str, Any]] = None,
+        event_cursor: Optional[int] = None,
     ) -> bool:
         """
         创建断点
@@ -252,6 +266,14 @@ class StateStore:
             "timestamp": datetime.now().isoformat(),
             "release_plan_yaml": release_plan_yaml,
         }
+        state.last_stable_state = last_stable_state or {
+            "sprint_idx": sprint_idx,
+            "sprint_name": sprint_name,
+            "status": "stable",
+            "task_count": len(task_results),
+        }
+        if event_cursor is not None:
+            state.event_cursor = event_cursor
         self.save(state)
         return True
 
@@ -291,6 +313,9 @@ class StateStore:
                 "sprint_name": cp.get("sprint_name", ""),
                 "task_results": cp.get("task_results", []),
                 "release_plan_yaml": yml,
+                "last_stable_state": state.last_stable_state,
+                "event_cursor": state.event_cursor,
+                "replay_version": state.replay_version,
             }
         return None
 
@@ -298,7 +323,9 @@ class StateStore:
         self,
         execution_id: str,
         status: ExecutionStatus,
-        error: Optional[str] = None
+        error: Optional[str] = None,
+        last_stable_state: Optional[Dict[str, Any]] = None,
+        event_cursor: Optional[int] = None,
     ) -> bool:
         """
         更新执行状态
@@ -315,9 +342,16 @@ class StateStore:
         if state is None:
             return False
 
+        err = validate_transition("execution", state.status, status)
+        if err:
+            logger.warning(err)
         state.status = status
         if error:
             state.error = error
+        if last_stable_state is not None:
+            state.last_stable_state = last_stable_state
+        if event_cursor is not None:
+            state.event_cursor = event_cursor
         self.save(state)
         return True
 

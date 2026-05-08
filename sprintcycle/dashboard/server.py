@@ -414,6 +414,22 @@ def create_app(project_path: str = ".") -> FastAPI:
     async def api_execution_events(execution_id: str, limit: int = 200) -> Dict[str, Any]:
         return sc.execution_events(execution_id, limit=limit)
 
+    @app.get("/api/execution/{execution_id}/replay")
+    async def api_execution_replay(execution_id: str, limit: int = 500) -> Dict[str, Any]:
+        return sc.replay_execution(execution_id, limit=limit)
+
+    @app.get("/api/console/overview")
+    async def api_console_overview(limit: int = 20) -> Dict[str, Any]:
+        return sc.console_overview(limit=limit)
+
+    @app.get("/api/execution/{execution_id}/detail")
+    async def api_execution_detail(execution_id: str, limit: int = 200) -> Dict[str, Any]:
+        return sc.execution_detail(execution_id, limit=limit)
+
+    @app.post("/api/execution/{execution_id}/resume")
+    async def api_execution_resume(execution_id: str) -> Dict[str, Any]:
+        return sc.resume_execution(execution_id)
+
     config_center.attach_config_routes(app, sc, client_manager)
 
     @app.on_event("startup")
@@ -528,6 +544,11 @@ def create_app(project_path: str = ".") -> FastAPI:
         snap["hitl"] = {
             "open_requests": len(pend) if isinstance(pend, list) else 0,
         }
+        try:
+            console = sc.console_overview(limit=20)
+            snap["console"] = console.get("data", {}) if isinstance(console, dict) else {}
+        except Exception:
+            snap["console"] = {}
         return snap
 
     _mount_dashboard_frontend(app)

@@ -30,6 +30,9 @@ class ExecutionRow(Base):
     updated_at: Mapped[str] = mapped_column(String(64), default="")
     error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     checkpoint: Mapped[Optional[dict]] = mapped_column(SQLiteJSON, nullable=True)
+    last_stable_state: Mapped[Optional[dict]] = mapped_column(SQLiteJSON, nullable=True)
+    event_cursor: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    replay_version: Mapped[int] = mapped_column(Integer, default=1)
     execution_meta: Mapped[dict] = mapped_column(SQLiteJSON, default=dict)
 
 
