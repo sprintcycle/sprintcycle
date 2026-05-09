@@ -146,5 +146,75 @@ def governance_hitl_show(project: Path, request_id: str, json_output: bool) -> N
         click.echo(f"status={row.get('status')} decision={row.get('decision')} note={row.get('decision_note')}")
 
 
+@governance_hitl.command("submit")
+@click.option("-p", "--project", required=True, type=click.Path(path_type=Path), help="目标项目路径")
+@click.argument("request_id")
+@click.argument("decision")
+@click.option("--note", default=None, help="附注")
+@click.option("--correction-json", default=None, help="修正 JSON")
+@click.option("--replay-json", default=None, help="重试指令 JSON")
+@click.option("--json-output", is_flag=True, help="以 JSON 输出结果")
+def governance_hitl_submit(project: Path, request_id: str, decision: str, note: Optional[str], correction_json: Optional[str], replay_json: Optional[str], json_output: bool) -> None:
+    """提交 HITL 决策、修正或重试。"""
+    sc = SprintCycle(str(project))
+    import asyncio
+
+    correction = json.loads(correction_json) if correction_json else None
+    replay = json.loads(replay_json) if replay_json else None
+    payload = asyncio.run(sc.hitl_submit(request_id, decision, note=note, correction=correction, replay=replay))
+    if json_output:
+        click.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+    else:
+        if not payload.get("success"):
+            click.echo(payload.get("error", "unknown error"))
+            raise SystemExit(1)
+        row = payload["data"]
+        click.echo(f"submitted {row.get('request_id')} decision={row.get('decision')} status={row.get('status')}")
+
+
+@governance_hitl.command("modify")
+@click.option("-p", "--project", required=True, type=click.Path(path_type=Path), help="目标项目路径")
+@click.argument("request_id")
+@click.option("--note", default=None, help="修改建议或备注")
+@click.option("--correction-json", required=True, help="结构化修正 JSON")
+@click.option("--json-output", is_flag=True, help="以 JSON 输出结果")
+def governance_hitl_modify(project: Path, request_id: str, note: Optional[str], correction_json: str, json_output: bool) -> None:
+    """提交 request_changes / modify。"""
+    sc = SprintCycle(str(project))
+    import asyncio
+
+    payload = asyncio.run(sc.hitl_submit(request_id, "request_changes", note=note, correction=json.loads(correction_json)))
+    if json_output:
+        click.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+    else:
+        if not payload.get("success"):
+            click.echo(payload.get("error", "unknown error"))
+            raise SystemExit(1)
+        row = payload["data"]
+        click.echo(f"modified {row.get('request_id')} status={row.get('status')}")
+
+
+@governance_hitl.command("retry")
+@click.option("-p", "--project", required=True, type=click.Path(path_type=Path), help="目标项目路径")
+@click.argument("request_id")
+@click.option("--note", default=None, help="重试说明")
+@click.option("--replay-json", required=True, help="重试指令 JSON")
+@click.option("--json-output", is_flag=True, help="以 JSON 输出结果")
+def governance_hitl_retry(project: Path, request_id: str, note: Optional[str], replay_json: str, json_output: bool) -> None:
+    """提交 retry / replay。"""
+    sc = SprintCycle(str(project))
+    import asyncio
+
+    payload = asyncio.run(sc.hitl_submit(request_id, "retry", note=note, replay=json.loads(replay_json)))
+    if json_output:
+        click.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+    else:
+        if not payload.get("success"):
+            click.echo(payload.get("error", "unknown error"))
+            raise SystemExit(1)
+        row = payload["data"]
+        click.echo(f"retry requested {row.get('request_id')} status={row.get('status')}")
+
+
 if __name__ == "__main__":
     cli()

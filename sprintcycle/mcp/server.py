@@ -231,10 +231,11 @@ class SprintCycleMCPServer:
                 Tool(
                     name="sprintcycle_hitl_submit",
                     description=(
-                        "提交人机卡点决策。正式取值：approve | skip_sprint | abort_execution。"
-                        "别名（会规范化为正式值）：reject/deny/abort/stop/halt→abort_execution；"
-                        "skip→skip_sprint；pass/ok/yes/continue→approve。"
-                        "regen / need_info / modify 不接受。"
+                        "提交人机卡点决策。支持 approve | reject | request_changes | modify | retry | resume | "
+                        "skip_sprint | abort_execution。别名会自动规范化："
+                        "deny→reject；abort/stop/halt→abort_execution；skip→skip_sprint；"
+                        "pass/ok/yes/continue→approve；fix/edit/patch→modify；changes/revise→request_changes；"
+                        "replay/rerun→retry。"
                     ),
                     inputSchema={
                         "type": "object",
@@ -243,23 +244,32 @@ class SprintCycleMCPServer:
                             "decision": {
                                 "type": "string",
                                 "description": (
-                                    "approve | skip_sprint | abort_execution；"
-                                    "或别名 reject/deny/abort/stop/halt、skip、pass/ok/yes/continue"
+                                    "approve | reject | request_changes | modify | retry | resume | skip_sprint | abort_execution；"
+                                    "或常见别名"
                                 ),
                             },
                             "note": {"type": "string", "description": "可选备注"},
+                            "correction": {
+                                "type": "object",
+                                "description": "可选结构化修正内容（targets / patches / reason / metadata）",
+                            },
+                            "replay": {
+                                "type": "object",
+                                "description": "可选重试指令（target_gate / target_stage / mode / reset_fields / reason）",
+                            },
                         },
                         "required": ["request_id", "decision"],
                     },
                 ),
                 Tool(
                     name="sprintcycle_hitl_modify",
-                    description="提交需要修改的决策（等价于 request_changes）。",
+                    description="提交需要修改的决策（等价于 request_changes，可附带 correction）。",
                     inputSchema={
                         "type": "object",
                         "properties": {
                             "request_id": {"type": "string", "description": "HITL 请求 ID"},
                             "note": {"type": "string", "description": "修改建议或备注"},
+                            "correction": {"type": "object", "description": "结构化修正内容"},
                         },
                         "required": ["request_id"],
                     },
@@ -391,6 +401,8 @@ class SprintCycleMCPServer:
             str(args["request_id"]),
             str(args["decision"]),
             args.get("note"),
+            correction=args.get("correction"),
+            replay=args.get("replay"),
         )
         return _text_response(json.dumps(data, ensure_ascii=False, indent=2))
 
@@ -399,6 +411,7 @@ class SprintCycleMCPServer:
             str(args["request_id"]),
             "request_changes",
             args.get("note"),
+            correction=args.get("correction"),
         )
         return _text_response(json.dumps(data, ensure_ascii=False, indent=2))
 

@@ -2,20 +2,43 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Protocol
+from abc import ABC, abstractmethod
+from typing import Optional
 
-from ..types import HitlRequestRecord
+from ..types import HitlCorrection, HitlRequestRecord, HitlReplayDirective
 
 
-class HitlStore(Protocol):
-    async def insert_open(self, row: HitlRequestRecord) -> None: ...
+class HitlStore(ABC):
+    @abstractmethod
+    async def insert_open(self, row: HitlRequestRecord) -> None:
+        raise NotImplementedError
 
-    async def resolve(self, request_id: str, decision: str, note: Optional[str], from_timeout: bool = False) -> bool: ...
+    @abstractmethod
+    async def update_decision(
+        self,
+        request_id: str,
+        *,
+        decision: str,
+        note: Optional[str] = None,
+        decision_kind: Optional[str] = None,
+        status: Optional[str] = None,
+    ) -> bool:
+        raise NotImplementedError
 
-    async def get(self, request_id: str) -> Optional[HitlRequestRecord]: ...
+    @abstractmethod
+    async def get(self, request_id: str) -> Optional[HitlRequestRecord]:
+        raise NotImplementedError
 
-    async def list_open(self, execution_id: Optional[str] = None) -> List[HitlRequestRecord]: ...
+    @abstractmethod
+    async def list_open(self, execution_id: Optional[str] = None) -> list[HitlRequestRecord]:
+        raise NotImplementedError
 
-    async def list_history(self, execution_id: Optional[str] = None, limit: int = 50) -> List[HitlRequestRecord]: ...
+    @abstractmethod
+    async def list_history(self, execution_id: Optional[str] = None, limit: int = 50) -> list[HitlRequestRecord]:
+        raise NotImplementedError
 
-    async def append_event(self, request_id: str, event: Dict[str, Any]) -> None: ...
+    async def insert_correction(self, request_id: str, correction: HitlCorrection) -> None:
+        return None
+
+    async def insert_replay(self, request_id: str, replay: HitlReplayDirective) -> None:
+        return None

@@ -70,9 +70,7 @@ class HitlSprintHooks(SprintLifecycleHooks):
             return
         if result.status == ExecutionStatus.SKIPPED:
             return
-        if result.status == ExecutionStatus.SUCCESS and not getattr(
-            self._config, "hitl_after_sprint_always", False
-        ):
+        if result.status == ExecutionStatus.SUCCESS and not getattr(self._config, "hitl_after_sprint_always", False):
             return
         eid = str(context.get("execution_id") or "").strip()
         if not eid:

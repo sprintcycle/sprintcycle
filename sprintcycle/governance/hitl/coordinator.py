@@ -11,9 +11,11 @@ from uuid import uuid4
 from loguru import logger
 
 from ...execution.events import Event, EventType, ExecutionEventBackend
-from .decision_normalize import validate_hitl_decision_for_submit
+from .context import build_replay_context, merge_correction_into_context, summarize_context_diff
+from .decision_normalize import normalize_hitl_decision_with_intent, validate_hitl_decision_for_submit
+from .events import HitlEventType
 from .store import HitlSqliteStore, default_hitl_db_path
-from .types import HitlDecision, HitlGate, HitlRequestRecord, HitlRiskLevel
+from .types import HitlCorrection, HitlDecision, HitlGate, HitlRequestRecord, HitlReplayDirective, HitlRiskLevel
 
 if TYPE_CHECKING:
     from ...config.runtime_config import RuntimeConfig
@@ -80,7 +82,7 @@ class HitlCoordinator:
             risk_level=risk_level,
         )
         await self._store.insert_open(row)
-        await self._emit_open(row)
+        await self._emit(HitlEventType.REQUEST_OPEN, row.to_dict())
         return row
 
     async def wait_for_decision(
@@ -114,79 +116,106 @@ class HitlCoordinator:
                     return HitlDecision.APPROVE
             if time.monotonic() >= deadline:
                 td = _timeout_decision(self._config)
-                ok = await self._store.resolve(row.request_id, td.value, None, from_timeout=True)
+                        ok = await self._store.update_decision(row.request_id, decision=td.value, note=None, decision_kind="timeout", status="resolved")
                 if ok:
-                    await self._emit_resolved(row.request_id, execution_id, td.value, "timeout")
+                    await self._emit(HitlEventType.REQUEST_RESOLVED, {"request_id": row.request_id, "execution_id": execution_id, "decision": td.value, "source": "timeout", "status": "resolved"})
                 return td
             await asyncio.sleep(self._poll_interval)
 
     async def submit_decision(
-        self, request_id: str, decision: str, note: Optional[str] = None
+        self,
+        request_id: str,
+        decision: str,
+        note: Optional[str] = None,
+        *,
+        correction: Optional[HitlCorrection] = None,
+        replay: Optional[HitlReplayDirective] = None,
     ) -> Optional[HitlRequestRecord]:
         canon = validate_hitl_decision_for_submit(decision)
         if canon is None:
             return None
-        ok = await self._store.resolve(request_id, canon, note, from_timeout=False)
-        if not ok:
-            return None
         rec = await self._store.get(request_id)
-        if rec:
-            await self._emit_resolved(
-                request_id, rec.execution_id, canon, (note or "").strip() or None
-            )
+        if rec is None:
+            return None
+        intent = normalize_hitl_decision_with_intent(canon)[1]
+        if correction is not None:
+            rec = await self.submit_correction(request_id, correction) or rec
+        if replay is not None:
+            rec = await self.request_retry(request_id, replay) or rec
+        status = "resolved"
+        if canon in (HitlDecision.REQUEST_CHANGES.value, HitlDecision.MODIFY.value):
+            status = "modified"
+        elif canon == HitlDecision.RETRY.value:
+            status = "retrying"
+        await self._store.update_decision(
+            request_id,
+            decision=canon,
+            note=note,
+            decision_kind=intent,
+            status=status,
+        )
+        rec = await self._store.get(request_id) or rec
+        await self._emit(HitlEventType.REQUEST_RESOLVED, {"request_id": request_id, "execution_id": rec.execution_id, "decision": canon, "note": (note or "").strip() or None, "decision_kind": intent, "status": status})
         return rec
+
+    async def submit_correction(self, request_id: str, correction: HitlCorrection, *, emit_decision: bool = True) -> Optional[HitlRequestRecord]:
+        rec = await self._store.get(request_id)
+        if rec is None:
+            return None
+        await self._store.insert_correction(request_id, correction)
+        updated = await self._store.get(request_id) or rec
+        before = dict(updated.context)
+        patched = merge_correction_into_context(updated.context, correction)
+        updated.context = patched
+        updated.applied_context = patched
+        updated.correction = correction
+        updated.status = "modified"
+        await self._store.insert_open(updated)
+        await self._emit(HitlEventType.REQUEST_MODIFIED, {"request_id": request_id, "execution_id": updated.execution_id, "correction": correction.to_dict()})
+        await self._emit(HitlEventType.PATCH_APPLIED, {"request_id": request_id, "execution_id": updated.execution_id, "diff": summarize_context_diff(before, patched)})
+        await self._emit(HitlEventType.CONTEXT_REFLOWED, {"request_id": request_id, "execution_id": updated.execution_id, "context_keys": sorted(patched.keys())})
+        return updated
+
+    async def request_retry(self, request_id: str, replay: HitlReplayDirective, *, emit_decision: bool = True) -> Optional[HitlRequestRecord]:
+        rec = await self._store.get(request_id)
+        if rec is None:
+            return None
+        await self._store.insert_replay(request_id, replay)
+        updated = await self._store.get(request_id) or rec
+        updated.replay_directive = replay
+        updated.status = "retrying"
+        base_context = updated.applied_context or updated.context
+        updated.applied_context = build_replay_context(base_context, replay)
+        await self._store.insert_open(updated)
+        await self._emit(HitlEventType.REPLAY_TRIGGERED, {"request_id": request_id, "execution_id": updated.execution_id, "replay": replay.to_dict()})
+        return updated
 
     async def list_pending(self, execution_id: Optional[str] = None) -> list[Dict[str, Any]]:
         rows = await self._store.list_open(execution_id)
         return [r.to_dict() for r in rows]
 
-    async def list_history(
-        self, execution_id: Optional[str] = None, limit: int = 50
-    ) -> list[Dict[str, Any]]:
+    async def list_history(self, execution_id: Optional[str] = None, limit: int = 50) -> list[Dict[str, Any]]:
         rows = await self._store.list_history(execution_id, limit)
         return [r.to_dict() for r in rows]
 
-    async def _emit_open(self, row: HitlRequestRecord) -> None:
-        try:
-            await self._event_bus.emit(
-                Event(
-                    type=EventType.HITL_REQUEST_OPEN,
-                    data={
-                        "request_id": row.request_id,
-                        "execution_id": row.execution_id,
-                        "gate": row.gate,
-                        "title": row.title,
-                        "summary": row.summary,
-                        "risk_level": row.risk_level,
-                        "timeout_seconds": row.timeout_seconds,
-                        "created_at": row.created_at,
-                    },
-                )
-            )
-        except Exception as e:
-            logger.warning("HITL emit open failed: {}", e)
+    async def get_request(self, request_id: str) -> Optional[Dict[str, Any]]:
+        rec = await self._store.get(request_id)
+        return rec.to_dict() if rec else None
 
-    async def _emit_resolved(
-        self,
-        request_id: str,
-        execution_id: str,
-        decision: str,
-        note: Optional[str],
-    ) -> None:
+    async def _emit(self, event_type: HitlEventType, data: Dict[str, Any]) -> None:
         try:
-            await self._event_bus.emit(
-                Event(
-                    type=EventType.HITL_REQUEST_RESOLVED,
-                    data={
-                        "request_id": request_id,
-                        "execution_id": execution_id,
-                        "decision": decision,
-                        "note": note,
-                    },
-                )
-            )
+            mapping = {
+                HitlEventType.REQUEST_OPEN: EventType.HITL_REQUEST_OPEN,
+                HitlEventType.REQUEST_UPDATED: EventType.HITL_REQUEST_OPEN,
+                HitlEventType.REQUEST_MODIFIED: EventType.HITL_REQUEST_OPEN,
+                HitlEventType.PATCH_APPLIED: EventType.HITL_REQUEST_OPEN,
+                HitlEventType.CONTEXT_REFLOWED: EventType.HITL_REQUEST_OPEN,
+                HitlEventType.REPLAY_TRIGGERED: EventType.HITL_REQUEST_OPEN,
+                HitlEventType.REQUEST_RESOLVED: EventType.HITL_REQUEST_RESOLVED,
+            }
+            await self._event_bus.emit(Event(type=mapping.get(event_type, EventType.HITL_REQUEST_OPEN), data={**data, "hitl_event_type": event_type.value}))
         except Exception as e:
-            logger.warning("HITL emit resolved failed: {}", e)
+            logger.warning("HITL emit failed: {}", e)
 
 
 def create_hitl_coordinator(

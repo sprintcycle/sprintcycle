@@ -168,24 +168,24 @@ class SprintCycle:
         return {"success": True, "data": await c.list_pending(execution_id)}
 
     async def hitl_submit(
-        self, request_id: str, decision: str, note: Optional[str] = None
+        self, request_id: str, decision: str, note: Optional[str] = None, correction: Optional[Dict[str, Any]] = None, replay: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
-        from .governance.hitl import validate_hitl_decision_for_submit
+        from .governance.hitl import HitlCorrection, HitlReplayDirective, validate_hitl_decision_for_submit
 
         if validate_hitl_decision_for_submit(decision) is None:
             return {
                 "success": False,
                 "error": (
-                    "Invalid HITL decision. Use approve, skip_sprint, or abort_execution "
-                    "(optional aliases: reject/deny/abort/stop/halt→abort_execution; "
-                    "skip→skip_sprint; pass/ok/yes/continue→approve). "
-                    "regen / need_info / modify are not accepted."
+                    "Invalid HITL decision. Use approve, reject, request_changes, modify, retry, resume, "
+                    "skip_sprint, or abort_execution (aliases are accepted)."
                 ),
             }
         c = self._get_hitl_coordinator()
         if not c:
             return {"success": False, "error": "HITL is disabled"}
-        rec = await c.submit_decision(request_id, decision, note)
+        corr_obj = HitlCorrection(**correction) if isinstance(correction, dict) else None
+        replay_obj = HitlReplayDirective(**replay) if isinstance(replay, dict) else None
+        rec = await c.submit_decision(request_id, decision, note, correction=corr_obj, replay=replay_obj)
         if rec is None:
             return {"success": False, "error": "Request not found or already resolved"}
         return {"success": True, "data": rec.to_dict()}

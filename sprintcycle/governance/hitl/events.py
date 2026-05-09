@@ -6,10 +6,10 @@ from enum import Enum
 
 
 class HitlEventType(str, Enum):
-    REQUEST_CREATED = "hitl.request.created"
-    REQUEST_PENDING = "hitl.request.pending"
-    REQUEST_APPROVED = "hitl.request.approved"
-    REQUEST_REJECTED = "hitl.request.rejected"
+    REQUEST_OPEN = "hitl.request.open"
+    REQUEST_UPDATED = "hitl.request.updated"
     REQUEST_MODIFIED = "hitl.request.modified"
-    REQUEST_EXPIRED = "hitl.request.expired"
-    REQUEST_RESUMED = "hitl.request.resumed"
+    PATCH_APPLIED = "hitl.patch.applied"
+    CONTEXT_REFLOWED = "hitl.context.reflowed"
+    REPLAY_TRIGGERED = "hitl.replay.triggered"
+    REQUEST_RESOLVED = "hitl.request.resolved"

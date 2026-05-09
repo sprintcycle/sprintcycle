@@ -29,6 +29,16 @@ _DEF_MODE_BY_GATE = {
 }
 
 
+def _allowed_actions_for_gate(gate: str) -> List[str]:
+    if gate == HitlGate.BEFORE_SPRINT.value:
+        return ["approve", "reject", "skip_sprint", "abort_execution", "request_changes", "modify"]
+    if gate == HitlGate.AFTER_TASK.value:
+        return ["approve", "reject", "abort_execution", "request_changes", "modify", "retry", "resume"]
+    if gate in (HitlGate.SPEC_CONFIRM.value, HitlGate.EXECUTION_APPROVAL.value, HitlGate.RELEASE_APPROVAL.value):
+        return ["approve", "reject", "request_changes", "modify", "retry", "resume"]
+    return ["approve", "reject", "request_changes", "modify"]
+
+
 def evaluate_hitl_policy(*, gate: str, context: Dict[str, Any], config: Any) -> HitlPolicyResult:
     enabled = bool(getattr(config, "hitl_enabled", False))
     gates = str(getattr(config, "hitl_gates", "") or "")
@@ -40,12 +50,7 @@ def evaluate_hitl_policy(*, gate: str, context: Dict[str, Any], config: Any) -> 
     mode = _DEF_MODE_BY_GATE.get(gate, "confirm")
     timeout_seconds = int(getattr(config, "hitl_default_timeout_seconds", 300) or 300)
 
-    recommended_actions = ["approve", "reject", "modify"]
-    if gate == HitlGate.BEFORE_SPRINT.value:
-        recommended_actions = ["approve", "reject", "skip_sprint", "abort_execution"]
-    elif gate == HitlGate.AFTER_TASK.value:
-        recommended_actions = ["approve", "reject", "abort_execution", "modify"]
-
+    recommended_actions = _allowed_actions_for_gate(gate)
     reason = str(context.get("hitl_reason") or context.get("summary") or "human confirmation required")
     return HitlPolicyResult(
         should_trigger=True,

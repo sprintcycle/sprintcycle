@@ -132,6 +132,11 @@ class GovernanceRunner:
             timeout_seconds=policy.timeout_seconds,
         )
         context["hitl_decision"] = decision.value
+        if decision.value in {HitlDecision.REQUEST_CHANGES.value, HitlDecision.MODIFY.value, HitlDecision.RETRY.value}:
+            current = await hitl.get_request(request.request_id)
+            if current is not None:
+                ctx = current.get("applied_context") or current.get("context") or {}
+                context.update({"hitl": ctx.get("hitl", {}), "hitl_applied_context": ctx})
         return policy
 
     async def run_planning_gate(self, project_path: str, extra_context: Optional[Dict[str, Any]] = None) -> GuardReport:
