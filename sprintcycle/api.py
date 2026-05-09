@@ -49,7 +49,11 @@ from .release_plan.payload_keys import checkpoint_plan_yaml
 from .release_plan.validator import ReleasePlanValidator
 from .results import (
     DiagnoseResult,
+    EvolutionIndexResult,
+    EvolutionOverviewResult,
     EvolutionSummary,
+    EvolutionVersionListResult,
+    EvolutionVersionSummary,
     PlanResult,
     RollbackResult,
     RunResult,
@@ -67,6 +71,8 @@ from .run_workspace import (
 from .evolution import MemoryStore, UserIntentEvolutionLoop
 from .governance.facade import GovernanceFacade, create_governance_facade
 from .persistence.knowledge_repository import KnowledgeCardRepository
+from .versioning.interface import get_version_manifest_summary
+from .versioning.sqlite_registry import SQLiteVersionRegistry
 
 
 class SprintCycle:
@@ -89,6 +95,9 @@ class SprintCycle:
         ensure_default_execution_event_backend_for_project(self.project_path, self.config)
         self._orchestrator: Optional[SprintOrchestrator] = None
         self._governance: Optional[GovernanceFacade] = None
+        self._evolution_registry = SQLiteVersionRegistry(
+            root_dir=str(getattr(getattr(self.config, "evolution_versioning", None), "root_dir", None) or ".sprintcycle/versioning")
+        )
         self._memory_store = MemoryStore(runtime_config=self.config)
         self._knowledge_repo = KnowledgeCardRepository(self._resolve_knowledge_db_path())
         self._intent_evolution_loop = UserIntentEvolutionLoop(
@@ -100,6 +109,104 @@ class SprintCycle:
     @property
     def intent_evolution_loop(self) -> UserIntentEvolutionLoop:
         return self._intent_evolution_loop
+
+    async def get_evolution_version(self, version_id: str) -> EvolutionVersionSummary:
+        """查询单个演化版本摘要。"""
+        payload = await get_version_manifest_summary(self._evolution_registry, version_id)
+        return EvolutionVersionSummary(
+            success=bool(payload.get("success")),
+            error=payload.get("error"),
+            version_id=payload.get("version_id", ""),
+            target=payload.get("target", ""),
+            commit_hash=payload.get("commit_hash", ""),
+            tag=payload.get("tag", ""),
+            branch=payload.get("branch", ""),
+            manifest_path=payload.get("manifest_path", ""),
+            sandbox_id=payload.get("sandbox_id", ""),
+            metadata=dict(payload.get("metadata", {}) or {}),
+        )
+
+    async def list_evolution_versions(self, target: Optional[str] = None, limit: int = 20) -> EvolutionVersionListResult:
+        """列出演化版本历史。"""
+        versions = await self._evolution_registry.list_versions(target=target, limit=limit)
+        return EvolutionVersionListResult(
+            success=True,
+            target=target or "",
+            versions=[
+                EvolutionVersionSummary(
+                    success=True,
+                    version_id=v.version_id,
+                    target=v.target,
+                    commit_hash=v.commit_hash or "",
+                    tag=v.tag or "",
+                    branch=v.branch or "",
+                    manifest_path=v.manifest_path or "",
+                    sandbox_id=v.sandbox_id or "",
+                    metadata=dict(v.metadata or {}),
+                )
+                for v in versions
+            ],
+            total=len(versions),
+        )
+
+    async def export_evolution_index(self) -> EvolutionIndexResult:
+        """导出演化版本索引。"""
+        index = await self._evolution_registry.export_manifest_index()
+        return EvolutionIndexResult(success=True, index=index)
+
+    async def evolution_overview(self) -> EvolutionOverviewResult:
+        """演化总览：active、recent candidate、索引与沙盒状态。"""
+        active_versions: Dict[str, Dict[str, Any]] = {}
+        for target in ("code", "requirement"):
+            active = await self._evolution_registry.get_active(target)
+            if active is not None:
+                active_versions[target] = active.to_dict()
+
+        recent = await self._evolution_registry.list_versions(limit=5)
+        index = await self._evolution_registry.export_manifest_index()
+        totals = {
+            "versions": len(recent),
+            "code_active": 1 if "code" in active_versions else 0,
+            "requirement_active": 1 if "requirement" in active_versions else 0,
+        }
+        sandbox_status: Dict[str, Any] = {}
+        try:
+            sandbox_status = {
+                "available": True,
+                "backend": getattr(getattr(self.config, "evolution_sandbox", None), "backend", "worktree"),
+                "root_dir": getattr(getattr(self.config, "evolution_sandbox", None), "root_dir", ".sprintcycle/evolution"),
+            }
+        except Exception:
+            sandbox_status = {"available": False}
+        return EvolutionOverviewResult(
+            success=True,
+            active_versions=active_versions,
+            recent_candidates=[
+                EvolutionVersionSummary(
+                    success=True,
+                    version_id=v.version_id,
+                    target=v.target,
+                    commit_hash=v.commit_hash or "",
+                    tag=v.tag or "",
+                    branch=v.branch or "",
+                    manifest_path=v.manifest_path or "",
+                    sandbox_id=v.sandbox_id or "",
+                    metadata=dict(v.metadata or {}),
+                )
+                for v in recent
+            ],
+            index=index,
+            totals=totals,
+            sandbox_status=sandbox_status,
+        )
+
+    def evolution_overview_cli(self) -> str:
+        """CLI 友好的演化总览文本。"""
+        return asyncio.run(self.evolution_overview()).to_cli_text()
+
+    def evolution_overview_dashboard(self) -> Dict[str, Any]:
+        """Dashboard 首屏友好的演化总览 payload。"""
+        return asyncio.run(self.evolution_overview()).to_dashboard_payload()
 
     def governance_check(self, gate: str = "review", **kwargs: Any) -> Dict[str, Any]:
         """治理检查薄入口：仅做编排，不承载规则实现。"""

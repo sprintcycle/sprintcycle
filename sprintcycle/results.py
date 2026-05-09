@@ -107,6 +107,111 @@ class StopResult(ResultBase):
     message: str = ""
 
 
+@dataclass
+class EvolutionVersionSummary(ResultBase):
+    """演化版本摘要。"""
+
+    version_id: str = ""
+    target: str = ""
+    commit_hash: str = ""
+    tag: str = ""
+    branch: str = ""
+    manifest_path: str = ""
+    sandbox_id: str = ""
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return super().to_dict()
+
+
+@dataclass
+class EvolutionVersionListResult(ResultBase):
+    """演化版本列表。"""
+
+    target: str = ""
+    versions: List[EvolutionVersionSummary] = field(default_factory=list)
+    total: int = 0
+
+    def to_dict(self) -> Dict[str, Any]:
+        data = super().to_dict()
+        data["versions"] = [v.to_dict() if hasattr(v, "to_dict") else v for v in self.versions]
+        return data
+
+
+@dataclass
+class EvolutionIndexResult(ResultBase):
+    """演化版本索引。"""
+
+    index: Dict[str, List[str]] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return super().to_dict()
+
+
+@dataclass
+class EvolutionOverviewResult(ResultBase):
+    """演化总览结果。"""
+
+    active_versions: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    recent_candidates: List[EvolutionVersionSummary] = field(default_factory=list)
+    index: Dict[str, List[str]] = field(default_factory=dict)
+    totals: Dict[str, int] = field(default_factory=dict)
+    sandbox_status: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        data = super().to_dict()
+        data["recent_candidates"] = [v.to_dict() if hasattr(v, "to_dict") else v for v in self.recent_candidates]
+        return data
+
+    def to_dashboard_payload(self) -> Dict[str, Any]:
+        """Dashboard 首屏友好的轻量 payload。"""
+        active = {
+            target: {
+                "version_id": info.get("version_id", ""),
+                "commit_hash": info.get("commit_hash", ""),
+                "tag": info.get("tag", ""),
+                "manifest_path": info.get("manifest_path", ""),
+                "sandbox_id": info.get("sandbox_id", ""),
+            }
+            for target, info in self.active_versions.items()
+        }
+        recent = [
+            {
+                "version_id": v.version_id,
+                "target": v.target,
+                "commit_hash": v.commit_hash,
+                "tag": v.tag,
+                "manifest_path": v.manifest_path,
+            }
+            for v in self.recent_candidates[:5]
+        ]
+        return {
+            "active_versions": active,
+            "recent_candidates": recent,
+            "totals": dict(self.totals),
+            "sandbox_status": dict(self.sandbox_status),
+        }
+
+    def to_cli_text(self) -> str:
+        """CLI 友好的文本摘要。"""
+        lines = ["Evolution Overview"]
+        lines.append(f"  versions: {self.totals.get('versions', 0)}")
+        lines.append(f"  code_active: {self.totals.get('code_active', 0)}")
+        lines.append(f"  requirement_active: {self.totals.get('requirement_active', 0)}")
+        lines.append(f"  sandbox: {self.sandbox_status.get('backend', 'unknown')} @ {self.sandbox_status.get('root_dir', '')}")
+        for target in sorted(self.active_versions.keys()):
+            info = self.active_versions[target]
+            lines.append(
+                f"  active[{target}]: {info.get('version_id', '')}"
+                f" ({info.get('tag', '') or info.get('commit_hash', '')})"
+            )
+        if self.recent_candidates:
+            lines.append("  recent:")
+            for v in self.recent_candidates[:5]:
+                lines.append(f"    - {v.target}: {v.version_id}")
+        return "\n".join(lines)
+
+
 __all__ = [
     "ResultBase",
     "EvolutionSummary",
@@ -116,4 +221,8 @@ __all__ = [
     "StatusResult",
     "RollbackResult",
     "StopResult",
+    "EvolutionVersionSummary",
+    "EvolutionVersionListResult",
+    "EvolutionIndexResult",
+    "EvolutionOverviewResult",
 ]

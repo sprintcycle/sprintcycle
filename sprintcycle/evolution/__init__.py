@@ -2,7 +2,8 @@
 SprintCycle Evolution Module
 
 **执行主路径**在 ``SprintCycle`` + ``ReleasePlan`` + ``expand_release_plan_for_execution`` +
-``SprintOrchestrator``；本包提供测量、记忆、回滚，以及 ``ManualReleasePlanSource`` 等（磁盘扫描与诊断辅助）。
+``SprintOrchestrator``；本包提供测量、记忆、回滚，以及进化控制面（sandbox / versioning / facade）
+与意图演化闭环。
 
 代码级边界约束
 - ``evolution`` 只负责“观察、判定、沉淀”，不接管主执行链路。
@@ -36,13 +37,36 @@ from .memory_store import (
     EvolutionMemory,
     MemoryStore,
 )
-
 from .rollback_manager import (
     EvolutionRollbackManager,
     RollbackError,
     VariantBranch,
 )
 from .types import SprintContext
+
+# ========== Evolution control plane ==========
+from .models import (
+    EvolutionMode,
+    EvolutionPlan,
+    EvolutionRequest,
+    EvolutionStage,
+    EvolutionTarget,
+    PromotionResult,
+    RollbackOutcome,
+    SandboxBackend,
+    SandboxSpec,
+    ValidationResult,
+    VersionArtifact,
+    VersioningBackend,
+)
+from .controller import (
+    CodeEvolutionAdapter,
+    DefaultEvolutionController,
+    EvolutionController,
+    RequirementEvolutionAdapter,
+)
+from .default import create_evolution_facade
+from .facade import EvolutionFacade
 
 __version__ = "0.9.2"
 
@@ -63,4 +87,22 @@ __all__ = [
     "IntentSnapshot",
     "IntentEvolutionDecision",
     "UserIntentEvolutionLoop",
+    "EvolutionMode",
+    "EvolutionPlan",
+    "EvolutionRequest",
+    "EvolutionStage",
+    "EvolutionTarget",
+    "PromotionResult",
+    "RollbackOutcome",
+    "SandboxBackend",
+    "SandboxSpec",
+    "ValidationResult",
+    "VersionArtifact",
+    "VersioningBackend",
+    "CodeEvolutionAdapter",
+    "RequirementEvolutionAdapter",
+    "EvolutionController",
+    "DefaultEvolutionController",
+    "create_evolution_facade",
+    "EvolutionFacade",
 ]
