@@ -7,6 +7,9 @@ from typing import Any, Dict, List
 
 from loguru import logger
 
+from ..quality_spec.registry import QualityRegistry
+from ..quality_spec.plugin_protocols import QualityPlugin
+
 
 def merge_argv_via_pluggy(
     gate: str,
@@ -45,6 +48,7 @@ def merge_argv_via_pluggy(
 
     pm.register(_Builtin())
 
+    quality_registry = QualityRegistry()
     eps = importlib.metadata.entry_points()
     try:
         plug_eps = eps.select(group="sprintcycle_governance.pluggy_plugin")  # type: ignore[union-attr]
@@ -58,7 +62,11 @@ def merge_argv_via_pluggy(
             continue
         try:
             if callable(reg):
-                reg(pm)
+                result = reg(pm)
+                if isinstance(result, QualityPlugin):
+                    result.register(quality_registry)
+            elif isinstance(reg, QualityPlugin):
+                reg.register(quality_registry)
         except Exception as e:
             logger.warning("注册 pluggy 治理插件 {} 失败: {}", ep.name, e)
 
@@ -74,4 +82,10 @@ def merge_argv_via_pluggy(
         for item in ch:
             if isinstance(item, dict):
                 extra.append(item)
+    if quality_registry.list_rules():
+        for rule in quality_registry.list_rules():
+            if isinstance(rule, dict):
+                extra.append(rule)
+            elif hasattr(rule, "to_dict"):
+                extra.append(rule.to_dict())
     return list(base_items) + extra

@@ -12,6 +12,10 @@ from .providers.playwright_provider import PlaywrightProvider
 from .providers.pytest_provider import PytestProvider
 from .providers.security_provider import SecurityProvider
 from .providers.visual_provider import VisualProvider
+from ..quality_spec.context import build_quality_context
+from ..quality_spec.providers.property_provider import HypothesisProvider
+from ..quality_spec.reports.finding import Finding as QualityFinding
+from ..quality_spec.reports.report import Report as QualityReport
 
 
 class VerificationEngine:
@@ -25,6 +29,7 @@ class VerificationEngine:
             "visual": VisualProvider(),
             "arch": ArchProvider(),
             "security": SecurityProvider(),
+            "hypothesis": HypothesisProvider(),
         }
         self._register_builtin_rules()
 
@@ -38,6 +43,7 @@ class VerificationEngine:
             VerificationRule(rule_id="arch:grimp", title="grimp", gate="arch", severity="warning", action="warn"),
             VerificationRule(rule_id="arch:ruff", title="ruff", gate="arch", severity="warning", action="warn"),
             VerificationRule(rule_id="security:secrets", title="敏感信息扫描", gate="security", severity="error", action="block"),
+            VerificationRule(rule_id="verify:hypothesis", title="属性测试", gate="verify", severity="warning", action="warn"),
         ]
         for rule in rules:
             self.registry.register_rule(rule)
@@ -52,9 +58,30 @@ class VerificationEngine:
         def _check(ctx):
             if provider is None:
                 return []
+            if provider_key == "hypothesis":
+                return []
             return provider.run(ctx.project_root, ctx.context)
 
         return _check
+
+    async def _run_quality_spec_hypothesis(self, root: Path, ctx: Dict[str, Any]) -> List[VerificationFinding]:
+        provider = self._providers.get("hypothesis")
+        if provider is None:
+            return []
+        qctx = build_quality_context(project_path=str(root), gate="verification", extra=ctx)
+        report = await provider.run_property_tests(qctx.extra)
+        findings: List[VerificationFinding] = []
+        for finding in report.findings:
+            findings.append(
+                VerificationFinding(
+                    rule_id=finding.rule_id,
+                    severity=finding.severity,  # type: ignore[arg-type]
+                    message=finding.message,
+                    location=finding.location,
+                    metadata=finding.metadata,
+                )
+            )
+        return findings
 
     async def run(
         self,
@@ -72,6 +99,7 @@ class VerificationEngine:
             findings.extend(self.registry.run_gate("test", str(root), ctx))
         if gate in ("verify", "all") and self.config.run_verify:
             findings.extend(self.registry.run_gate("verify", str(root), ctx))
+            findings.extend(await self._run_quality_spec_hypothesis(root, ctx))
         if gate in ("arch", "all") and self.config.run_arch:
             findings.extend(self.registry.run_gate("arch", str(root), ctx))
         if gate in ("security", "all") and self.config.run_security:

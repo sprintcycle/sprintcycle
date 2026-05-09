@@ -4,6 +4,7 @@ from .governance_context import (
     CTX_GOVERNANCE_TASK_AFTER_DETAIL,
     CTX_GOVERNANCE_TASK_AFTER_FAILED,
 )
+from .quality_hooks import QualitySprintLifecycleHooks, QualityTaskLifecycleHooks, build_quality_lifecycle_report
 from .sprint_hooks import (
     ChainedSprintHooks,
     NoOpSprintLifecycleHooks,
@@ -18,6 +19,9 @@ __all__ = [
     "ChainedTaskHooks",
     "TaskLifecycleHooks",
     "NoOpTaskLifecycleHooks",
+    "QualitySprintLifecycleHooks",
+    "QualityTaskLifecycleHooks",
+    "build_quality_lifecycle_report",
     "CTX_GOVERNANCE_TASK_AFTER_FAILED",
     "CTX_GOVERNANCE_TASK_AFTER_DETAIL",
 ]

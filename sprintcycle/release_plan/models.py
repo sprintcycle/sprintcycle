@@ -13,6 +13,10 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
+from sprintcycle.quality_spec.spec.constraint_spec import ConstraintSpec
+from sprintcycle.quality_spec.spec.task_spec import TaskSpec
+from sprintcycle.quality_spec.spec.verification_strategy import VerificationStrategySpec
+
 
 class ExecutionMode(Enum):
     """计划级执行模式（Scrum：默认即标准 Sprint 交付链）。"""
@@ -78,6 +82,65 @@ class SprintBacklogItem:
             d["spec_ref"] = self.spec_ref
         return d
 
+    def to_task_spec(self, sprint_name: str = "") -> TaskSpec:
+        spec_refs = [self.spec_ref] if self.spec_ref else []
+        acceptance_refs: List[str] = []
+        if self.expected_output:
+            acceptance_refs.append(self.expected_output)
+        constraint_spec = ConstraintSpec(
+            domain={
+                "legacy_constraints": list(self.constraints),
+                "target": self.target,
+                "sprint_name": sprint_name,
+            }
+        )
+        verification_strategy = VerificationStrategySpec.default_for_task_type("feature").to_dict()
+        rollback_plan = {"enabled": True, "strategy": "revert-last-change"}
+        return TaskSpec(
+            id=self.description[:64].strip().replace(" ", "-"),
+            title=self.description.strip(),
+            type="feature",
+            spec_refs=spec_refs,
+            acceptance_refs=acceptance_refs or ([self.description.strip()] if self.description else []),
+            constraints=constraint_spec.to_dict(),
+            verification_strategy=verification_strategy,
+            rollback_plan=rollback_plan,
+            risk_level="medium",
+            intent=self.description.strip(),
+            summary=self.expected_output or self.description.strip(),
+            priority="medium",
+            metadata={"agent": self.agent, "target": self.target, "timeout": self.timeout},
+        )
+
+    def to_task_spec(self, sprint_name: str = "", sprint_goal: str = "") -> TaskSpec:
+        spec_refs = [self.spec_ref] if self.spec_ref else []
+        task_constraints = ConstraintSpec(
+            domain={"task": list(self.constraints)}
+        ).to_dict()
+        verification_strategy = VerificationStrategySpec.default_for_task_type("feature").to_dict()
+        metadata: Dict[str, Any] = {
+            "agent": self.agent,
+            "target": self.target,
+            "expected_output": self.expected_output,
+            "timeout": self.timeout,
+            "sprint_name": sprint_name,
+            "sprint_goal": sprint_goal,
+        }
+        return TaskSpec(
+            id=metadata.get("target") or self.description[:48].strip().replace(" ", "-") or "task",
+            title=self.description.splitlines()[0].strip() if self.description else "",
+            type="feature",
+            spec_refs=spec_refs,
+            acceptance_refs=[],
+            constraints=task_constraints,
+            verification_strategy=verification_strategy,
+            rollback_plan={},
+            risk_level="medium",
+            intent=self.description,
+            summary=self.description,
+            metadata=metadata,
+        )
+
 
 @dataclass
 class SprintDefinition:
@@ -92,6 +155,10 @@ class SprintDefinition:
             "goals": self.goals,
             "tasks": [t.to_dict() for t in self.tasks],
         }
+
+    def to_task_specs(self) -> List[TaskSpec]:
+        sprint_goal = " ".join(self.goals).strip()
+        return [task.to_task_spec(sprint_name=self.name, sprint_goal=sprint_goal) for task in self.tasks]
 
 
 @dataclass
@@ -114,6 +181,12 @@ class ReleasePlan:
         """总任务数"""
         return sum(len(sprint.tasks) for sprint in self.sprints)
 
+    def to_task_specs(self) -> List[TaskSpec]:
+        specs: List[TaskSpec] = []
+        for sprint in self.sprints:
+            specs.extend(sprint.to_task_specs())
+        return specs
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "project": self.project.to_dict(),
@@ -123,6 +196,12 @@ class ReleasePlan:
             "metadata": self.metadata,
             "created_at": self.created_at.isoformat(),
         }
+
+    def to_task_specs(self) -> List[TaskSpec]:
+        specs: List[TaskSpec] = []
+        for sprint in self.sprints:
+            specs.extend(sprint.to_task_specs())
+        return specs
 
     def to_yaml(self) -> str:
         """转换为 YAML 字符串"""

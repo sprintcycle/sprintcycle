@@ -15,6 +15,12 @@ from loguru import logger
 
 from ..config.quality import runs_architecture_guard, runs_pytest, runs_static_gate
 from ..execution.static_analyzer import AnalysisConfig, StaticAnalyzer
+from ..quality_spec.context import build_quality_context
+from ..quality_spec.reports.finding import Finding as QualityFinding
+from ..quality_spec.reports.report import Report as QualityReport
+from ..quality_spec.spec.task_spec import TaskSpec
+from ..quality_spec.rules.planning_rules import default_planning_rules
+from ..quality_spec.rules.review_rules import default_review_rules
 from .arch_guard.adr_check import check_adr_readme_index, check_adr_readme_strict_glob
 from .arch_guard.compose_hint import check_compose_hints, check_compose_supply_chain_hints
 from .arch_guard.model import GuardFinding, GuardReport, GuardSeverity
@@ -108,17 +114,45 @@ class GovernanceRunner:
             meta["checks_planned"].append("acceptance_glob")
 
         rp = (extra_context or {}).get("release_plan")
+        task_specs: List[TaskSpec] = []
         if rp is not None and getattr(self._cfg, "governance_planning_validate_release_plan", True):
             from ..release_plan.models import ReleasePlan
 
             if isinstance(rp, ReleasePlan):
+                task_specs = rp.to_task_specs()
+                meta["task_spec_count"] = len(task_specs)
+                for spec in task_specs:
+                    try:
+                        spec.validate_minimal()
+                    except Exception as e:
+                        violations.append(
+                            GuardFinding(
+                                rule_id="planning:task_spec:minimal",
+                                severity="error",
+                                message=f"TaskSpec 校验失败: {e}",
+                                location={"task_id": spec.id or ""},
+                            )
+                        )
                 violations.extend(violations_from_release_plan_validator(rp))
                 violations.extend(violations_for_task_spec_refs(root, rp))
                 meta["checks_planned"].append("release_plan_validator+spec_ref")
 
+        if extra_context:
+            meta["context_keys"] = sorted(str(k) for k in extra_context.keys())
+            if task_specs:
+                ctx = build_quality_context(
+                    project_path=str(root),
+                    gate="planning",
+                    extra=extra_context,
+                    spec=task_specs[0] if len(task_specs) == 1 else task_specs,
+                )
+                meta["quality_context_gate"] = ctx.gate
+
         data = self._load_yaml_data(root)
+        planning_rules = default_planning_rules().rules
         planning_argv = extend_argv_items_with_plugins("planning", checks_for_gate(data, "planning"), self._cfg, root)
         violations.extend(run_argv_checks(planning_argv, root, "planning"))
+        meta["planning_rule_count"] = len(planning_rules)
 
         if extra_context:
             meta["context_keys"] = sorted(str(k) for k in extra_context.keys())
@@ -252,7 +286,7 @@ class GovernanceRunner:
                 adr_docs = [p for p in adr_dir.glob("*.md") if p.name.lower() != "readme.md"]
                 if not adr_docs:
                     violations.append(
-                        GovernanceViolation(
+                        GuardFinding(
                             rule_id="adr:empty",
                             severity="warning",
                             message="docs/adr 下无 ADR 正文（*.md，不含 README）",
@@ -275,7 +309,7 @@ class GovernanceRunner:
             cfile = compose if compose.is_file() else alt if alt.is_file() else None
             if not cfile:
                 violations.append(
-                    GovernanceViolation(
+                    GuardFinding(
                         rule_id="compose:missing",
                         severity="warning",
                         message="未找到 docker-compose.yml 或 compose.yaml",
@@ -294,6 +328,87 @@ class GovernanceRunner:
                     if isinstance(cdoc, dict) and isinstance(cdoc.get("services"), dict):
                         violations.extend(check_compose_supply_chain_hints(cfile, cdoc["services"]))
                         meta["steps"].append("compose_supply_chain")
+
+        try:
+            from ..quality_spec.adapters.deal_adapter import DealAdapter
+            from ..quality_spec.adapters.bandit_adapter import BanditAdapter
+            from ..quality_spec.adapters.arch_adapter import ArchAdapter
+            from ..quality_spec.context import build_quality_context
+            from ..quality_spec.reports.report import Report as QualityReport
+        except Exception:
+            DealAdapter = BanditAdapter = ArchAdapter = None  # type: ignore[assignment]
+            build_quality_context = None  # type: ignore[assignment]
+            QualityReport = None  # type: ignore[assignment]
+
+        if build_quality_context is not None and QualityReport is not None:
+            qctx = build_quality_context(project_path=str(root), gate="review", extra={"project_path": str(root)})
+            meta["quality_context_gate"] = qctx.gate
+            if DealAdapter is not None:
+                try:
+                    deal_report = await DealAdapter().check_contracts(qctx.extra)
+                    violations.extend(
+                        GuardFinding(
+                            rule_id=finding.rule_id,
+                            severity=finding.severity,
+                            message=finding.message,
+                            location=finding.location,
+                        )
+                        for finding in deal_report.findings
+                    )
+                    meta["steps"].append("quality_spec_deal")
+                except Exception as e:
+                    violations.append(
+                        GuardFinding(
+                            rule_id="quality_spec:deal",
+                            severity="warning",
+                            message=str(e),
+                            location={},
+                        )
+                    )
+            if BanditAdapter is not None:
+                try:
+                    bandit_report = await BanditAdapter().scan(qctx.extra)
+                    violations.extend(
+                        GuardFinding(
+                            rule_id=finding.rule_id,
+                            severity=finding.severity,
+                            message=finding.message,
+                            location=finding.location,
+                        )
+                        for finding in bandit_report.findings
+                    )
+                    meta["steps"].append("quality_spec_bandit")
+                except Exception as e:
+                    violations.append(
+                        GuardFinding(
+                            rule_id="quality_spec:bandit",
+                            severity="warning",
+                            message=str(e),
+                            location={},
+                        )
+                    )
+            if ArchAdapter is not None:
+                try:
+                    arch_report = await ArchAdapter().analyze_architecture(qctx.extra)
+                    violations.extend(
+                        GuardFinding(
+                            rule_id=finding.rule_id,
+                            severity=finding.severity,
+                            message=finding.message,
+                            location=finding.location,
+                        )
+                        for finding in arch_report.findings
+                    )
+                    meta["steps"].append("quality_spec_arch")
+                except Exception as e:
+                    violations.append(
+                        GuardFinding(
+                            rule_id="quality_spec:arch",
+                            severity="warning",
+                            message=str(e),
+                            location={},
+                        )
+                    )
 
         _maybe_downgrade_errors_to_warnings(self._cfg, violations)
         meta["duration_sec"] = round(time.perf_counter() - t0, 3)
