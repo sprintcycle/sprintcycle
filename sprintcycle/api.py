@@ -70,6 +70,7 @@ from .run_workspace import (
 )
 from .evolution import MemoryStore, UserIntentEvolutionLoop
 from .governance.facade import GovernanceFacade, create_governance_facade
+from .governance.suggestion import SuggestionFacade, create_suggestion_facade
 from .persistence.knowledge_repository import KnowledgeCardRepository
 from .versioning.interface import get_version_manifest_summary
 from .versioning.sqlite_registry import SQLiteVersionRegistry
@@ -98,6 +99,11 @@ class SprintCycle:
         self._evolution_registry = SQLiteVersionRegistry(
             root_dir=str(getattr(getattr(self.config, "evolution_versioning", None), "root_dir", None) or ".sprintcycle/versioning")
         )
+        self._suggestion: SuggestionFacade = create_suggestion_facade(
+            project_path=self.project_path,
+            config=self.config,
+            evolution_facade=None,
+        )
         self._memory_store = MemoryStore(runtime_config=self.config)
         self._knowledge_repo = KnowledgeCardRepository(self._resolve_knowledge_db_path())
         self._intent_evolution_loop = UserIntentEvolutionLoop(
@@ -109,6 +115,10 @@ class SprintCycle:
     @property
     def intent_evolution_loop(self) -> UserIntentEvolutionLoop:
         return self._intent_evolution_loop
+
+    @property
+    def suggestion(self) -> SuggestionFacade:
+        return self._suggestion
 
     async def get_evolution_version(self, version_id: str) -> EvolutionVersionSummary:
         """查询单个演化版本摘要。"""
@@ -207,6 +217,33 @@ class SprintCycle:
     def evolution_overview_dashboard(self) -> Dict[str, Any]:
         """Dashboard 首屏友好的演化总览 payload。"""
         return asyncio.run(self.evolution_overview()).to_dashboard_payload()
+
+    def suggestion_overview(self) -> Dict[str, Any]:
+        return asyncio.run(self._suggestion.overview()).to_dict()
+
+    def suggestion_overview_cli(self) -> str:
+        return asyncio.run(self._suggestion.overview()).to_cli_text()
+
+    def suggestion_overview_dashboard(self) -> Dict[str, Any]:
+        return asyncio.run(self._suggestion.overview()).to_dashboard_payload()
+
+    def management_overview(self) -> Dict[str, Any]:
+        return {
+            "success": True,
+            "data": {
+                "evolution": self.evolution_overview_dashboard(),
+                "suggestion": self.suggestion_overview_dashboard(),
+                "project_path": self.project_path,
+            },
+        }
+
+    def management_overview_cli(self) -> str:
+        evo = self.evolution_overview_cli()
+        sug = self.suggestion_overview_cli()
+        return "\n".join(["Management Overview", "", "[Evolution]", evo, "", "[Suggestion]", sug])
+
+    def management_overview_dashboard(self) -> Dict[str, Any]:
+        return self.management_overview().get("data", {})
 
     def governance_check(self, gate: str = "review", **kwargs: Any) -> Dict[str, Any]:
         """治理检查薄入口：仅做编排，不承载规则实现。"""

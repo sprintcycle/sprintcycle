@@ -1,10 +1,9 @@
-"""Governance domain package."""
+"""Suggestion governance module."""
 
-from .facade import GovernanceFacade, create_governance_facade
-from .suggestion import (
+from .facade import SuggestionFacade, create_suggestion_facade
+from .models import (
     Suggestion,
     SuggestionApprovalRecord,
-    SuggestionFacade,
     SuggestionImpactScope,
     SuggestionOverviewResult,
     SuggestionReviewContext,
@@ -12,12 +11,9 @@ from .suggestion import (
     SuggestionSeverity,
     SuggestionSourceType,
     SuggestionStatus,
-    create_suggestion_facade,
 )
 
 __all__ = [
-    "GovernanceFacade",
-    "create_governance_facade",
     "SuggestionFacade",
     "create_suggestion_facade",
     "Suggestion",
