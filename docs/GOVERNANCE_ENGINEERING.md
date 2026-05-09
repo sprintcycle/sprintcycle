@@ -153,7 +153,7 @@
 ## 10. 质量守护模块形态（建议）
 
 - **包路径建议**：`sprintcycle/governance/`（或可选 extra `sprintcycle[governance]`，视依赖体积而定）。
-- **职责**：`GovernanceRunner.run(gate, context) -> GovernanceReport`（JSON + 摘要、`violations[]`、`should_block`）。
+- **职责**：`GovernanceFacade` 作为治理域统一入口，路由到 `observability` / `runner` / `arch_guard` / `hitl` 等子能力；`GovernanceRunner` 保持门禁编排与报告聚合职责。
 - **约束**：不违反现有 `import-linter` 合约（如 api/orchestration/execution 不依赖 dashboard）。
 
 ---
@@ -188,7 +188,7 @@
 
 ## 13. 演进路线（摘要）
 
-- **阶段 A（已实现）**：`GovernanceRunner` + `GovernanceReport`；`GovernanceSprintHooks`（Planning + Review）；CLI `sprintcycle governance check` 与等价别名 **`sprintcycle validate`**（**写盘** `governance_planning_last.json` / `governance_last.json`，并轮转 **`governance_history/`**；可选 **`cli_emit_events`** 派发 `GOVERNANCE_GATE`）；`sprintcycle.toml` `[governance]` 与 `RuntimeConfig` 字段（含 **`history_max_files`**、**`argv_entry_points`**、**`pluggy_argv`**）；Review 包聚合静态分析、可选 import-linter、可选 ADR/Compose 轻量检查；**v4.0**：argv 条目 **`enabled`**、**`tags`**（`browser` / `visual`）与总开关 **`review_browser_e2e`** / **`review_visual`**；Dashboard **`GET /api/governance/latest`**、**`GET /api/governance/history`**、**`POST /api/governance/check`**（与 CLI 同路径；ASGI 下经线程调度避免嵌套事件循环）及 **「治理 / 多源验证」** 页。  
+- **阶段 A（已实现）**：`GovernanceFacade` 作为总入口，内部路由到 `observability` / `runner`；`GovernanceRunner` + `GovernanceReport`；`GovernanceSprintHooks`（Planning + Review）；CLI `sprintcycle governance check` 与等价别名 **`sprintcycle validate`**（**写盘** `governance_planning_last.json` / `governance_last.json`，并轮转 **`governance_history/`**；可选 **`cli_emit_events`** 派发 `GOVERNANCE_GATE`）；`sprintcycle.toml` `[governance]` 与 `RuntimeConfig` 字段（含 **`history_max_files`**、**`argv_entry_points`**、**`pluggy_argv`**）；Review 包聚合静态分析、可选 import-linter、可选 ADR/Compose 轻量检查；**v4.0**：argv 条目 **`enabled`**、**`tags`**（`browser` / `visual`）与总开关 **`review_browser_e2e`** / **`review_visual`**；Dashboard **`GET /api/governance/latest`**、**`GET /api/governance/history`**、**`POST /api/governance/check`**（与 CLI 同路径；ASGI 下经线程调度避免嵌套事件循环）及 **「治理 / 多源验证」** 页。  
 - **阶段 B（已实现）**：`sprintcycle product`（`docker-build` / `up` / `down` / `logs`）。  
 - **阶段 C（已完成相对 v7「二、可落地仍有空间」一揽子）**：`sprintcycle governance model-compare`（含 ``--quick`` → 默认 ``-m golden``）、golden 约定文档 ``docs/GOVERNANCE_GOLDEN.md``、``pytest`` marker ``golden``；``TaskLifecycleHooks`` + **G-3～G-5**（``task_after``、事件、可选阻断）；**F-3 v4**：`run_metadata` 含 Sprint/任务绑定 ``task_outcome_digest``、``measurement_context_hash``，以及 **稳定 prompt 模板全文摘要**（``sprintcycle.prompt_sources`` 含 Coder / Analyzer / Architect / Tester / RegressionTester 等登记模板 → ``prompt_source_digests`` / ``prompt_sources_aggregate_sha256``）；**F-3 v5**：``test_command_incremental``、``ci_matrix_tags`` / ``ci_matrix_tags_joined`` 写入 ``run_metadata`` 并参与哈希绑定；Dashboard **governance_gate** 事件展示 Planning/Review 摘要与 ``compose:*`` 规则命中；**E-3 v1**：Compose YAML 逐服务 ``restart``/``healthcheck`` 提示；**E-3 v2**：可选 **compose 供应链轻量提示**（``:latest``、缺 Dockerfile）；**多包合并**（``config_path`` + ``packs``）；**SDD Planning**（``spec_marker``、``acceptance_glob``、内存 ``ReleasePlan`` + Validator + ``spec_ref``）。  
 - **仍待办（远期）**：OPA/Rego、更重的供应链扫描、L3 AI 自动修复与核心强绑定等（见 §4「刻意不做」与 v7 愿景）。

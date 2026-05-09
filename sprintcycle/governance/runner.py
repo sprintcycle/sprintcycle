@@ -32,17 +32,9 @@ from .arch_guard.sdd_checks import (
 )
 from .arch_guard.argv_extensions import extend_argv_items_with_plugins
 from .arch_guard.yaml_checks import checks_for_gate, run_argv_checks
-from .hitl import (
-    HitlDecision,
-    HitlGate,
-    HitlPolicyResult,
-    HitlRequestRecord,
-    HitlService,
-    create_hitl_coordinator,
-    evaluate_hitl_policy,
-)
+from .hitl import HitlDecision, HitlGate, HitlPolicyResult
+from .observability import ObservabilityFacade, create_observability_facade
 from .yaml_merge import load_merged_governance_data
-from ..execution.events import get_execution_event_backend
 
 if TYPE_CHECKING:
     from ..config.runtime_config import RuntimeConfig
@@ -80,8 +72,7 @@ class GovernanceRunner:
 
     def __init__(self, runtime_config: "RuntimeConfig"):
         self._cfg = runtime_config
-        self._hitl_coord = None
-        self._hitl_service = None
+        self._observability: Optional[ObservabilityFacade] = None
 
     def _project(self, project_path: str) -> Path:
         return Path(project_path).expanduser().resolve()
@@ -89,13 +80,10 @@ class GovernanceRunner:
     def _load_yaml_data(self, root: Path) -> Dict[str, Any]:
         return load_merged_governance_data(root, self._cfg)
 
-    def _hitl(self, project_path: str):
-        if self._hitl_service is not None:
-            return self._hitl_service
-        coord = create_hitl_coordinator(project_path, self._cfg, get_execution_event_backend())
-        self._hitl_coord = coord
-        self._hitl_service = HitlService(coord) if coord is not None else None
-        return self._hitl_service
+    def _observability_facade(self, project_path: str) -> ObservabilityFacade:
+        if self._observability is None:
+            self._observability = create_observability_facade(project_path, self._cfg)
+        return self._observability
 
     async def _maybe_trigger_hitl(
         self,
@@ -110,30 +98,20 @@ class GovernanceRunner:
         policy = evaluate_hitl_policy(gate=gate, context={**context, "summary": summary, "risk_level": risk_level}, config=self._cfg)
         if not policy.should_trigger:
             return policy
-        hitl = self._hitl(project_path)
-        if hitl is None:
-            return policy
-        request = await hitl.start_request(
+        observability = self._observability_facade(project_path)
+        result = await observability.request_human_decision(
             execution_id=str(context.get("execution_id") or "__governance__"),
-            gate=HitlGate(gate),
+            gate=gate,
             title=title,
             summary=summary,
             context={**context, "policy": policy.metadata},
             risk_level=policy.risk_level,
             timeout_seconds=policy.timeout_seconds,
+            wait=True,
         )
-        decision = await hitl._coord.wait_for_decision(
-            execution_id=request.execution_id,
-            gate=HitlGate(gate),
-            title=title,
-            summary=summary,
-            context={**context, "policy": policy.metadata},
-            risk_level=policy.risk_level,
-            timeout_seconds=policy.timeout_seconds,
-        )
-        context["hitl_decision"] = decision.value
-        if decision.value in {HitlDecision.REQUEST_CHANGES.value, HitlDecision.MODIFY.value, HitlDecision.RETRY.value}:
-            current = await hitl.get_request(request.request_id)
+        context["hitl_decision"] = result.decision
+        if result.decision in {HitlDecision.REQUEST_CHANGES.value, HitlDecision.MODIFY.value, HitlDecision.RETRY.value}:
+            current = await observability.get_request(result.request_id)
             if current is not None:
                 ctx = current.get("applied_context") or current.get("context") or {}
                 context.update({"hitl": ctx.get("hitl", {}), "hitl_applied_context": ctx})

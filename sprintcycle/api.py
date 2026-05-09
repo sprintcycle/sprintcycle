@@ -65,6 +65,7 @@ from .run_workspace import (
     normalize_write_policy,
 )
 from .evolution import MemoryStore, UserIntentEvolutionLoop
+from .governance.facade import GovernanceFacade, create_governance_facade
 from .persistence.knowledge_repository import KnowledgeCardRepository
 
 
@@ -87,7 +88,7 @@ class SprintCycle:
         configure_default_store(self.project_path, self.config)
         ensure_default_execution_event_backend_for_project(self.project_path, self.config)
         self._orchestrator: Optional[SprintOrchestrator] = None
-        self._hitl_coordinator: Optional[Any] = None
+        self._governance: Optional[GovernanceFacade] = None
         self._memory_store = MemoryStore(runtime_config=self.config)
         self._knowledge_repo = KnowledgeCardRepository(self._resolve_knowledge_db_path())
         self._intent_evolution_loop = UserIntentEvolutionLoop(
@@ -136,18 +137,10 @@ class SprintCycle:
 
         return resolve_knowledge_db_path(self.project_path, self.config)
 
-    def _get_hitl_coordinator(self) -> Optional[Any]:
-        if not getattr(self.config, "hitl_enabled", False):
-            return None
-        if self._hitl_coordinator is None:
-            from .governance.hitl import create_hitl_coordinator
-
-            self._hitl_coordinator = create_hitl_coordinator(
-                self.project_path,
-                self.config,
-                get_execution_event_backend(),
-            )
-        return self._hitl_coordinator
+    def _get_governance(self) -> Optional[GovernanceFacade]:
+        if self._governance is None:
+            self._governance = create_governance_facade(self.project_path, self.config)
+        return self._governance
 
     @property
     def orchestrator(self) -> SprintOrchestrator:
@@ -156,66 +149,55 @@ class SprintCycle:
                 config=self.config,
                 event_bus=get_execution_event_backend(),
                 project_path=self.project_path,
-                hitl_coordinator=self._get_hitl_coordinator(),
+                hitl_coordinator=None,
                 evolution_loop=self._intent_evolution_loop,
             )
         return self._orchestrator
 
-    async def hitl_pending(self, execution_id: Optional[str] = None) -> Dict[str, Any]:
-        c = self._get_hitl_coordinator()
-        if not c:
+    async def observability_pending(self, execution_id: Optional[str] = None) -> Dict[str, Any]:
+        gov = self._get_governance()
+        if gov is None:
             return {"success": True, "data": []}
-        return {"success": True, "data": await c.list_pending(execution_id)}
+        return {"success": True, "data": await gov.list_pending(execution_id)}
 
-    async def hitl_submit(
+
+    async def observability_submit(
         self, request_id: str, decision: str, note: Optional[str] = None, correction: Optional[Dict[str, Any]] = None, replay: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
-        from .governance.hitl import HitlCorrection, HitlReplayDirective, validate_hitl_decision_for_submit
-
-        if validate_hitl_decision_for_submit(decision) is None:
-            return {
-                "success": False,
-                "error": (
-                    "Invalid HITL decision. Use approve, reject, request_changes, modify, retry, resume, "
-                    "skip_sprint, or abort_execution (aliases are accepted)."
-                ),
-            }
-        c = self._get_hitl_coordinator()
-        if not c:
-            return {"success": False, "error": "HITL is disabled"}
-        corr_obj = HitlCorrection(**correction) if isinstance(correction, dict) else None
-        replay_obj = HitlReplayDirective(**replay) if isinstance(replay, dict) else None
-        rec = await c.submit_decision(request_id, decision, note, correction=corr_obj, replay=replay_obj)
+        gov = self._get_governance()
+        if not gov:
+            return {"success": False, "error": "Governance is disabled"}
+        rec = await gov.submit_decision(request_id, decision, note, correction=correction, replay=replay)
         if rec is None:
             return {"success": False, "error": "Request not found or already resolved"}
-        return {"success": True, "data": rec.to_dict()}
+        return {"success": True, "data": rec}
 
-    async def hitl_history(
+    async def observability_history(
         self, execution_id: Optional[str] = None, limit: int = 50
     ) -> Dict[str, Any]:
-        c = self._get_hitl_coordinator()
-        if not c:
+        gov = self._get_governance()
+        if gov is None:
             return {"success": True, "data": []}
-        return {"success": True, "data": await c.list_history(execution_id, limit)}
+        return {"success": True, "data": await gov.list_history(execution_id, limit)}
 
-    async def hitl_show(self, request_id: str) -> Dict[str, Any]:
-        """按 ID 返回单条 HITL 记录（不依赖 ``hitl_enabled``，便于查看历史库）。"""
-        from .governance.hitl import HitlSqliteStore, default_hitl_db_path
+    async def observability_summary(self, execution_id: Optional[str] = None, limit: int = 50) -> Dict[str, Any]:
+        gov = self._get_governance()
+        if gov is None:
+            return {"success": True, "data": {"has_service": False, "pending_count": 0, "history_count": 0}}
+        return {"success": True, "data": await gov.summary(execution_id, limit)}
 
+    async def observability_show(self, request_id: str) -> Dict[str, Any]:
+        """按 ID 返回单条观测/治理记录。"""
+        gov = self._get_governance()
+        if gov is None:
+            return {"success": False, "error": "Governance is disabled"}
         rid = (request_id or "").strip()
         if not rid:
             return {"success": False, "error": "request_id required"}
-        raw = getattr(self.config, "hitl_db_path", None)
-        db = (
-            str(raw).strip()
-            if isinstance(raw, str) and str(raw).strip()
-            else default_hitl_db_path(self.project_path)
-        )
-        store = HitlSqliteStore(db)
-        rec = await store.get(rid)
+        rec = await gov.get_request(rid)
         if rec is None:
             return {"success": False, "error": "Request not found"}
-        return {"success": True, "data": rec.to_dict()}
+        return {"success": True, "data": rec}
 
     def execution_events(
         self,
@@ -361,7 +343,6 @@ class SprintCycle:
         configure_default_store(self.project_path, self.config)
         ensure_default_execution_event_backend_for_project(self.project_path, self.config)
         self._orchestrator = None
-        self._hitl_coordinator = None
 
     # ─── 1. plan — 看计划，不干活 ───
 
