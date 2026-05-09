@@ -15,6 +15,7 @@ SprintCycle MCP Server
 - sprintcycle_stop:     停止执行
 - sprintcycle_hitl_pending: 待处理人机卡点
 - sprintcycle_hitl_submit: 提交人机卡点决策（字符串，含少量别名，见工具说明）
+- sprintcycle_hitl_modify: 提交“需要修改”决策（等价于 request_changes）
 - sprintcycle_hitl_history: 人机卡点历史
 - sprintcycle_hitl_show: 按 request_id 查单条 HITL（不依赖 enabled，读库）
 - sprintcycle_execution_events: 只读执行事件回放（SQLite MQ，需 execution_event_backend=sqlite）
@@ -252,6 +253,18 @@ class SprintCycleMCPServer:
                     },
                 ),
                 Tool(
+                    name="sprintcycle_hitl_modify",
+                    description="提交需要修改的决策（等价于 request_changes）。",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "request_id": {"type": "string", "description": "HITL 请求 ID"},
+                            "note": {"type": "string", "description": "修改建议或备注"},
+                        },
+                        "required": ["request_id"],
+                    },
+                ),
+                Tool(
                     name="sprintcycle_hitl_history",
                     description="人机卡点历史（需 [hitl] enabled 时经协调器；否则返回空列表）",
                     inputSchema={
@@ -304,6 +317,7 @@ class SprintCycleMCPServer:
                 "sprintcycle_stop": self._handle_stop,
                 "sprintcycle_hitl_pending": self._handle_hitl_pending,
                 "sprintcycle_hitl_submit": self._handle_hitl_submit,
+                "sprintcycle_hitl_modify": self._handle_hitl_modify,
                 "sprintcycle_hitl_history": self._handle_hitl_history,
                 "sprintcycle_hitl_show": self._handle_hitl_show,
                 "sprintcycle_execution_events": self._handle_execution_events,
@@ -376,6 +390,14 @@ class SprintCycleMCPServer:
         data = await self.sc.hitl_submit(
             str(args["request_id"]),
             str(args["decision"]),
+            args.get("note"),
+        )
+        return _text_response(json.dumps(data, ensure_ascii=False, indent=2))
+
+    async def _handle_hitl_modify(self, args: Dict[str, Any]) -> List[TextContent]:
+        data = await self.sc.hitl_submit(
+            str(args["request_id"]),
+            "request_changes",
             args.get("note"),
         )
         return _text_response(json.dumps(data, ensure_ascii=False, indent=2))

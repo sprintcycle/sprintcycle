@@ -15,6 +15,7 @@ from .governance.arch_guard.engine import ArchGuardEngine
 from .governance.arch_guard.reporter import GovernanceReportAdapter
 from .release_plan.parser import ReleasePlanParser
 from .verification.cli import verification as verification_group
+from .api import SprintCycle
 
 
 @click.group()
@@ -23,6 +24,7 @@ def cli() -> None:
 
 
 cli.add_command(verification_group)
+cli.add_command(governance_hitl, name="hitl")
 
 
 @cli.command()
@@ -80,6 +82,68 @@ def governance_check(project: Path, gate: str, release_plan: Optional[Path], jso
         for v in payload.get("violations", []):
             click.echo(f"- [{v['severity']}] {v['rule_id']}: {v['message']}")
     raise SystemExit(0 if payload["success"] else 1)
+
+
+@governance.command("hitl")
+@click.group()
+def governance_hitl() -> None:
+    """HITL 管理命令。"""
+
+
+@governance_hitl.command("pending")
+@click.option("-p", "--project", required=True, type=click.Path(path_type=Path), help="目标项目路径")
+@click.option("--execution-id", default=None, help="可选，仅该执行 ID 下的记录")
+@click.option("--json-output", is_flag=True, help="以 JSON 输出结果")
+def governance_hitl_pending(project: Path, execution_id: Optional[str], json_output: bool) -> None:
+    """列出待决策 HITL 请求。"""
+    sc = SprintCycle(str(project))
+    import asyncio
+
+    payload = asyncio.run(sc.hitl_pending(execution_id=execution_id))
+    if json_output:
+        click.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+    else:
+        for row in payload.get("data", []):
+            click.echo(f"- {row.get('request_id')} [{row.get('gate')}] {row.get('title')} ({row.get('status')})")
+
+
+@governance_hitl.command("history")
+@click.option("-p", "--project", required=True, type=click.Path(path_type=Path), help="目标项目路径")
+@click.option("--execution-id", default=None, help="可选，仅该执行 ID 下的记录")
+@click.option("--limit", default=50, show_default=True, type=int)
+@click.option("--json-output", is_flag=True, help="以 JSON 输出结果")
+def governance_hitl_history(project: Path, execution_id: Optional[str], limit: int, json_output: bool) -> None:
+    """列出 HITL 历史记录。"""
+    sc = SprintCycle(str(project))
+    import asyncio
+
+    payload = asyncio.run(sc.hitl_history(execution_id=execution_id, limit=limit))
+    if json_output:
+        click.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+    else:
+        for row in payload.get("data", []):
+            click.echo(f"- {row.get('request_id')} [{row.get('gate')}] {row.get('decision') or 'pending'}")
+
+
+@governance_hitl.command("show")
+@click.option("-p", "--project", required=True, type=click.Path(path_type=Path), help="目标项目路径")
+@click.argument("request_id")
+@click.option("--json-output", is_flag=True, help="以 JSON 输出结果")
+def governance_hitl_show(project: Path, request_id: str, json_output: bool) -> None:
+    """显示单条 HITL 记录。"""
+    sc = SprintCycle(str(project))
+    import asyncio
+
+    payload = asyncio.run(sc.hitl_show(request_id))
+    if json_output:
+        click.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+    else:
+        if not payload.get("success"):
+            click.echo(payload.get("error", "unknown error"))
+            raise SystemExit(1)
+        row = payload["data"]
+        click.echo(f"{row.get('request_id')} [{row.get('gate')}] {row.get('title')}")
+        click.echo(f"status={row.get('status')} decision={row.get('decision')} note={row.get('decision_note')}")
 
 
 if __name__ == "__main__":

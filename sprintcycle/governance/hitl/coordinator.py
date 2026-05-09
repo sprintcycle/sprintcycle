@@ -1,4 +1,4 @@
-"""HITL 协调器：落库、SSE 事件、轮询等待决策（跨进程安全）。"""
+"""HITL 协调器：落库、事件、轮询等待决策（跨进程安全）。"""
 
 from __future__ import annotations
 
@@ -10,21 +10,25 @@ from uuid import uuid4
 
 from loguru import logger
 
-from ..execution.events import Event, EventType, ExecutionEventBackend
+from ...execution.events import Event, EventType, ExecutionEventBackend
 from .decision_normalize import validate_hitl_decision_for_submit
-from .store_sqlite import HitlSqliteStore, default_hitl_db_path
-from .types import HitlDecision, HitlGate, HitlRequestRecord
+from .store import HitlSqliteStore, default_hitl_db_path
+from .types import HitlDecision, HitlGate, HitlRequestRecord, HitlRiskLevel
 
 if TYPE_CHECKING:
-    from ..config.runtime_config import RuntimeConfig
+    from ...config.runtime_config import RuntimeConfig
 
 
 def _timeout_decision(config: "RuntimeConfig") -> HitlDecision:
     b = (getattr(config, "hitl_timeout_behavior", None) or "approve").strip().lower()
-    if b == "abort_execution":
+    if b in ("abort_execution", "abort"):
         return HitlDecision.ABORT_EXECUTION
-    if b == "skip_sprint":
+    if b in ("skip_sprint", "skip"):
         return HitlDecision.SKIP_SPRINT
+    if b in ("request_changes", "modify"):
+        return HitlDecision.REQUEST_CHANGES
+    if b in ("reject", "deny"):
+        return HitlDecision.REJECT
     return HitlDecision.APPROVE
 
 
@@ -49,7 +53,7 @@ class HitlCoordinator:
     def store(self) -> HitlSqliteStore:
         return self._store
 
-    async def wait_for_decision(
+    async def create_request(
         self,
         *,
         execution_id: str,
@@ -57,8 +61,10 @@ class HitlCoordinator:
         title: str,
         summary: str,
         context: Dict[str, Any],
-    ) -> HitlDecision:
-        timeout_s = max(1, int(getattr(self._config, "hitl_default_timeout_seconds", 300) or 300))
+        risk_level: str = HitlRiskLevel.MEDIUM.value,
+        timeout_seconds: Optional[int] = None,
+    ) -> HitlRequestRecord:
+        timeout_s = max(1, int(timeout_seconds or getattr(self._config, "hitl_default_timeout_seconds", 300) or 300))
         request_id = str(uuid4())
         now = datetime.now().isoformat()
         row = HitlRequestRecord(
@@ -71,12 +77,35 @@ class HitlCoordinator:
             context=context,
             created_at=now,
             timeout_seconds=timeout_s,
+            risk_level=risk_level,
         )
         await self._store.insert_open(row)
         await self._emit_open(row)
-        deadline = time.monotonic() + float(timeout_s)
+        return row
+
+    async def wait_for_decision(
+        self,
+        *,
+        execution_id: str,
+        gate: HitlGate,
+        title: str,
+        summary: str,
+        context: Dict[str, Any],
+        risk_level: str = HitlRiskLevel.MEDIUM.value,
+        timeout_seconds: Optional[int] = None,
+    ) -> HitlDecision:
+        row = await self.create_request(
+            execution_id=execution_id,
+            gate=gate,
+            title=title,
+            summary=summary,
+            context=context,
+            risk_level=risk_level,
+            timeout_seconds=timeout_seconds,
+        )
+        deadline = time.monotonic() + float(row.timeout_seconds)
         while True:
-            cur = await self._store.get(request_id)
+            cur = await self._store.get(row.request_id)
             if cur and cur.status == "resolved" and cur.decision:
                 try:
                     return HitlDecision(cur.decision)
@@ -85,14 +114,9 @@ class HitlCoordinator:
                     return HitlDecision.APPROVE
             if time.monotonic() >= deadline:
                 td = _timeout_decision(self._config)
-                ok = await self._store.resolve(
-                    request_id,
-                    td.value,
-                    None,
-                    from_timeout=True,
-                )
+                ok = await self._store.resolve(row.request_id, td.value, None, from_timeout=True)
                 if ok:
-                    await self._emit_resolved(request_id, execution_id, td.value, "timeout")
+                    await self._emit_resolved(row.request_id, execution_id, td.value, "timeout")
                 return td
             await asyncio.sleep(self._poll_interval)
 
@@ -133,6 +157,7 @@ class HitlCoordinator:
                         "gate": row.gate,
                         "title": row.title,
                         "summary": row.summary,
+                        "risk_level": row.risk_level,
                         "timeout_seconds": row.timeout_seconds,
                         "created_at": row.created_at,
                     },

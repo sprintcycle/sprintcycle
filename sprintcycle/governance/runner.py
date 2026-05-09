@@ -32,7 +32,17 @@ from .arch_guard.sdd_checks import (
 )
 from .arch_guard.argv_extensions import extend_argv_items_with_plugins
 from .arch_guard.yaml_checks import checks_for_gate, run_argv_checks
+from .hitl import (
+    HitlDecision,
+    HitlGate,
+    HitlPolicyResult,
+    HitlRequestRecord,
+    HitlService,
+    create_hitl_coordinator,
+    evaluate_hitl_policy,
+)
 from .yaml_merge import load_merged_governance_data
+from ..execution.events import get_execution_event_backend
 
 if TYPE_CHECKING:
     from ..config.runtime_config import RuntimeConfig
@@ -70,12 +80,59 @@ class GovernanceRunner:
 
     def __init__(self, runtime_config: "RuntimeConfig"):
         self._cfg = runtime_config
+        self._hitl_coord = None
+        self._hitl_service = None
 
     def _project(self, project_path: str) -> Path:
         return Path(project_path).expanduser().resolve()
 
     def _load_yaml_data(self, root: Path) -> Dict[str, Any]:
         return load_merged_governance_data(root, self._cfg)
+
+    def _hitl(self, project_path: str):
+        if self._hitl_service is not None:
+            return self._hitl_service
+        coord = create_hitl_coordinator(project_path, self._cfg, get_execution_event_backend())
+        self._hitl_coord = coord
+        self._hitl_service = HitlService(coord) if coord is not None else None
+        return self._hitl_service
+
+    async def _maybe_trigger_hitl(
+        self,
+        *,
+        project_path: str,
+        gate: str,
+        title: str,
+        summary: str,
+        context: Dict[str, Any],
+        risk_level: str = "medium",
+    ) -> Optional[HitlPolicyResult]:
+        policy = evaluate_hitl_policy(gate=gate, context={**context, "summary": summary, "risk_level": risk_level}, config=self._cfg)
+        if not policy.should_trigger:
+            return policy
+        hitl = self._hitl(project_path)
+        if hitl is None:
+            return policy
+        request = await hitl.start_request(
+            execution_id=str(context.get("execution_id") or "__governance__"),
+            gate=HitlGate(gate),
+            title=title,
+            summary=summary,
+            context={**context, "policy": policy.metadata},
+            risk_level=policy.risk_level,
+            timeout_seconds=policy.timeout_seconds,
+        )
+        decision = await hitl._coord.wait_for_decision(
+            execution_id=request.execution_id,
+            gate=HitlGate(gate),
+            title=title,
+            summary=summary,
+            context={**context, "policy": policy.metadata},
+            risk_level=policy.risk_level,
+            timeout_seconds=policy.timeout_seconds,
+        )
+        context["hitl_decision"] = decision.value
+        return policy
 
     async def run_planning_gate(self, project_path: str, extra_context: Optional[Dict[str, Any]] = None) -> GuardReport:
         root = self._project(project_path)
@@ -156,6 +213,20 @@ class GovernanceRunner:
 
         if extra_context:
             meta["context_keys"] = sorted(str(k) for k in extra_context.keys())
+
+        if getattr(self._cfg, "hitl_enabled", False):
+            hitl_ctx = {"project_path": str(root), **(extra_context or {}), "violation_count": len(violations), "gate": "planning"}
+            policy = await self._maybe_trigger_hitl(
+                project_path=str(root),
+                gate=HitlGate.BEFORE_SPRINT.value,
+                title="Planning 门人工确认",
+                summary="规划阶段需要人工确认后再继续",
+                context=hitl_ctx,
+                risk_level=str(getattr(self._cfg, "hitl_default_risk_level", "medium")),
+            )
+            if policy is not None:
+                meta["hitl_policy_mode"] = policy.mode
+                meta["hitl_policy_risk_level"] = policy.risk_level
 
         _maybe_downgrade_errors_to_warnings(self._cfg, violations)
         meta["duration_sec"] = round(time.perf_counter() - t0, 3)
@@ -328,6 +399,20 @@ class GovernanceRunner:
                     if isinstance(cdoc, dict) and isinstance(cdoc.get("services"), dict):
                         violations.extend(check_compose_supply_chain_hints(cfile, cdoc["services"]))
                         meta["steps"].append("compose_supply_chain")
+
+        if getattr(self._cfg, "hitl_enabled", False):
+            hitl_ctx = {"project_path": str(root), "violation_count": len(violations), "gate": "review"}
+            policy = await self._maybe_trigger_hitl(
+                project_path=str(root),
+                gate=HitlGate.EXECUTION_APPROVAL.value,
+                title="Review 门人工审批",
+                summary="Review 阶段存在治理结果，需要人工审批",
+                context=hitl_ctx,
+                risk_level=str(getattr(self._cfg, "hitl_default_risk_level", "medium")),
+            )
+            if policy is not None:
+                meta["hitl_policy_mode"] = policy.mode
+                meta["hitl_policy_risk_level"] = policy.risk_level
 
         try:
             from ..quality_spec.adapters.deal_adapter import DealAdapter

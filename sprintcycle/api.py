@@ -140,7 +140,7 @@ class SprintCycle:
         if not getattr(self.config, "hitl_enabled", False):
             return None
         if self._hitl_coordinator is None:
-            from .hitl import create_hitl_coordinator
+            from .governance.hitl import create_hitl_coordinator
 
             self._hitl_coordinator = create_hitl_coordinator(
                 self.project_path,
@@ -170,7 +170,7 @@ class SprintCycle:
     async def hitl_submit(
         self, request_id: str, decision: str, note: Optional[str] = None
     ) -> Dict[str, Any]:
-        from .hitl.decision_normalize import validate_hitl_decision_for_submit
+        from .governance.hitl import validate_hitl_decision_for_submit
 
         if validate_hitl_decision_for_submit(decision) is None:
             return {
@@ -200,8 +200,7 @@ class SprintCycle:
 
     async def hitl_show(self, request_id: str) -> Dict[str, Any]:
         """按 ID 返回单条 HITL 记录（不依赖 ``hitl_enabled``，便于查看历史库）。"""
-        from .execution.knowledge.knowledge_hook import resolve_knowledge_db_path
-        from .persistence.knowledge_repository import KnowledgeCardRepository
+        from .governance.hitl import HitlSqliteStore, default_hitl_db_path
 
         rid = (request_id or "").strip()
         if not rid:
@@ -210,9 +209,9 @@ class SprintCycle:
         db = (
             str(raw).strip()
             if isinstance(raw, str) and str(raw).strip()
-            else resolve_knowledge_db_path(self.project_path, self.config)
+            else default_hitl_db_path(self.project_path)
         )
-        store = KnowledgeCardRepository(db)
+        store = HitlSqliteStore(db)
         rec = await store.get(rid)
         if rec is None:
             return {"success": False, "error": "Request not found"}

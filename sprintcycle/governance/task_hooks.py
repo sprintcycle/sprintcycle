@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from loguru import logger
 
-from ..execution.events import EventType, ExecutionEventBackend, create_event
+from ..execution.events import EventType, ExecutionEventBackend, create_event, get_execution_event_backend
 from ..execution.hooks.governance_context import (
     CTX_GOVERNANCE_TASK_AFTER_DETAIL,
     CTX_GOVERNANCE_TASK_AFTER_FAILED,
@@ -15,6 +15,7 @@ from ..execution.hooks.governance_context import (
 from ..execution.hooks.task_hooks import TaskLifecycleHooks
 from ..execution.sprint_types import ExecutionStatus, TaskResult
 from ..release_plan.models import SprintBacklogItem
+from .hitl import HitlGate, HitlService, create_hitl_coordinator, evaluate_hitl_policy
 from .report import GovernanceViolation
 from .yaml_checks import checks_for_gate, filter_argv_items_by_governance_sources, run_argv_item
 from .yaml_merge import load_merged_governance_data
@@ -52,6 +53,7 @@ class GovernanceTaskLifecycleHooks(TaskLifecycleHooks):
         self._root = Path(project_root).expanduser().resolve()
         self._event_bus = event_bus
         self._task_after_items: Optional[List[Dict[str, Any]]] = None
+        self._hitl_service: Optional[HitlService] = None
 
     def _get_task_after_items(self) -> List[Dict[str, Any]]:
         if self._task_after_items is not None:
@@ -93,6 +95,17 @@ class GovernanceTaskLifecycleHooks(TaskLifecycleHooks):
         if w == "success":
             return task_ok
         return not task_ok
+
+    def _get_hitl_service(self) -> Optional[HitlService]:
+        if self._hitl_service is not None:
+            return self._hitl_service
+        if not getattr(self._config, "hitl_enabled", False):
+            return None
+        coord = create_hitl_coordinator(str(self._root), self._config, get_execution_event_backend())
+        if coord is None:
+            return None
+        self._hitl_service = HitlService(coord)
+        return self._hitl_service
 
     async def _emit_task_check(
         self,
@@ -172,3 +185,33 @@ class GovernanceTaskLifecycleHooks(TaskLifecycleHooks):
                 context[CTX_GOVERNANCE_TASK_AFTER_DETAIL] = (
                     f"{prev}\n{line}".strip() if isinstance(prev, str) and prev else line
                 )
+
+        if getattr(self._config, "hitl_enabled", False) and task_ok:
+            policy = evaluate_hitl_policy(
+                gate="execution_approval",
+                context={
+                    "project_path": str(self._root),
+                    "execution_id": context.get("execution_id"),
+                    "sprint_name": sprint_name,
+                    "task_status": st.value,
+                    "task_description": wi.description,
+                },
+                config=self._config,
+            )
+            if policy.should_trigger:
+                hitl = self._get_hitl_service()
+                if hitl is not None:
+                    await hitl.start_request(
+                        execution_id=str(context.get("execution_id") or "__governance__"),
+                        gate=HitlGate.EXECUTION_APPROVAL,
+                        title=f"任务执行审批: {(wi.description or '')[:80]}",
+                        summary=f"Sprint={sprint_name} status={st.value}",
+                        context={
+                            "task": task.description,
+                            "sprint_name": sprint_name,
+                            "task_status": st.value,
+                            "policy": policy.metadata,
+                        },
+                        risk_level=policy.risk_level,
+                        timeout_seconds=policy.timeout_seconds,
+                    )

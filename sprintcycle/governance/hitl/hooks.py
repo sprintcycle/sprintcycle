@@ -1,4 +1,4 @@
-"""HITL 生命周期钩子（Sprint / Task 边界）。"""
+"""HITL 生命周期钩子（治理域版本）。"""
 
 from __future__ import annotations
 
@@ -6,10 +6,10 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from loguru import logger
 
-from ..execution.hooks.sprint_hooks import SprintLifecycleHooks
-from ..execution.hooks.task_hooks import TaskLifecycleHooks
-from ..execution.sprint_types import ExecutionStatus, SprintResult, TaskResult
-from ..release_plan.models import ReleasePlan, SprintBacklogItem, SprintDefinition
+from ...execution.hooks.sprint_hooks import SprintLifecycleHooks
+from ...execution.hooks.task_hooks import TaskLifecycleHooks
+from ...execution.sprint_types import ExecutionStatus, SprintResult, TaskResult
+from ...release_plan.models import ReleasePlan, SprintBacklogItem, SprintDefinition
 from .coordinator import HitlCoordinator
 from .types import (
     CTX_HITL_ABORT_EXECUTION,
@@ -21,7 +21,7 @@ from .types import (
 )
 
 if TYPE_CHECKING:
-    from ..config.runtime_config import RuntimeConfig
+    from ...config.runtime_config import RuntimeConfig
 
 
 class HitlSprintHooks(SprintLifecycleHooks):
@@ -52,7 +52,9 @@ class HitlSprintHooks(SprintLifecycleHooks):
                 "sprint_name": sprint.name,
                 "goals": sprint.goals,
                 "tasks": len(sprint.tasks),
+                "release_plan": release_plan.to_dict() if hasattr(release_plan, "to_dict") and release_plan else None,
             },
+            risk_level="medium",
         )
         apply_before_sprint_decision(context, decision)
 
@@ -84,7 +86,9 @@ class HitlSprintHooks(SprintLifecycleHooks):
                 "sprint_index": sprint_index,
                 "sprint_name": sprint.name,
                 "result_status": result.status.value,
+                "release_plan": release_plan.to_dict() if hasattr(release_plan, "to_dict") and release_plan else None,
             },
+            risk_level="medium",
         )
         apply_after_sprint_decision(context, decision)
 
@@ -121,6 +125,7 @@ class HitlTaskHooks(TaskLifecycleHooks):
                 "description_preview": preview,
                 "task_status": task_result.status.value,
             },
+            risk_level="medium",
         )
         if decision == HitlDecision.ABORT_EXECUTION:
             context[CTX_HITL_ABORT_EXECUTION] = True

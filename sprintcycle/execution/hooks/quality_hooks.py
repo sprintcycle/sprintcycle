@@ -24,7 +24,7 @@ class QualitySprintLifecycleHooks(SprintLifecycleHooks):
             gate="planning",
             task_id=None,
             sprint_id=str(sprint_index),
-            extra={"sprint_name": sprint.name, "sprint_index": sprint_index, "release_plan": release_plan},
+            extra={"sprint_name": sprint.name, "sprint_index": sprint_index, "release_plan": release_plan, "runtime_config": context.get("runtime_config"), "execution_id": context.get("execution_id")},
         )
         await self._quality_hooks.on_before_task(ctx)
 
@@ -34,7 +34,7 @@ class QualitySprintLifecycleHooks(SprintLifecycleHooks):
             gate="release",
             task_id=None,
             sprint_id=str(sprint_index),
-            extra={"sprint_name": sprint.name, "sprint_result": result, "release_plan": release_plan},
+            extra={"sprint_name": sprint.name, "sprint_result": result, "release_plan": release_plan, "runtime_config": context.get("runtime_config"), "execution_id": context.get("execution_id")},
         )
         await self._quality_hooks.on_after_release(ctx)
 
@@ -60,6 +60,8 @@ class QualityTaskLifecycleHooks(TaskLifecycleHooks):
                 "task": task,
                 "sprint_name": sprint_name,
                 "task_result": task_result,
+                "runtime_config": context.get("runtime_config"),
+                "execution_id": context.get("execution_id"),
             },
         )
         await self._quality_hooks.on_after_task(ctx)
