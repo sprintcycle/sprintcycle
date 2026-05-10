@@ -38,6 +38,9 @@ onUnmounted(() => store.unmountDashboard())
     <el-menu
 mode="horizontal" router :default-active="route.path" class="sc-menu" background-color="#1e293b"
       text-color="#94a3b8" active-text-color="#38bdf8">
+      <el-menu-item index="/overview">
+        🏠 总览
+      </el-menu-item>
       <el-menu-item index="/platform">
         📊 运行总览
       </el-menu-item>
@@ -60,6 +63,21 @@ mode="horizontal" router :default-active="route.path" class="sc-menu" background
       </el-menu-item>
       <el-menu-item index="/governance">
         ✅ 治理 / 多源验证
+      </el-menu-item>
+      <el-menu-item index="/trace">
+        🔍 Trace
+      </el-menu-item>
+      <el-menu-item index="/fix">
+        🛠 Fix
+      </el-menu-item>
+      <el-menu-item index="/promotion">
+        📣 Promotion
+      </el-menu-item>
+      <el-menu-item index="/deploy">
+        🚚 Deploy
+      </el-menu-item>
+      <el-menu-item index="/fitness">
+        🧪 Fitness
       </el-menu-item>
     </el-menu>
 

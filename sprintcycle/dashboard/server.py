@@ -414,9 +414,17 @@ def create_app(project_path: str = ".") -> FastAPI:
     async def api_execution_events(execution_id: str, limit: int = 200) -> Dict[str, Any]:
         return sc.execution_events(execution_id, limit=limit)
 
+    @app.get("/api/execution/{execution_id}/trace")
+    async def api_execution_trace(execution_id: str) -> Dict[str, Any]:
+        return sc.observability_trace(execution_id)
+
     @app.get("/api/execution/{execution_id}/replay")
     async def api_execution_replay(execution_id: str, limit: int = 500) -> Dict[str, Any]:
-        return sc.replay_execution(execution_id, limit=limit)
+        return sc.observability_replay(execution_id)
+
+    @app.get("/api/dashboard/replay")
+    async def api_dashboard_replay(execution_id: str) -> Dict[str, Any]:
+        return sc.observability_replay(execution_id)
 
     @app.get("/api/console/overview")
     async def api_console_overview(limit: int = 20) -> Dict[str, Any]:
@@ -425,6 +433,30 @@ def create_app(project_path: str = ".") -> FastAPI:
     @app.get("/api/execution/{execution_id}/detail")
     async def api_execution_detail(execution_id: str, limit: int = 200) -> Dict[str, Any]:
         return sc.execution_detail(execution_id, limit=limit)
+
+    @app.get("/api/dashboard/governance")
+    async def api_dashboard_governance() -> Dict[str, Any]:
+        return sc.governance_view()
+
+    @app.get("/api/dashboard/fitness")
+    async def api_dashboard_fitness() -> Dict[str, Any]:
+        return sc.fitness_view()
+
+    @app.get("/api/dashboard/deploy")
+    async def api_dashboard_deploy() -> Dict[str, Any]:
+        return sc.deploy_view()
+
+    @app.get("/api/dashboard/trace")
+    async def api_dashboard_trace(execution_id: str) -> Dict[str, Any]:
+        return sc.observability_trace(execution_id)
+
+    @app.get("/api/dashboard/replay")
+    async def api_dashboard_replay(execution_id: str) -> Dict[str, Any]:
+        return sc.observability_replay(execution_id)
+
+    @app.get("/api/dashboard/fix")
+    async def api_dashboard_fix() -> Dict[str, Any]:
+        return sc.fix_view()
 
     @app.post("/api/execution/{execution_id}/resume")
     async def api_execution_resume(execution_id: str) -> Dict[str, Any]:
@@ -464,6 +496,8 @@ def create_app(project_path: str = ".") -> FastAPI:
         - execution_complete: 执行完成
         - execution_failed: 执行失败
         - hitl_request_open / hitl_request_resolved: 人机卡点待决策 / 已决策
+        - trace_recorded: 链路事件已记录
+        - replay_ready: 回放数据已准备
         - config_changed: 运行时配置已更新（API 保存、手动 reload 或文件热重载）
 
         最近一次落盘治理报告（不含 SSE）：``GET /api/governance/latest``（见 docs/GOVERNANCE_HEAVY_CHECKS.md）。

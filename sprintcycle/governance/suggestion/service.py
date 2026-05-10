@@ -52,7 +52,14 @@ class SuggestionService:
         return await self._reviewer.build_review_context(suggestion_id)
 
     async def approve_suggestion(self, suggestion_id: str, approver: str, notes: str = ""):
-        return await self._approval.approve(suggestion_id, approver, notes)
+        record = await self._approval.approve(suggestion_id, approver, notes)
+        try:
+            suggestion = await self._store.get(suggestion_id)
+            if suggestion is not None and suggestion.linked_evolution_id:
+                await self._store.update_evolution_link(suggestion_id, suggestion.linked_evolution_id)
+        except Exception:
+            pass
+        return record
 
     async def reject_suggestion(self, suggestion_id: str, approver: str, notes: str = ""):
         return await self._approval.reject(suggestion_id, approver, notes)

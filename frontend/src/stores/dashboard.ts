@@ -2,10 +2,16 @@ import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { defineStore } from 'pinia'
 import { computed, nextTick, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 
 import {
   apiClients,
+  apiDashboardFix,
+  apiDashboardReplay,
+  apiDashboardTrace,
   apiDiagnose,
+  apiExecutionReplay,
+  apiExecutionTrace,
   apiHitlHistory,
   apiHitlPending,
   apiHitlSubmit,
@@ -14,6 +20,10 @@ import {
   apiRun,
   apiStatus,
   apiStop,
+  apiSuggestionApprove,
+  apiSuggestionArchive,
+  apiSuggestionReject,
+  apiSuggestionReview,
   looksLikeYaml,
 } from '@/api'
 import { connectSSE, disconnectSSE, subscribeSSE } from '@/sse'
@@ -21,6 +31,7 @@ import { connectSSE, disconnectSSE, subscribeSSE } from '@/sse'
 export type EventLine = { type: string; ts: string; display: string; text: string; agent?: string }
 
 export const useDashboardStore = defineStore('dashboard', () => {
+  const router = useRouter()
   const yamlInput = ref('')
   /** 参考项目路径，一行一个（可选） */
   const referencePathsText = ref('')
@@ -62,6 +73,15 @@ export const useDashboardStore = defineStore('dashboard', () => {
   const historyBadge = computed(() => executions.value.length)
   const releaseFinalizationByExec = ref<Record<string, Record<string, unknown>>>({})
   const releaseFinalizationCurrent = ref<Record<string, unknown>>({})
+  const tracePayload = ref<Record<string, unknown>>({})
+  const replayPayload = ref<Record<string, unknown>>({})
+  const fixSuggestions = ref<Record<string, unknown>[]>([])
+  const promotionLog = ref<Record<string, unknown>[]>([])
+  const deployPayload = ref<Record<string, unknown>>({})
+  const selectedTraceNode = ref<Record<string, unknown> | null>(null)
+  const selectedFixSuggestion = ref<Record<string, unknown> | null>(null)
+  const selectedLinkedRunId = ref<string>('')
+  const selectedLinkedSuggestionId = ref<string>('')
 
   const EVENT_META: Record<string, { icon: string; label: string }> = {
     execution_start: { icon: '🚀', label: 'EXEC START' },
@@ -308,6 +328,36 @@ export const useDashboardStore = defineStore('dashboard', () => {
       const current = data.release_finalization
       releaseFinalizationCurrent.value =
         current && typeof current === 'object' ? (current as Record<string, unknown>) : {}
+      const latestId = String(data.primary_execution?.execution_id ?? executions.value[0]?.execution_id ?? '')
+      if (latestId) {
+        try {
+          const trace = await apiDashboardTrace(latestId)
+          tracePayload.value = (trace.data as Record<string, unknown>) || {}
+        } catch {
+          tracePayload.value = {}
+        }
+        try {
+          const replay = await apiDashboardReplay(latestId)
+          replayPayload.value = (replay.data as Record<string, unknown>) || {}
+        } catch {
+          replayPayload.value = {}
+        }
+      }
+      try {
+        const fix = await apiDashboardFix()
+        const data = fix.data as { suggestions?: Record<string, unknown>[] } | undefined
+        fixSuggestions.value = Array.isArray(data?.suggestions) ? data!.suggestions! : []
+        promotionLog.value = fixSuggestions.value.filter((item) => String(item.status ?? '') === 'promoted')
+      } catch {
+        fixSuggestions.value = []
+        promotionLog.value = []
+      }
+      try {
+        const deploy = await apiPlatformSummary()
+        deployPayload.value = (deploy as Record<string, unknown>) || {}
+      } catch {
+        deployPayload.value = {}
+      }
       historyLoaded.value = true
     } catch (e) {
       ElMessage.error(fmtErr(e))
@@ -316,6 +366,20 @@ export const useDashboardStore = defineStore('dashboard', () => {
 
   function toggleExpand(id: string) {
     expanded.value = { ...expanded.value, [id]: !expanded.value[id] }
+  }
+
+  function selectTraceNode(node: Record<string, unknown> | null) {
+    selectedTraceNode.value = node
+    const runId = node ? String(node.run_id ?? node.data?.run_id ?? node.event?.run_id ?? '') : ''
+    selectedLinkedRunId.value = runId
+    if (runId) void router.push({ name: 'fix' })
+  }
+
+  function selectFixSuggestion(item: Record<string, unknown> | null) {
+    selectedFixSuggestion.value = item
+    const runId = item ? String(item.metadata?.run_id ?? item.source_id ?? item.metadata?.event?.run_id ?? '') : ''
+    selectedLinkedRunId.value = runId
+    if (runId) void router.push({ name: 'trace' })
   }
 
   function sprintRows(ex: Record<string, unknown>) {
@@ -482,6 +546,62 @@ export const useDashboardStore = defineStore('dashboard', () => {
     }
   }
 
+  async function approveSuggestion(suggestionId: string) {
+    try {
+      const res = await apiSuggestionApprove(suggestionId, 'dashboard', hitlNotes.value[suggestionId] || undefined)
+      if (res.success === false) {
+        ElMessage.error(String(res.error ?? '批准失败'))
+        return
+      }
+      ElMessage.success('建议已批准')
+      await loadHistory()
+    } catch (e) {
+      ElMessage.error(fmtErr(e))
+    }
+  }
+
+  async function rejectSuggestion(suggestionId: string) {
+    try {
+      const res = await apiSuggestionReject(suggestionId, 'dashboard', hitlNotes.value[suggestionId] || undefined)
+      if (res.success === false) {
+        ElMessage.error(String(res.error ?? '拒绝失败'))
+        return
+      }
+      ElMessage.success('建议已拒绝')
+      await loadHistory()
+    } catch (e) {
+      ElMessage.error(fmtErr(e))
+    }
+  }
+
+  async function reviewSuggestion(suggestionId: string) {
+    try {
+      const res = await apiSuggestionReview(suggestionId)
+      if (res.success === false) {
+        ElMessage.error(String(res.error ?? '复审失败'))
+        return
+      }
+      ElMessage.success('建议已进入复审')
+      await loadHistory()
+    } catch (e) {
+      ElMessage.error(fmtErr(e))
+    }
+  }
+
+  async function archiveSuggestion(suggestionId: string) {
+    try {
+      const res = await apiSuggestionArchive(suggestionId)
+      if (res.success === false) {
+        ElMessage.error(String(res.error ?? '归档失败'))
+        return
+      }
+      ElMessage.success('建议已归档')
+      await loadHistory()
+    } catch (e) {
+      ElMessage.error(fmtErr(e))
+    }
+  }
+
   function onRouteChange(name: string | symbol | undefined | null) {
     const n = typeof name === 'string' ? name : ''
     if (n === 'history') void loadHistory()
@@ -556,6 +676,13 @@ export const useDashboardStore = defineStore('dashboard', () => {
     historyBadge,
     releaseFinalizationByExec,
     releaseFinalizationCurrent,
+    tracePayload,
+    replayPayload,
+    promotionLog,
+    deployPayload,
+    selectedTraceNode,
+    selectedFixSuggestion,
+    selectedLinkedRunId,
     handlePlan,
     handleRun,
     clearEditor,
@@ -573,6 +700,10 @@ export const useDashboardStore = defineStore('dashboard', () => {
     clearEvents,
     loadHitl,
     submitHitlDecision,
+    approveSuggestion,
+    rejectSuggestion,
+    reviewSuggestion,
+    archiveSuggestion,
     onRouteChange,
     scoreColor,
     issueIcon,

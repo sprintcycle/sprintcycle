@@ -162,6 +162,34 @@ class SuggestionStore:
         suggestion.status = status
         return suggestion
 
+    async def update_evolution_link(self, suggestion_id: str, evolution_request_id: str) -> Suggestion:
+        async with self._lock:
+            with self._connect() as conn:
+                conn.execute(
+                    "UPDATE suggestions SET linked_evolution_id=?, updated_at=CURRENT_TIMESTAMP WHERE suggestion_id=?",
+                    (evolution_request_id, suggestion_id),
+                )
+                conn.commit()
+        suggestion = await self.get(suggestion_id)
+        if suggestion is None:
+            raise KeyError(f"suggestion not found: {suggestion_id}")
+        suggestion.linked_evolution_id = evolution_request_id
+        return suggestion
+
+    async def update_evolution_link(self, suggestion_id: str, evolution_id: str) -> Suggestion:
+        async with self._lock:
+            with self._connect() as conn:
+                conn.execute(
+                    "UPDATE suggestions SET linked_evolution_id=?, updated_at=CURRENT_TIMESTAMP WHERE suggestion_id=?",
+                    (evolution_id, suggestion_id),
+                )
+                conn.commit()
+        suggestion = await self.get(suggestion_id)
+        if suggestion is None:
+            raise KeyError(f"suggestion not found: {suggestion_id}")
+        suggestion.linked_evolution_id = evolution_id
+        return suggestion
+
     async def append_review(self, record: SuggestionReviewRecord) -> None:
         async with self._lock:
             with self._connect() as conn:

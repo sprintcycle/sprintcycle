@@ -77,10 +77,38 @@ export async function apiConsoleOverview(limit = 20) {
   return data
 }
 
+export async function apiDashboardTrace(executionId: string) {
+  const { data } = await api.get<Record<string, unknown>>(
+    `/dashboard/trace`,
+    { params: { execution_id: executionId } },
+  )
+  return data
+}
+
+export async function apiDashboardReplay(executionId: string) {
+  const { data } = await api.get<Record<string, unknown>>(
+    `/dashboard/replay`,
+    { params: { execution_id: executionId } },
+  )
+  return data
+}
+
+export async function apiDashboardFix() {
+  const { data } = await api.get<Record<string, unknown>>('/dashboard/fix')
+  return data
+}
+
 export async function apiExecutionReplay(executionId: string, limit = 500) {
   const { data } = await api.get<Record<string, unknown>>(
     `/execution/${encodeURIComponent(executionId)}/replay`,
     { params: { limit } },
+  )
+  return data
+}
+
+export async function apiExecutionTrace(executionId: string) {
+  const { data } = await api.get<Record<string, unknown>>(
+    `/execution/${encodeURIComponent(executionId)}/trace`,
   )
   return data
 }
@@ -115,6 +143,32 @@ export async function apiHitlHistory(executionId?: string, limit = 50) {
       limit,
     },
   })
+  return data
+}
+
+export async function apiSuggestionApprove(suggestionId: string, approver: string, notes?: string) {
+  const { data } = await api.post<Record<string, unknown>>(`/suggestions/${encodeURIComponent(suggestionId)}/approve`, {
+    approver,
+    notes: notes || undefined,
+  })
+  return data
+}
+
+export async function apiSuggestionReject(suggestionId: string, approver: string, notes?: string) {
+  const { data } = await api.post<Record<string, unknown>>(`/suggestions/${encodeURIComponent(suggestionId)}/reject`, {
+    approver,
+    notes: notes || undefined,
+  })
+  return data
+}
+
+export async function apiSuggestionReview(suggestionId: string) {
+  const { data } = await api.post<Record<string, unknown>>(`/suggestions/${encodeURIComponent(suggestionId)}/review`, {})
+  return data
+}
+
+export async function apiSuggestionArchive(suggestionId: string) {
+  const { data } = await api.post<Record<string, unknown>>(`/suggestions/${encodeURIComponent(suggestionId)}/archive`, {})
   return data
 }
 
