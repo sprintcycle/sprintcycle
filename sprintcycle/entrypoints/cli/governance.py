@@ -11,7 +11,7 @@ from rich.markup import escape
 from rich.panel import Panel
 
 from sprintcycle.api import SprintCycle
-from sprintcycle.cli._common import console, err_console
+from sprintcycle.entrypoints.cli._common import console, err_console
 
 
 def _governance_check_run_and_print(ctx: click.Context, gate: str) -> None:

@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .model import GuardFinding
-from ...release_plan.models import ReleasePlan
+from ...execution.planners.models import ReleasePlan
 
 
 def check_release_plan(release_plan: ReleasePlan) -> List[GuardFinding]:
@@ -26,7 +26,7 @@ def check_release_plan(release_plan: ReleasePlan) -> List[GuardFinding]:
         name = getattr(sprint, "name", "") or ""
         if not name.strip():
             out.append(
-                GovernanceViolation(
+                GuardFinding(
                     rule_id="planning:sprint_name_empty",
                     severity="error",
                     message=f"Sprint #{i + 1} 名称为空",

@@ -12,7 +12,7 @@ from typing import Optional
 import click
 from rich.markup import escape
 
-from sprintcycle.cli._common import console, err_console
+from sprintcycle.entrypoints.cli._common import console, err_console
 from sprintcycle.config.runtime_config import DashboardPortDefaults
 
 

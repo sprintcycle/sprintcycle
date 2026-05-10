@@ -1,4 +1,9 @@
-"""统一可观测/治理 Facade。"""
+"""Governance-side observability facade.
+
+This module belongs to the governance layer, not the core observability layer.
+It may project HITL / gate related evidence for decision making, but it must not
+own the canonical execution timeline or the replay source of truth.
+"""
 
 from __future__ import annotations
 

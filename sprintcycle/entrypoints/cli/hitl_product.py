@@ -14,7 +14,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from sprintcycle.api import SprintCycle
-from sprintcycle.cli._common import console, err_console
+from sprintcycle.entrypoints.cli._common import console, err_console
 
 
 def _docker_compose_cmd(compose_file: Optional[str]) -> list[str]:

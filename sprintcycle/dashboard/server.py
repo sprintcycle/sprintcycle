@@ -4,6 +4,11 @@ SprintCycle Dashboard — FastAPI 应用
 REST API + SSE 实时事件流，调用 SprintCycle API。
 默认 ``ExecutionEventBackend`` 为 ``SQLiteMQEventBackend``（按项目落库）；SSE 仍按各 ``EventType``
 逐一 ``on`` 订阅，``emit`` 路径会 **await** 异步 handler，避免纯 MQ 同步派发丢协程。
+
+职责上限
+- 只保留路由、SSE、静态资源挂载和请求适配。
+- 不承载业务裁决、状态推进、评分实现或观测投影组装。
+- 复杂 payload 应交给 ``SprintCycle`` 或各层 facade/view 构造。
 """
 
 from __future__ import annotations
@@ -121,6 +126,51 @@ def get_client_manager() -> SSEClientManager:
     if _client_manager is None:
         _client_manager = SSEClientManager()
     return _client_manager
+
+
+async def _build_platform_summary(sc: SprintCycle, client_manager: SSEClientManager) -> Dict[str, Any]:
+    """汇总平台状态，避免把聚合逻辑散落在路由里。"""
+    st = sc.status()
+    raw = st.to_dict() if hasattr(st, "to_dict") else {}
+    executions: list = []
+    if raw.get("success") and isinstance(raw.get("executions"), list):
+        executions = raw["executions"]
+    snap = platform_state.get_platform_snapshot(
+        project_path=sc.project_path,
+        sse_client_count=client_manager.get_client_count(),
+        executions=executions,
+    )
+    snap["status_query_ms"] = round(float(raw.get("duration", 0) or 0) * 1000.0, 2)
+    hitl = await sc.hitl_pending()
+    pend = hitl.get("data") if isinstance(hitl, dict) else []
+    snap["hitl"] = {
+        "open_requests": len(pend) if isinstance(pend, list) else 0,
+    }
+    try:
+        console = sc.console_overview(limit=20)
+        snap["console"] = console.get("data", {}) if isinstance(console, dict) else {}
+    except Exception:
+        snap["console"] = {}
+    return snap
+
+
+async def _read_governance_reports(sc: SprintCycle) -> Dict[str, Any]:
+    from sprintcycle.config.runtime_config import RuntimeConfig
+
+    cfg = RuntimeConfig.from_project(sc.project_path)
+    root = Path(sc.project_path).expanduser().resolve()
+    rel = (cfg.governance_report_dir or ".sprintcycle").strip() or ".sprintcycle"
+    out_dir = (root / rel).resolve() if not Path(rel).is_absolute() else Path(rel)
+    last = out_dir / "governance_last.json"
+    planning = out_dir / "governance_planning_last.json"
+    if not last.is_file() and not planning.is_file():
+        raise HTTPException(status_code=404, detail="未找到治理报告，请先运行 governance check 或 Sprint 门禁")
+    payload: Dict[str, Any] = {}
+    if planning.is_file():
+        payload["planning"] = json.loads(planning.read_text(encoding="utf-8"))
+    if last.is_file():
+        payload["review"] = json.loads(last.read_text(encoding="utf-8"))
+    return payload
 
 
 # ─── 全局事件处理器 ───
@@ -318,33 +368,12 @@ def create_app(project_path: str = ".") -> FastAPI:
     @app.get("/api/governance/latest")
     async def api_governance_latest() -> Dict[str, Any]:
         """只读返回最近一次落盘的 Planning / Review 治理报告（v4.0 观测面）。"""
-        from sprintcycle.config.runtime_config import RuntimeConfig
-
-        cfg = RuntimeConfig.from_project(sc.project_path)
-        root = Path(sc.project_path).expanduser().resolve()
-        rel = (cfg.governance_report_dir or ".sprintcycle").strip() or ".sprintcycle"
-        out_dir = (root / rel).resolve() if not Path(rel).is_absolute() else Path(rel)
-        last = out_dir / "governance_last.json"
-        planning = out_dir / "governance_planning_last.json"
-        if not last.is_file() and not planning.is_file():
-            raise HTTPException(status_code=404, detail="未找到治理报告，请先运行 governance check 或 Sprint 门禁")
-        payload: Dict[str, Any] = {}
-        if planning.is_file():
-            payload["planning"] = json.loads(planning.read_text(encoding="utf-8"))
-        if last.is_file():
-            payload["review"] = json.loads(last.read_text(encoding="utf-8"))
-        return payload
+        return await _read_governance_reports(sc)
 
     @app.get("/api/governance/history")
     async def api_governance_history(limit: int = 50) -> Dict[str, Any]:
         """治理报告历史快照列表（新→旧），见 ``governance_history`` 目录。"""
-        from sprintcycle.config.runtime_config import RuntimeConfig
-        from sprintcycle.governance.history import list_history_entries
-
-        cfg = RuntimeConfig.from_project(sc.project_path)
-        lim = min(200, max(1, int(limit)))
-        entries = list_history_entries(sc.project_path, cfg, limit=lim)
-        return {"entries": entries}
+        return sc.governance_history(limit=limit)
 
     @app.post("/api/governance/check")
     async def api_governance_check(body: GovernanceCheckBody) -> Dict[str, Any]:
@@ -458,6 +487,10 @@ def create_app(project_path: str = ".") -> FastAPI:
     async def api_dashboard_fix() -> Dict[str, Any]:
         return sc.fix_view()
 
+    @app.get("/api/architecture/check")
+    async def api_architecture_check() -> Dict[str, Any]:
+        return sc.architecture_check()
+
     @app.post("/api/execution/{execution_id}/resume")
     async def api_execution_resume(execution_id: str) -> Dict[str, Any]:
         return sc.resume_execution(execution_id)
@@ -562,28 +595,7 @@ def create_app(project_path: str = ".") -> FastAPI:
     @app.get("/api/platform/summary")
     async def api_platform_summary() -> Dict[str, Any]:
         """管理平台总览：HTTP/SSE 指标、执行阶段聚合、最近审计（进程内）。"""
-        st = sc.status()
-        raw = st.to_dict() if hasattr(st, "to_dict") else {}
-        executions: list = []
-        if raw.get("success") and isinstance(raw.get("executions"), list):
-            executions = raw["executions"]
-        snap = platform_state.get_platform_snapshot(
-            project_path=sc.project_path,
-            sse_client_count=client_manager.get_client_count(),
-            executions=executions,
-        )
-        snap["status_query_ms"] = round(float(raw.get("duration", 0) or 0) * 1000.0, 2)
-        hitl = await sc.hitl_pending()
-        pend = hitl.get("data") if isinstance(hitl, dict) else []
-        snap["hitl"] = {
-            "open_requests": len(pend) if isinstance(pend, list) else 0,
-        }
-        try:
-            console = sc.console_overview(limit=20)
-            snap["console"] = console.get("data", {}) if isinstance(console, dict) else {}
-        except Exception:
-            snap["console"] = {}
-        return snap
+        return await _build_platform_summary(sc, client_manager)
 
     _mount_dashboard_frontend(app)
     return app

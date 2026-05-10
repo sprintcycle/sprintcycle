@@ -156,7 +156,7 @@ class GovernanceRunner:
         rp = (extra_context or {}).get("release_plan")
         task_specs: List[TaskSpec] = []
         if rp is not None and getattr(self._cfg, "governance_planning_validate_release_plan", True):
-            from ..release_plan.models import ReleasePlan
+            from ..execution.planners.models import ReleasePlan
 
             if isinstance(rp, ReleasePlan):
                 task_specs = rp.to_task_specs()

@@ -9,7 +9,7 @@ import questionary
 from rich.markup import escape
 from rich.panel import Panel
 
-from sprintcycle.cli._common import _require_tty_for_interactive, console
+from sprintcycle.entrypoints.cli._common import _require_tty_for_interactive, console
 
 
 def register(cli: click.Group) -> None:

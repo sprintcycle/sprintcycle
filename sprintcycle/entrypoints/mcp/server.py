@@ -533,7 +533,7 @@ def main() -> None:
     """MCP Server 入口点"""
     import sys
 
-    from sprintcycle.logging_setup import configure_sprintcycle_logging
+    from sprintcycle.infrastructure.logging_setup import configure_sprintcycle_logging
 
     configure_sprintcycle_logging(stderr_level="INFO")
 

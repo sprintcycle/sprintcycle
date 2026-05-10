@@ -11,7 +11,7 @@ from typing import Any, Dict, Optional
 
 from .context import SprintExecutionContext, TaskExecutionContext
 from .policies import SprintFeedbackPolicy, SprintRetryPolicy, TaskRetryPolicy
-from ..release_plan.models import ReleasePlan, SprintBacklogItem, SprintDefinition
+from .planners.models import ReleasePlan, SprintBacklogItem, SprintDefinition
 
 
 class TaskContextBuilder:

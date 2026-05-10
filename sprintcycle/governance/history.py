@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
-from .report import GovernanceReport
+from .arch_guard.model import GuardReport as GovernanceReport
 
 _TS_GATE_RE = re.compile(r"^(\d{8}T\d{6}Z)_(planning|review)\.json$")
 

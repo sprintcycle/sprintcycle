@@ -1,7 +1,7 @@
-"""Phase 1 fitness evaluator.
+"""Fitness evaluator.
 
-A lightweight evaluator that computes a simple score from available execution
-signals and observability records.
+This module belongs to the fitness / evaluation layer. It should only score and
+recommend; it must not mutate state, render UI, or execute governance decisions.
 """
 
 from __future__ import annotations

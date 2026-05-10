@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .marketplace import OpenClawMarketplaceClient
-from .protocols import SkillLifecycleSnapshot
+from .planners.protocols import SkillLifecycleSnapshot
 from .skill_store import SkillStore
 
 

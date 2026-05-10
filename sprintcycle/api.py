@@ -10,13 +10,12 @@ Dashboard / CLI / MCP / SDK 共用的唯一入口。
 （V4.0 工程真理源）为准；``run``/resume **主路径**为 ``ReleasePlan`` → ``expand_release_plan_for_execution``
 → ``SprintOrchestrator`` → ``SprintExecutor``。
 
-代码级边界约束
-- ``api`` 是意图演化的观察与编排入口，不是演化规则的实现中心。
-- ``api`` 可以记录初始意图、修正意图、返回演化阶段，但不应把演化逻辑散落到多个业务分支。
-- ``api`` 负责把 evolution 上下文传给 ``release_plan`` / ``orchestration``，不负责直接修改执行器内部状态。
-- 是否重规划、是否继续执行、是否回滚，由 ``api`` 汇总信号后作出明确决策，不允许由底层模块偷偷触发主链路切换。
-- ``api`` 不应依赖 ``evolution`` 的内部存储实现，只依赖显式接口，保证演化能力可替换、可测试、可隔离。
-- 对外只输出统一演化摘要 ``EvolutionSummary``，不要在 ``PlanResult`` / ``RunResult`` 上散落额外演化字段。
+目录治理上限
+- ``api`` 是统一入口与轻量编排门面，不是规则实现中心。
+- ``api`` 只允许做参数归一化、跨层调用、结果汇总和少量兼容适配。
+- ``api`` 不得承载具体评分、门禁、观测投影、部署实现和执行状态推进细节。
+- ``api`` 只可依赖各层显式 facade / service，不依赖隐式内部存储实现。
+- 对外输出应尽量使用各层自己的 payload，再由 ``api`` 做最小汇总。
 """
 
 import asyncio
@@ -79,6 +78,7 @@ from .persistence.knowledge_repository import KnowledgeCardRepository
 from .versioning.interface import get_version_manifest_summary
 from .versioning.sqlite_registry import SQLiteVersionRegistry
 from .observability.facade import ObservabilityFacade
+from .dashboard.views.architecture_view import ArchitectureView
 from .dashboard.views.deploy_view import DeployView
 from .dashboard.views.execution_trace import ExecutionTraceView
 from .dashboard.views.fix_view import FixView
@@ -237,14 +237,17 @@ class SprintCycle:
         """Dashboard 首屏友好的演化总览 payload。"""
         return asyncio.run(self.evolution_overview()).to_dashboard_payload()
 
+    def _suggestion_overview(self) -> Any:
+        return asyncio.run(self._suggestion.overview())
+
     def suggestion_overview(self) -> Dict[str, Any]:
-        return asyncio.run(self._suggestion.overview()).to_dict()
+        return self._suggestion_overview().to_dict()
 
     def suggestion_overview_cli(self) -> str:
-        return asyncio.run(self._suggestion.overview()).to_cli_text()
+        return self._suggestion_overview().to_cli_text()
 
     def suggestion_overview_dashboard(self) -> Dict[str, Any]:
-        return asyncio.run(self._suggestion.overview()).to_dashboard_payload()
+        return self._suggestion_overview().to_dashboard_payload()
 
     async def suggestion_review(self, suggestion_id: str) -> Dict[str, Any]:
         context = await self._suggestion.review_suggestion(suggestion_id)
@@ -274,15 +277,15 @@ class SprintCycle:
         await self._suggestion.archive_suggestion(suggestion_id)
         return {"success": True, "data": {"suggestion_id": suggestion_id, "status": "archived"}}
 
-    def management_overview(self) -> Dict[str, Any]:
+    def _management_overview_payload(self) -> Dict[str, Any]:
         return {
-            "success": True,
-            "data": {
-                "evolution": self.evolution_overview_dashboard(),
-                "suggestion": self.suggestion_overview_dashboard(),
-                "project_path": self.project_path,
-            },
+            "evolution": self.evolution_overview_dashboard(),
+            "suggestion": self.suggestion_overview_dashboard(),
+            "project_path": self.project_path,
         }
+
+    def management_overview(self) -> Dict[str, Any]:
+        return {"success": True, "data": self._management_overview_payload()}
 
     def management_overview_cli(self) -> str:
         evo = self.evolution_overview_cli()
@@ -290,7 +293,7 @@ class SprintCycle:
         return "\n".join(["Management Overview", "", "[Evolution]", evo, "", "[Suggestion]", sug])
 
     def management_overview_dashboard(self) -> Dict[str, Any]:
-        return self.management_overview().get("data", {})
+        return self._management_overview_payload()
 
     def _gate_pre_run(self, context: ExecutionContext) -> GateResult:
         return pre_run_gate(
@@ -483,20 +486,52 @@ class SprintCycle:
     def register_runtime(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         return self._runtime_registry.register(payload)
 
+    def _fitness_payload(self) -> Dict[str, Any]:
+        return {
+            "events": self._observability.list_events().get("data", []),
+            "executions": [s.to_dict() for s in get_state_store().list_executions(limit=100)],
+            "suggestions": [s.to_dict() for s in asyncio.run(self._suggestion.list_suggestions(limit=100))],
+            "runtimes": list(self._runtime_registry.records),
+        }
+
+    def _execution_detail_payload(self, execution_id: str, *, limit: int = 200) -> Dict[str, Any]:
+        eid = (execution_id or "").strip()
+        if not eid:
+            return {"success": False, "error": "execution_id required"}
+        store = get_state_store()
+        state = store.load(eid)
+        if state is None:
+            return {"success": False, "error": f"未找到执行记录: {eid}"}
+        checkpoint = state.checkpoint or {}
+        resume_point = store.get_resume_point(eid) or {}
+        replay = self.replay_execution(eid, limit=limit)
+        detail = {
+            "state": state.to_dict(),
+            "checkpoint": checkpoint,
+            "resume_point": resume_point,
+            "replay": replay.get("data", {}),
+            "timeline": replay.get("timeline", []),
+            "state_machine": summarize_state_machine(),
+            "can_resume": store.can_resume(eid),
+            "last_stable_state": state.last_stable_state,
+            "event_cursor": state.event_cursor,
+        }
+        return {"success": True, "data": detail}
+
     def fitness_view(self) -> Dict[str, Any]:
-        payload = self._fitness.evaluate(
-            {
-                "events": list(self._observability.events),
-                "executions": [s.to_dict() for s in get_state_store().list_executions(limit=100)],
-                "suggestions": [s.to_dict() for s in asyncio.run(self._suggestion.list_suggestions(limit=100))],
-                "runtimes": list(self._runtime_registry.records),
-            }
-        )
+        payload = self._fitness.evaluate(self._fitness_payload())
         return {"success": True, "data": FitnessView(payload=payload).to_payload()}
 
     def deploy_view(self) -> Dict[str, Any]:
         payload = self._runtime_registry.list()
         return {"success": True, "data": DeployView(payload=payload).to_payload()}
+
+    def _suggestion_overview_payload(self) -> Dict[str, Any]:
+        return asyncio.run(self._suggestion.overview()).to_dashboard_payload()
+
+    def _suggestion_list_payload(self, limit: int = 20) -> Dict[str, Any]:
+        suggestions = asyncio.run(self._suggestion.list_suggestions(limit=limit))
+        return {"suggestions": [s.to_dict() for s in suggestions]}
 
     def runtime_latest(self) -> Dict[str, Any]:
         return self._runtime_registry.latest()
@@ -505,12 +540,17 @@ class SprintCycle:
         return self._runtime_registry.update(runtime_id, **changes)
 
     def governance_view(self) -> Dict[str, Any]:
-        overview = asyncio.run(self._suggestion.overview()).to_dashboard_payload()
+        overview = self._suggestion_overview_payload()
         return {"success": True, "data": GovernanceView(payload=overview).to_payload()}
 
     def fix_view(self) -> Dict[str, Any]:
-        suggestions = asyncio.run(self._suggestion.list_suggestions(limit=20))
-        return {"success": True, "data": FixView(payload={"suggestions": [s.to_dict() for s in suggestions]}).to_payload()}
+        return {"success": True, "data": FixView(payload=self._suggestion_list_payload(limit=20)).to_payload()}
+
+    def architecture_check(self) -> Dict[str, Any]:
+        from .governance.arch_guard.architecture_checker import check_architecture
+
+        result = check_architecture(self.project_path)
+        return ArchitectureView(payload=result.to_dict()).to_payload()
 
     def evaluate_fitness(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         return self._fitness.evaluate(payload)
@@ -573,31 +613,9 @@ class SprintCycle:
 
     def execution_detail(self, execution_id: str, *, limit: int = 200) -> Dict[str, Any]:
         """执行详情：状态、恢复点、回放、状态机摘要一次性返回。"""
-        eid = (execution_id or "").strip()
-        if not eid:
-            return {"success": False, "error": "execution_id required"}
-        store = get_state_store()
-        state = store.load(eid)
-        if state is None:
-            return {"success": False, "error": f"未找到执行记录: {eid}"}
-        checkpoint = state.checkpoint or {}
-        resume_point = store.get_resume_point(eid) or {}
-        replay = self.replay_execution(eid, limit=limit)
-        detail = {
-            "state": state.to_dict(),
-            "checkpoint": checkpoint,
-            "resume_point": resume_point,
-            "replay": replay.get("data", {}),
-            "timeline": replay.get("timeline", []),
-            "state_machine": summarize_state_machine(),
-            "can_resume": store.can_resume(eid),
-            "last_stable_state": state.last_stable_state,
-            "event_cursor": state.event_cursor,
-        }
-        return {"success": True, "data": detail}
+        return self._execution_detail_payload(execution_id, limit=limit)
 
-    def resume_execution(self, execution_id: str) -> Dict[str, Any]:
-        """控制台恢复入口：按记录的断点继续执行。"""
+    def _resume_execution_payload(self, execution_id: str) -> Dict[str, Any]:
         eid = (execution_id or "").strip()
         if not eid:
             return {"success": False, "error": "execution_id required"}
@@ -624,6 +642,10 @@ class SprintCycle:
             )
         )
         return {"success": True, "data": {"execution_id": eid, "results": [r.to_dict() for r in results]}}
+
+    def resume_execution(self, execution_id: str) -> Dict[str, Any]:
+        """控制台恢复入口：按记录的断点继续执行。"""
+        return self._resume_execution_payload(execution_id)
 
     def console_overview(self, *, limit: int = 20) -> Dict[str, Any]:
         """控制台总览：当前执行、可恢复执行、最近事件与状态机摘要。"""

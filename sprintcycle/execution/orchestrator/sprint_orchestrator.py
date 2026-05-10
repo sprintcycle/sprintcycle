@@ -17,30 +17,29 @@ from ..config import RuntimeConfig
 from ..evolution.measurement import MeasurementResult
 from .finalization import ReleaseFinalizationPolicy, ReleaseFinalizationRunner
 from .policies import SprintEvaluator, SprintMeasurementPolicy, SprintPersistencePolicy
-from ..execution.events import (
+from ..events import (
     Event,
     EventType,
     ExecutionEventBackend,
     create_event,
     get_execution_event_backend,
 )
-from ..execution.protocols import ExecutionContext, SkillTrace
-from ..execution.feedback import FeedbackLoop
-from ..execution.hooks.sprint_hooks import ChainedSprintHooks, SprintLifecycleHooks
-from ..execution.hooks.skill_hooks import SkillLifecycleHook
-from ..execution.skills import SkillOrchestrator
-from ..execution.skill_store import SkillStore
-from ..execution.hooks.task_hooks import ChainedTaskHooks, TaskLifecycleHooks
-from ..execution.knowledge.knowledge_hook import KnowledgeInjectionHook
-from ..execution.sprint_executor import SprintExecutor
-from ..execution.sprint_types import ExecutionStatus, SprintResult, TaskResult
+from ..protocols import ExecutionContext, SkillTrace
+from ..feedback import FeedbackLoop
+from ..hooks.sprint_hooks import ChainedSprintHooks, SprintLifecycleHooks
+from ..hooks.skill_hooks import SkillLifecycleHook
+from ..skills import SkillOrchestrator
+from ..skill_store import SkillStore
+from ..hooks.task_hooks import ChainedTaskHooks, TaskLifecycleHooks
+from ..knowledge.knowledge_hook import KnowledgeInjectionHook
+from ..sprint_executor import SprintExecutor
+from ..sprint_types import ExecutionStatus, SprintResult, TaskResult
 from ..governance.sprint_hooks import GovernanceSprintHooks
 from ..governance.task_hooks import GovernanceTaskLifecycleHooks
 from ..verification.hooks import VerificationSprintHooks
 from ..prompt_sources import compute_prompt_sources_fingerprint
-from ..release_plan.expand import expand_release_plan_for_execution
-from ..release_plan.models import ReleasePlan, SprintBacklogItem, SprintDefinition
-from ..evolution.intent_evolution_loop import UserIntentEvolutionLoop
+from ..planners.expand import expand_release_plan_for_execution
+from ..planners.models import ReleasePlan, SprintBacklogItem, SprintDefinition
 from ..evolution.intent_evolution_loop import UserIntentEvolutionLoop
 from ..evolution.memory_store import MemoryStore
 from ..persistence.knowledge_repository import KnowledgeCardRepository

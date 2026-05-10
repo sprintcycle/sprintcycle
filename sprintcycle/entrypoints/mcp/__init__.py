@@ -5,7 +5,7 @@ SprintCycle MCP Module
 让外部 AI 工具能够通过 MCP 协议调用 SprintCycle 的能力。
 """
 
-from sprintcycle.mcp.server import SprintCycleMCPServer
+from sprintcycle.entrypoints.mcp.server import SprintCycleMCPServer
 
 __all__ = [
     "SprintCycleMCPServer",

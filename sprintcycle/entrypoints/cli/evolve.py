@@ -14,7 +14,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from sprintcycle.api import SprintCycle
-from sprintcycle.cli._common import (
+from sprintcycle.entrypoints.cli._common import (
     _print_result,
     _require_tty_for_interactive,
     console,

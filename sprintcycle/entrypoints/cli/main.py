@@ -4,18 +4,18 @@ from __future__ import annotations
 
 import click
 
-from sprintcycle.cli._common import (
+from sprintcycle.entrypoints.cli._common import (
     _ensure_rich_traceback,
     _package_version,
     _print_result,
     console,
 )
-from sprintcycle.cli.config import register as register_config
-from sprintcycle.cli.dashboard import register as register_dashboard
-from sprintcycle.cli.evolve import register as register_evolve
-from sprintcycle.cli.governance import register as register_governance
-from sprintcycle.cli.hitl_product import register as register_hitl_product
-from sprintcycle.logging_setup import configure_sprintcycle_logging
+from sprintcycle.entrypoints.cli.config import register as register_config
+from sprintcycle.entrypoints.cli.dashboard import register as register_dashboard
+from sprintcycle.entrypoints.cli.evolve import register as register_evolve
+from sprintcycle.entrypoints.cli.governance import register as register_governance
+from sprintcycle.entrypoints.cli.hitl_product import register as register_hitl_product
+from sprintcycle.infrastructure.logging_setup import configure_sprintcycle_logging
 
 
 @click.group(invoke_without_command=True)
@@ -39,7 +39,7 @@ def cli(ctx: click.Context, project: str, fmt: str, verbose: bool) -> None:
     )
     ctx.ensure_object(dict)
     # 从包命名空间解析，便于测试 ``patch('sprintcycle.cli.SprintCycle', ...)``
-    from sprintcycle.cli import SprintCycle as _SprintCycle
+    from sprintcycle.entrypoints.cli import SprintCycle as _SprintCycle
 
     ctx.obj["sc"] = _SprintCycle(project_path=project)
     ctx.obj["fmt"] = fmt

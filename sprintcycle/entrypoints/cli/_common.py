@@ -14,7 +14,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.traceback import install as install_rich_traceback
 
-from sprintcycle.release_plan.payload_keys import dict_plan_name
+from sprintcycle.execution.planners.payload_keys import dict_plan_name
 from sprintcycle.results import (
     DiagnoseResult,
     PlanResult,
