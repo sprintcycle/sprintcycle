@@ -7,8 +7,7 @@ Dashboard / CLI / MCP / SDK 共用的唯一入口。
 主操作: plan / run / run_release_plan / diagnose / status / rollback / stop
 
 产品与技术叙述以仓库 ``docs/PRODUCT_TECH_V4.md`` 与 ``SPRINTCYCLE_PRODUCT_TECH_PLAN.md``
-（V4.0 工程真理源）为准；``run``/resume **主路径**为 ``ReleasePlan`` → ``expand_release_plan_for_execution``
-→ ``SprintOrchestrator`` → ``SprintExecutor``。
+（V4.0 工程真理源）为准；``run``/resume **主路径**为 ``IntentGraphRuntime`` → ``SprintGraphRuntime`` → ``SprintExecutor``。
 
 目录治理上限
 - ``api`` 是统一入口与轻量编排门面，不是规则实现中心。

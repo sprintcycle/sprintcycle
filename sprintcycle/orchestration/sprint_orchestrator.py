@@ -44,7 +44,7 @@ from ..evolution.intent_evolution_loop import UserIntentEvolutionLoop
 from ..evolution.intent_evolution_loop import UserIntentEvolutionLoop
 from ..evolution.memory_store import MemoryStore
 from ..persistence.knowledge_repository import KnowledgeCardRepository
-from ..integrations.langgraph.runtime import LangGraphRuntimeAdapter
+from ..integrations.langgraph import IntentGraphRuntime, LangGraphRuntimeAdapter
 from ..integrations.phoenix.trace_runtime import PhoenixTraceRuntime
 from ..integrations.phoenix.exporter import PhoenixExporterSpec
 
@@ -72,12 +72,23 @@ class SprintOrchestrator:
         self._skill_orchestrator = SkillOrchestrator()
         self._last_release_finalization_result = None
         self._langgraph_runtime = LangGraphRuntimeAdapter()
+        self._intent_graph = IntentGraphRuntime(project_name=self._project_root)
         self._phoenix_runtime = PhoenixTraceRuntime(PhoenixExporterSpec(project_name=self._project_root))
 
     def _get_event_bus(self) -> ExecutionEventBackend:
         if self.event_bus is None:
             self.event_bus = get_execution_event_backend()
         return self.event_bus
+
+    def _collect_current_events(self) -> List[Dict[str, Any]]:
+        try:
+            if hasattr(self._get_event_bus(), "list_events"):
+                payload = self._get_event_bus().list_events()
+                data = payload.get("data", payload) if isinstance(payload, dict) else payload
+                return list(data or [])
+        except Exception as e:
+            logger.warning("Failed to collect current events: {}", e)
+        return []
 
     async def _emit(self, event: Event) -> None:
         try:
@@ -180,15 +191,39 @@ class SprintOrchestrator:
         await self._emit(self._emit_execution_phase(EventType.EXECUTION_START, f"开始执行 ReleasePlan: {to_run.project.name}", release_plan, to_run.project.name, 0))
         self._emit_trace_event(self._emit_execution_phase(EventType.EXECUTION_START, "trace:start", release_plan, to_run.project.name, 0))
         self._langgraph_runtime.build()
-        results = await self._execute_normal_mode(to_run, max_concurrent)
-        finalize_result = await self._release_finalization_runner.run(to_run, results, context={"execution_id": getattr(release_plan, "execution_id", None)})
+        self._intent_graph.build()
+        intent_context = {
+            "project_path": self._project_root,
+            "runtime_config": self.config.to_dict() if hasattr(self.config, "to_dict") else {},
+            "sprint_executor": self._make_sprint_executor(max_concurrent),
+            "release_plan": to_run,
+            "release_plan_id": getattr(release_plan, "execution_id", None),
+            "events": self._collect_current_events(),
+        }
+        intent_result = await self._intent_graph.run(intent=getattr(to_run.project, "name", ""), context=intent_context)
+        sprint_results: List[SprintResult] = []
+        for sprint_state in intent_result.get("sprint_results", []):
+            sprint_payload = sprint_state.get("final_sprint_result", sprint_state.get("sprint_result", {}))
+            sprint_name = sprint_payload.get("sprint_name", sprint_state.get("sprint", {}).get("name", ""))
+            sprint_status = sprint_payload.get("status", "success")
+            sprint_results.append(
+                SprintResult(
+                    sprint=type("SprintStub", (), {"name": sprint_name, "goals": []})(),
+                    status=ExecutionStatus.SUCCESS if sprint_status in ("success", "skipped") else ExecutionStatus.FAILED,
+                    task_results=[],
+                    duration=float(sprint_payload.get("duration", 0.0)),
+                )
+            )
+        if not sprint_results:
+            raise RuntimeError("IntentGraph 未产出 sprint_results")
+        finalize_result = await self._release_finalization_runner.run(to_run, sprint_results, context={"execution_id": getattr(release_plan, "execution_id", None)})
         self._last_release_finalization_result = finalize_result
         self._persist_release_finalization(release_plan, finalize_result)
-        success = all(r.status in (ExecutionStatus.SUCCESS, ExecutionStatus.SKIPPED) for r in results)
-        complete_event = self._emit_execution_phase(EventType.EXECUTION_COMPLETE if success else EventType.EXECUTION_FAILED, "ReleasePlan 执行完成", release_plan, to_run.project.name, len(results), status="success" if success else "failed")
+        success = all(r.status in (ExecutionStatus.SUCCESS, ExecutionStatus.SKIPPED) for r in sprint_results)
+        complete_event = self._emit_execution_phase(EventType.EXECUTION_COMPLETE if success else EventType.EXECUTION_FAILED, "ReleasePlan 执行完成", release_plan, to_run.project.name, len(sprint_results), status="success" if success else "failed")
         await self._emit(complete_event)
         self._emit_trace_event(complete_event)
-        return results
+        return sprint_results
 
     async def resume_from_sprint(self, release_plan: ReleasePlan, resume_from_idx: int, previous_results: List[SprintResult], max_concurrent: int = 3) -> List[SprintResult]:
         to_run = expand_release_plan_for_execution(release_plan)
@@ -206,16 +241,6 @@ class SprintOrchestrator:
         await self._emit(complete_event)
         self._emit_trace_event(complete_event)
         return results
-
-    async def _execute_via_sprint_executor(self, release_plan: ReleasePlan, max_concurrent: int) -> List[SprintResult]:
-        ex = self._make_sprint_executor(max_concurrent)
-        ex.set_release_plan(release_plan)
-        ex.set_sprint_hooks(self._build_sprint_hooks(release_plan))
-        ctx = self._base_runner_context(release_plan)
-        return await ex.execute_sprints(release_plan.sprints, mode="normal", context=ctx, release_plan=release_plan, sprint_index_offset=0)
-
-    async def _execute_normal_mode(self, release_plan: ReleasePlan, max_concurrent: int) -> List[SprintResult]:
-        return await self._execute_via_sprint_executor(release_plan, max_concurrent)
 
     def _default_on_task_start(self, task: SprintBacklogItem) -> None:
         pass
