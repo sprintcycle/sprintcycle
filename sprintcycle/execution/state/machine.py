@@ -7,7 +7,7 @@ states so the console can reason about recovery, replay, and invalid transitions
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from ..sprint_types import ExecutionStatus
 
@@ -100,6 +100,20 @@ def validate_transition(entity: str, from_status: object, to_status: object) -> 
     if can_transition(entity, frm, to):
         return None
     return f"非法状态迁移: {entity} {frm} -> {to}"
+
+
+@dataclass
+class ExecutionStateMachine:
+    entity: str = "execution"
+
+    def can_transition(self, from_status: object, to_status: object) -> bool:
+        return can_transition(self.entity, normalize_status(from_status), normalize_status(to_status))
+
+    def validate_transition(self, from_status: object, to_status: object) -> Optional[str]:
+        return validate_transition(self.entity, from_status, to_status)
+
+    def allowed_transitions(self) -> Dict[str, Tuple[str, ...]]:
+        return allowed_transitions(self.entity)
 
 
 def summarize_state_machine() -> Dict[str, List[str]]:

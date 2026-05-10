@@ -116,9 +116,24 @@ class HitlCoordinator:
                     return HitlDecision.APPROVE
             if time.monotonic() >= deadline:
                 td = _timeout_decision(self._config)
-                        ok = await self._store.update_decision(row.request_id, decision=td.value, note=None, decision_kind="timeout", status="resolved")
+                ok = await self._store.update_decision(
+                    row.request_id,
+                    decision=td.value,
+                    note=None,
+                    decision_kind="timeout",
+                    status="resolved",
+                )
                 if ok:
-                    await self._emit(HitlEventType.REQUEST_RESOLVED, {"request_id": row.request_id, "execution_id": execution_id, "decision": td.value, "source": "timeout", "status": "resolved"})
+                    await self._emit(
+                        HitlEventType.REQUEST_RESOLVED,
+                        {
+                            "request_id": row.request_id,
+                            "execution_id": execution_id,
+                            "decision": td.value,
+                            "source": "timeout",
+                            "status": "resolved",
+                        },
+                    )
                 return td
             await asyncio.sleep(self._poll_interval)
 

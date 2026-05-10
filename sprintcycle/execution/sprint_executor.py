@@ -59,7 +59,19 @@ class SprintExecutor(CheckpointMixin):
         self._checkpoint_interval = 1
         self._task_context_builder = TaskContextBuilder()
         self._project_write_plan: Optional[ProjectWritePlan] = None
+        self._trace_callback: Optional[Callable[[Dict[str, Any]], None]] = None
         self._register_default_executors()
+
+    def set_trace_callback(self, callback: Optional[Callable[[Dict[str, Any]], None]]) -> None:
+        self._trace_callback = callback
+
+    def _emit_trace(self, kind: str, payload: Dict[str, Any]) -> None:
+        if self._trace_callback is None:
+            return
+        try:
+            self._trace_callback({"kind": kind, **payload})
+        except Exception as e:
+            logger.warning("trace callback failed: {}", e)
 
     def set_project_write_plan(self, plan: Optional[ProjectWritePlan]) -> None:
         self._project_write_plan = plan
@@ -204,11 +216,17 @@ class SprintExecutor(CheckpointMixin):
         ctx_acc.setdefault("sprint_name", sprint.name)
         ctx_acc.setdefault("execution_context", context if isinstance(context, ExecutionContext) else None)
         ctx_acc.setdefault("_sprint_coding_engine", ctx_acc.get("coding_engine", "cursor"))
+        start_event = {"kind": "sprint_start", "execution_id": self._execution_id, "sprint_name": sprint.name, "timestamp": datetime.now().isoformat(), "payload": {"message": f"start sprint {sprint.name}"}, "metadata": {"sprint_name": sprint.name}}
+        self._emit_trace("sprint_start", start_event)
         await self._emit_event("sprint_start", {"execution_id": self._execution_id, "sprint_name": sprint.name, "message": f"start sprint {sprint.name}"})
         for task in sprint.tasks:
+            task_start = {"kind": "task_start", "execution_id": self._execution_id, "sprint_name": sprint.name, "timestamp": datetime.now().isoformat(), "payload": {"agent_type": task.agent, "description": task.description}, "metadata": {"agent_type": task.agent, "sprint_name": sprint.name}}
+            self._emit_trace("task_start", task_start)
             await self._emit_event("task_start", {"execution_id": self._execution_id, "sprint_name": sprint.name, "agent_type": task.agent, "description": task.description})
             task_result = await self._execute_task(task, sprint.name, ctx_acc)
             result.task_results.append(task_result)
+            task_done = {"kind": "task_complete" if task_result.status == ExecutionStatus.SUCCESS else "task_failed", "execution_id": self._execution_id, "sprint_name": sprint.name, "timestamp": datetime.now().isoformat(), "payload": {"agent_type": task.agent, "description": task.description, "status": task_result.status.value, "duration": task_result.duration, "error": task_result.error}, "metadata": {"agent_type": task.agent, "sprint_name": sprint.name}}
+            self._emit_trace(task_done["kind"], task_done)
             await self._emit_event("task_complete" if task_result.status == ExecutionStatus.SUCCESS else "task_failed", {"execution_id": self._execution_id, "sprint_name": sprint.name, "agent_type": task.agent, "description": task.description, "status": task_result.status.value, "duration": task_result.duration, "error": task_result.error})
             if task_result.status == ExecutionStatus.SUCCESS:
                 deps = ctx_acc.setdefault("dependencies", {})
@@ -223,6 +241,8 @@ class SprintExecutor(CheckpointMixin):
         else:
             result.status = ExecutionStatus.SUCCESS
         result.duration = time.time() - start_time
+        sprint_done = {"kind": "sprint_complete" if result.status == ExecutionStatus.SUCCESS else "sprint_failed", "execution_id": self._execution_id, "sprint_name": sprint.name, "timestamp": datetime.now().isoformat(), "payload": {"status": result.status.value, "duration": result.duration}, "metadata": {"sprint_name": sprint.name}}
+        self._emit_trace(sprint_done["kind"], sprint_done)
         await self._emit_event("sprint_complete" if result.status == ExecutionStatus.SUCCESS else "sprint_failed", {"execution_id": self._execution_id, "sprint_name": sprint.name, "status": result.status.value, "duration": result.duration})
         self._collect_feedback(sprint, result)
         self._persist_sprint_result(sprint, result)
@@ -354,6 +374,7 @@ class SprintExecutor(CheckpointMixin):
                 await self._sprint_hooks.on_before_sprint(global_idx, sprint, ctx, release_plan)
             except Exception as e:
                 logger.warning("on_before_sprint hook failed: {}", e)
+            self._emit_trace("sprint_phase", {"kind": "sprint_phase", "execution_id": self._execution_id, "sprint_name": sprint.name, "timestamp": datetime.now().isoformat(), "payload": {"phase": "before_sprint", "index": global_idx}, "metadata": {"sprint_name": sprint.name}})
             act = ctx.pop(CTX_HITL_SPRINT_ACTION, None)
             if act == "skip":
                 results.append(SprintResult(sprint=sprint, status=ExecutionStatus.SKIPPED, task_results=[], duration=0.0))
@@ -364,6 +385,7 @@ class SprintExecutor(CheckpointMixin):
                 break
             result = await self.execute_sprint(sprint, ctx, save_checkpoint=True)
             results.append(result)
+            self._emit_trace("sprint_phase", {"kind": "sprint_phase", "execution_id": self._execution_id, "sprint_name": sprint.name, "timestamp": datetime.now().isoformat(), "payload": {"phase": "after_sprint", "index": global_idx, "status": result.status.value}, "metadata": {"sprint_name": sprint.name}})
             if result.status == ExecutionStatus.FAILED:
                 logger.warning(f"Sprint 失败: {sprint.name}")
                 if self._feedback_loop:
@@ -474,6 +496,8 @@ class SprintExecutor(CheckpointMixin):
 
     async def _execute_task_with_event(self, task: SprintBacklogItem, sprint_name: str, context: Dict[str, Any]) -> TaskResult:
         result = await self._execute_task(task, sprint_name, context)
+        task_phase = {"kind": "task_phase", "execution_id": self._execution_id, "sprint_name": sprint_name, "timestamp": datetime.now().isoformat(), "payload": {"task": task.description[:120], "status": result.status.value if hasattr(result.status, 'value') else str(result.status), "agent": task.agent}, "metadata": {"agent": task.agent, "sprint_name": sprint_name}}
+        self._emit_trace("task_phase", task_phase)
         return result
 
     async def _execute_task(self, task: SprintBacklogItem, sprint_name: str, context: Dict[str, Any]) -> TaskResult:
@@ -498,6 +522,8 @@ class SprintExecutor(CheckpointMixin):
                     enriched_context["task_guidance"] = "前序 Sprint 反馈改进建议:\n" + "\n".join(f"- {s}" for s in suggestions)
             if "retry_from_failure" in context:
                 enriched_context["task_guidance"] = enriched_context.get("task_guidance", "") + "\n[重要] 本次为失败重试，请特别注意上述问题。"
+            task_start = {"kind": "task_execute_start", "execution_id": self._execution_id, "sprint_name": sprint_name, "timestamp": datetime.now().isoformat(), "payload": {"agent": task.agent, "description": task.description}, "metadata": {"agent": task.agent, "sprint_name": sprint_name}}
+            self._emit_trace("task_execute_start", task_start)
             output = await executor(task, enriched_context)
             task_result = TaskResult(work_item=task, sprint_name=sprint_name, status=ExecutionStatus.SUCCESS, output=output, duration=time.time() - start_time)
             self._log_task_execution(task, task_result)
@@ -506,12 +532,18 @@ class SprintExecutor(CheckpointMixin):
             if enriched_context.get(CTX_GOVERNANCE_TASK_AFTER_FAILED):
                 detail = enriched_context.get(CTX_GOVERNANCE_TASK_AFTER_DETAIL) or "task_after 未通过"
                 logger.warning("task_after 阻断任务: sprint={} agent={} desc={}", sprint_name, task.agent, (task.description or "")[:120])
+                failed_phase = {"kind": "task_execute_failed", "execution_id": self._execution_id, "sprint_name": sprint_name, "timestamp": datetime.now().isoformat(), "payload": {"agent": task.agent, "description": task.description, "error": str(detail)[:8000]}, "metadata": {"agent": task.agent, "sprint_name": sprint_name}}
+                self._emit_trace("task_execute_failed", failed_phase)
                 return TaskResult(work_item=task, sprint_name=sprint_name, status=ExecutionStatus.FAILED, output=output, error=str(detail)[:8000], duration=dur)
             task_result.duration = dur
+            task_complete = {"kind": "task_execute_complete", "execution_id": self._execution_id, "sprint_name": sprint_name, "timestamp": datetime.now().isoformat(), "payload": {"agent": task.agent, "description": task.description, "status": task_result.status.value, "duration": task_result.duration}, "metadata": {"agent": task.agent, "sprint_name": sprint_name}}
+            self._emit_trace("task_execute_complete", task_complete)
             return task_result
         except Exception as e:
             failed = TaskResult(work_item=task, sprint_name=sprint_name, status=ExecutionStatus.FAILED, error=str(e), duration=time.time() - start_time)
             await self._invoke_task_hooks(task, sprint_name, enriched_context, failed)
+            failed_phase = {"kind": "task_execute_failed", "execution_id": self._execution_id, "sprint_name": sprint_name, "timestamp": datetime.now().isoformat(), "payload": {"agent": task.agent, "description": task.description, "error": str(e)}, "metadata": {"agent": task.agent, "sprint_name": sprint_name}}
+            self._emit_trace("task_execute_failed", failed_phase)
             return failed
 
     async def _execute_coder_task(self, task: SprintBacklogItem, context: Dict[str, Any]) -> str:
@@ -596,58 +628,3 @@ class SprintExecutor(CheckpointMixin):
                     prev_target = (tasks[j].target or "").lower()
                     if src_kw in prev_text or src_kw in prev_target:
                         dep_map[task_idx].add(j)
-
-    def _add_target_path_dependencies(self, tasks: List[SprintBacklogItem], task_idx: int, task: SprintBacklogItem, dep_map: Dict[int, Set[int]]) -> None:
-        if not task.target:
-            return
-        task_ext = task.target.lower().split('.')[-1] if '.' in task.target.lower() else ''
-        code_extensions = {'py', 'ts', 'js', 'go', 'java'}
-        if task_ext not in code_extensions:
-            return
-        for j in range(task_idx):
-            prev_task = tasks[j]
-            if not prev_task.target:
-                continue
-            prev_ext = prev_task.target.lower().split('.')[-1] if '.' in prev_task.target.lower() else ''
-            if prev_ext == task_ext:
-                dep_map[task_idx].add(j)
-
-    def _add_agent_type_dependencies(self, tasks: List[SprintBacklogItem], task_idx: int, task: SprintBacklogItem, dep_map: Dict[int, Set[int]]) -> None:
-        task_text = task.description.lower()
-        if task.agent == "tester":
-            for j in range(task_idx):
-                if tasks[j].agent in ["coder", "implement"]:
-                    dep_map[task_idx].add(j)
-        dep_rules = [(["build", "编译"], ["compile", "编译"]), (["deploy", "部署"], ["build", "构建"])]
-        for target_kws, source_kws in dep_rules:
-            if any(kw in task_text for kw in target_kws):
-                for j in range(task_idx):
-                    prev_text = tasks[j].description.lower()
-                    if any(kw in prev_text for kw in source_kws):
-                        dep_map[task_idx].add(j)
-
-    def _extract_file_paths(self, text: str) -> List[str]:
-        import re
-        patterns = [r'(?:from|import|include|require)\s+["\']([^"\']+)["\']', r'[\'\"][\./]*([\w/]+\.[\w]+)[\'\"]', r'path:\s*["\']?([^"\'\s]+)["\']?', r'file:\s*["\']?([^"\'\s]+)["\']?']
-        paths = []
-        for pattern in patterns:
-            matches = re.findall(pattern, text)
-            paths.extend(matches)
-        return list(set(paths))
-
-    def get_execution_order(self, tasks: List[SprintBacklogItem]) -> List[List[int]]:
-        dependency_map = self._analyze_dependencies(tasks)
-        in_degree = {i: len(deps) for i, deps in dependency_map.items()}
-        remaining = set(range(len(tasks)))
-        batches: List[List[int]] = []
-        while remaining:
-            ready = [i for i in remaining if in_degree.get(i, 0) == 0]
-            if not ready:
-                ready = [min(remaining)]
-            batches.append(ready)
-            for task_idx in ready:
-                remaining.discard(task_idx)
-                for other_idx, deps in dependency_map.items():
-                    if task_idx in deps:
-                        in_degree[other_idx] -= 1
-        return batches

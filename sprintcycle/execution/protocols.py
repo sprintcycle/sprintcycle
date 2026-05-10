@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, asdict
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
@@ -16,6 +16,8 @@ class ExecutionContext:
     coding_engine: str = "cursor"
     quality_level: str = "L2"
     project_goals: str = ""
+    status: str = "running"
+    current_step: str = ""
     metadata: Dict[str, Any] = field(default_factory=dict)
     codebase_context: Dict[str, Any] = field(default_factory=dict)
 
@@ -36,6 +38,8 @@ class ExecutionContext:
                 coding_engine=str(value.get("coding_engine", "cursor")),
                 quality_level=str(value.get("quality_level", "L2")),
                 project_goals=str(value.get("project_goals", "")),
+                status=str(value.get("status", "running")),
+                current_step=str(value.get("current_step", "")),
                 metadata=dict(value.get("metadata", {}) or {}),
                 codebase_context=dict(value.get("codebase_context", {}) or {}),
             )
@@ -87,4 +91,23 @@ class SkillLifecycleSnapshot:
         return asdict(self)
 
 
-__all__ = ["ExecutionContext", "SkillChecklistItem", "SkillTrace", "SkillLifecycleSnapshot"]
+@dataclass
+class ExecutionCheckpoint:
+    execution_id: str
+    sprint_name: str = ""
+    sprint_index: int = 0
+    status: str = "running"
+    event_cursor: int = 0
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+__all__ = [
+    "ExecutionContext",
+    "ExecutionCheckpoint",
+    "SkillChecklistItem",
+    "SkillTrace",
+    "SkillLifecycleSnapshot",
+]

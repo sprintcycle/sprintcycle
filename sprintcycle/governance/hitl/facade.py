@@ -17,7 +17,6 @@ from . import (
     HitlService,
     create_hitl_coordinator,
     evaluate_hitl_policy,
-    validate_hitl_decision_for_submit,
 )
 
 
@@ -128,7 +127,7 @@ class HitlFacade:
             risk_level=policy.risk_level,
             timeout_seconds=timeout_seconds or policy.timeout_seconds,
         )
-        decision = await self._service._coord.wait_for_decision(
+        decision = await self._service.wait_for_decision(
             execution_id=request.execution_id,
             gate=HitlGate(gate),
             title=title,
@@ -175,7 +174,7 @@ class HitlFacade:
         decision = None
         status = request.status
         if wait:
-            decision = await self._service._coord.wait_for_decision(
+            decision = await self._service.wait_for_decision(
                 execution_id=execution_id,
                 gate=HitlGate(gate),
                 title=title,
@@ -206,12 +205,9 @@ class HitlFacade:
     ) -> Optional[Dict[str, Any]]:
         if self._service is None:
             return None
-        canon = validate_hitl_decision_for_submit(decision)
-        if canon is None:
-            return None
-        rec = await self._service._coord.submit_decision(
+        rec = await self._service.submit_decision(
             request_id,
-            canon,
+            decision,
             note,
             correction=correction,
             replay=replay,
@@ -259,9 +255,9 @@ class HitlFacade:
         if current is None:
             return context
         if correction is not None:
-            await self._service._coord.submit_correction(request_id, correction)
+            await self._service.submit_correction(request_id, correction)
         if replay is not None:
-            await self._service._coord.request_retry(request_id, replay)
+            await self._service.request_retry(request_id, replay)
         updated = await self._service.get_request(request_id)
         if updated and isinstance(updated.get("applied_context"), dict):
             return updated["applied_context"]

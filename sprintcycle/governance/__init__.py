@@ -15,6 +15,7 @@ from .suggestion import (
     SuggestionStatus,
     create_suggestion_facade,
 )
+from .suggestion_analyzer import SuggestionAnalyzer
 
 __all__ = [
     "GovernanceFacade",
@@ -23,6 +24,7 @@ __all__ = [
     "create_hitl_facade",
     "SuggestionFacade",
     "create_suggestion_facade",
+    "SuggestionAnalyzer",
     "Suggestion",
     "SuggestionApprovalRecord",
     "SuggestionImpactScope",

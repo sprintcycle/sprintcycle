@@ -1,12 +1,8 @@
-"""
-执行状态持久化
+"""Execution state persistence for SprintCycle V2.
 
-支持：
-- 断点续传
-- 执行历史查询
-- 状态恢复
+This store keeps only durable execution state. Checkpoint / replay / resume
+metadata has moved to the V2 execution graph layer.
 """
-
 from __future__ import annotations
 
 import json
@@ -15,13 +11,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
-from ..events import Event, EventType
-
 from loguru import logger
 
 from ..sprint_types import ExecutionStatus
-from .machine import validate_transition
-from ...release_plan.payload_keys import checkpoint_plan_yaml
+from .machine import ExecutionStateMachine, validate_transition
 
 if TYPE_CHECKING:
     from ...config.runtime_config import RuntimeConfig
@@ -76,11 +69,7 @@ class ExecutionState:
     created_at: str = ""
     updated_at: str = ""
     error: Optional[str] = None
-    checkpoint: Optional[Dict[str, Any]] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
-    last_stable_state: Optional[Dict[str, Any]] = None
-    event_cursor: Optional[int] = None
-    replay_version: int = 1
 
     def __post_init__(self):
         if not self.created_at:
@@ -101,11 +90,7 @@ class ExecutionState:
             "created_at": self.created_at,
             "updated_at": self.updated_at,
             "error": self.error,
-            "checkpoint": self.checkpoint,
             "metadata": self.metadata,
-            "last_stable_state": self.last_stable_state,
-            "event_cursor": self.event_cursor,
-            "replay_version": self.replay_version,
         }
 
     @classmethod
@@ -113,9 +98,6 @@ class ExecutionState:
         """从字典创建（兼容历史字段与增量升级字段）。"""
         data = data.copy()
         data["status"] = ExecutionStatus(data["status"])
-        data.setdefault("last_stable_state", None)
-        data.setdefault("event_cursor", None)
-        data.setdefault("replay_version", 1)
         return cls(**data)
 
 
@@ -136,6 +118,7 @@ class StateStore:
         """
         self.store_dir = Path(store_dir) if store_dir else Path(".sprintcycle/state")
         self.store_dir.mkdir(parents=True, exist_ok=True)
+        self._machine = ExecutionStateMachine()
 
     def _get_state_path(self, execution_id: str) -> Path:
         """获取状态文件路径"""
@@ -231,101 +214,29 @@ class StateStore:
         states.sort(key=lambda s: s.created_at, reverse=True)
         return states[:limit]
 
-    def create_checkpoint(
-        self,
-        execution_id: str,
-        sprint_idx: int,
-        sprint_name: str,
-        task_results: List[Dict[str, Any]],
-        release_plan_yaml: Optional[str] = None,
-        last_stable_state: Optional[Dict[str, Any]] = None,
-        event_cursor: Optional[int] = None,
-    ) -> bool:
-        """
-        创建断点
-        
-        Args:
-            execution_id: 执行 ID
-            sprint_idx: 当前 Sprint 索引
-            sprint_name: Sprint 名称
-            task_results: 任务结果列表
-            release_plan_yaml: 执行计划 YAML（用于恢复；断点键名为 ``release_plan_yaml``）
-            
-        Returns:
-            是否成功创建
-        """
-        state = self.load(execution_id)
-        if state is None:
-            logger.warning(f"Cannot create checkpoint: state {execution_id} not found")
-            return False
-
-        state.checkpoint = {
-            "sprint_idx": sprint_idx,
-            "sprint_name": sprint_name,
-            "task_results": task_results,
-            "timestamp": datetime.now().isoformat(),
-            "release_plan_yaml": release_plan_yaml,
-        }
-        state.last_stable_state = last_stable_state or {
-            "sprint_idx": sprint_idx,
-            "sprint_name": sprint_name,
-            "status": "stable",
-            "task_count": len(task_results),
-        }
-        if event_cursor is not None:
-            state.event_cursor = event_cursor
-        self.save(state)
-        return True
-
     def can_resume(self, execution_id: str) -> bool:
-        """
-        检查是否可以恢复
-        
-        Args:
-            execution_id: 执行 ID
-            
-        Returns:
-            是否可以恢复执行
-        """
         state = self.load(execution_id)
-        return (
-            state is not None and
-            state.status in (ExecutionStatus.PAUSED, ExecutionStatus.FAILED, ExecutionStatus.CANCELLED) and
-            state.checkpoint is not None
-        )
+        return state is not None and state.status in (ExecutionStatus.PAUSED, ExecutionStatus.FAILED, ExecutionStatus.CANCELLED)
 
     def get_resume_point(self, execution_id: str) -> Optional[Dict[str, Any]]:
-        """
-        获取恢复点信息
-        
-        Args:
-            execution_id: 执行 ID
-            
-        Returns:
-            断点数据或 None
-        """
         state = self.load(execution_id)
-        if state and state.checkpoint:
-            cp = state.checkpoint
-            yml = checkpoint_plan_yaml(cp)
-            return {
-                "current_sprint": cp.get("sprint_idx", 0),
-                "sprint_name": cp.get("sprint_name", ""),
-                "task_results": cp.get("task_results", []),
-                "release_plan_yaml": yml,
-                "last_stable_state": state.last_stable_state,
-                "event_cursor": state.event_cursor,
-                "replay_version": state.replay_version,
-            }
-        return None
+        if state is None:
+            return None
+        return {
+            "execution_id": state.execution_id,
+            "status": state.status.value,
+            "current_sprint": state.current_sprint,
+            "total_sprints": state.total_sprints,
+            "completed_tasks": state.completed_tasks,
+            "total_tasks": state.total_tasks,
+            "metadata": dict(state.metadata),
+        }
 
     def update_status(
         self,
         execution_id: str,
         status: ExecutionStatus,
         error: Optional[str] = None,
-        last_stable_state: Optional[Dict[str, Any]] = None,
-        event_cursor: Optional[int] = None,
     ) -> bool:
         """
         更新执行状态
@@ -342,16 +253,12 @@ class StateStore:
         if state is None:
             return False
 
-        err = validate_transition("execution", state.status, status)
+        err = self._machine.validate_transition(state.status, status)
         if err:
             logger.warning(err)
         state.status = status
         if error:
             state.error = error
-        if last_stable_state is not None:
-            state.last_stable_state = last_stable_state
-        if event_cursor is not None:
-            state.event_cursor = event_cursor
         self.save(state)
         return True
 

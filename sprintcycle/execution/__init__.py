@@ -51,6 +51,7 @@ from .sqlite_event_backend import SQLiteMQEventBackend, execution_events_sqlite_
 from .feedback import ExecutionFeedback, FeedbackCategory, FeedbackLevel, FeedbackLoop
 from .hooks.sprint_hooks import ChainedSprintHooks, NoOpSprintLifecycleHooks, SprintLifecycleHooks
 from .rollback import BackupRecord, RollbackConfig, RollbackManager, RollbackResult, get_rollback_manager
+from .orchestrator import ExecutionOrchestrator, ExecutionRunRequest, ExecutionRunResult
 from .sprint_executor import ExecutionStatus, SprintExecutor, SprintResult, TaskResult
 from .state.sqlite_state_store import SqliteExecutionStore
 from .state.state_store import (
@@ -63,6 +64,7 @@ from .state.state_store import (
 from .strategies import ExecutionResult, ExecutionStrategy, NormalStrategy, get_strategy
 
 __all__ = [
+    "ExecutionOrchestrator", "ExecutionRunRequest", "ExecutionRunResult",
     "SprintExecutor", "NormalStrategy", "ExecutionStrategy", "get_strategy", "ExecutionResult",
     "ExecutionStatus", "TaskResult", "SprintResult",
     "EventBus",

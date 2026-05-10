@@ -27,27 +27,19 @@ from typing import Any, Dict, List, Optional
 from loguru import logger
 
 from .config import RuntimeConfig
-from .diagnostic.provider import ProjectDiagnostic
 from .deployment.runtime_registry import RuntimeRegistry
 from .execution.cache import configure_execution_cache_from_runtime
 from .execution.events import (
     ensure_default_execution_event_backend_for_project,
     get_execution_event_backend,
 )
-from .execution.rollback import RollbackManager
 from .execution.state import summarize_state_machine
 from .execution.state.state_store import (
     configure_default_store,
     get_state_store,
 )
 from .execution_core import ExecutionContext, create_execution_engine
-from .intent.parser import IntentParser
-from .orchestration.sprint_orchestrator import ExecutionStatus, SprintOrchestrator
-from .release_plan.generator import IntentReleasePlanGenerator
-from .release_plan.models import ExecutionMode, ReleasePlan
-from .release_plan.parser import ReleasePlanParser
-from .release_plan.payload_keys import checkpoint_plan_yaml
-from .release_plan.validator import ReleasePlanValidator
+from .orchestration.sprint_orchestrator import SprintOrchestrator
 from .results import (
     DiagnoseResult,
     EvolutionIndexResult,
@@ -78,9 +70,14 @@ from .persistence.knowledge_repository import KnowledgeCardRepository
 from .versioning.interface import get_version_manifest_summary
 from .versioning.sqlite_registry import SQLiteVersionRegistry
 from .observability.facade import ObservabilityFacade
+from .platform.overview import build_platform_overview
+from .integrations.langgraph.runtime import LangGraphRuntimeAdapter, LangGraphRuntimeSpec
+from .integrations.phoenix.runtime import PhoenixRuntimeAdapter, PhoenixRuntimeSpec
+from .integrations.phoenix.exporter import PhoenixExporterSpec
+from .integrations.langgraph.graph import build_default_langgraph_graph_spec
+from .platform.views import PlatformComposeView, PlatformSpecView
 from .dashboard.views.architecture_view import ArchitectureView
 from .dashboard.views.deploy_view import DeployView
-from .dashboard.views.execution_trace import ExecutionTraceView
 from .dashboard.views.fix_view import FixView
 from .dashboard.views.fitness_view import FitnessView
 from .dashboard.views.governance_view import GovernanceView
@@ -253,15 +250,55 @@ class SprintCycle:
         context = await self._suggestion.review_suggestion(suggestion_id)
         return {"success": True, "data": context.to_dict()}
 
+    async def review_suggestion(self, execution_id: str, suggestion_id: str, reviewer: str = "", notes: str = "") -> Dict[str, Any]:
+        record = await self._governance.review_suggestion(execution_id, suggestion_id, reviewer=reviewer, notes=notes)
+        return {"success": True, "data": record}
+
+    async def approve_suggestion(self, execution_id: str, suggestion_id: str, approver: str = "", notes: str = "") -> Dict[str, Any]:
+        record = await self._governance.approve_suggestion(execution_id, suggestion_id, approver=approver, notes=notes)
+        return {"success": True, "data": record}
+
+    async def reject_suggestion(self, execution_id: str, suggestion_id: str, rejected_by: str = "", notes: str = "") -> Dict[str, Any]:
+        record = await self._governance.reject_suggestion(execution_id, suggestion_id, rejected_by=rejected_by, notes=notes)
+        return {"success": True, "data": record}
+
+    async def promote_suggestion_to_hitl(
+        self,
+        suggestion_id: str,
+        *,
+        gate: str = "review",
+        title: str = "",
+        summary: str = "",
+        context: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        request = await self._governance.promote_suggestion_to_hitl(
+            suggestion_id,
+            gate=gate,
+            title=title,
+            summary=summary,
+            context=context,
+        )
+        return {"success": True, "data": request}
+
+    async def attach_suggestion_replay(self, suggestion_id: str, replay: Dict[str, Any]) -> Dict[str, Any]:
+        request = await self._governance.attach_suggestion_replay(suggestion_id, replay)
+        return {"success": True, "data": request}
+
     async def suggestion_approve(self, suggestion_id: str, approver: str, notes: str = "") -> Dict[str, Any]:
         record = await self._suggestion.approve_suggestion(suggestion_id, approver, notes)
         promoted: Dict[str, Any] | None = None
         try:
-            request = await self._suggestion.promote_suggestion(suggestion_id, self.project_path)
-            promoted = request.to_dict() if hasattr(request, "to_dict") else {"request_id": getattr(request, "request_id", None)}
+            request = await self._governance.promote_suggestion_to_hitl(
+                suggestion_id,
+                gate="review",
+                title="",
+                summary=notes,
+                context={"approver": approver, "notes": notes, "source": "suggestion_approval"},
+            )
+            promoted = request.get("data", request) if isinstance(request, dict) else {"request_id": getattr(request, "request_id", None)}
             await self.start_execution_run(
-                task_id=str(getattr(request, "request_id", suggestion_id)),
-                run_id=str(getattr(request, "request_id", suggestion_id)),
+                task_id=str(promoted.get("request_id", suggestion_id)),
+                run_id=str(promoted.get("request_id", suggestion_id)),
                 suggestion_id=suggestion_id,
                 metadata={"source": "suggestion_promotion", "suggestion_id": suggestion_id, "approver": approver},
             )
@@ -294,6 +331,10 @@ class SprintCycle:
 
     def management_overview_dashboard(self) -> Dict[str, Any]:
         return self._management_overview_payload()
+
+    def platform_spec(self) -> Dict[str, Any]:
+        """Return the aggregated V2 platform composition spec."""
+        return {"success": True, "data": build_platform_spec(project_name=self.project_path).to_dict()}
 
     def _gate_pre_run(self, context: ExecutionContext) -> GateResult:
         return pre_run_gate(
@@ -494,6 +535,19 @@ class SprintCycle:
             "runtimes": list(self._runtime_registry.records),
         }
 
+    def platform_overview(self) -> Dict[str, Any]:
+        overview = build_platform_overview(self.project_path).to_dict()
+        overview["project_path"] = self.project_path
+        overview["runtime"]["langgraph_runtime"] = LangGraphRuntimeAdapter(
+            spec=LangGraphRuntimeSpec(project_name=self.project_path)
+        ).build_graph()
+        overview["trace"]["phoenix_runtime"] = PhoenixRuntimeAdapter(
+            spec=PhoenixRuntimeSpec(project_name=self.project_path)
+        ).build_exporter()
+        overview["trace"]["phoenix_exporter"] = PhoenixExporterSpec(project_name=self.project_path).to_dict()
+        overview["runtime"]["langgraph_graph"] = build_default_langgraph_graph_spec(self.project_path).to_dict()
+        return {"success": True, "data": overview}
+
     def _execution_detail_payload(self, execution_id: str, *, limit: int = 200) -> Dict[str, Any]:
         eid = (execution_id or "").strip()
         if not eid:
@@ -502,19 +556,13 @@ class SprintCycle:
         state = store.load(eid)
         if state is None:
             return {"success": False, "error": f"未找到执行记录: {eid}"}
-        checkpoint = state.checkpoint or {}
-        resume_point = store.get_resume_point(eid) or {}
-        replay = self.replay_execution(eid, limit=limit)
+        trace = self.observability_trace(eid)
+        platform = self.platform_overview().get("data", {})
         detail = {
             "state": state.to_dict(),
-            "checkpoint": checkpoint,
-            "resume_point": resume_point,
-            "replay": replay.get("data", {}),
-            "timeline": replay.get("timeline", []),
+            "trace": trace.get("data", {}),
+            "platform": platform,
             "state_machine": summarize_state_machine(),
-            "can_resume": store.can_resume(eid),
-            "last_stable_state": state.last_stable_state,
-            "event_cursor": state.event_cursor,
         }
         return {"success": True, "data": detail}
 
@@ -561,55 +609,32 @@ class SprintCycle:
         *,
         limit: int = 200,
     ) -> Dict[str, Any]:
-        """只读：从 SQLite MQ 执行事件库按 ``execution_id`` 拉取已持久化事件（``execution_event_backend=sqlite``）。"""
+        """V2 only exposes canonical trace events from the observability layer."""
         eid = (execution_id or "").strip()
         if not eid:
             return {"success": False, "error": "execution_id required"}
-        mode = (getattr(self.config, "execution_event_backend", None) or "sqlite").strip().lower()
-        if mode != "sqlite":
-            return {
-                "success": True,
-                "data": [],
-                "backend": mode,
-                "message": (
-                    "Replay is only available when execution_event_backend=sqlite "
-                    "(persisted execution event MQ)."
-                ),
-            }
-        from .execution.sqlite_event_backend import (
-            execution_events_sqlite_path,
-            fetch_execution_events_for_replay,
-        )
-
-        path = execution_events_sqlite_path(self.project_path)
-        rows = fetch_execution_events_for_replay(path, eid, limit=limit)
-        return {"success": True, "data": rows, "backend": "sqlite"}
+        trace = self.observability_trace(eid)
+        data = trace.get("data", {}) if isinstance(trace, dict) else {}
+        events = list(data.get("events", []) or [])[:limit]
+        return {"success": True, "data": events, "backend": "canonical"}
 
     def replay_execution(self, execution_id: str, *, limit: int = 500) -> Dict[str, Any]:
-        """基于事件与状态快照生成可回放视图。"""
+        """V2 replay uses the canonical observability trace payload."""
         eid = (execution_id or "").strip()
         if not eid:
             return {"success": False, "error": "execution_id required"}
-        store = get_state_store()
-        state = store.load(eid)
-        if state is None:
-            return {"success": False, "error": f"未找到执行记录: {eid}"}
-        timeline = self.execution_events(eid, limit=limit)
-        events = timeline.get("data", []) if isinstance(timeline, dict) else []
-        summary = {
-            "execution_id": eid,
-            "status": state.status.value,
-            "current_sprint": state.current_sprint,
-            "total_sprints": state.total_sprints,
-            "completed_tasks": state.completed_tasks,
-            "total_tasks": state.total_tasks,
-            "last_stable_state": state.last_stable_state,
-            "event_cursor": state.event_cursor,
-            "replay_version": state.replay_version,
-            "event_count": len(events),
-            "latest_event": events[-1] if events else None,
+        trace = self.observability_trace(eid)
+        data = trace.get("data", {}) if isinstance(trace, dict) else {}
+        events = list(data.get("events", []) or [])[:limit]
+        return {
+            "success": True,
+            "data": {
+                "execution_id": eid,
+                "event_count": len(events),
+                "latest_event": events[-1] if events else None,
+            },
+            "timeline": events,
         }
-        return {"success": True, "data": summary, "timeline": events}
 
     def execution_detail(self, execution_id: str, *, limit: int = 200) -> Dict[str, Any]:
         """执行详情：状态、恢复点、回放、状态机摘要一次性返回。"""
@@ -617,48 +642,23 @@ class SprintCycle:
 
     def _resume_execution_payload(self, execution_id: str) -> Dict[str, Any]:
         eid = (execution_id or "").strip()
-        if not eid:
-            return {"success": False, "error": "execution_id required"}
-        store = get_state_store()
-        state = store.load(eid)
-        if state is None:
-            return {"success": False, "error": f"未找到执行记录: {eid}"}
-        if not store.can_resume(eid):
-            return {"success": False, "error": f"执行 {eid} 当前不可恢复"}
-        checkpoint = state.checkpoint or {}
-        yml = checkpoint.get("release_plan_yaml") or checkpoint.get("release_plan")
-        if not yml:
-            return {"success": False, "error": "缺少 release plan checkpoint，无法恢复"}
-        try:
-            plan = ReleasePlanParser().parse_string(str(yml))
-        except Exception as e:
-            return {"success": False, "error": f"无法解析 checkpoint: {e}"}
-        results = asyncio.run(
-            self.orchestrator.resume_from_sprint(
-                plan,
-                int(checkpoint.get("sprint_idx", 0) or 0),
-                [],
-                max_concurrent=self.config.parallel_tasks,
-            )
-        )
-        return {"success": True, "data": {"execution_id": eid, "results": [r.to_dict() for r in results]}}
+        return {"success": False, "error": f"resume is removed in V2 for execution_id={eid}"}
 
     def resume_execution(self, execution_id: str) -> Dict[str, Any]:
         """控制台恢复入口：按记录的断点继续执行。"""
         return self._resume_execution_payload(execution_id)
 
     def console_overview(self, *, limit: int = 20) -> Dict[str, Any]:
-        """控制台总览：当前执行、可恢复执行、最近事件与状态机摘要。"""
+        """控制台总览：当前执行、最近事件与平台总览。"""
         store = get_state_store()
         states = store.list_executions(limit=max(1, int(limit)))
         executions = [s.to_dict() for s in states]
-        recoverable = [s.to_dict() for s in states if store.can_resume(s.execution_id)]
         running = [s.to_dict() for s in states if str(s.status.value) == "running"]
         latest = executions[0] if executions else None
         recent_events: List[Dict[str, Any]] = []
         if latest and latest.get("execution_id"):
             try:
-                recent_events = self.execution_events(str(latest["execution_id"]), limit=20).get("data", [])
+                recent_events = self.observability_trace(str(latest["execution_id"])).get("data", {}).get("events", [])[:20]
             except Exception:
                 recent_events = []
         return {
@@ -666,15 +666,15 @@ class SprintCycle:
             "data": {
                 "executions": executions,
                 "running_executions": running,
-                "recoverable_executions": recoverable,
                 "primary_execution": latest,
                 "recent_events": recent_events,
+                "platform": build_platform_spec(self.project_path).to_dict(),
                 "state_machine": summarize_state_machine(),
             },
         }
 
     def reload_runtime_config(self) -> None:
-        """从磁盘重新加载 ``RuntimeConfig``（含 ``sprintcycle.runtime.yaml``），并重绑缓存 / 状态 / 事件后端。"""
+        """从磁盘重新加载 ``RuntimeConfig``（含 ``sprintcycle.runtime.yaml``）。"""
         base = RuntimeConfig.from_project(self.project_path)
         self.config = base.merge(base, {"project_path": self.project_path})
         configure_execution_cache_from_runtime(self.config, self.project_path)

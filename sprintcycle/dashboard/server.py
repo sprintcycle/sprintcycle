@@ -19,7 +19,7 @@ import os
 import time
 import uuid
 from pathlib import Path
-from typing import Any, AsyncGenerator, Awaitable, Callable, Dict, List, Literal, Optional
+from typing import Any, Awaitable, Callable, Dict, List, Literal, Optional
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -34,6 +34,7 @@ from sprintcycle.execution.events import Event, EventType, get_execution_event_b
 
 from . import config_center
 from . import platform_state
+from .workbench import DashboardWorkbenchService
 
 # ─── SSE 客户端管理 ───
 
@@ -94,7 +95,6 @@ class SSEClientManager:
                 logger.warning(f"SSE client queue full: {client.client_id}")
                 disconnected.append(client.client_id)
 
-        # 清理断开的客户端
         for client_id in disconnected:
             await self.remove_client(client_id)
 
@@ -103,7 +103,6 @@ class SSEClientManager:
         return len(self._clients)
 
 
-# 全局客户端管理器
 _client_manager: Optional[SSEClientManager] = None
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -121,7 +120,6 @@ _NO_STATIC_BODY = """<!DOCTYPE html>
 
 
 def get_client_manager() -> SSEClientManager:
-    """获取客户端管理器"""
     global _client_manager
     if _client_manager is None:
         _client_manager = SSEClientManager()
@@ -129,7 +127,6 @@ def get_client_manager() -> SSEClientManager:
 
 
 async def _build_platform_summary(sc: SprintCycle, client_manager: SSEClientManager) -> Dict[str, Any]:
-    """汇总平台状态，避免把聚合逻辑散落在路由里。"""
     st = sc.status()
     raw = st.to_dict() if hasattr(st, "to_dict") else {}
     executions: list = []
@@ -143,9 +140,7 @@ async def _build_platform_summary(sc: SprintCycle, client_manager: SSEClientMana
     snap["status_query_ms"] = round(float(raw.get("duration", 0) or 0) * 1000.0, 2)
     hitl = await sc.hitl_pending()
     pend = hitl.get("data") if isinstance(hitl, dict) else []
-    snap["hitl"] = {
-        "open_requests": len(pend) if isinstance(pend, list) else 0,
-    }
+    snap["hitl"] = {"open_requests": len(pend) if isinstance(pend, list) else 0}
     try:
         console = sc.console_overview(limit=20)
         snap["console"] = console.get("data", {}) if isinstance(console, dict) else {}
@@ -173,30 +168,20 @@ async def _read_governance_reports(sc: SprintCycle) -> Dict[str, Any]:
     return payload
 
 
-# ─── 全局事件处理器 ───
-
 class SSEEventHandler:
-    """SSE 事件处理器 - 将执行事件后端的事件转发到 SSE 客户端"""
-
     def __init__(self, client_manager: SSEClientManager):
         self._client_manager = client_manager
         self._is_running = False
 
     async def handle_event(self, event: Event) -> None:
-        """处理事件并广播到所有 SSE 客户端"""
         if self._is_running:
             await self._client_manager.broadcast(event)
 
     def start(self) -> None:
-        """启动处理器"""
         self._is_running = True
 
     def stop(self) -> None:
-        """停止处理器"""
         self._is_running = False
-
-
-# ─── 请求模型 ───
 
 
 class PlanRequest(BaseModel):
@@ -241,23 +226,33 @@ class HitlDecisionBody(BaseModel):
 
 
 class GovernanceCheckBody(BaseModel):
-    """HTTP 触发治理门禁（与 ``sprintcycle governance check`` 对齐）。"""
-
     gate: Literal["review", "planning", "both"] = "review"
 
 
-# ─── 全局状态 ───
+class SuggestionPromoteBody(BaseModel):
+    gate: str = "review"
+    title: str = ""
+    summary: str = ""
+    approver: str = ""
+
+
+class SuggestionReviewBody(BaseModel):
+    reviewer: str = ""
+    notes: str = ""
+
+
+class SuggestionRejectBody(BaseModel):
+    rejected_by: str = ""
+    notes: str = ""
+
 
 _event_handler: Optional[SSEEventHandler] = None
 
 
 async def _on_event(event: Any) -> None:
-    """执行事件后端回调"""
     global _event_handler
     try:
-        et = getattr(getattr(event, "type", None), "value", None) or str(
-            getattr(event, "type", "")
-        )
+        et = getattr(getattr(event, "type", None), "value", None) or str(getattr(event, "type", ""))
         if et:
             platform_state.record_sse_event_type(et)
     except Exception:
@@ -266,34 +261,23 @@ async def _on_event(event: Any) -> None:
         await _event_handler.handle_event(event)
 
 
-# ─── App 工厂 ───
-
-
 def create_app(project_path: str = ".") -> FastAPI:
-    """创建 FastAPI 应用"""
     sc = SprintCycle(project_path=project_path)
     event_bus = get_execution_event_backend()
-
     app = FastAPI(title="SprintCycle Console", version="0.9.2")
 
     if _DASHBOARD_DEV:
         _p = DashboardPortDefaults.dev_port
         app.add_middleware(
             CORSMiddleware,
-            allow_origins=[
-                f"http://127.0.0.1:{_p}",
-                f"http://localhost:{_p}",
-            ],
+            allow_origins=[f"http://127.0.0.1:{_p}", f"http://localhost:{_p}"],
             allow_credentials=True,
             allow_methods=["*"],
             allow_headers=["*"],
         )
 
     @app.middleware("http")
-    async def _platform_http_metrics(
-        request: Request, call_next: Callable[[Request], Awaitable[Any]]
-    ) -> Any:
-        """管理平台：HTTP 延迟、状态码、按路由计数；结构化日志便于外接采集。"""
+    async def _platform_http_metrics(request: Request, call_next: Callable[[Request], Awaitable[Any]]) -> Any:
         path = request.url.path
         if not path.startswith("/api/"):
             return await call_next(request)
@@ -306,89 +290,47 @@ def create_app(project_path: str = ".") -> FastAPI:
             return response
         finally:
             elapsed_ms = (time.perf_counter() - t0) * 1000.0
-            platform_state.record_http_request(
-                route=path,
-                method=method,
-                status_code=status_code,
-                duration_ms=elapsed_ms,
-            )
+            platform_state.record_http_request(route=path, method=method, status_code=status_code, duration_ms=elapsed_ms)
             if path not in ("/api/events/stream", "/api/events", "/api/events/legacy"):
-                logger.info(
-                    "dashboard_http method={} path={} status={} duration_ms={:.2f}",
-                    method,
-                    path,
-                    status_code,
-                    elapsed_ms,
-                )
+                logger.info("dashboard_http method={} path={} status={} duration_ms={:.2f}", method, path, status_code, elapsed_ms)
 
-    # 初始化 SSE 客户端管理器
     client_manager = get_client_manager()
+    dashboard_workbench = DashboardWorkbenchService()
 
-    # 初始化并启动 SSE 事件处理器
     global _event_handler
     _event_handler = SSEEventHandler(client_manager)
     _event_handler.start()
 
-    # 注册全局事件处理器：与 EventBus 相同的一类型一 handler；后端为 SQLite 时仍适用
-    # config_changed 仅由配置 API / 文件监视直接 SSE 广播，不经执行事件后端持久化
     for event_type in EventType:
         if event_type is EventType.CONFIG_CHANGED:
             continue
         event_bus.on(event_type, _on_event)
 
-    # ─── API 路由 ───
-
     @app.post("/api/plan")
     async def api_plan(req: PlanRequest) -> Dict[str, Any]:
-        result = sc.plan(
-            intent=req.intent,
-            mode=req.mode,
-            target=req.target,
-            release_plan_yaml=req.release_plan_yaml,
-            release_plan_path=req.release_plan_path,
-            product=req.product,
-            reference_paths=req.reference_paths,
-            write_policy=req.write_policy,
-        )
+        result = sc.plan(intent=req.intent, mode=req.mode, target=req.target, release_plan_yaml=req.release_plan_yaml, release_plan_path=req.release_plan_path, product=req.product, reference_paths=req.reference_paths, write_policy=req.write_policy)
         return result.to_dict()
 
     @app.post("/api/run")
     async def api_run(req: RunRequest) -> Dict[str, Any]:
-        result = sc.run(
-            intent=req.intent, mode=req.mode, target=req.target,
-            release_plan_yaml=req.release_plan_yaml,
-            release_plan_path=req.release_plan_path,
-            product=req.product,
-            execution_id=req.execution_id, resume=req.resume,
-            reference_paths=req.reference_paths,
-            write_policy=req.write_policy,
-        )
+        result = sc.run(intent=req.intent, mode=req.mode, target=req.target, release_plan_yaml=req.release_plan_yaml, release_plan_path=req.release_plan_path, product=req.product, execution_id=req.execution_id, resume=req.resume, reference_paths=req.reference_paths, write_policy=req.write_policy)
         return result.to_dict()
 
     @app.get("/api/governance/latest")
     async def api_governance_latest() -> Dict[str, Any]:
-        """只读返回最近一次落盘的 Planning / Review 治理报告（v4.0 观测面）。"""
         return await _read_governance_reports(sc)
 
     @app.get("/api/governance/history")
     async def api_governance_history(limit: int = 50) -> Dict[str, Any]:
-        """治理报告历史快照列表（新→旧），见 ``governance_history`` 目录。"""
         return sc.governance_history(limit=limit)
 
     @app.post("/api/governance/check")
     async def api_governance_check(body: GovernanceCheckBody) -> Dict[str, Any]:
-        """执行 Planning/Review 门禁并落盘（与 CLI / validate 对齐）。"""
         from sprintcycle.config.runtime_config import RuntimeConfig
         from sprintcycle.governance.runner import run_governance_check_and_persist
 
         cfg = RuntimeConfig.from_project(sc.project_path)
-        # 门禁内部使用 ``asyncio.run``；在 ASGI 事件循环中须放到线程执行，避免嵌套 loop。
-        planning_report, review_report, fail = await asyncio.to_thread(
-            run_governance_check_and_persist,
-            sc.project_path,
-            cfg,
-            body.gate,
-        )
+        planning_report, review_report, fail = await asyncio.to_thread(run_governance_check_and_persist, sc.project_path, cfg, body.gate)
         out: Dict[str, Any] = {"should_fail_ci": fail, "gate": body.gate}
         if planning_report is not None:
             out["planning"] = planning_report.to_dict()
@@ -439,22 +381,6 @@ def create_app(project_path: str = ".") -> FastAPI:
     async def api_hitl_request_detail(request_id: str) -> Dict[str, Any]:
         return await sc.hitl_show(request_id)
 
-    @app.get("/api/execution/{execution_id}/events")
-    async def api_execution_events(execution_id: str, limit: int = 200) -> Dict[str, Any]:
-        return sc.execution_events(execution_id, limit=limit)
-
-    @app.get("/api/execution/{execution_id}/trace")
-    async def api_execution_trace(execution_id: str) -> Dict[str, Any]:
-        return sc.observability_trace(execution_id)
-
-    @app.get("/api/execution/{execution_id}/replay")
-    async def api_execution_replay(execution_id: str, limit: int = 500) -> Dict[str, Any]:
-        return sc.observability_replay(execution_id)
-
-    @app.get("/api/dashboard/replay")
-    async def api_dashboard_replay(execution_id: str) -> Dict[str, Any]:
-        return sc.observability_replay(execution_id)
-
     @app.get("/api/console/overview")
     async def api_console_overview(limit: int = 20) -> Dict[str, Any]:
         return sc.console_overview(limit=limit)
@@ -467,178 +393,54 @@ def create_app(project_path: str = ".") -> FastAPI:
     async def api_dashboard_governance() -> Dict[str, Any]:
         return sc.governance_view()
 
-    @app.get("/api/dashboard/fitness")
-    async def api_dashboard_fitness() -> Dict[str, Any]:
-        return sc.fitness_view()
+    @app.get("/api/dashboard/suggestions")
+    async def api_dashboard_suggestions(execution_id: Optional[str] = None, limit: int = 20) -> Dict[str, Any]:
+        return dashboard_workbench.suggestion_board(sc, execution_id=execution_id, limit=limit)
 
-    @app.get("/api/dashboard/deploy")
-    async def api_dashboard_deploy() -> Dict[str, Any]:
-        return sc.deploy_view()
+    @app.get("/api/dashboard/board")
+    async def api_dashboard_board(execution_id: Optional[str] = None, limit: int = 20) -> Dict[str, Any]:
+        return await dashboard_workbench.suggestion_and_hitl_panel(sc, execution_id=execution_id, limit=limit)
+
+    @app.get("/api/dashboard/workspace/{execution_id}")
+    async def api_dashboard_workspace(execution_id: str, limit: int = 200) -> Dict[str, Any]:
+        return dashboard_workbench.execution_workspace(sc, execution_id=execution_id, limit=limit)
+
+    @app.get("/api/dashboard/platform")
+    async def api_dashboard_platform() -> Dict[str, Any]:
+        return dashboard_workbench.platform_workspace(sc)
+
+    @app.get("/api/platform/overview")
+    async def api_platform_overview() -> Dict[str, Any]:
+        return sc.platform_overview()
 
     @app.get("/api/dashboard/trace")
     async def api_dashboard_trace(execution_id: str) -> Dict[str, Any]:
         return sc.observability_trace(execution_id)
 
-    @app.get("/api/dashboard/replay")
-    async def api_dashboard_replay(execution_id: str) -> Dict[str, Any]:
-        return sc.observability_replay(execution_id)
+    @app.post("/api/dashboard/suggestions/{suggestion_id}/review")
+    async def api_dashboard_suggestion_review(suggestion_id: str, body: SuggestionReviewBody) -> Dict[str, Any]:
+        return await sc.review_suggestion("", suggestion_id, reviewer=body.reviewer, notes=body.notes)
 
-    @app.get("/api/dashboard/fix")
-    async def api_dashboard_fix() -> Dict[str, Any]:
-        return sc.fix_view()
+    @app.post("/api/dashboard/suggestions/{suggestion_id}/approve")
+    async def api_dashboard_suggestion_approve(suggestion_id: str, body: SuggestionPromoteBody) -> Dict[str, Any]:
+        return await sc.approve_suggestion("", suggestion_id, approver=body.approver, notes=body.summary)
 
-    @app.get("/api/architecture/check")
-    async def api_architecture_check() -> Dict[str, Any]:
-        return sc.architecture_check()
+    @app.post("/api/dashboard/suggestions/{suggestion_id}/reject")
+    async def api_dashboard_suggestion_reject(suggestion_id: str, body: SuggestionRejectBody) -> Dict[str, Any]:
+        return await sc.reject_suggestion("", suggestion_id, rejected_by=body.rejected_by, notes=body.notes)
 
-    @app.post("/api/execution/{execution_id}/resume")
-    async def api_execution_resume(execution_id: str) -> Dict[str, Any]:
-        return sc.resume_execution(execution_id)
-
-    config_center.attach_config_routes(app, sc, client_manager)
-
-    @app.on_event("startup")
-    async def _config_center_startup() -> None:
-        config_center.set_reload_loop(asyncio.get_running_loop())
-        stop = config_center.start_config_file_watcher(sc.project_path, sc, client_manager)
-        app.state._config_watcher_stop = stop
-
-    @app.on_event("shutdown")
-    async def _config_center_shutdown() -> None:
-        stop = getattr(app.state, "_config_watcher_stop", None)
-        if callable(stop):
-            stop()
-
-    # ─── SSE 事件流 ───
-
-    @app.get("/api/events/stream")
-    async def api_events_stream(request: Request) -> StreamingResponse:
-        """
-        SSE 实时事件流端点
-
-        推送 Sprint 执行相关的实时事件：
-        - execution_start: 执行开始
-        - sprint_start: Sprint 开始
-        - sprint_complete: Sprint 完成
-        - sprint_failed: Sprint 失败
-        - task_start: 任务开始
-        - task_complete: 任务完成
-        - task_failed: 任务失败
-        - governance_task_check: 任务级治理 task_after 检查
-        - governance_gate: Planning/Review 门摘要（含 compose:* 规则）
-        - execution_complete: 执行完成
-        - execution_failed: 执行失败
-        - hitl_request_open / hitl_request_resolved: 人机卡点待决策 / 已决策
-        - trace_recorded: 链路事件已记录
-        - replay_ready: 回放数据已准备
-        - config_changed: 运行时配置已更新（API 保存、手动 reload 或文件热重载）
-
-        最近一次落盘治理报告（不含 SSE）：``GET /api/governance/latest``（见 docs/GOVERNANCE_HEAVY_CHECKS.md）。
-        """
-        client = await client_manager.create_client()
-        client_id = client.client_id
-
-        async def event_stream() -> AsyncGenerator[str, None]:
-            try:
-                # 发送连接成功消息
-                yield f"event: connected\ndata: {json.dumps({'client_id': client_id, 'message': 'SSE connected'})}\n\n"
-
-                # 持续发送事件直到客户端断开
-                while True:
-                    try:
-                        # 等待消息，15秒超时以发送心跳
-                        message = await asyncio.wait_for(
-                            client.queue.get(),
-                            timeout=15.0
-                        )
-                        yield message
-                    except asyncio.TimeoutError:
-                        # 发送心跳保活
-                        yield f"event: heartbeat\ndata: {json.dumps({'type': 'heartbeat', 'client_id': client_id})}\n\n"
-                    except asyncio.CancelledError:
-                        break
-            finally:
-                await client_manager.remove_client(client_id)
-
-        return StreamingResponse(
-            event_stream(),
-            media_type="text/event-stream",
-            headers={
-                "Cache-Control": "no-cache",
-                "Connection": "keep-alive",
-                "X-Accel-Buffering": "no",
-            }
+    @app.post("/api/dashboard/suggestions/{suggestion_id}/promote")
+    async def api_dashboard_suggestion_promote(suggestion_id: str, body: SuggestionPromoteBody) -> Dict[str, Any]:
+        return await sc.promote_suggestion_to_hitl(
+            suggestion_id,
+            gate=body.gate,
+            title=body.title,
+            summary=body.summary,
+            context={"approver": body.approver, "source": "dashboard"},
         )
 
-    @app.get("/api/events")
-    @app.get("/api/events/legacy")
-    async def api_events_legacy() -> StreamingResponse:
-        """向后兼容的 SSE 端点 - 重定向到 /api/events/stream"""
-        return StreamingResponse(
-            _legacy_heartbeat_stream(),
-            media_type="text/event-stream"
-        )
+    @app.post("/api/dashboard/suggestions/{suggestion_id}/replay")
+    async def api_dashboard_suggestion_replay(suggestion_id: str, replay: Dict[str, Any]) -> Dict[str, Any]:
+        return await sc.attach_suggestion_replay(suggestion_id, replay)
 
-    async def _legacy_heartbeat_stream() -> AsyncGenerator[str, None]:
-        """传统的心跳流（保持向后兼容）"""
-        while True:
-            yield f"data: {json.dumps({'type': 'heartbeat'})}\n\n"
-            await asyncio.sleep(15)
-
-    @app.get("/api/clients")
-    async def api_clients() -> Dict[str, Any]:
-        """获取当前 SSE 客户端数量"""
-        return {
-            "client_count": client_manager.get_client_count(),
-        }
-
-    @app.get("/api/platform/summary")
-    async def api_platform_summary() -> Dict[str, Any]:
-        """管理平台总览：HTTP/SSE 指标、执行阶段聚合、最近审计（进程内）。"""
-        return await _build_platform_summary(sc, client_manager)
-
-    _mount_dashboard_frontend(app)
     return app
-
-
-def _mount_dashboard_frontend(app: FastAPI) -> None:
-    """挂载 Vue 构建产物；无 index.html 时返回降级说明页。"""
-    index_html = STATIC_DIR / "index.html"
-
-    if not index_html.is_file():
-
-        @app.get("/")
-        async def _dashboard_missing_static() -> HTMLResponse:
-            return HTMLResponse(_NO_STATIC_BODY)
-
-        return
-
-    assets_dir = STATIC_DIR / "assets"
-    if assets_dir.is_dir():
-        app.mount(
-            "/assets",
-            StaticFiles(directory=str(assets_dir)),
-            name="dashboard_assets",
-        )
-
-    static_root = STATIC_DIR.resolve()
-
-    @app.get("/")
-    async def _spa_index() -> FileResponse:
-        return FileResponse(str(index_html))
-
-    @app.get("/{full_path:path}")
-    async def _spa_or_file(full_path: str) -> FileResponse:
-        if full_path.startswith("api"):
-            raise HTTPException(status_code=404, detail="Not Found")
-        candidate = (STATIC_DIR / full_path).resolve()
-        try:
-            candidate.relative_to(static_root)
-        except ValueError:
-            raise HTTPException(status_code=404, detail="Not Found") from None
-        if candidate.is_file():
-            return FileResponse(str(candidate))
-        return FileResponse(str(index_html))
-
-
-__all__ = ["create_app"]
