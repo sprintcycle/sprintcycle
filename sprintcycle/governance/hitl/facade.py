@@ -1,16 +1,16 @@
-"""Governance-side observability facade.
+"""Governance-side HITL facade.
 
-This module belongs to the governance layer, not the core observability layer.
-It may project HITL / gate related evidence for decision making, but it must not
-own the canonical execution timeline or the replay source of truth.
+This module belongs to the governance layer and wraps the HITL service for
+human-in-the-loop gates, decisions, corrections, and replay directives.
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from .models import ObservationEvent, ObservationGateResult, ObservationRequestResult
-from ..hitl import (
+from ...execution.events import Event, EventType, get_execution_event_backend
+from . import (
     HitlCorrection,
     HitlGate,
     HitlReplayDirective,
@@ -19,11 +19,45 @@ from ..hitl import (
     evaluate_hitl_policy,
     validate_hitl_decision_for_submit,
 )
-from ...execution.events import Event, EventType, get_execution_event_backend
 
 
-class ObservabilityFacade:
-    """对外统一入口：接入方只依赖此类。"""
+@dataclass
+class HitlEvent:
+    event_type: str
+    execution_id: str
+    scope: str
+    title: str
+    summary: str = ""
+    gate: Optional[str] = None
+    context: Dict[str, Any] = field(default_factory=dict)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    risk_level: str = "low"
+
+
+@dataclass
+class HitlGateResult:
+    should_trigger: bool
+    triggered: bool
+    request_id: Optional[str] = None
+    decision: Optional[str] = None
+    policy: Optional[Dict[str, Any]] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class HitlRequestResult:
+    request_id: str
+    execution_id: str
+    gate: str
+    status: str
+    decision: Optional[str] = None
+    note: Optional[str] = None
+    context: Dict[str, Any] = field(default_factory=dict)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+class HitlFacade:
+    """Governance HITL facade."""
 
     def __init__(self, service: Optional[HitlService], *, config: Any) -> None:
         self._service = service
@@ -46,7 +80,7 @@ class ObservabilityFacade:
         metadata: Optional[Dict[str, Any]] = None,
         risk_level: str = "low",
     ) -> None:
-        event = ObservationEvent(
+        event = HitlEvent(
             event_type=event_type,
             execution_id=execution_id,
             scope=scope,
@@ -69,13 +103,13 @@ class ObservabilityFacade:
         context: Dict[str, Any],
         risk_level: str = "medium",
         timeout_seconds: Optional[int] = None,
-    ) -> ObservationGateResult:
+    ) -> HitlGateResult:
         policy = evaluate_hitl_policy(
             gate=gate,
             context={**context, "summary": summary, "risk_level": risk_level},
             config=self._config,
         )
-        result = ObservationGateResult(
+        result = HitlGateResult(
             should_trigger=bool(policy.should_trigger),
             triggered=False,
             policy=dict(policy.metadata or {}),
@@ -120,9 +154,9 @@ class ObservabilityFacade:
         risk_level: str = "medium",
         timeout_seconds: Optional[int] = None,
         wait: bool = True,
-    ) -> ObservationRequestResult:
+    ) -> HitlRequestResult:
         if self._service is None:
-            return ObservationRequestResult(
+            return HitlRequestResult(
                 request_id="",
                 execution_id=execution_id,
                 gate=gate,
@@ -151,7 +185,7 @@ class ObservabilityFacade:
                 timeout_seconds=timeout_seconds,
             )
             status = "resolved"
-        return ObservationRequestResult(
+        return HitlRequestResult(
             request_id=request.request_id,
             execution_id=execution_id,
             gate=gate,
@@ -233,7 +267,7 @@ class ObservabilityFacade:
             return updated["applied_context"]
         return context
 
-    async def _emit_observation_event(self, event: ObservationEvent) -> None:
+    async def _emit_observation_event(self, event: HitlEvent) -> None:
         bus = get_execution_event_backend()
         try:
             await bus.emit(
@@ -256,8 +290,7 @@ class ObservabilityFacade:
             return None
 
 
-def create_observability_facade(project_path: str, config: Any) -> ObservabilityFacade:
-    """第一阶段：直接复用现有 hitl coordinator/service。"""
+def create_hitl_facade(project_path: str, config: Any) -> HitlFacade:
     coord = create_hitl_coordinator(project_path, config, get_execution_event_backend())
     service = HitlService(coord) if coord is not None else None
-    return ObservabilityFacade(service, config=config)
+    return HitlFacade(service, config=config)

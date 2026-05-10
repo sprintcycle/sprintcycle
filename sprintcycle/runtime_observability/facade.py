@@ -1,8 +1,8 @@
-"""Observability facade.
+"""Runtime observability facade.
 
-This module belongs to the observability layer. It records execution facts and
-projects trace/replay views without participating in governance decisions or
-execution control.
+This module belongs to the runtime observability layer. It records execution
+facts and projects trace/replay views without participating in governance
+decisions or execution control.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from typing import Any, Dict, List
 
 
 @dataclass
-class ObservabilityFacade:
+class RuntimeObservabilityFacade:
     events: List[Dict[str, Any]] = field(default_factory=list)
 
     def record(self, event: Dict[str, Any]) -> Dict[str, Any]:

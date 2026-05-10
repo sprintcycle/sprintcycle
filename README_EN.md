@@ -52,7 +52,7 @@ Current Version: **0.9.2** (matches `sprintcycle.__version__`)
 ### 🔌 Extensible Architecture
 - **Cache abstraction layer** (local memory → Redis)
 - **Message queue abstraction layer** (extension point reserved)
-- **Human-in-the-Loop** interaction
+- **Human-in-the-Loop (HITL)** interaction
 - Plugin-based validation system
 
 ---
@@ -207,7 +207,6 @@ from sprintcycle import (
     ReleasePlanValidator,
     SprintOrchestrator,
     SprintExecutor,
-    GovernanceRunner,
 )
 
 # Basic usage
@@ -245,7 +244,12 @@ sprintcycle/
 │   └── frontend/             # Vue 3 + Element Plus frontend
 ├── events/                   # Event bus
 ├── mcp/                      # MCP server
-├── hitl/                     # Human-in-the-Loop
+├── governance/
+│   ├── hitl/                 # Governance-side Human-in-the-Loop
+│   ├── suggestion/           # Suggestion review & approval
+│   └── arch_guard/           # Architecture & rule guards
+├── runtime_observability/    # Runtime observability / trace / replay
+├── runtime_observability/    # Runtime observability / trace / replay
 ├── cache/                    # Cache abstraction layer
 ├── mq/                       # Message queue abstraction
 └── validation/               # Multi-source validation plugin system
@@ -280,7 +284,7 @@ sprintcycle/
 ## 📚 Documentation & Resources
 
 - `docs/RELEASE_CHECKLIST.md` — Release checklist
-- `sprintcycle/governance/GOVERNANCE_HEAVY_CHECKS.md` — Heavy governance checks documentation
+- `docs/GOVERNANCE_HEAVY_CHECKS.md` — Heavy governance checks documentation
 - More technical documentation in `docs/` directory
 
 ---

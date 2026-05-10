@@ -8,6 +8,7 @@
 - `suggestion_overview()`
 - `management_overview()`
 
+说明：本页聚焦治理域汇总，不涵盖运行态 observability / trace / replay。
 它们分别用于：
 
 - 查看演化版本与 active 状态

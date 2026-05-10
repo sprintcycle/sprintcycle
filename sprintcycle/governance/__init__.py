@@ -1,6 +1,7 @@
 """Governance domain package."""
 
 from .facade import GovernanceFacade, create_governance_facade
+from .hitl.facade import HitlFacade, create_hitl_facade
 from .suggestion import (
     Suggestion,
     SuggestionApprovalRecord,
@@ -18,6 +19,8 @@ from .suggestion import (
 __all__ = [
     "GovernanceFacade",
     "create_governance_facade",
+    "HitlFacade",
+    "create_hitl_facade",
     "SuggestionFacade",
     "create_suggestion_facade",
     "Suggestion",

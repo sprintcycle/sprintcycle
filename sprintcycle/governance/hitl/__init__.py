@@ -1,16 +1,29 @@
 """Human-in-the-loop（HITL）治理编排入口。"""
 
 from .config import get_hitl_timeout_seconds, is_hitl_enabled
-from .context import build_hitl_context, build_replay_context, merge_correction_into_context, summarize_context_diff, summarize_hitl_context
-from .events import HitlEventType
-from .session import HitlSession, decision_to_terminal_status, transition_session_status, validate_session_transition
+from .context import (
+    build_hitl_context,
+    build_replay_context,
+    merge_correction_into_context,
+    summarize_context_diff,
+    summarize_hitl_context,
+)
 from .coordinator import HitlCoordinator, create_hitl_coordinator
-from .decision_normalize import normalize_hitl_decision, normalize_hitl_decision_with_intent, validate_hitl_decision_for_submit
+from .decision_normalize import (
+    normalize_hitl_decision,
+    normalize_hitl_decision_with_intent,
+    validate_hitl_decision_for_submit,
+)
 from .events import HitlEventType
 from .hooks import HitlSprintHooks, HitlTaskHooks
 from .policy import HitlPolicyResult, evaluate_hitl_policy
 from .service import HitlService
-from .session import HitlSession, decision_to_terminal_status, transition_session_status, validate_session_transition
+from .session import (
+    HitlSession,
+    decision_to_terminal_status,
+    transition_session_status,
+    validate_session_transition,
+)
 from .store import HitlMemoryStore, HitlSqliteStore, default_hitl_db_path
 from .types import (
     CTX_HITL_ABORT_EXECUTION,

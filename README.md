@@ -52,7 +52,7 @@
 ### 🔌 可扩展架构
 - **缓存抽象层**（本地内存 → Redis）
 - **消息队列抽象层**（预留扩展点）
-- **Human-in-the-Loop** 人机回环
+- **Human-in-the-Loop（HITL）** 人机回环
 - 插件化验证系统
 
 ---
@@ -207,7 +207,6 @@ from sprintcycle import (
     ReleasePlanValidator,
     SprintOrchestrator,
     SprintExecutor,
-    GovernanceRunner,
 )
 
 # 基本使用
@@ -245,7 +244,12 @@ sprintcycle/
 │   └── frontend/             # Vue 3 + Element Plus 前端
 ├── events/                   # 事件总线
 ├── mcp/                      # MCP 服务器
-├── hitl/                     # Human-in-the-Loop
+├── governance/
+│   ├── hitl/                 # Governance-side Human-in-the-Loop
+│   ├── suggestion/           # Suggestion review & approval
+│   └── arch_guard/           # Architecture & rule guards
+├── runtime_observability/    # Runtime observability / trace / replay
+├── runtime_observability/    # Runtime observability / trace / replay
 ├── cache/                    # 缓存抽象层
 ├── mq/                       # 消息队列抽象
 └── validation/               # 多源验证插件系统
@@ -280,7 +284,7 @@ sprintcycle/
 ## 📚 文档与资源
 
 - `docs/RELEASE_CHECKLIST.md` — 发布检查清单
-- `sprintcycle/governance/GOVERNANCE_HEAVY_CHECKS.md` — 重量级治理检查说明
+- `docs/GOVERNANCE_HEAVY_CHECKS.md` — 重量级治理检查说明
 - `docs/` 目录下更多技术文档
 
 ---
