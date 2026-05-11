@@ -1,20 +1,12 @@
 """
-SprintCycle 统一 API
+SprintCycle public API.
 
-Dashboard / CLI / MCP / SDK 共用的唯一入口。
-所有操作通过此类暴露，三端只做参数适配和展示格式化。
+This module exposes the main coordination layer for CLI, dashboard, MCP, and
+SDK usage. It handles request normalization, thin delegation, result assembly,
+and compatibility adapters where legacy behavior still exists.
 
-主操作: plan / run / run_release_plan / diagnose / status / rollback / stop
-
-产品与技术叙述以仓库 ``docs/PRODUCT_TECH_V4.md`` 与 ``SPRINTCYCLE_PRODUCT_TECH_PLAN.md``
-（V4.0 工程真理源）为准；``run`` 主路径为 ``SprintOrchestrator`` → ``SprintExecutor``，``resume`` 仅保留兼容入口。
-
-目录治理上限
-- ``api`` 是统一入口与轻量编排门面，不是规则实现中心。
-- ``api`` 只允许做参数归一化、跨层调用、结果汇总和少量兼容适配。
-- ``api`` 不得承载具体评分、门禁、观测投影、部署实现和执行状态推进细节。
-- ``api`` 只可依赖各层显式 facade / service，不依赖隐式内部存储实现。
-- 对外输出应尽量使用各层自己的 payload，再由 ``api`` 做最小汇总。
+The current runtime flow centers on `SprintCycle` coordinating execution,
+governance, suggestion, observability, and platform summary services.
 """
 
 import asyncio

@@ -1,8 +1,8 @@
 """Suggestion application service.
 
 Owns suggestion review, approval, rejection, archive, replay attachment, and
-execution-event capture flows, including hook emission and governance side
--effects where applicable.
+execution-event capture flows, including hook emission and governance
+integration where applicable.
 """
 
 from __future__ import annotations

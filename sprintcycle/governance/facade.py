@@ -1,4 +1,8 @@
-"""治理域统一入口 Facade。"""
+"""Governance domain facade.
+
+Routes governance check, HITL, and suggestion-related entry points to the
+underlying services and domain facades.
+"""
 
 from __future__ import annotations
 
