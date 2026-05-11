@@ -13,7 +13,78 @@ SprintCycle is an orchestration platform that connects the full loop from intent
 
 The current implementation centers on a public facade plus workflow-specific application services. The public API coordinates, normalizes, and routes requests; the services own the actual workflow logic.
 
-### 2. Core end-to-end flow
+### 2. Architecture diagram
+
+```mermaid
+graph TD
+  U[Users / CLI / Dashboard / MCP / SDK] --> A[SprintCycle API]
+  A --> E[ExecutionLifecycleService]
+  A --> G[GovernanceOrchestrationService]
+  A --> S[SuggestionApplicationService]
+  A --> O[ObservabilityService]
+  A --> P[PlatformSummaryService]
+  A --> F[Domain Facades]
+
+  E --> OR[SprintOrchestrator]
+  E --> EX[Execution Engine]
+  E --> ST[Execution State / Store]
+  E --> R[Runtime Registry]
+  E --> HB[Execution Event Backend]
+  E --> H[Hook Registry]
+
+  G --> GF[GovernanceFacade]
+  G --> AG[ArchGuard / Governance Checks]
+  G --> H
+
+  S --> SF[SuggestionFacade]
+  S --> GV[Governance Facade]
+  S --> H
+
+  O --> OB[Observability Facade]
+  O --> TR[Trace / Replay Payloads]
+
+  P --> DV[Dashboard Views]
+  P --> WV[Workbench / Platform Views]
+
+  F --> GO[Governance]
+  F --> SU[Suggestion]
+  F --> OB
+```
+
+### 3. Data flow diagram
+
+```mermaid
+flowchart LR
+  I[Intent / Workspace Context] --> N[Input Normalization]
+  N --> R[Release Plan / Sprint Request]
+  R --> T[Task Decomposition]
+  T --> X[Sprint Execution]
+  X --> Q[Evaluation / Fix]
+  Q --> D[Final Delivery]
+  D --> U[Deployment / Runtime Operation]
+  X --> O[Observability]
+  Q --> O
+  O --> V[Suggestion Capture]
+  V --> G[Governance Review]
+  G --> E[Self-Evolution / Versioning]
+  E --> R
+```
+
+### 4. Processing flow diagram
+
+```mermaid
+flowchart TD
+  A[1. Intent parsing] --> B[2. Plan generation]
+  B --> C[3. Task decomposition]
+  C --> D[4. Sprint execution]
+  D --> E[5. Evaluation and fix]
+  E --> F[6. Final delivery]
+  F --> G[7. Automatic deployment and runtime operation]
+  G --> H[8. Suggestion capture and review]
+  H --> I[9. Self-evolution / version growth]
+```
+
+### 5. Core end-to-end flow
 
 The system is designed around the following lifecycle:
 
@@ -29,7 +100,31 @@ The system is designed around the following lifecycle:
 
 This is not a single monolithic pipeline inside one class. It is a set of connected capabilities distributed across the API, services, facades, execution engine, governance layer, observability layer, and evolution/versioning layer.
 
-### 3. Intent parsing
+### 6. Core multi-round sprint execution flow
+
+A single sprint run is usually only one round in a longer loop. The current implementation supports a repeated cycle of execution, feedback, and follow-up work.
+
+```mermaid
+flowchart TD
+  A[Start run] --> B[Build execution context]
+  B --> C[Pre-run gate]
+  C -->|pass| D[Start execution]
+  C -->|blocked| Z[Return blocked result]
+  D --> E[Collect execution events]
+  E --> F[Observe results]
+  F --> G{Needs fix?}
+  G -->|yes| H[Create fix / follow-up tasks]
+  H --> I[Update plan / release plan]
+  I --> J[Next sprint round]
+  J --> B
+  G -->|no| K[Finalize delivery]
+  K --> L[Auto deploy / runtime operation]
+  L --> M[Capture suggestions]
+  M --> N[Governance review]
+  N --> O[Promote approved changes to evolution]
+```
+
+### 7. Intent parsing
 
 Intent parsing turns user goals, workspace context, and existing project state into a structured starting point for execution.
 
@@ -41,7 +136,7 @@ Current implementation areas involved in this stage include:
 
 Intent parsing is not implemented as a separate standalone monolith. It is distributed across the intent-related helpers and the public orchestration layer.
 
-### 4. Plan generation
+### 8. Plan generation
 
 Plan generation converts the parsed intent into an executable release plan or sprint-oriented execution structure.
 
@@ -54,7 +149,7 @@ Current implementation areas involved in this stage include:
 
 The public API coordinates plan-related inputs and delegates actual planning behavior to the orchestrator and execution stack.
 
-### 5. Task decomposition
+### 9. Task decomposition
 
 Task decomposition breaks a higher-level plan into workable execution units that can be run by sprint execution.
 
@@ -67,7 +162,7 @@ Current implementation areas involved in this stage include:
 
 Task decomposition is part of the execution workflow rather than a separate user-facing product surface.
 
-### 6. Sprint execution
+### 10. Sprint execution
 
 Sprint execution is the runtime path that actually runs the planned work.
 
@@ -87,7 +182,7 @@ Typical responsibilities in this stage include:
 - recording execution events
 - exposing execution details and replay data
 
-### 7. Evaluation and fix
+### 11. Evaluation and fix
 
 After or during execution, the system can evaluate results and surface fix-oriented views and workflows.
 
@@ -100,7 +195,7 @@ Current implementation areas involved in this stage include:
 
 Evaluation is not a single isolated engine. It is a collection of read-side summaries and workflow feedback paths.
 
-### 8. Final delivery
+### 12. Final delivery
 
 Final delivery represents the point where execution output becomes a usable result for the workspace, dashboard, or downstream automation.
 
@@ -113,7 +208,7 @@ Current implementation areas involved in this stage include:
 
 In the current codebase, “final delivery” is best understood as the combination of successful execution result materialization, summary generation, and downstream presentation.
 
-### 9. Automatic deployment and runtime operation
+### 13. Automatic deployment and runtime operation
 
 SprintCycle also includes deployment-oriented and runtime-oriented support.
 
@@ -127,7 +222,7 @@ Current implementation areas involved in this stage include:
 
 The public API coordinates these capabilities but does not own the deployment internals.
 
-### 10. Suggestions
+### 14. Suggestions
 
 Suggestion handling is a first-class governance workflow.
 
@@ -143,7 +238,7 @@ Current capabilities include:
 
 Current implementation centers on `SuggestionApplicationService`, `SuggestionFacade`, and the governance suggestion modules.
 
-### 11. Self-evolution
+### 15. Self-evolution
 
 SprintCycle includes evolution-oriented support for version growth, knowledge capture, and intent-driven iteration.
 
@@ -156,7 +251,7 @@ Current implementation areas involved in this stage include:
 
 Self-evolution is implemented as an explicit capability layer rather than as an implicit side effect of execution.
 
-### 12. Governance and human-in-the-loop
+### 16. Governance and human-in-the-loop
 
 Governance ensures that execution and suggestion flows can be checked, reviewed, and controlled.
 
@@ -168,7 +263,7 @@ Current implementation areas include:
 - HITL orchestration
 - hook-based callbacks around governance actions
 
-### 13. Observability
+### 17. Observability
 
 Observability is a separate read-side capability that keeps trace and replay concerns out of the main execution and governance workflows.
 
@@ -180,7 +275,7 @@ Current implementation areas include:
 - replay payload generation
 - execution detail views based on observability data
 
-### 14. Hook and event protocol
+### 18. Hook and event protocol
 
 The hook system is centralized in `sprintcycle/hooks.py`.
 
@@ -194,7 +289,7 @@ Current protocol:
 
 Current hook domains include execution, suggestion, and governance.
 
-### 15. Public API role
+### 19. Public API role
 
 `SprintCycle` is the public coordination layer for CLI, dashboard, MCP, and SDK usage.
 
@@ -208,7 +303,7 @@ It is responsible for:
 
 It is not responsible for owning the workflow rules themselves.
 
-### 16. Main source-of-truth files
+### 20. Main source-of-truth files
 
 For the most accurate behavior, inspect these files first:
 
@@ -225,6 +320,101 @@ For the most accurate behavior, inspect these files first:
 - `sprintcycle/orchestration/sprint_orchestrator.py`
 - `sprintcycle/execution/`
 - `sprintcycle/evolution/`
+
+### 21. Chinese diagram summary
+
+#### 架构图
+
+```mermaid
+graph TD
+  U[用户 / CLI / Dashboard / MCP / SDK] --> A[SprintCycle API]
+  A --> E[执行生命周期服务]
+  A --> G[治理编排服务]
+  A --> S[建议应用服务]
+  A --> O[可观测性服务]
+  A --> P[平台汇总服务]
+  A --> F[领域门面]
+
+  E --> OR[SprintOrchestrator]
+  E --> EX[执行引擎]
+  E --> ST[执行状态 / 存储]
+  E --> R[运行时注册表]
+  E --> HB[执行事件后端]
+  E --> H[Hook 注册中心]
+
+  G --> GF[GovernanceFacade]
+  G --> AG[ArchGuard / 治理检查]
+  G --> H
+
+  S --> SF[SuggestionFacade]
+  S --> GV[治理门面]
+  S --> H
+
+  O --> OB[ObservabilityFacade]
+  O --> TR[Trace / Replay Payload]
+
+  P --> DV[Dashboard 视图]
+  P --> WV[Workbench / 平台视图]
+
+  F --> GO[治理]
+  F --> SU[建议]
+  F --> OB
+```
+
+#### 数据流图
+
+```mermaid
+flowchart LR
+  I[意图 / 工作区上下文] --> N[输入归一化]
+  N --> R[Release Plan / Sprint 请求]
+  R --> T[任务拆解]
+  T --> X[Sprint 执行]
+  X --> Q[评估 / 修复]
+  Q --> D[最终交付]
+  D --> U[部署 / 运行时操作]
+  X --> O[可观测性]
+  Q --> O
+  O --> V[建议捕获]
+  V --> G[治理审核]
+  G --> E[自进化 / 版本管理]
+  E --> R
+```
+
+#### 处理流程图
+
+```mermaid
+flowchart TD
+  A[1. 意图解析] --> B[2. 计划生成]
+  B --> C[3. 任务拆解]
+  C --> D[4. Sprint 执行]
+  D --> E[5. 评估修复]
+  E --> F[6. 最终交付]
+  F --> G[7. 自动部署运行]
+  G --> H[8. 建议收集与审核]
+  H --> I[9. 自进化 / 版本增长]
+```
+
+#### 完整的多轮 Sprint 执行流程图
+
+```mermaid
+flowchart TD
+  A[开始运行] --> B[构建执行上下文]
+  B --> C[Pre-run Gate]
+  C -->|通过| D[开始执行]
+  C -->|阻断| Z[返回阻断结果]
+  D --> E[收集执行事件]
+  E --> F[观察结果]
+  F --> G{需要修复?}
+  G -->|是| H[创建修复 / 后续任务]
+  H --> I[更新计划 / Release Plan]
+  I --> J[下一轮 Sprint]
+  J --> B
+  G -->|否| K[完成交付]
+  K --> L[自动部署 / 运行时操作]
+  L --> M[捕获建议]
+  M --> N[治理审核]
+  N --> O[批准变更进入自进化]
+```
 
 ---
 
