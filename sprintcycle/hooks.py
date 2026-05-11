@@ -1,7 +1,8 @@
 """Unified hook protocol for SprintCycle.
 
-The protocol standardizes before/after/failed hooks and domain events so the
-system can avoid ad-hoc hook-like calls scattered across services.
+This module defines the shared hook actions, event names, context/result
+objects, and the registry/runner used by services to invoke hooks and emit
+domain events consistently.
 """
 
 from __future__ import annotations

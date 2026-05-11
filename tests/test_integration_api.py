@@ -162,7 +162,7 @@ class TestAPIRun:
             mock_sprint_result.task_results = [mock_task]
             mock_sprint_result.duration = 1.0
 
-            # Mock the dispatcher
+            # Mock the orchestrator resume path
             mock_dispatcher_instance = MagicMock()
             mock_dispatcher_instance.execute_release_plan = AsyncMock(
                 return_value=[mock_sprint_result]
@@ -600,7 +600,7 @@ class TestAPIRollback:
 
 
 class TestAPIResume:
-    """Test resume operation"""
+    """Test legacy resume compatibility path."""
 
     def setup_method(self):
         """Setup temp directory for each test"""
@@ -613,7 +613,7 @@ class TestAPIResume:
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def test_resume_continues_execution(self):
-        """test_resume_continues_execution: run → stop → resume → continues execution"""
+        """test_resume_continues_execution: legacy resume compatibility returns a run result when available"""
         sc = SprintCycle(project_path=self.temp_dir)
 
         with patch('sprintcycle.api.get_state_store') as mock_get_store, \
@@ -623,7 +623,7 @@ class TestAPIResume:
             mock_store = MagicMock(spec=StateStore)
             mock_get_store.return_value = mock_store
 
-            # Mock paused execution with checkpoint
+            # Mock a paused execution state with a checkpoint payload
             resume_yaml = """
 project:
   name: "ResumeProject"
@@ -692,7 +692,7 @@ sprints:
                 )
 
     def test_resume_cannot_resume(self):
-        """test_resume_cannot_resume: resume returns error when cannot resume"""
+        """test_resume_cannot_resume: legacy resume path returns an error when unavailable"""
         sc = SprintCycle(project_path=self.temp_dir)
 
         with patch('sprintcycle.api.get_state_store') as mock_get_store:

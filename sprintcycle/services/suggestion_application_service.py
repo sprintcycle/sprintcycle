@@ -1,6 +1,8 @@
 """Suggestion application service.
 
-Keeps suggestion lifecycle and promotion flows out of the SprintCycle facade.
+Owns suggestion review, approval, rejection, archive, replay attachment, and
+execution-event capture flows, including hook emission and governance side
+-effects where applicable.
 """
 
 from __future__ import annotations

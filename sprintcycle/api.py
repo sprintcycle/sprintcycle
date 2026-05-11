@@ -7,7 +7,7 @@ Dashboard / CLI / MCP / SDK 共用的唯一入口。
 主操作: plan / run / run_release_plan / diagnose / status / rollback / stop
 
 产品与技术叙述以仓库 ``docs/PRODUCT_TECH_V4.md`` 与 ``SPRINTCYCLE_PRODUCT_TECH_PLAN.md``
-（V4.0 工程真理源）为准；``run``/resume **主路径**为 ``IntentGraphRuntime`` → ``SprintGraphRuntime`` → ``SprintExecutor``。
+（V4.0 工程真理源）为准；``run`` 主路径为 ``SprintOrchestrator`` → ``SprintExecutor``，``resume`` 仅保留兼容入口。
 
 目录治理上限
 - ``api`` 是统一入口与轻量编排门面，不是规则实现中心。
@@ -93,8 +93,8 @@ from .dashboard.views.governance_view import GovernanceView
 class SprintCycle:
     """SprintCycle 统一 API — Dashboard / CLI / MCP / SDK 共用。
 
-    **执行主架构**：``ReleasePlan`` → ``expand_release_plan_for_execution`` →
-    ``SprintOrchestrator.execute_release_plan`` → ``SprintExecutor``。自进化与普通迭代在执行栈上汇合。
+    **执行主架构**：``ReleasePlan`` → ``SprintOrchestrator.execute_release_plan`` → ``SprintExecutor``。
+    自进化与普通迭代在执行栈上汇合。
     """
 
     def __init__(
@@ -479,7 +479,7 @@ class SprintCycle:
         return {"success": False, "error": f"resume is removed in V2 for execution_id={eid}"}
 
     def resume_execution(self, execution_id: str) -> Dict[str, Any]:
-        """控制台恢复入口：按记录的断点继续执行。"""
+        """兼容入口：V2 中已移除实际 resume 执行能力。"""
         return self._resume_execution_payload(execution_id)
 
     def console_overview(self, *, limit: int = 20) -> Dict[str, Any]:

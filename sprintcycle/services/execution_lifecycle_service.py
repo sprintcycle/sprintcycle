@@ -1,7 +1,7 @@
 """Execution lifecycle application service.
 
-This service owns the execution start/detail/replay/read paths so the facade can
-stay thin and only coordinate calls.
+Owns execution start/detail/replay/read flows, including pre-run gating,
+hook invocation, observability recording, and runtime registry updates.
 """
 
 from __future__ import annotations

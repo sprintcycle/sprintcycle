@@ -1,6 +1,7 @@
 """Governance orchestration service.
 
-Keeps governance check and HITL read/write coordination out of the facade.
+Coordinates governance checks plus pending/history/summary/request access,
+while emitting hook callbacks and domain events around the check flow.
 """
 
 from __future__ import annotations
