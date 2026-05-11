@@ -33,77 +33,11 @@ from sprintcycle.config.runtime_config import DashboardPortDefaults
 from sprintcycle.execution.events import Event, EventType, get_execution_event_backend
 
 from . import config_center
-from . import platform_state
+from .sse import SSEEventHandler, SSEClientManager, get_client_manager
+from .view_service import DashboardViewService
 from .workbench import DashboardWorkbenchService
+from . import platform_state
 
-# ─── SSE 客户端管理 ───
-
-class SSEClient:
-    """SSE 客户端"""
-    def __init__(self, client_id: str, queue: asyncio.Queue):
-        self.client_id = client_id
-        self.queue = queue
-
-    async def send(self, event: Event) -> None:
-        """发送事件到客户端"""
-        message = event.to_sse_message()
-        await self.queue.put(message)
-
-    async def send_raw(self, message: str) -> None:
-        """发送原始消息到客户端"""
-        await self.queue.put(message)
-
-
-class SSEClientManager:
-    """SSE 客户端管理器"""
-    def __init__(self):
-        self._clients: Dict[str, SSEClient] = {}
-        self._lock = asyncio.Lock()
-
-    async def create_client(self) -> SSEClient:
-        """创建新的客户端"""
-        client_id = str(uuid.uuid4())
-        queue: asyncio.Queue[str] = asyncio.Queue(maxsize=100)
-        client = SSEClient(client_id, queue)
-        async with self._lock:
-            self._clients[client_id] = client
-        logger.info(f"SSE client connected: {client_id}")
-        return client
-
-    async def remove_client(self, client_id: str) -> None:
-        """移除客户端"""
-        async with self._lock:
-            if client_id in self._clients:
-                del self._clients[client_id]
-                logger.info(f"SSE client disconnected: {client_id}")
-
-    async def broadcast(self, event: Event) -> None:
-        """广播事件到所有客户端"""
-        async with self._lock:
-            clients = list(self._clients.values())
-
-        if not clients:
-            return
-
-        message = event.to_sse_message()
-        disconnected = []
-
-        for client in clients:
-            try:
-                client.queue.put_nowait(message)
-            except asyncio.QueueFull:
-                logger.warning(f"SSE client queue full: {client.client_id}")
-                disconnected.append(client.client_id)
-
-        for client_id in disconnected:
-            await self.remove_client(client_id)
-
-    def get_client_count(self) -> int:
-        """获取当前客户端数量"""
-        return len(self._clients)
-
-
-_client_manager: Optional[SSEClientManager] = None
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 _DASHBOARD_DEV = os.environ.get("SPRINTCYCLE_ENV", "production") == "development"
@@ -119,11 +53,8 @@ _NO_STATIC_BODY = """<!DOCTYPE html>
 </html>"""
 
 
-def get_client_manager() -> SSEClientManager:
-    global _client_manager
-    if _client_manager is None:
-        _client_manager = SSEClientManager()
-    return _client_manager
+def get_dashboard_client_manager() -> SSEClientManager:
+    return get_client_manager()
 
 
 async def _build_platform_summary(sc: SprintCycle, client_manager: SSEClientManager) -> Dict[str, Any]:
@@ -166,22 +97,6 @@ async def _read_governance_reports(sc: SprintCycle) -> Dict[str, Any]:
     if last.is_file():
         payload["review"] = json.loads(last.read_text(encoding="utf-8"))
     return payload
-
-
-class SSEEventHandler:
-    def __init__(self, client_manager: SSEClientManager):
-        self._client_manager = client_manager
-        self._is_running = False
-
-    async def handle_event(self, event: Event) -> None:
-        if self._is_running:
-            await self._client_manager.broadcast(event)
-
-    def start(self) -> None:
-        self._is_running = True
-
-    def stop(self) -> None:
-        self._is_running = False
 
 
 class PlanRequest(BaseModel):
@@ -295,7 +210,8 @@ def create_app(project_path: str = ".") -> FastAPI:
                 logger.info("dashboard_http method={} path={} status={} duration_ms={:.2f}", method, path, status_code, elapsed_ms)
 
     client_manager = get_client_manager()
-    dashboard_workbench = DashboardWorkbenchService()
+    dashboard_views = DashboardViewService(project_path=project_path)
+    dashboard_workbench = DashboardWorkbenchService(view_service=dashboard_views)
 
     global _event_handler
     _event_handler = SSEEventHandler(client_manager)
@@ -395,19 +311,23 @@ def create_app(project_path: str = ".") -> FastAPI:
 
     @app.get("/api/dashboard/suggestions")
     async def api_dashboard_suggestions(execution_id: Optional[str] = None, limit: int = 20) -> Dict[str, Any]:
-        return dashboard_workbench.suggestion_board(sc, execution_id=execution_id, limit=limit)
+        return dashboard_views.suggestion_board(sc, execution_id=execution_id, limit=limit)
 
     @app.get("/api/dashboard/board")
     async def api_dashboard_board(execution_id: Optional[str] = None, limit: int = 20) -> Dict[str, Any]:
-        return await dashboard_workbench.suggestion_and_hitl_panel(sc, execution_id=execution_id, limit=limit)
+        return await dashboard_views.suggestion_and_hitl_panel(sc, execution_id=execution_id, limit=limit)
 
     @app.get("/api/dashboard/workspace/{execution_id}")
     async def api_dashboard_workspace(execution_id: str, limit: int = 200) -> Dict[str, Any]:
-        return dashboard_workbench.execution_workspace(sc, execution_id=execution_id, limit=limit)
+        return dashboard_views.execution_workspace(
+            sc,
+            execution_id=execution_id,
+            limit=limit,
+        )
 
     @app.get("/api/dashboard/platform")
     async def api_dashboard_platform() -> Dict[str, Any]:
-        return dashboard_workbench.platform_workspace(sc)
+        return dashboard_views.platform_workspace(sc.platform_overview())
 
     @app.get("/api/platform/overview")
     async def api_platform_overview() -> Dict[str, Any]:

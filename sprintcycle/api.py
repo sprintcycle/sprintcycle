@@ -75,6 +75,7 @@ from .integrations.phoenix.runtime import PhoenixRuntimeAdapter, PhoenixRuntimeS
 from .integrations.phoenix.exporter import PhoenixExporterSpec
 from .integrations.langgraph.graph import build_default_langgraph_graph_spec
 from .platform.views import PlatformComposeView, PlatformSpecView
+from .dashboard.view_service import DashboardViewService
 from .dashboard.views.architecture_view import ArchitectureView
 from .dashboard.views.deploy_view import DeployView
 from .dashboard.views.fix_view import FixView
@@ -110,7 +111,6 @@ class SprintCycle:
             config=self.config,
             evolution_facade=None,
         )
-        self._suggestion_bridge = SuggestionBridge(self._suggestion._service)
         self._memory_store = MemoryStore(runtime_config=self.config)
         self._knowledge_repo = KnowledgeCardRepository(self._resolve_knowledge_db_path())
         self._intent_evolution_loop = UserIntentEvolutionLoop(
@@ -122,6 +122,7 @@ class SprintCycle:
         self._observability = ObservabilityFacade()
         self._runtime_registry = RuntimeRegistry()
         self._fitness = FitnessEvaluator()
+        self._dashboard_views = DashboardViewService(project_path=self.project_path)
 
     @property
     def intent_evolution_loop(self) -> UserIntentEvolutionLoop:
@@ -521,31 +522,17 @@ class SprintCycle:
 
     async def create_suggestion_from_execution_event(self, event: Dict[str, Any]) -> Dict[str, Any]:
         """把执行侧异常/关键事件转成 suggestion 输入并写入建议池。"""
-        return await self._suggestion_bridge.capture_from_execution_event(event)
+        bridge = SuggestionBridge(self._suggestion._service)
+        return await bridge.capture_from_execution_event(event)
 
     def register_runtime(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         return self._runtime_registry.register(payload)
 
     def _fitness_payload(self) -> Dict[str, Any]:
-        return {
-            "events": self._observability.list_events().get("data", []),
-            "executions": [s.to_dict() for s in get_state_store().list_executions(limit=100)],
-            "suggestions": [s.to_dict() for s in asyncio.run(self._suggestion.list_suggestions(limit=100))],
-            "runtimes": list(self._runtime_registry.records),
-        }
+        return self._dashboard_views.build_fitness_payload(self._observability, self._runtime_registry, self._suggestion)
 
     def platform_overview(self) -> Dict[str, Any]:
-        overview = build_platform_overview(self.project_path).to_dict()
-        overview["project_path"] = self.project_path
-        overview["runtime"]["langgraph_runtime"] = LangGraphRuntimeAdapter(
-            spec=LangGraphRuntimeSpec(project_name=self.project_path)
-        ).build_graph()
-        overview["trace"]["phoenix_runtime"] = PhoenixRuntimeAdapter(
-            spec=PhoenixRuntimeSpec(project_name=self.project_path)
-        ).build_exporter()
-        overview["trace"]["phoenix_exporter"] = PhoenixExporterSpec(project_name=self.project_path).to_dict()
-        overview["runtime"]["langgraph_graph"] = build_default_langgraph_graph_spec(self.project_path).to_dict()
-        return {"success": True, "data": overview}
+        return self._dashboard_views.platform_overview()
 
     def _execution_detail_payload(self, execution_id: str, *, limit: int = 200) -> Dict[str, Any]:
         eid = (execution_id or "").strip()
@@ -556,29 +543,23 @@ class SprintCycle:
         if state is None:
             return {"success": False, "error": f"未找到执行记录: {eid}"}
         trace = self.observability_trace(eid)
-        platform = self.platform_overview().get("data", {})
-        detail = {
-            "state": state.to_dict(),
-            "trace": trace.get("data", {}),
-            "platform": platform,
-            "state_machine": summarize_state_machine(),
-        }
-        return {"success": True, "data": detail}
+        return self._dashboard_views.execution_detail(execution_id=eid, state=state, trace=trace.get("data", {}), limit=limit)
 
     def fitness_view(self) -> Dict[str, Any]:
         payload = self._fitness.evaluate(self._fitness_payload())
-        return {"success": True, "data": FitnessView(payload=payload).to_payload()}
+        return self._dashboard_views.fitness_view(payload)
 
     def deploy_view(self) -> Dict[str, Any]:
         payload = self._runtime_registry.list()
-        return {"success": True, "data": DeployView(payload=payload).to_payload()}
+        return self._dashboard_views.deploy_view(payload)
 
     def _suggestion_overview_payload(self) -> Dict[str, Any]:
-        return asyncio.run(self._suggestion.overview()).to_dashboard_payload()
+        overview = asyncio.run(self._suggestion.overview())
+        return self._dashboard_views.suggestion_overview_payload(overview)
 
     def _suggestion_list_payload(self, limit: int = 20) -> Dict[str, Any]:
         suggestions = asyncio.run(self._suggestion.list_suggestions(limit=limit))
-        return {"suggestions": [s.to_dict() for s in suggestions]}
+        return self._dashboard_views.suggestion_list_payload(suggestions)
 
     def runtime_latest(self) -> Dict[str, Any]:
         return self._runtime_registry.latest()
@@ -588,10 +569,10 @@ class SprintCycle:
 
     def governance_view(self) -> Dict[str, Any]:
         overview = self._suggestion_overview_payload()
-        return {"success": True, "data": GovernanceView(payload=overview).to_payload()}
+        return self._dashboard_views.governance_view(overview)
 
     def fix_view(self) -> Dict[str, Any]:
-        return {"success": True, "data": FixView(payload=self._suggestion_list_payload(limit=20)).to_payload()}
+        return self._dashboard_views.fix_view(self._suggestion_list_payload(limit=20))
 
     def architecture_check(self) -> Dict[str, Any]:
         from .governance.arch_guard.architecture_checker import check_architecture
@@ -637,7 +618,15 @@ class SprintCycle:
 
     def execution_detail(self, execution_id: str, *, limit: int = 200) -> Dict[str, Any]:
         """执行详情：状态、恢复点、回放、状态机摘要一次性返回。"""
-        return self._execution_detail_payload(execution_id, limit=limit)
+        eid = (execution_id or "").strip()
+        if not eid:
+            return {"success": False, "error": "execution_id required"}
+        store = get_state_store()
+        state = store.load(eid)
+        if state is None:
+            return {"success": False, "error": f"未找到执行记录: {eid}"}
+        trace = self.observability_trace(eid)
+        return self._dashboard_views.execution_detail(execution_id=eid, state=state, trace=trace.get("data", {}), limit=limit)
 
     def _resume_execution_payload(self, execution_id: str) -> Dict[str, Any]:
         eid = (execution_id or "").strip()
@@ -649,28 +638,17 @@ class SprintCycle:
 
     def console_overview(self, *, limit: int = 20) -> Dict[str, Any]:
         """控制台总览：当前执行、最近事件与平台总览。"""
+        trace_payload = None
         store = get_state_store()
         states = store.list_executions(limit=max(1, int(limit)))
         executions = [s.to_dict() for s in states]
-        running = [s.to_dict() for s in states if str(s.status.value) == "running"]
         latest = executions[0] if executions else None
-        recent_events: List[Dict[str, Any]] = []
         if latest and latest.get("execution_id"):
             try:
-                recent_events = self.observability_trace(str(latest["execution_id"])).get("data", {}).get("events", [])[:20]
+                trace_payload = self.observability_trace(str(latest["execution_id"])).get("data", {})
             except Exception:
-                recent_events = []
-        return {
-            "success": True,
-            "data": {
-                "executions": executions,
-                "running_executions": running,
-                "primary_execution": latest,
-                "recent_events": recent_events,
-                "platform": build_platform_spec(self.project_path).to_dict(),
-                "state_machine": summarize_state_machine(),
-            },
-        }
+                trace_payload = None
+        return self._dashboard_views.console_overview(trace_payload=trace_payload, limit=limit)
 
     def reload_runtime_config(self) -> None:
         """从磁盘重新加载 ``RuntimeConfig``（含 ``sprintcycle.runtime.yaml``）。"""

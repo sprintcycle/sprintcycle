@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 from ...evolution.models import EvolutionRequest
 from .approval import SuggestionApprovalService
 from .classifier import SuggestionClassifier
+from ..suggestion_analyzer import SuggestionAnalyzer
 from .models import (
     Suggestion,
     SuggestionOverviewResult,
@@ -26,6 +27,7 @@ class SuggestionService:
         self._reviewer = SuggestionReviewer(store)
         self._approval = SuggestionApprovalService(store)
         self._evolution_facade = evolution_facade
+        self._analyzer = SuggestionAnalyzer()
 
     async def capture_suggestion(self, suggestion: Suggestion) -> Suggestion:
         now = datetime.now(timezone.utc).isoformat()
@@ -33,6 +35,17 @@ class SuggestionService:
         suggestion.updated_at = now
         suggestion = await self._classifier.classify(suggestion)
         return await self._store.save(suggestion)
+
+    async def capture_from_execution_event(self, event: Dict[str, Any]) -> Dict[str, Any]:
+        execution_id = str(event.get("run_id") or event.get("execution_id") or "").strip()
+        if not execution_id:
+            return {"success": False, "error": "execution_id required"}
+        suggestions = self._analyzer.analyze_events(execution_id, [event])
+        created = []
+        for suggestion in suggestions:
+            created_suggestion = await self.capture_suggestion(suggestion)
+            created.append(created_suggestion.to_dict())
+        return {"success": True, "data": {"execution_id": execution_id, "created": created, "total": len(created)}}
 
     async def list_suggestions(
         self,

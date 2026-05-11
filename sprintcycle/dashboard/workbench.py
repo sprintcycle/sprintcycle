@@ -9,14 +9,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
-from .service import DashboardQueryService
+from .view_service import DashboardViewService
 
 
 @dataclass
 class DashboardWorkbenchService:
-    """Compose dashboard payloads from the SprintCycle API."""
+    """Compatibility wrapper kept thin for dashboard routes."""
 
-    query_service: DashboardQueryService = DashboardQueryService()
+    view_service: DashboardViewService
 
     def suggestion_board(self, sprintcycle: Any, execution_id: Optional[str] = None, limit: int = 20) -> Dict[str, Any]:
         payload = sprintcycle.suggestion_overview_dashboard()
@@ -50,33 +50,14 @@ class DashboardWorkbenchService:
         }
 
     def execution_workspace(self, sprintcycle: Any, execution_id: str, limit: int = 200) -> Dict[str, Any]:
-        execution_detail = sprintcycle.execution_detail(execution_id, limit=limit)
-        platform = sprintcycle.platform_overview()
-        bundle = self.query_service.build_bundle(
+        return self.view_service.execution_workspace(
+            sprintcycle,
             execution_id=execution_id,
-            trace=execution_detail.get("data", {}).get("trace", {}),
-            replay={},
-            suggestions=sprintcycle.suggestion_overview_dashboard(),
-            hitl={"requests": []},
-            deployment=platform.get("data", {}).get("compose", {}),
-            fitness=sprintcycle.fitness_view().get("data", {}),
+            limit=limit,
         )
-        return {
-            "success": True,
-            "data": {
-                "execution_id": execution_id,
-                "execution": execution_detail.get("data", execution_detail),
-                "platform": platform.get("data", platform),
-                "bundle": bundle.to_dict(),
-            },
-        }
 
     def platform_workspace(self, sprintcycle: Any) -> Dict[str, Any]:
-        platform = sprintcycle.platform_overview()
-        return {
-            "success": True,
-            "data": platform.get("data", platform),
-        }
+        return self.view_service.platform_workspace(sprintcycle.platform_overview())
 
 
 __all__ = ["DashboardWorkbenchService"]
