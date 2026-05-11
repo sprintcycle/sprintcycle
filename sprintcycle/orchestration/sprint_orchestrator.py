@@ -229,6 +229,8 @@ class SprintOrchestrator:
             "finalization": finalize_result.to_dict() if hasattr(finalize_result, "to_dict") else {},
             "sprints": [getattr(s.sprint, "name", "") for s in sprint_results],
         }
+        skill_matches = list(intent_context.get("skill_matches", [])) if isinstance(intent_context.get("skill_matches", []), list) else []
+        skill_trace = dict(intent_context.get("task_skill_trace", {})) if isinstance(intent_context.get("task_skill_trace", {}), dict) else {}
         contract = build_lifecycle_contract(
             execution_id=getattr(release_plan, "execution_id", ""),
             task_id=getattr(release_plan, "execution_id", "") or getattr(to_run.project, "name", ""),
@@ -236,8 +238,12 @@ class SprintOrchestrator:
             stage="delivering",
             status="success" if success else "failed",
             metadata={"release_plan": to_run.project.name, "execution_id": getattr(release_plan, "execution_id", None)},
-            delivery_summary=completion_summary,
+            delivery_refs={"delivery_summary": completion_summary},
             evolution_refs={"finalization": completion_summary["finalization"]},
+            skill_refs=list(skill_matches),
+            skill_matches=list(skill_matches),
+            skill_review_checklists=list(intent_context.get("review_checklists", [])) if isinstance(intent_context.get("review_checklists", []), list) else [],
+            skill_trace=skill_trace,
         )
         complete_event = self._emit_execution_phase(EventType.EXECUTION_COMPLETE if success else EventType.EXECUTION_FAILED, "ReleasePlan 执行完成", release_plan, to_run.project.name, len(sprint_results), status="success" if success else "failed")
         await self._emit(complete_event)

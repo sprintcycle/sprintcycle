@@ -12,6 +12,11 @@ from typing import Any, Dict, Optional
 
 from ..governance.facade import GovernanceFacade
 from ..governance.suggestion import SuggestionFacade
+from ..versioning.sqlite_registry import SQLiteVersionRegistry
+from ..versioning.registry import VersionRegistry
+from ..evolution.models import VersionArtifact
+from .promotion_policy import PromotionPolicy
+from .lifecycle_state_machine import build_default_correlation
 from ..hooks import (
     HookContext,
     HookPhase,
@@ -40,10 +45,13 @@ from .lifecycle_contracts import build_lifecycle_contract
 class SuggestionApplicationService:
     suggestion: SuggestionFacade
     governance: Optional[GovernanceFacade] = None
+    version_registry: Optional[VersionRegistry] = None
+    promotion_policy: Optional[PromotionPolicy] = None
     hooks: Optional[HookRegistry] = None
 
     def __post_init__(self) -> None:
         self._hooks = HookRunner(self.hooks)
+        self._promotion_policy = self.promotion_policy or PromotionPolicy()
 
     def _hook_context(
         self,
@@ -155,6 +163,7 @@ class SuggestionApplicationService:
             return blocked
         record = await self.suggestion.approve_suggestion(suggestion_id, approver, notes)
         promoted: Dict[str, Any] | None = None
+        policy_result: Dict[str, Any] | None = None
         if self.governance is not None:
             try:
                 request = await self.governance.promote_suggestion_to_hitl(
@@ -167,9 +176,31 @@ class SuggestionApplicationService:
                 promoted = request.get("data", request) if isinstance(request, dict) else {"request_id": getattr(request, "request_id", None)}
             except Exception:
                 promoted = None
-        self._emit(HookPhase.AFTER, SUGGESTION_APPROVE_SUGGESTION[1], subject_id=suggestion_id, payload={"approval": record.to_dict(), "promotion": promoted})
-        self._hooks.event("suggestion", "approve", SUGGESTION_APPROVAL_COMPLETED_EVENT, {"suggestion_id": suggestion_id, "approver": approver, "promotion": promoted})
-        return {"success": True, "data": {"approval": record.to_dict(), "promotion": promoted}}
+        if self.version_registry is not None:
+            suggestion = await self.suggestion.get_suggestion(suggestion_id)
+            runtime = dict((suggestion.metadata or {}).get("runtime", {}) if suggestion else {})
+            governance = {"approved": True, "status": "approved", "approver": approver, "notes": notes}
+            lifecycle_contract = {
+                "completion_score": 100.0 if suggestion and suggestion.status == "approved" else 0.0,
+                "trace": dict((suggestion.metadata or {}).get("trace", {}) if suggestion else {}),
+                "diagnostics": dict((suggestion.metadata or {}).get("diagnostics", {}) if suggestion else {}),
+                "recovery": dict((suggestion.metadata or {}).get("repair", {}) if suggestion else {}),
+                "suggestion": {"approved": True, "suggestion_id": suggestion_id},
+                "health": {"completion_score": 100.0},
+            }
+            policy_result = self._promotion_policy.evaluate(lifecycle_contract, runtime=runtime, governance=governance)
+            if policy_result.get("allowed") and suggestion is not None:
+                artifact = VersionArtifact(
+                    version_id=f"version_from_{suggestion_id}",
+                    target="code",
+                    source_suggestion_id=suggestion_id,
+                    promotion_guard={"policy": policy_result, "approver": approver, "notes": notes},
+                    metadata={"source": "suggestion_approval", "correlation": build_default_correlation({"suggestion_id": suggestion_id}).to_dict()},
+                )
+                await self.version_registry.register(artifact)
+        self._emit(HookPhase.AFTER, SUGGESTION_APPROVE_SUGGESTION[1], subject_id=suggestion_id, payload={"approval": record.to_dict(), "promotion": promoted, "promotion_policy": policy_result})
+        self._hooks.event("suggestion", "approve", SUGGESTION_APPROVAL_COMPLETED_EVENT, {"suggestion_id": suggestion_id, "approver": approver, "promotion": promoted, "promotion_policy": policy_result})
+        return {"success": True, "data": {"approval": record.to_dict(), "promotion": promoted, "promotion_policy": policy_result}}
 
     async def suggestion_reject(self, suggestion_id: str, approver: str, notes: str = "") -> Dict[str, Any]:
         _, blocked = self._ensure_before(SUGGESTION_REJECT_SUGGESTION[1], subject_id=suggestion_id, payload={"approver": approver, "notes": notes})
@@ -206,10 +237,10 @@ class SuggestionApplicationService:
             stage="suggesting",
             status="success",
             metadata={"source": "execution_event", "root_cause": normalized_event.get("root_cause", "")},
-            suggestions=[result.to_dict() if hasattr(result, "to_dict") else dict(result or {})],
+            suggestion_refs=[result.to_dict() if hasattr(result, "to_dict") else dict(result or {})],
             governance_refs={"source": "execution_event_capture", "governed": bool(self.governance is not None)},
             evolution_refs={"candidate": True, "source": "execution_event"},
-            repair_refs={"root_cause": normalized_event.get("root_cause", ""), "execution_id": execution_id},
+            recovery_refs={"root_cause": normalized_event.get("root_cause", ""), "execution_id": execution_id},
         )
         self._hooks.after("suggestion", SUGGESTION_CAPTURE_EXECUTION_EVENT[1], self._hook_context(SUGGESTION_CAPTURE_EXECUTION_EVENT[1], subject_id=str(normalized_event.get("suggestion_id") or ""), execution_id=execution_id, payload={"event": normalized_event, "result": result, "lifecycle_contract": contract.to_dict()}))
         self._hooks.event("suggestion", "capture_execution_event", SUGGESTION_CAPTURED_FROM_EXECUTION_EVENT, {"event": normalized_event, "result": result, "source": "execution", "root_cause": normalized_event.get("root_cause", ""), "lifecycle_contract": contract.to_dict()})

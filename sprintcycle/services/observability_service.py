@@ -12,6 +12,9 @@ from typing import Any, Dict, Optional
 
 from ..observability.facade import ObservabilityFacade
 from ..execution.state.state_store import get_state_store
+from .lifecycle_contracts import build_lifecycle_contract
+from .lifecycle_state_machine import build_default_correlation
+from .phase_workflow import build_observe_artifact
 
 
 @dataclass
@@ -30,6 +33,7 @@ class ObservabilityService:
         failures = [e for e in events if str((e or {}).get("kind") or (e or {}).get("type") or "").lower().find("fail") >= 0]
         phase_tags = sorted({str((e or {}).get("phase") or (e or {}).get("stage") or "").strip() for e in events if str((e or {}).get("phase") or (e or {}).get("stage") or "").strip()})
         root_cause_tags = sorted({str((e or {}).get("root_cause") or (e or {}).get("failure_kind") or "").strip() for e in events if str((e or {}).get("root_cause") or (e or {}).get("failure_kind") or "").strip()})
+        correlation = build_default_correlation({"execution_id": run_id, "metadata": {"source": "observability"}}).to_dict()
         repair_ready = bool(failures or root_cause_tags)
         repair_candidates = [e for e in events if str((e or {}).get("repair_hint") or (e or {}).get("root_cause") or (e or {}).get("failure_kind") or "").strip()]
         diagnostics = {
@@ -49,8 +53,27 @@ class ObservabilityService:
             "event_count": len(events),
             "failure_kind": root_cause_tags[0] if root_cause_tags else ("execution_error" if failures else ""),
             "repair_ready": repair_ready,
+            "correlation": correlation,
         }
-        return {"success": True, "data": {"trace": data, "diagnostics": diagnostics, "lifecycle": lifecycle, "repair": {"ready": repair_ready, "candidate_count": len(repair_candidates), "root_causes": root_cause_tags}}}
+        contract = build_lifecycle_contract(
+            execution_id=run_id,
+            task_id=run_id,
+            project_path="",
+            stage=lifecycle["stage"],
+            status=lifecycle["status"],
+            metadata={"source": "observability"},
+            failure_kind=lifecycle["failure_kind"],
+            delivery_refs={"event_count": len(events)},
+            recovery_refs={"ready": repair_ready, "candidate_count": len(repair_candidates), "root_causes": root_cause_tags},
+            trace=data,
+            diagnostics=diagnostics,
+            correlation=correlation,
+            validation_refs={"trace_present": bool(events), "diagnostics_present": bool(diagnostics)},
+            output_refs={"event_count": len(events), "root_cause_tags": root_cause_tags},
+            transition_reason="trace inspection",
+        )
+        observed = build_observe_artifact(contract.to_dict(), trace=data, diagnostics=diagnostics)
+        return {"success": True, "data": {"trace": data, "diagnostics": diagnostics, "lifecycle": lifecycle, "repair": {"ready": repair_ready, "candidate_count": len(repair_candidates), "root_causes": root_cause_tags}, "observe": observed.get("observe", {}), "lifecycle_contract": observed.get("lifecycle_contract", contract.to_dict())}}
 
     def replay(self, run_id: str) -> Dict[str, Any]:
         data = self.observability.to_trace_payload(run_id)

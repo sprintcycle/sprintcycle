@@ -2,68 +2,78 @@
 
 [中文](README.md)
 
-**Intent-Driven Self-Evolving Agile Development Framework** — Describe goals in natural language, generate executable Release Plans (YAML), and orchestrate execution by Sprints. CLI, MCP, optional Web Dashboard, and Python API all share the same `SprintCycle` entrypoint.
+**SprintCycle** is a web / CLI / MCP / SDK orchestration framework: describe intent in natural language, generate an executable Release Plan, and drive planning, execution, observation, repair, delivery, runtime linkage, governance, and self-evolution through a unified lifecycle contract.
 
 Current Version: **0.9.2** (matches `sprintcycle.__version__`)
 
 ---
 
-## ✨ Core Features
+## Core Positioning
 
-### 🎯 Intent-Driven Development
-- **Natural language goals** → Auto-generate Release Plans → Execute by Sprints
-- Checkpoint resume and recovery support
-- Intelligent plan expansion and validation
+SprintCycle is not just a task runner. It is an end-to-end lifecycle orchestration platform that covers the following closed loop:
 
-### 🔧 Built-in Governance Engine
-- **Multi-source validation plugin system** (powered by pluggy)
-  - Architecture contract checking (import-linter)
-  - Static code analysis (ruff + mypy)
-  - YAML/Compose file validation
-  - ADR (Architecture Decision Record) checking
-  - Mutation testing (mutmut)
-  - Dependency security scanning (pip-audit)
-  - Extensible third-party plugins
+1. Intent intake and normalization
+2. Plan generation and validation
+3. Task decomposition and execution preparation
+4. Sprint execution and event recording
+5. Observation, diagnosis, and repair loop
+6. Delivery and runtime linkage
+7. Governance review and suggestion handling
+8. Version promotion and self-evolution
 
-- **Layered gate mechanism**
-  - Planning Gate: Validation after plan generation
-  - Review Gate: Quality check after execution completes
-
-### 📊 Modern Dashboard
-- Vue 3 + Element Plus frontend
-- Real-time execution status monitoring
-- Governance check result visualization
-- Sprint execution history and trends
-- Runtime configuration management
-- SSE real-time push updates
-
-### ⚙️ Flexible Configuration System
-- **dynaconf** multi-source configuration loading
-- **pydantic** type-safe validation
-- Environment variable overrides
-- Configuration file hot-reload
-- Profile support (dev/test/prod)
-
-### 🤖 MCP Server Integration
-- Standard MCP protocol support
-- SSE transport mode
-- Integratable with any AI Agent
-
-### 🔌 Extensible Architecture
-- **Cache abstraction layer** (local memory → Redis)
-- **Message queue abstraction layer** (extension point reserved)
-- **Human-in-the-Loop (HITL)** interaction
-- Plugin-based validation system
+The current implementation centers on the `SprintCycle` unified entrypoint. Under the hood, workflow services, domain facades, runtime registries, observability, the skills subsystem, and evolution services collaborate to complete the lifecycle.
 
 ---
 
-## 📋 Requirements
+## Key Capabilities
+
+### Intent-Driven Delivery Loop
+- Describe goals in natural language
+- Generate Release Plans (YAML / structured plans)
+- Support sprint orchestration, checkpoint resume, and recovery
+- Support normalized lifecycle stage transitions
+
+### Unified Lifecycle Contract
+- `LifecycleStateMachine` owns canonical stage transition rules
+- `LifecycleContract` carries cross-service state facts
+- A unified correlation model links `execution_id`, `task_id`, `suggestion_id`, `runtime_id`, `version_id`, and `trace_id`
+
+### Repair and Delivery Loop
+- Explicitly supports `diagnosed → repairing → verifying → observing`
+- Explicitly supports `delivering → runtime_linked → governing → promotion_ready → promoted`
+- Provides structured artifacts for repair, verification, runtime handoff, and suggestion promotion
+
+### Governance and Suggestion Handling
+- Multi-source validation plugin system powered by pluggy
+- Architecture contract checks, static analysis, YAML validation, ADR checks, mutation testing, and dependency security scanning
+- Suggestion review, approval, rejection, archival, and HITL promotion
+
+### Observability and Runtime
+- Execution events, trace, replay, summary, and health read models
+- Runtime registry and deployment linkage
+- Observation views for Dashboard and API consumers
+
+### Dashboard and Integrations
+- Vue 3 + Element Plus web dashboard
+- FastAPI backend
+- MCP Server over stdio or SSE
+- Python API and CLI share the same core entrypoint
+
+### Configuration and Extensibility
+- `dynaconf` + `pydantic` configuration stack
+- Local cache and Redis backend abstraction
+- Reserved extension point for message queues
+- Pluggable governance, suggestion, and observability facades
+
+---
+
+## Requirements
 
 - Python **≥ 3.11**
 
 ---
 
-## 🚀 Installation
+## Installation
 
 ### Basic Installation
 
@@ -74,82 +84,71 @@ pip install -e .
 ### Full Installation (Recommended)
 
 ```bash
-pip install -e ".[full,dev]"
+pip install -e "[full,dev]"
 ```
 
-### Optional Capabilities (install extras as needed)
+### Common Extras
 
 | Extra | Purpose |
-|--------|---------|
+|------|---------|
 | `dashboard` / `full` | Web Dashboard (FastAPI + Uvicorn) |
-| `cache-redis` | Execution cache Redis backend (`[cache] backend = redis`) |
-| `mcp-sse` | Expose MCP via SSE (requires `uvicorn`, `starlette`) |
-| `dev` | Testing, type checking, import-linter, and other development dependencies |
-| `mutation` | Mutation testing (`mutmut`) |
+| `cache-redis` | Redis backend for execution cache |
+| `mcp-sse` | Expose MCP over SSE |
+| `dev` | Test, type-check, import-linter, and other development dependencies |
+| `mutation` | Mutation testing with `mutmut` |
 
 ---
 
-## ⚡ Quick Start
+## Quick Start
 
-### Initialize
-
-Initialize data directory (state and logs) in project root:
+### Initialize Project Data
 
 ```bash
 sprintcycle init
 ```
 
-### Generate Plan (Without Execution)
+### Generate a Plan Without Executing
 
 ```bash
-sprintcycle plan "Add unit tests for login flow" -m auto
+sprintcycle plan "Add unit tests for the login flow" -m auto
 ```
 
-### Direct Execution
+### Execute Directly
 
 ```bash
-sprintcycle run "Fix broken links in README"
+sprintcycle run "Fix broken links in the README"
 # Equivalent to:
-sprintcycle "Fix broken links in README"
+sprintcycle "Fix broken links in the README"
 ```
 
 ### Enable Governance Checks
 
 ```bash
-sprintcycle run "Refactor configuration module" --governance-level standard
+sprintcycle run "Refactor the configuration module" --governance-level standard
 ```
 
-### Start Dashboard
+### Start the Dashboard
 
 ```bash
-# Production mode (requires frontend build first)
+# Production mode (typically requires a frontend build first)
 sprintcycle dashboard
 
 # Development mode (start FastAPI + Vite together)
 sprintcycle dashboard --dev
 ```
 
-### Common Options
-
-- `--project` / `-p`: Specify project path
-- `--format json`: Machine-readable output
-- `--mode`: Execution mode (`auto`, `evolution`, `normal`, `fix`, `test`)
-- `--release-plan`: Use existing YAML plan
-- `--resume` + `--execution-id`: Resume from checkpoint
-- `--yes`: Auto-confirm knowledge injection
-
 ---
 
-## 🎮 CLI Command Reference
+## Command Reference
 
 ### Core Workflow
 
 | Command | Description |
 |---------|-------------|
-| `sprintcycle wizard` | Interactive selection: plan / run / diagnose / status |
-| `sprintcycle plan <intent>` | Generate execution plan |
-| `sprintcycle run [intent]` | Execute Sprint |
-| `sprintcycle validate` | Run governance validation checks |
+| `sprintcycle wizard` | Interactive selection of plan / run / diagnose / status |
+| `sprintcycle plan <intent>` | Generate an execution plan |
+| `sprintcycle run [intent]` | Execute a sprint |
+| `sprintcycle validate` | Run governance validation |
 
 ### Project Management
 
@@ -157,8 +156,8 @@ sprintcycle dashboard --dev
 |---------|-------------|
 | `sprintcycle diagnose` | Project health analysis |
 | `sprintcycle status [execution_id]` | Single execution status or history list |
-| `sprintcycle rollback <execution_id>` | Rollback execution |
-| `sprintcycle stop <execution_id>` | Stop running task |
+| `sprintcycle rollback <execution_id>` | Roll back an execution |
+| `sprintcycle stop <execution_id>` | Stop a running task |
 
 ### Knowledge Management
 
@@ -171,99 +170,140 @@ sprintcycle dashboard --dev
 
 | Command | Description |
 |---------|-------------|
-| `sprintcycle config show` | Display current configuration |
-| `sprintcycle config set <key> <value>` | Set configuration item |
-| `sprintcycle config get <key>` | Get configuration item |
+| `sprintcycle config show` | Show the current configuration |
+| `sprintcycle config set <key> <value>` | Set a configuration value |
+| `sprintcycle config get <key>` | Get a configuration value |
 
-### Services & Integration
+### Services and Integrations
 
 | Command | Description |
 |---------|-------------|
-| `sprintcycle serve` | Start MCP Server (stdio by default; `--transport sse` for remote Agents) |
-| `sprintcycle dashboard` | Start Web UI (production: build `frontend` first; development: `--dev`) |
+| `sprintcycle serve` | Start the MCP Server (stdio by default; use `--transport sse` for remote agents) |
+| `sprintcycle dashboard` | Start the web UI |
 
 ### System Commands
 
 | Command | Description |
 |---------|-------------|
-| `sprintcycle init [path]` | Initialize `.sprintcycle` directory structure |
-| `sprintcycle import-state` | Import JSON state directory to SQLite |
+| `sprintcycle init [path]` | Initialize the `.sprintcycle` directory structure |
+| `sprintcycle import-state` | Import a JSON state directory into SQLite |
 
-**Global options**: `-p/--project` (project path), `--format text|json` (output format), `-v/--verbose` (detailed logs)
+**Global options**: `-p/--project` (project path), `--format text|json` (output format), `-v/--verbose` (verbose logging)
 
 ---
 
-## 🌐 Python API
+## Python API
 
-Library and CLI share **`SprintCycle`** (`sprintcycle.api`): `plan`, `run`, `diagnose`, `status`, `rollback`, `stop` etc. are semantically aligned with CLI, making it easy to call in scripts, services, or automated pipelines.
-
-Exported models and parsers available in `sprintcycle` package:
+The Python API and CLI share the same `SprintCycle` entrypoint. `plan`, `run`, `diagnose`, `status`, `rollback`, and `stop` all align semantically with the CLI, making it easy to use in scripts, services, and automation pipelines.
 
 ```python
-from sprintcycle import (
-    SprintCycle,
-    ReleasePlan,
-    ReleasePlanParser,
-    ReleasePlanValidator,
-    SprintOrchestrator,
-    SprintExecutor,
-)
+from sprintcycle import SprintCycle
 
-# Basic usage
-api = SprintCycle()
-result = await api.run("Refactor authentication module", project_path="./my-project")
+api = SprintCycle(project_path="./my-project")
+result = await api.run("Refactor the authentication module")
 ```
+
+Common exports include:
+
+- `SprintCycle`
+- `ReleasePlan`
+- `ReleasePlanParser`
+- `ReleasePlanValidator`
+- `SprintOrchestrator`
+- `SprintExecutor`
 
 ---
 
-## 🏗️ Repository Structure
+## Repository Structure
 
 ```
 sprintcycle/
 ├── api.py                    # Unified API entrypoint
-├── cli/                      # CLI package (`main.py` entry; console script `sprintcycle.cli:cli`)
+├── cli/                      # CLI package
 ├── config/                   # Configuration management
-│   ├── settings.py           # dynaconf initialization
-│   ├── runtime_config.py     # pydantic configuration model
-│   ├── manager.py            # Configuration manager
-│   └── backends/             # Configuration backend abstraction
 ├── orchestration/            # Sprint orchestration engine
 ├── execution/                # Execution engine
-│   ├── agent/                # AI Agent execution
-│   ├── state/                # State management
-│   └── knowledge/            # Knowledge hooks and injection
 ├── release_plan/             # Release Plan models and parsing
-├── governance/               # Governance engine
-│   ├── runner.py             # Governance executor
-│   ├── pluggy_host.py        # Plugin system host
-│   ├── report.py             # Governance reports
-│   └── plugins/              # Built-in validation plugins
+├── governance/               # Governance engine, plugins, and suggestion handling
 ├── dashboard/                # Web Dashboard
-│   ├── server.py             # FastAPI backend
-│   ├── routes/               # API routes
-│   └── frontend/             # Vue 3 + Element Plus frontend
 ├── events/                   # Event bus
 ├── mcp/                      # MCP server
-├── governance/
-│   ├── hitl/                 # Governance-side Human-in-the-Loop
-│   ├── suggestion/           # Suggestion review & approval
-│   └── arch_guard/           # Architecture & rule guards
-├── runtime_observability/    # Runtime observability / trace / replay
-├── runtime_observability/    # Runtime observability / trace / replay
+├── runtime_observability/    # Runtime observability and replay
 ├── cache/                    # Cache abstraction layer
-├── mq/                       # Message queue abstraction
-└── validation/               # Multi-source validation plugin system
+├── mq/                       # Message queue abstraction layer
+├── validation/               # Multi-source validation plugin system
+└── services/                 # Lifecycle, governance, observability, suggestion, delivery, and evolution services
 ```
 
 ---
 
-## 🔍 Governance & Validation
+## Key Services in the Latest Code
+
+### Lifecycle Core
+
+- `sprintcycle/services/lifecycle_state_machine.py`
+  - Defines the canonical stages: `new → normalized → planned → prepared → decomposed → executing → observing → diagnosed → repairing → verifying → delivering → runtime_linked → governing → promotion_ready → promoted`
+  - Provides stage transitions, event building, and correlation helpers
+
+- `sprintcycle/services/lifecycle_contracts.py`
+  - Defines `LifecycleContract`
+  - Carries execution, task, project, trace, diagnostics, runtime, suggestion, governance, and evolution fields
+
+- `sprintcycle/services/phase_workflow.py`
+  - Provides structured artifacts for plan / prepare / decompose / observe / diagnose / repair / deliver phases
+
+### Runtime Lifecycle
+
+- `sprintcycle/services/execution_lifecycle_service.py`
+  - Handles execution bootstrap, normalization, runtime registration, observation event emission, and execution detail reads
+
+- `sprintcycle/orchestration/sprint_orchestrator.py`
+  - Handles Release Plan expansion, sprint orchestration, task execution, and runtime event coordination
+
+### Skills Subsystem
+
+- `sprintcycle/execution/skills.py`
+  - Handles scene recognition, skill matching, pre-injection preparation, review checklist enrichment, and retro cleanup
+
+- `sprintcycle/execution/hooks/skill_hooks.py`
+  - Hooks skill orchestration into sprint lifecycle nodes such as before/after/before_review/after_retro
+
+- `sprintcycle/execution/skill_store.py`
+  - Persists skill artifacts, injection state, execution records, and task traces
+
+The skills subsystem is connected through `SprintOrchestrator._build_sprint_hooks()` and participates in the main flow after planning, before execution, before review, and after retro. It is not a side executor; it is an execution-time capability layer on the main lifecycle.
+
+### Observability, Governance, and Suggestions
+
+- `sprintcycle/services/observability_service.py`
+  - Handles trace, replay, execution detail assembly, and observability read models
+
+- `sprintcycle/services/governance_orchestration_service.py`
+  - Handles governance checks and governance read workflows
+
+- `sprintcycle/services/suggestion_application_service.py`
+  - Handles suggestion review, approval, rejection, archival, and HITL promotion
+
+### Repair, Promotion, and Evolution
+
+- `sprintcycle/services/repair_orchestration_service.py`
+  - Handles repair orchestration and the data shape for repair closed loops
+
+- `sprintcycle/services/promotion_policy.py`
+  - Handles promotion gating for suggestions and version promotion
+
+- `sprintcycle/services/lifecycle_evolution_service.py`
+  - Handles lifecycle evolution, runtime linkage, and promotion readiness
+
+---
+
+## Governance and Validation
 
 ### Governance Levels
 
 | Level | Checks Performed | Use Case |
 |-------|------------------|----------|
-| `minimal` | Basic syntax checking only | Rapid iteration |
+| `minimal` | Basic syntax checks only | Rapid iteration |
 | `standard` | Static analysis + architecture checks | Daily development |
 | `strict` | All checks + mutation testing | Pre-release validation |
 
@@ -274,87 +314,58 @@ sprintcycle/
 | Architecture | Import layer contract checking | import-linter |
 | StaticAnalysis | ruff + mypy static checking | ruff, mypy |
 | YAMLValidation | YAML file syntax validation | pyyaml |
-| ComposeHint | Docker Compose file checking | PyYAML |
+| ComposeHint | Docker Compose file checks | PyYAML |
 | ADRCheck | Architecture decision record consistency | - |
 | MutmutPlugin | Mutation testing (optional) | mutmut |
 | PipAuditPlugin | Dependency security scanning (optional) | pip-audit |
 
 ---
 
-## 📚 Documentation & Resources
+## Documentation
 
+- `docs/SYSTEM_OVERVIEW.md` — System overview and target mature architecture
 - `docs/RELEASE_CHECKLIST.md` — Release checklist
 - `docs/GOVERNANCE_HEAVY_CHECKS.md` — Heavy governance checks documentation
-- More technical documentation in `docs/` directory
 
 ---
 
-## 🧪 Development & Testing
+## Development and Testing
 
-### Framework Development (Contributing to SprintCycle)
+### Framework Development
 
 ```bash
-# One-click development environment setup
 ./tools/start_develop/dev-setup.sh
-
-# Activate development environment
 source tools/start_develop/activate.sh
-
-# Run core tests
 pytest tests/test_p0_runtime.py -v
-
-# Run full test suite
 pytest tests/ -v
-
-# Code quality checks
 ./tools/start_develop/run-lint.sh
 ```
 
 ### Using SprintCycle to Build Products
 
-**pip install:**
 ```bash
 pip install sprintcycle
-# or with full features
-pip install sprintcycle[dashboard,mcp-sse]
-```
+# or:
+pip install "sprintcycle[dashboard,mcp-sse]"
 
-**Quick start:**
-```bash
-# Initialize
 sprintcycle init
-
-# Direct execution
-sprintcycle run "Add unit tests for login module"
-
-# Configure LLM: set OPENAI_API_KEY in .env
-```
-
-**Dashboard monitoring:**
-```bash
+sprintcycle run "Add unit tests for the login module"
 sprintcycle dashboard
-```
-
-**MCP integration:**
-```bash
 sprintcycle serve
 ```
 
-For detailed guide, see [DEVELOPMENT_GUIDE.md](tools/start_develop/DEVELOPMENT_GUIDE.md).
-
 ---
 
-## 📄 License
-## 📄 License
+## License
 
 MIT License
 
 ---
 
-## 🤝 Community & Feedback
+## Community and Feedback
 
-Issues and Pull Requests are welcome!
+Issues and Pull Requests are welcome.
 
 ---
 
-**SprintCycle — Let AI be your agile development partner** 🚀
+**SprintCycle — Let AI be your agile development partner**

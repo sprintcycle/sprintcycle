@@ -62,3 +62,10 @@ class RuntimeRegistry:
     def latest(self) -> Dict[str, Any]:
         record = self.records[-1] if self.records else None
         return {"success": True, "data": record}
+
+    def get(self, runtime_id: str) -> Dict[str, Any]:
+        rid = str(runtime_id)
+        for record in self.records:
+            if str(record.get("runtime_id")) == rid:
+                return {"success": True, "data": record}
+        return {"success": False, "error": f"runtime not found: {rid}"}

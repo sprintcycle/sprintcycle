@@ -2,68 +2,78 @@
 
 [English](README_EN.md)
 
-**意图驱动的自我进化敏捷开发框架** — 用自然语言描述目标，生成可执行的 Release Plan（YAML），再按 Sprint 编排落地；CLI、MCP、可选 Web Dashboard 与 Python API 共用同一套 `SprintCycle` 入口。
+**SprintCycle** 是一个面向 Web / CLI / MCP / SDK 的统一编排框架：用自然语言表达意图，生成可执行的 Release Plan，并通过统一生命周期契约驱动计划、执行、观测、修复、交付、运行时联动、治理与自我演化。
 
 当前版本：**0.9.2**（与 `sprintcycle.__version__` 一致）
 
 ---
 
-## ✨ 核心特性
+## 核心定位
 
-### 🎯 意图驱动开发
-- **自然语言描述目标** → 自动生成 Release Plan → 按 Sprint 执行
-- 支持断点续跑与恢复
-- 智能计划扩展与校验
+SprintCycle 不是单一的任务执行器，而是一个端到端的生命周期编排平台，覆盖以下闭环：
 
-### 🔧 内置治理引擎
-- **多源验证插件系统**（基于 pluggy）
-  - 架构契约检查（import-linter）
-  - 静态代码分析（ruff + mypy）
-  - YAML/Compose 文件验证
-  - ADR（架构决策记录）检查
-  - 突变测试（mutmut）
-  - 依赖安全扫描（pip-audit）
-  - 可扩展第三方插件
+1. 意图接入与标准化
+2. 计划生成与校验
+3. 任务拆解与执行准备
+4. Sprint 执行与事件记录
+5. 观测、诊断与修复闭环
+6. 交付与运行时联动
+7. 治理审核与建议处理
+8. 版本晋升与自我演化
 
-- **分层门禁机制**
-  - Planning Gate：计划生成后验证
-  - Review Gate：执行完成后质量检查
-
-### 📊 现代化 Dashboard
-- Vue 3 + Element Plus 前端
-- 实时执行状态监控
-- 治理检查结果可视化
-- Sprint 执行历史与趋势
-- 运行时配置管理
-- SSE 实时推送更新
-
-### ⚙️ 灵活配置系统
-- **dynaconf** 多源配置加载
-- **pydantic** 类型安全验证
-- 环境变量覆盖
-- 配置文件热重载
-- Profile 支持（dev/test/prod）
-
-### 🤖 MCP 服务器集成
-- 标准 MCP 协议支持
-- SSE 传输模式
-- 可被任意 AI Agent 集成使用
-
-### 🔌 可扩展架构
-- **缓存抽象层**（本地内存 → Redis）
-- **消息队列抽象层**（预留扩展点）
-- **Human-in-the-Loop（HITL）** 人机回环
-- 插件化验证系统
+系统的当前实现以 `SprintCycle` 统一入口为中心，底层由一组工作流服务、领域 Facade、运行时注册表、观测层、skills 子系统和演化层协作完成。
 
 ---
 
-## 📋 环境要求
+## 主要能力
+
+### 意图驱动的开发闭环
+- 通过自然语言描述目标
+- 生成 Release Plan（YAML / 结构化计划）
+- 支持 Sprint 编排、断点续跑与恢复
+- 支持标准化生命周期状态迁移
+
+### 统一生命周期契约
+- `LifecycleStateMachine` 负责阶段迁移规则
+- `LifecycleContract` 负责跨服务状态事实载体
+- 统一 correlation model 串联 `execution_id`、`task_id`、`suggestion_id`、`runtime_id`、`version_id`、`trace_id`
+
+### 修复与交付闭环
+- 显式支持 `diagnosed → repairing → verifying → observing` 闭环
+- 显式支持 `delivering → runtime_linked → governing → promotion_ready → promoted` 晋升链路
+- 提供修复、验证、运行时联动与建议晋升的结构化载体
+
+### 治理与建议处理
+- 多源验证插件系统（基于 pluggy）
+- 架构契约检查、静态分析、YAML 校验、ADR 检查、突变测试、依赖安全扫描
+- 建议审查、批准、拒绝、归档与 HITL 晋升
+
+### 观测与运行时
+- 执行事件、trace、replay、摘要与健康状态读模型
+- 运行时注册表与部署联动
+- 面向 Dashboard / API 的观测视图
+
+### Dashboard 与集成
+- Vue 3 + Element Plus Web Dashboard
+- FastAPI 后端
+- MCP Server（stdio / SSE）
+- Python API 与 CLI 共用同一套核心入口
+
+### 配置与扩展
+- `dynaconf` + `pydantic` 配置体系
+- 本地缓存与 Redis 后端抽象
+- 预留消息队列扩展点
+- 可插拔的治理、建议与观测 Facade
+
+---
+
+## 环境要求
 
 - Python **≥ 3.11**
 
 ---
 
-## 🚀 安装
+## 安装
 
 ### 基础安装
 
@@ -71,35 +81,33 @@
 pip install -e .
 ```
 
-### 完整功能安装（推荐）
+### 完整安装（推荐）
 
 ```bash
-pip install -e ".[full,dev]"
+pip install -e "[full,dev]"
 ```
 
-### 可选能力（按需安装 extras）
+### 常用可选能力
 
 | Extra | 用途 |
-|--------|------|
+|------|------|
 | `dashboard` / `full` | Web Dashboard（FastAPI + Uvicorn） |
-| `cache-redis` | 执行缓存 Redis 后端（`[cache] backend = redis`） |
-| `mcp-sse` | MCP 以 SSE 方式对外提供（需 `uvicorn`、`starlette`） |
+| `cache-redis` | 执行缓存 Redis 后端 |
+| `mcp-sse` | 以 SSE 方式对外提供 MCP |
 | `dev` | 测试、类型检查、import-linter 等开发依赖 |
 | `mutation` | 突变测试（`mutmut`） |
 
 ---
 
-## ⚡ 一分钟上手
+## 快速开始
 
-### 初始化
-
-在项目根目录初始化数据目录（状态与日志）：
+### 初始化项目数据目录
 
 ```bash
 sprintcycle init
 ```
 
-### 生成计划（不执行）
+### 生成计划但不执行
 
 ```bash
 sprintcycle plan "为登录流程增加单元测试" -m auto
@@ -122,25 +130,16 @@ sprintcycle run "重构配置模块" --governance-level standard
 ### 启动 Dashboard
 
 ```bash
-# 生产模式（需先 build frontend）
+# 生产模式（通常需要先构建前端）
 sprintcycle dashboard
 
 # 开发模式（同时启动 FastAPI + Vite）
 sprintcycle dashboard --dev
 ```
 
-### 常用选项
-
-- `--project` / `-p`：指定项目路径
-- `--format json`：机器可读输出
-- `--mode`：执行模式（`auto`、`evolution`、`normal`、`fix`、`test`）
-- `--release-plan`：使用已有 YAML 计划
-- `--resume` + `--execution-id`：断点续跑
-- `--yes`：自动确认知识注入
-
 ---
 
-## 🎮 CLI 命令速查
+## 命令速查
 
 ### 核心流程
 
@@ -149,16 +148,16 @@ sprintcycle dashboard --dev
 | `sprintcycle wizard` | 交互式选择 plan / run / diagnose / status |
 | `sprintcycle plan <意图>` | 生成执行计划 |
 | `sprintcycle run [意图]` | 执行 Sprint |
-| `sprintcycle validate` | 运行治理验证检查 |
+| `sprintcycle validate` | 运行治理验证 |
 
 ### 项目管理
 
 | 命令 | 说明 |
 |------|------|
-| `sprintcycle diagnose` | 项目体检与健康度分析 |
+| `sprintcycle diagnose` | 项目健康度分析 |
 | `sprintcycle status [execution_id]` | 单条执行状态或历史列表 |
 | `sprintcycle rollback <execution_id>` | 回滚执行 |
-| `sprintcycle stop <execution_id>` | 停止运行中任务 |
+| `sprintcycle stop <execution_id>` | 停止运行中的任务 |
 
 ### 知识管理
 
@@ -180,89 +179,130 @@ sprintcycle dashboard --dev
 | 命令 | 说明 |
 |------|------|
 | `sprintcycle serve` | 启动 MCP Server（默认 stdio；`--transport sse` 用于远程 Agent） |
-| `sprintcycle dashboard` | 启动 Web UI（生产：先 `frontend` build；开发：`--dev`） |
+| `sprintcycle dashboard` | 启动 Web UI |
 
 ### 系统命令
 
 | 命令 | 说明 |
 |------|------|
 | `sprintcycle init [path]` | 初始化 `.sprintcycle` 目录结构 |
-| `sprintcycle import-state` | JSON 状态目录导入 SQLite |
+| `sprintcycle import-state` | 将 JSON 状态目录导入 SQLite |
 
 **全局选项**：`-p/--project`（项目路径）、`--format text|json`（输出格式）、`-v/--verbose`（详细日志）
 
 ---
 
-## 🌐 Python API
+## Python API
 
-库与 CLI 共用 **`SprintCycle`**（`sprintcycle.api`）：`plan`、`run`、`diagnose`、`status`、`rollback`、`stop` 等与 CLI 语义对齐，便于在脚本、服务或自动化流水线中调用。
-
-对外模型与解析入口见 `sprintcycle` 包导出：
+Python API 与 CLI 共享同一个 `SprintCycle` 入口，`plan`、`run`、`diagnose`、`status`、`rollback`、`stop` 等能力语义一致，方便在脚本、服务和自动化流水线中调用。
 
 ```python
-from sprintcycle import (
-    SprintCycle,
-    ReleasePlan,
-    ReleasePlanParser,
-    ReleasePlanValidator,
-    SprintOrchestrator,
-    SprintExecutor,
-)
+from sprintcycle import SprintCycle
 
-# 基本使用
-api = SprintCycle()
-result = await api.run("重构认证模块", project_path="./my-project")
+api = SprintCycle(project_path="./my-project")
+result = await api.run("重构认证模块")
 ```
+
+常见导出对象包括：
+
+- `SprintCycle`
+- `ReleasePlan`
+- `ReleasePlanParser`
+- `ReleasePlanValidator`
+- `SprintOrchestrator`
+- `SprintExecutor`
 
 ---
 
-## 🏗️ 仓库结构
+## 代码结构
 
 ```
 sprintcycle/
 ├── api.py                    # 统一 API 入口
-├── cli/                      # 命令行包（`main.py` 入口；`pyproject` 脚本 `sprintcycle.cli:cli`）
+├── cli/                      # CLI 包
 ├── config/                   # 配置管理
-│   ├── settings.py           # dynaconf 初始化
-│   ├── runtime_config.py     # pydantic 配置模型
-│   ├── manager.py            # 配置管理器
-│   └── backends/             # 配置后端抽象
 ├── orchestration/            # Sprint 编排引擎
 ├── execution/                # 执行引擎
-│   ├── agent/                # AI Agent 执行
-│   ├── state/                # 状态管理
-│   └── knowledge/            # 知识钩子与注入
 ├── release_plan/             # Release Plan 模型与解析
-├── governance/               # 治理引擎
-│   ├── runner.py             # 治理执行器
-│   ├── pluggy_host.py        # 插件系统主机
-│   ├── report.py             # 治理报告
-│   └── plugins/              # 内置验证插件
+├── governance/               # 治理引擎、插件与建议处理
 ├── dashboard/                # Web Dashboard
-│   ├── server.py             # FastAPI 后端
-│   ├── routes/               # API 路由
-│   └── frontend/             # Vue 3 + Element Plus 前端
 ├── events/                   # 事件总线
-├── mcp/                      # MCP 服务器
-├── governance/
-│   ├── hitl/                 # Governance-side Human-in-the-Loop
-│   ├── suggestion/           # Suggestion review & approval
-│   └── arch_guard/           # Architecture & rule guards
-├── runtime_observability/    # Runtime observability / trace / replay
-├── runtime_observability/    # Runtime observability / trace / replay
+├── mcp/                      # MCP Server
+├── runtime_observability/    # 运行时观测与回放
 ├── cache/                    # 缓存抽象层
-├── mq/                       # 消息队列抽象
-└── validation/               # 多源验证插件系统
+├── mq/                       # 消息队列抽象层
+├── validation/               # 多源验证插件系统
+└── services/                 # 生命周期、治理、观测、建议、交付等应用服务
 ```
 
 ---
 
-## 🔍 治理与验证
+## 最新代码中的关键服务
+
+### 生命周期中枢
+
+- `sprintcycle/services/lifecycle_state_machine.py`
+  - 定义统一阶段：`new → normalized → planned → prepared → decomposed → executing → observing → diagnosed → repairing → verifying → delivering → runtime_linked → governing → promotion_ready → promoted`
+  - 提供状态迁移、事件构建与关联信息
+
+- `sprintcycle/services/lifecycle_contracts.py`
+  - 定义 `LifecycleContract`
+  - 统一承载 execution、task、project、trace、diagnostics、runtime、suggestion、governance、evolution 等字段
+
+- `sprintcycle/services/phase_workflow.py`
+  - 提供 plan / prepare / decompose / observe / diagnose / repair / deliver 等阶段性结构化 artifact
+
+### 运行生命周期
+
+- `sprintcycle/services/execution_lifecycle_service.py`
+  - 负责执行启动、状态归一、运行时注册、观测事件发射和执行详情读取
+
+- `sprintcycle/orchestration/sprint_orchestrator.py`
+  - 负责 Release Plan 扩展、Sprint 编排、任务执行与运行时事件协调
+
+### Skills 子系统
+
+- `sprintcycle/execution/skills.py`
+  - 负责场景识别、skill 匹配、注入前准备、review checklist 增强和复盘清理
+
+- `sprintcycle/execution/hooks/skill_hooks.py`
+  - 负责把 skill 编排挂接到 sprint 生命周期的 before/after/before_review/after_retro 节点
+
+- `sprintcycle/execution/skill_store.py`
+  - 负责 skill artifact、injection state、execution record 和 task trace 的持久化
+
+skills 子系统通过 `SprintOrchestrator._build_sprint_hooks()` 接入主流程，在计划后、执行前、评审前、复盘后参与上下文增强与证据沉淀。它不是旁路执行器，而是主生命周期上的一个执行时能力层。
+
+### 观测、治理与建议
+
+- `sprintcycle/services/observability_service.py`
+  - 负责 trace、replay、执行详情与观测读模型
+
+- `sprintcycle/services/governance_orchestration_service.py`
+  - 负责治理检查与治理读流程
+
+- `sprintcycle/services/suggestion_application_service.py`
+  - 负责建议的审查、批准、拒绝、归档与 HITL 晋升
+
+### 修复、晋升与演化
+
+- `sprintcycle/services/repair_orchestration_service.py`
+  - 负责修复编排与修复闭环所需的数据组织
+
+- `sprintcycle/services/promotion_policy.py`
+  - 负责建议/版本晋升门禁策略
+
+- `sprintcycle/services/lifecycle_evolution_service.py`
+  - 负责生命周期演化、运行时联动与晋升准备
+
+---
+
+## 治理与验证
 
 ### 治理级别
 
 | 级别 | 检查项 | 适用场景 |
-|------|--------|---------|
+|------|--------|----------|
 | `minimal` | 仅基础语法检查 | 快速迭代 |
 | `standard` | 静态分析 + 架构检查 | 日常开发 |
 | `strict` | 全部检查 + 突变测试 | 发布前验证 |
@@ -281,80 +321,51 @@ sprintcycle/
 
 ---
 
-## 📚 文档与资源
+## 文档
 
+- `docs/SYSTEM_OVERVIEW.md` — 系统总览与目标成熟架构
 - `docs/RELEASE_CHECKLIST.md` — 发布检查清单
 - `docs/GOVERNANCE_HEAVY_CHECKS.md` — 重量级治理检查说明
-- `docs/` 目录下更多技术文档
 
 ---
 
-## 🧪 开发与测试
+## 开发与测试
 
-### 框架开发（贡献 SprintCycle）
+### 框架开发
 
 ```bash
-# 一键部署开发环境
 ./tools/start_develop/dev-setup.sh
-
-# 激活开发环境
 source tools/start_develop/activate.sh
-
-# 运行核心测试
 pytest tests/test_p0_runtime.py -v
-
-# 运行完整测试套件
 pytest tests/ -v
-
-# 代码质量检查
 ./tools/start_develop/run-lint.sh
 ```
 
 ### 用 SprintCycle 开发产品
 
-**pip 安装：**
 ```bash
 pip install sprintcycle
-# 或完整功能
-pip install sprintcycle[dashboard,mcp-sse]
-```
+# 或：
+pip install "sprintcycle[dashboard,mcp-sse]"
 
-**快速开始：**
-```bash
-# 初始化
 sprintcycle init
-
-# 直接执行
 sprintcycle run "为登录模块添加单元测试"
-
-# 配置 LLM：在 .env 中填入 OPENAI_API_KEY
-```
-
-**Dashboard 监控：**
-```bash
 sprintcycle dashboard
-```
-
-**MCP 集成：**
-```bash
 sprintcycle serve
 ```
 
-详细指南请参阅 [DEVELOPMENT_GUIDE.md](tools/start_develop/DEVELOPMENT_GUIDE.md)。
-
 ---
 
-## 📄 License
-## 📄 License
+## License
 
 MIT License
 
 ---
 
-## 🤝 社区与反馈
+## 社区与反馈
 
-欢迎提交 Issue 和 Pull Request！
+欢迎提交 Issue 和 Pull Request。
 
 ---
 
-**SprintCycle — 让 AI 成为你的敏捷开发伙伴** 🚀
+**SprintCycle — 让 AI 成为你的敏捷开发伙伴**
