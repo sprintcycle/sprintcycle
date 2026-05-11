@@ -11,6 +11,8 @@ This document is a current snapshot of the system based on the latest implementa
 
 SprintCycle is an orchestration platform that connects the full loop from intent understanding to final delivery, deployment, governance, suggestion handling, observability, and evolution.
 
+For web-platform initiated work, the system is expected to complete the full chain stably for both self-evolution tasks and user project optimization tasks: intent parsing → plan generation → task decomposition → sprint execution → evaluation and fix → final delivery → automatic deployment and runtime operation → suggestion capture and review → self-evolution.
+
 The current implementation centers on a public facade plus workflow-specific application services. The public API coordinates, normalizes, and routes requests; the services own the actual workflow logic.
 
 ### 2. Architecture diagram
@@ -98,11 +100,13 @@ The system is designed around the following lifecycle:
 8. **Suggestion capture and review**
 9. **Self-evolution / version growth**
 
+For web-triggered work, this lifecycle should remain stable regardless of whether the request starts as an internal self-evolution objective or as an external user project optimization request.
+
 This is not a single monolithic pipeline inside one class. It is a set of connected capabilities distributed across the API, services, facades, execution engine, governance layer, observability layer, and evolution/versioning layer.
 
 ### 6. Core multi-round sprint execution flow
 
-A single sprint run is usually only one round in a longer loop. The current implementation supports a repeated cycle of execution, feedback, and follow-up work.
+A single sprint run is usually only one round in a longer loop. The current implementation supports a repeated cycle of execution, feedback, and follow-up work, so that web-started tasks can continue through evaluation, repair, delivery, deployment, and evolution without breaking the chain.
 
 ```mermaid
 flowchart TD
@@ -124,7 +128,235 @@ flowchart TD
   N --> O[Promote approved changes to evolution]
 ```
 
-### 7. Intent parsing
+### 7. Target-state architecture roadmap mapped to current modules
+
+The target state keeps the existing layered skeleton, but makes the full web-triggered lifecycle more explicit, more recoverable, and more governable. The key components remain the same:
+
+- **AutoGPT** for deployment packaging, platform startup, and environment assembly
+- **LangGraph** for execution-graph adaptation, node orchestration, and step scheduling
+- **Phoenix** for trace, replay, observability, and diagnosis
+- **SprintCycle Core** for planning, execution coordination, repair, governance, suggestion capture, and self-evolution
+
+The recommended division of responsibility is:
+
+- **SprintCycle Core as the control plane**: owns request normalization, task context, lifecycle transitions, repair governance, and evolution/version decisions
+- **AutoGPT as the platform bootstrap layer**: owns startup and environment wiring, but not domain workflow rules
+- **LangGraph as the execution-graph layer**: owns how runnable steps are organized and executed, but not policy or governance decisions
+- **Phoenix as the observability layer**: owns traces, replay, and diagnostics, but not execution control
+
+This means the system should avoid parallel pipelines. Each component should connect through explicit adapters, facades, hooks, or registries so that one authoritative lifecycle remains in place.
+
+#### 7.1 Current code modules and their target-state role
+
+- **`sprintcycle/api.py`**
+  - Thin public entry layer for CLI, dashboard, MCP, and SDK.
+  - Normalizes requests and delegates to services.
+  - Target-state role: keep workflow logic out of the API and use it only for routing and result aggregation.
+
+- **`sprintcycle/services/execution_lifecycle_service.py`**
+  - Owns execution start, pre-run gating, runtime registration, observability event emission, replay, and execution detail reads.
+  - Target-state role: execution lifecycle bridge from normalized intent to runtime execution.
+  - Gap: richer stage transitions, repair handoff, and failure taxonomy.
+
+- **`sprintcycle/orchestration/sprint_orchestrator.py`**
+  - Owns release-plan expansion, sprint execution, sprint/task hooks, runtime event emission, and integration with LangGraph and Phoenix.
+  - Target-state role: the main execution coordination engine for plan decomposition and sprint work.
+  - Gap: make planning, preparation, and repair feedback boundaries more explicit.
+
+- **`sprintcycle/services/governance_orchestration_service.py`**
+  - Owns governance checks and governance read workflows.
+  - Target-state role: policy gate for planning, review, and escalation.
+  - Gap: connect governance outcomes more directly to repair, suggestion, and evolution.
+
+- **`sprintcycle/services/suggestion_application_service.py`**
+  - Owns suggestion review, approval, rejection, archive, replay attachment, and execution-event capture.
+  - Target-state role: converts execution feedback into governed suggestion assets.
+  - Gap: standardize suggestion quality, deduplication, and promotion criteria.
+
+- **`sprintcycle/services/observability_service.py`**
+  - Owns trace, replay, event read, and execution detail assembly.
+  - Target-state role: diagnostic and replay surface for failures, repairs, and execution history.
+  - Gap: add root-cause tags, phase timing, and structured failure categories.
+
+- **`sprintcycle/services/platform_summary_service.py`**
+  - Owns dashboard/platform-facing summary payloads, including overview, spec, console, fitness, deploy, governance, and fix views.
+  - Target-state role: delivery and summary aggregation for human-facing workbenches.
+  - Gap: include explicit deployment/runtime handoff and evolution readiness indicators.
+
+- **`sprintcycle/governance/facade.py`** and **`sprintcycle/governance/suggestion/facade.py`**
+  - Domain-facing governance and suggestion coordination points.
+  - Target-state role: stable compatibility and coordination layer underneath the services.
+
+- **`sprintcycle/observability/facade.py`**
+  - Domain-facing observability coordination point.
+  - Target-state role: event, trace, and replay adapter behind the read-side service.
+
+- **`sprintcycle/deployment/runtime_registry.py`** and runtime adapters
+  - Own runtime registration and environment-specific integration.
+  - Target-state role: deployment/runtime linkage after delivery.
+  - Gap: make post-delivery handoff and verification explicit.
+
+- **`sprintcycle/integrations/langgraph/`**
+  - LangGraph runtime and graph construction adapters.
+  - Target-state role: execution-graph adapter, not domain owner.
+
+- **`sprintcycle/integrations/phoenix/`**
+  - Phoenix runtime, trace runtime, and exporter adapters.
+  - Target-state role: observability adapter, not workflow controller.
+
+- **`sprintcycle/evolution/`** and **`sprintcycle/versioning/`**
+  - Own memory, intent evolution, knowledge capture, and version registry logic.
+  - Target-state role: evolution and version growth layer that receives approved learnings.
+  - Gap: stronger linkage from suggestions and governance outcomes into versioned evolution artifacts.
+
+#### 7.2 Target-state end-to-end chain
+
+```mermaid
+flowchart LR
+  W[Web request] --> N[Request normalization / intent entry]
+  N --> P[Planning and execution preparation]
+  P --> S[Sprint decomposition]
+  S --> O[SprintOrchestrator execution]
+  O --> V[Execution observation and repair]
+  V --> D[Result delivery and summary generation]
+  D --> R[Deployment / runtime linkage]
+  R --> G[Suggestion capture and governance]
+  G --> E[Self-evolution and version growth]
+```
+
+#### 7.3 Target-state component boundary map
+
+```mermaid
+graph TD
+  U[Users / Web / CLI / Dashboard / MCP / SDK] --> API[SprintCycle API]
+  API --> CORE[SprintCycle Core Services]
+  CORE --> ORCH[SprintOrchestrator]
+  CORE --> GOV[Governance Facade / Checks]
+  CORE --> OBS[Observability Facade / Trace]
+  CORE --> SUG[Suggestion Facade / Review]
+  CORE --> EVT[Execution Event Backend]
+  CORE --> EVOL[Evolution / Version Registry]
+  ORCH --> LG[LangGraph Adapter]
+  OBS --> PH[Phoenix Adapter]
+  CORE --> AG[AutoGPT Platform Adapter]
+```
+
+#### 7.4 Target-state maturity roadmap
+
+- **P0**: unify intent entry, lifecycle states, execution events, and delivery objects so every web-started task can complete the minimum closed loop without ambiguous completion.
+- **P1**: separate planning from preparation, add diagnosis-grade observability, introduce controlled repair actions, and connect runtime/deployment feedback into the same lifecycle.
+- **P2**: version every evolution step, capture reusable knowledge, optimize policies from feedback, and promote improvements only through governed rollout.
+
+#### 7.5 P0 implementation plan
+
+P0 is the stabilization phase. The goal is not new capability breadth, but a reliable minimum closed loop.
+
+- **`sprintcycle/api.py`**
+  - Keep request normalization thin and consistent across CLI, dashboard, MCP, and SDK.
+  - Ensure all web-initiated work enters a single intent/task shape.
+
+- **`sprintcycle/services/execution_lifecycle_service.py`**
+  - Introduce explicit lifecycle states for normalized, planned, prepared, executing, observing, delivering, and completed.
+  - Return structured failure results instead of ambiguous partial outcomes.
+
+- **`sprintcycle/orchestration/sprint_orchestrator.py`**
+  - Preserve a single execution path for plan expansion, execution, and finalization.
+  - Make the transition from planned work to runnable work explicit.
+
+- **`sprintcycle/services/observability_service.py`**
+  - Capture the minimum event set for start, finish, failure, retry, and delivery.
+  - Ensure every run can be inspected after completion.
+
+- **`sprintcycle/services/platform_summary_service.py`**
+  - Produce structured delivery summaries with artifacts, status, and next-step context.
+
+- **`sprintcycle/deployment/runtime_registry.py`** and runtime adapters
+  - Keep runtime linkage available for delivered outputs, even if the initial behavior is read-only or advisory.
+
+- **Success criteria for P0**
+  - A web-started task can reach a clear completed or failed state.
+  - No stage depends on hidden side effects.
+  - Results are structured enough for downstream use.
+
+#### 7.6 P1 implementation plan
+
+P1 is the control-and-recovery phase. The goal is to make the chain observable enough to repair and continue.
+
+- **`sprintcycle/services/governance_orchestration_service.py`**
+  - Connect planning and review outcomes to explicit repair or escalation paths.
+  - Separate planning gate results from review gate results.
+
+- **`sprintcycle/orchestration/sprint_orchestrator.py`**
+  - Make planning, preparation, execution, and post-run repair boundaries explicit.
+  - Treat repair as a controlled follow-up action, not a side effect inside execution.
+
+- **`sprintcycle/services/observability_service.py`**
+  - Add phase timing, failure taxonomy, and root-cause tags.
+  - Support diagnosis and replay for failed or repaired runs.
+
+- **`sprintcycle/services/suggestion_application_service.py`**
+  - Standardize suggestion capture from failures, fixes, and human feedback.
+  - Add deduplication and promotion criteria before a suggestion becomes actionable.
+
+- **`sprintcycle/services/platform_summary_service.py`**
+  - Include runtime/deployment handoff indicators and repair status in summaries.
+
+- **`sprintcycle/integrations/langgraph/`** and **`sprintcycle/integrations/phoenix/`**
+  - Keep both as adapters that enrich execution and observability without owning the lifecycle.
+
+- **Success criteria for P1**
+  - Failures can be classified and routed to the correct response.
+  - Repair actions are explicit, limited, and observable.
+  - Delivery can be linked back to runtime or deployment state.
+
+#### 7.7 P2 implementation plan
+
+P2 is the evolution-and-governance phase. The goal is to let the system improve without losing control.
+
+- **`sprintcycle/evolution/`** and **`sprintcycle/versioning/`**
+  - Version every approved improvement or learned pattern.
+  - Store reusable knowledge with scope, constraints, and rollback information.
+
+- **`sprintcycle/governance/facade.py`** and **`sprintcycle/governance/suggestion/facade.py`**
+  - Treat suggestion promotion as a governed decision path.
+  - Only approved outcomes should feed version growth.
+
+- **`sprintcycle/services/governance_orchestration_service.py`**
+  - Close the loop from suggestion review to versioned evolution input.
+
+- **`sprintcycle/services/observability_service.py`**
+  - Preserve traces and replay payloads as the evidence layer for evolution decisions.
+
+- **`sprintcycle/services/platform_summary_service.py`**
+  - Surface evolution readiness and rollout status in human-facing summaries.
+
+- **Success criteria for P2**
+  - Every evolution step is versioned and reviewable.
+  - Knowledge can be reused without becoming an uncontrolled parallel policy layer.
+  - Feedback improves future runs only through governed rollout.
+
+#### 7.8 Module-level implementation guidance
+
+- **API layer**: keep only request normalization, compatibility, routing, and result assembly.
+- **Execution lifecycle service**: strengthen stage transitions, failure classification, and repair handoff.
+- **Sprint orchestrator**: make plan preparation, execution, and post-run finalization more explicit.
+- **Governance service**: route planning and review outcomes into repair, suggestion, and evolution decisions.
+- **Suggestion service**: add structured capture, deduplication, and promotion criteria.
+- **Observability service**: expand trace/replay payloads for diagnosis and repair analysis.
+- **Platform summary service**: include delivery, deployment, and evolution readiness indicators.
+- **Integration adapters**: keep LangGraph and Phoenix as capability adapters that support the core flow.
+- **Evolution/versioning**: make approved changes, memory, and version growth the governed tail of the chain.
+
+#### 7.9 What this means for the target state
+
+The target state is already visible in the codebase as a set of services and adapters. The remaining work is mainly to:
+
+1. make the lifecycle stages explicit,
+2. make failure and repair behavior first-class,
+3. make delivery-to-runtime handoff measurable, and
+4. make suggestion/evolution promotion versioned and reviewable.
+
+### 8. Intent parsing
 
 Intent parsing turns user goals, workspace context, and existing project state into a structured starting point for execution.
 
@@ -197,7 +429,7 @@ Evaluation is not a single isolated engine. It is a collection of read-side summ
 
 ### 12. Final delivery
 
-Final delivery represents the point where execution output becomes a usable result for the workspace, dashboard, or downstream automation.
+Final delivery represents the point where execution output becomes a usable result for the workspace, dashboard, or downstream automation. For the requested end-to-end chain, this is the point where the system must hand off cleanly into automatic deployment, runtime operation, and the next suggestion/evolution cycle.
 
 Current implementation areas involved in this stage include:
 
@@ -240,7 +472,7 @@ Current implementation centers on `SuggestionApplicationService`, `SuggestionFac
 
 ### 15. Self-evolution
 
-SprintCycle includes evolution-oriented support for version growth, knowledge capture, and intent-driven iteration.
+SprintCycle includes evolution-oriented support for version growth, knowledge capture, and intent-driven iteration. In the web-platform chain, self-evolution is the tail of the same workflow that begins with intent parsing and planning, not a detached side path.
 
 Current implementation areas involved in this stage include:
 

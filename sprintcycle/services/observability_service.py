@@ -1,7 +1,8 @@
 """Observability application service.
 
 Owns trace/replay/event read paths and keeps the facade free from observability
-implementation details.
+implementation details. This layer also exposes diagnosis-oriented metadata
+for failure classification and repair analysis.
 """
 
 from __future__ import annotations
@@ -24,12 +25,22 @@ class ObservabilityService:
         return self.observability.list_events()
 
     def trace(self, run_id: str) -> Dict[str, Any]:
-        return {"success": True, "data": self.observability.to_trace_payload(run_id)}
+        data = self.observability.to_trace_payload(run_id)
+        events = list((data or {}).get("events", []) or [])
+        failures = [e for e in events if str((e or {}).get("kind") or (e or {}).get("type") or "").lower().find("fail") >= 0]
+        diagnostics = {
+            "event_count": len(events),
+            "failure_count": len(failures),
+            "phase_tags": sorted({str((e or {}).get("phase") or (e or {}).get("stage") or "").strip() for e in events if str((e or {}).get("phase") or (e or {}).get("stage") or "").strip()}),
+            "root_cause_tags": sorted({str((e or {}).get("root_cause") or (e or {}).get("failure_kind") or "").strip() for e in events if str((e or {}).get("root_cause") or (e or {}).get("failure_kind") or "").strip()}),
+        }
+        return {"success": True, "data": {"trace": data, "diagnostics": diagnostics}}
 
     def replay(self, run_id: str) -> Dict[str, Any]:
         data = self.observability.to_trace_payload(run_id)
         events = list((data or {}).get("events", []) or [])
-        return {"success": True, "data": {"execution_id": run_id, "event_count": len(events), "latest_event": events[-1] if events else None}, "timeline": events}
+        diagnostics = {"event_count": len(events), "latest_event": events[-1] if events else None}
+        return {"success": True, "data": {"execution_id": run_id, "diagnostics": diagnostics}, "timeline": events}
 
     def pending(self, governance: Any, execution_id: Optional[str] = None) -> Dict[str, Any]:
         if governance is None:

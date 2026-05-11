@@ -189,12 +189,16 @@ class SuggestionApplicationService:
         return {"success": True, "data": {"suggestion_id": suggestion_id, "status": "archived"}}
 
     async def create_suggestion_from_execution_event(self, event: Dict[str, Any]) -> Dict[str, Any]:
-        _, blocked = self._ensure_before(SUGGESTION_CAPTURE_EXECUTION_EVENT[1], subject_id=str(event.get("suggestion_id") or ""), execution_id=str(event.get("run_id") or event.get("execution_id") or ""), payload=dict(event or {}))
+        normalized_event = dict(event or {})
+        _, blocked = self._ensure_before(SUGGESTION_CAPTURE_EXECUTION_EVENT[1], subject_id=str(normalized_event.get("suggestion_id") or ""), execution_id=str(normalized_event.get("run_id") or normalized_event.get("execution_id") or ""), payload=normalized_event)
         if blocked is not None:
             return blocked
-        result = await self.suggestion.capture_from_execution_event(event)
-        self._hooks.after("suggestion", SUGGESTION_CAPTURE_EXECUTION_EVENT[1], self._hook_context(SUGGESTION_CAPTURE_EXECUTION_EVENT[1], subject_id=str(event.get("suggestion_id") or ""), execution_id=str(event.get("run_id") or event.get("execution_id") or ""), payload={"event": dict(event or {}), "result": result}))
-        self._hooks.event("suggestion", "capture_execution_event", SUGGESTION_CAPTURED_FROM_EXECUTION_EVENT, {"event": dict(event or {}), "result": result})
+        normalized_event.setdefault("source", "execution")
+        normalized_event.setdefault("kind", normalized_event.get("kind") or normalized_event.get("type") or "execution_event")
+        normalized_event.setdefault("root_cause", normalized_event.get("root_cause") or normalized_event.get("failure_kind") or "")
+        result = await self.suggestion.capture_from_execution_event(normalized_event)
+        self._hooks.after("suggestion", SUGGESTION_CAPTURE_EXECUTION_EVENT[1], self._hook_context(SUGGESTION_CAPTURE_EXECUTION_EVENT[1], subject_id=str(normalized_event.get("suggestion_id") or ""), execution_id=str(normalized_event.get("run_id") or normalized_event.get("execution_id") or ""), payload={"event": normalized_event, "result": result}))
+        self._hooks.event("suggestion", "capture_execution_event", SUGGESTION_CAPTURED_FROM_EXECUTION_EVENT, {"event": normalized_event, "result": result, "source": "execution", "root_cause": normalized_event.get("root_cause", "")})
         return result
 
 

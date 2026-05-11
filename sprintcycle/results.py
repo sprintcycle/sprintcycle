@@ -57,10 +57,16 @@ class RunResult(ResultBase):
     total_sprints: int = 0
     total_tasks: int = 0
     current_sprint: int = 0
+    lifecycle_state: str = ""
+    lifecycle_stage: str = ""
+    failure_kind: str = ""
+    failure_reason: str = ""
     sprint_results: List[Dict[str, Any]] = field(default_factory=list)
     release_finalization: Dict[str, Any] = field(default_factory=dict)
     pending_knowledge_confirmation: bool = False
     knowledge_injection_preview: Dict[str, Any] = field(default_factory=dict)
+    delivery: Dict[str, Any] = field(default_factory=dict)
+    runtime_linkage: Dict[str, Any] = field(default_factory=dict)
     message: str = ""
     evolution: EvolutionSummary = field(default_factory=EvolutionSummary)
 
