@@ -69,6 +69,11 @@ from .persistence.knowledge_repository import KnowledgeCardRepository
 from .versioning.interface import get_version_manifest_summary
 from .versioning.sqlite_registry import SQLiteVersionRegistry
 from .observability.facade import ObservabilityFacade
+from .services.execution_lifecycle_service import ExecutionLifecycleService
+from .services.governance_orchestration_service import GovernanceOrchestrationService
+from .services.observability_service import ObservabilityService
+from .services.platform_summary_service import PlatformSummaryService
+from .services.suggestion_application_service import SuggestionApplicationService
 from .platform.overview import build_platform_overview
 from .integrations.langgraph.runtime import LangGraphRuntimeAdapter, LangGraphRuntimeSpec
 from .integrations.phoenix.runtime import PhoenixRuntimeAdapter, PhoenixRuntimeSpec
@@ -76,6 +81,7 @@ from .integrations.phoenix.exporter import PhoenixExporterSpec
 from .integrations.langgraph.graph import build_default_langgraph_graph_spec
 from .platform.views import PlatformComposeView, PlatformSpecView
 from .dashboard.view_service import DashboardViewService
+from .dashboard.workbench import DashboardWorkbenchService
 from .dashboard.views.architecture_view import ArchitectureView
 from .dashboard.views.deploy_view import DeployView
 from .dashboard.views.fix_view import FixView
@@ -121,8 +127,30 @@ class SprintCycle:
         self._execution_engine = create_execution_engine()
         self._observability = ObservabilityFacade()
         self._runtime_registry = RuntimeRegistry()
-        self._fitness = FitnessEvaluator()
+        self._hooks = HookRegistry()
+        self._execution_service = ExecutionLifecycleService(
+            project_path=self.project_path,
+            config=self.config,
+            observability=self._observability,
+            runtime_registry=self._runtime_registry,
+            hooks=self._hooks,
+        )
+        self._observability_service = ObservabilityService(observability=self._observability)
         self._dashboard_views = DashboardViewService(project_path=self.project_path)
+        self._dashboard_workbench = DashboardWorkbenchService(view_service=self._dashboard_views)
+        self._platform_summary = PlatformSummaryService(
+            project_path=self.project_path,
+            dashboard_views=self._dashboard_views,
+            dashboard_workbench=self._dashboard_workbench,
+        )
+        self._governance_orchestration = GovernanceOrchestrationService(
+            project_path=self.project_path,
+            config=self.config,
+            governance=self._get_governance(),
+            hooks=self._hooks,
+        )
+        self._suggestion_application = SuggestionApplicationService(suggestion=self._suggestion, governance=self._get_governance())
+        self._fitness = FitnessEvaluator()
 
     @property
     def intent_evolution_loop(self) -> UserIntentEvolutionLoop:
@@ -251,16 +279,13 @@ class SprintCycle:
         return {"success": True, "data": context.to_dict()}
 
     async def review_suggestion(self, execution_id: str, suggestion_id: str, reviewer: str = "", notes: str = "") -> Dict[str, Any]:
-        record = await self._governance.review_suggestion(execution_id, suggestion_id, reviewer=reviewer, notes=notes)
-        return {"success": True, "data": record}
+        return await self._suggestion_application.review_suggestion(execution_id, suggestion_id, reviewer=reviewer, notes=notes)
 
     async def approve_suggestion(self, execution_id: str, suggestion_id: str, approver: str = "", notes: str = "") -> Dict[str, Any]:
-        record = await self._governance.approve_suggestion(execution_id, suggestion_id, approver=approver, notes=notes)
-        return {"success": True, "data": record}
+        return await self._suggestion_application.approve_suggestion(execution_id, suggestion_id, approver=approver, notes=notes)
 
     async def reject_suggestion(self, execution_id: str, suggestion_id: str, rejected_by: str = "", notes: str = "") -> Dict[str, Any]:
-        record = await self._governance.reject_suggestion(execution_id, suggestion_id, rejected_by=rejected_by, notes=notes)
-        return {"success": True, "data": record}
+        return await self._suggestion_application.reject_suggestion(execution_id, suggestion_id, rejected_by=rejected_by, notes=notes)
 
     async def promote_suggestion_to_hitl(
         self,
@@ -271,48 +296,25 @@ class SprintCycle:
         summary: str = "",
         context: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        request = await self._governance.promote_suggestion_to_hitl(
+        return await self._suggestion_application.promote_suggestion_to_hitl(
             suggestion_id,
             gate=gate,
             title=title,
             summary=summary,
             context=context,
         )
-        return {"success": True, "data": request}
 
     async def attach_suggestion_replay(self, suggestion_id: str, replay: Dict[str, Any]) -> Dict[str, Any]:
-        request = await self._governance.attach_suggestion_replay(suggestion_id, replay)
-        return {"success": True, "data": request}
+        return await self._suggestion_application.attach_suggestion_replay(suggestion_id, replay)
 
     async def suggestion_approve(self, suggestion_id: str, approver: str, notes: str = "") -> Dict[str, Any]:
-        record = await self._suggestion.approve_suggestion(suggestion_id, approver, notes)
-        promoted: Dict[str, Any] | None = None
-        try:
-            request = await self._governance.promote_suggestion_to_hitl(
-                suggestion_id,
-                gate="review",
-                title="",
-                summary=notes,
-                context={"approver": approver, "notes": notes, "source": "suggestion_approval"},
-            )
-            promoted = request.get("data", request) if isinstance(request, dict) else {"request_id": getattr(request, "request_id", None)}
-            await self.start_execution_run(
-                task_id=str(promoted.get("request_id", suggestion_id)),
-                run_id=str(promoted.get("request_id", suggestion_id)),
-                suggestion_id=suggestion_id,
-                metadata={"source": "suggestion_promotion", "suggestion_id": suggestion_id, "approver": approver},
-            )
-        except Exception:
-            promoted = None
-        return {"success": True, "data": {"approval": record.to_dict(), "promotion": promoted}}
+        return await self._suggestion_application.suggestion_approve(suggestion_id, approver, notes)
 
     async def suggestion_reject(self, suggestion_id: str, approver: str, notes: str = "") -> Dict[str, Any]:
-        record = await self._suggestion.reject_suggestion(suggestion_id, approver, notes)
-        return {"success": True, "data": record.to_dict()}
+        return await self._suggestion_application.suggestion_reject(suggestion_id, approver, notes)
 
     async def suggestion_archive(self, suggestion_id: str) -> Dict[str, Any]:
-        await self._suggestion.archive_suggestion(suggestion_id)
-        return {"success": True, "data": {"suggestion_id": suggestion_id, "status": "archived"}}
+        return await self._suggestion_application.suggestion_archive(suggestion_id)
 
     def _management_overview_payload(self) -> Dict[str, Any]:
         return {
@@ -336,107 +338,11 @@ class SprintCycle:
         """Return the aggregated V2 platform composition spec."""
         return {"success": True, "data": build_platform_spec(project_name=self.project_path).to_dict()}
 
-    def _gate_pre_run(self, context: ExecutionContext) -> GateResult:
-        return pre_run_gate(
-            run_id=context.run_id,
-            task_id=context.task_id,
-            project_path=context.project_path,
-            suggestion_id=context.suggestion_id,
-            evolution_id=context.evolution_id,
-            metadata=context.metadata,
-        )
-
     async def start_execution_run(self, task_id: str, **kwargs: Any) -> Dict[str, Any]:
-        """第一阶段执行编排接入口：先落上下文与事件，后续再逐步接入完整 stage/step。"""
-        context = self._execution_engine.create_context(
-            run_id=kwargs.get("run_id") or task_id,
-            task_id=task_id,
-            project_path=self.project_path,
-            suggestion_id=str(kwargs.get("suggestion_id") or ""),
-            evolution_id=str(kwargs.get("evolution_id") or ""),
-            stage=str(kwargs.get("stage") or "created"),
-            step=str(kwargs.get("step") or ""),
-            metadata=dict(kwargs.get("metadata") or {}),
-        )
-        gate = self._gate_pre_run(context)
-        if not gate.allowed:
-            return {"success": False, "error": gate.reason, "gate": gate.__dict__}
-        started = self._execution_engine.basic_flow(context)
-        observation_event = {
-            "kind": "execution_started",
-            "run_id": context.run_id,
-            "task_id": context.task_id,
-            "data": started,
-        }
-        self.record_execution_event(observation_event)
-        self.record_observation_event(observation_event)
-        try:
-            await self.create_suggestion_from_execution_event(observation_event)
-        except Exception:
-            logger.exception("failed_to_create_suggestion run_id={}", context.run_id)
-        try:
-            self._runtime_registry.register(
-                {
-                    "runtime_id": context.run_id,
-                    "project_name": kwargs.get("project_name") or context.task_id,
-                    "status": started.get("status") or context.status,
-                    "port": kwargs.get("port") or 3000,
-                    "url": kwargs.get("url") or "http://localhost:3000",
-                    "metadata": {
-                        "task_id": context.task_id,
-                        "suggestion_id": context.suggestion_id,
-                        "evolution_id": context.evolution_id,
-                        **dict(context.metadata),
-                    },
-                }
-            )
-        except Exception:
-            logger.exception("failed_to_register_runtime run_id={}", context.run_id)
-        try:
-            self._runtime_registry.update(
-                context.run_id,
-                status=started.get("status") or context.status,
-                metadata={
-                    "task_id": context.task_id,
-                    "suggestion_id": context.suggestion_id,
-                    "evolution_id": context.evolution_id,
-                    **dict(context.metadata),
-                },
-            )
-        except Exception:
-            logger.exception("failed_to_update_runtime run_id={}", context.run_id)
-        return {"success": True, "data": {"execution": started, "context": context.to_dict()}, "gate": gate.__dict__}
+        return await self._execution_service.start_execution_run(task_id, **kwargs)
 
     def governance_check(self, gate: str = "review", **kwargs: Any) -> Dict[str, Any]:
-        """治理检查薄入口：仅做编排，不承载规则实现。"""
-        from .governance.arch_guard.config import ArchGuardConfig
-        from .governance.arch_guard.engine import ArchGuardEngine
-        from .governance.arch_guard.reporter import GovernanceReportAdapter
-
-        start = time.time()
-        try:
-            cfg = ArchGuardConfig.from_runtime_config(self.config, self.project_path)
-            engine = ArchGuardEngine(cfg)
-            context: Dict[str, Any] = dict(kwargs.get("context") or {})
-            if gate == "planning":
-                release_plan = kwargs.get("release_plan")
-                if release_plan is None:
-                    return {"success": False, "error": "planning gate requires release_plan"}
-                report = asyncio.run(
-                    engine.run_planning_gate(self.project_path, release_plan=release_plan, context=context)
-                )
-            else:
-                report = asyncio.run(engine.run_review_gate(self.project_path, context=context))
-            gov = GovernanceReportAdapter.to_governance_report(report)
-            return {
-                "success": True,
-                "gate": gate,
-                "data": gov.to_dict(),
-                "duration": time.time() - start,
-            }
-        except Exception as e:
-            logger.exception("governance_check failed")
-            return {"success": False, "error": str(e), "duration": time.time() - start}
+        return self._governance_orchestration.governance_check(gate=gate, **kwargs)
 
     def _resolve_knowledge_db_path(self) -> str:
         from .execution.knowledge.knowledge_hook import resolve_knowledge_db_path
@@ -461,11 +367,7 @@ class SprintCycle:
         return self._orchestrator
 
     async def observability_pending(self, execution_id: Optional[str] = None) -> Dict[str, Any]:
-        gov = self._get_governance()
-        if gov is None:
-            return {"success": True, "data": []}
-        return {"success": True, "data": await gov.list_pending(execution_id)}
-
+        return await self._governance_orchestration.pending(execution_id=execution_id)
 
     async def observability_submit(
         self, request_id: str, decision: str, note: Optional[str] = None, correction: Optional[Dict[str, Any]] = None, replay: Optional[Dict[str, Any]] = None
@@ -481,76 +383,51 @@ class SprintCycle:
     async def observability_history(
         self, execution_id: Optional[str] = None, limit: int = 50
     ) -> Dict[str, Any]:
-        gov = self._get_governance()
-        if gov is None:
-            return {"success": True, "data": []}
-        return {"success": True, "data": await gov.list_history(execution_id, limit)}
+        return await self._governance_orchestration.history(execution_id=execution_id, limit=limit)
 
     async def observability_summary(self, execution_id: Optional[str] = None, limit: int = 50) -> Dict[str, Any]:
-        gov = self._get_governance()
-        if gov is None:
-            return {"success": True, "data": {"has_service": False, "pending_count": 0, "history_count": 0}}
-        return {"success": True, "data": await gov.summary(execution_id, limit)}
+        return await self._governance_orchestration.summary(execution_id=execution_id, limit=limit)
 
     async def observability_show(self, request_id: str) -> Dict[str, Any]:
-        """按 ID 返回单条观测/治理记录。"""
-        gov = self._get_governance()
-        if gov is None:
-            return {"success": False, "error": "Governance is disabled"}
-        rid = (request_id or "").strip()
-        if not rid:
-            return {"success": False, "error": "request_id required"}
-        rec = await gov.get_request(rid)
-        if rec is None:
-            return {"success": False, "error": "Request not found"}
-        return {"success": True, "data": rec}
+        return await self._governance_orchestration.show(request_id)
 
     def record_execution_event(self, event: Dict[str, Any]) -> Dict[str, Any]:
-        return self._observability.record(event)
+        return self._observability_service.record_event(event)
 
     def list_recorded_execution_events(self) -> Dict[str, Any]:
-        return self._observability.list_events()
+        return self._observability_service.list_events()
 
     def observability_trace(self, run_id: str) -> Dict[str, Any]:
-        return {"success": True, "data": self._observability.to_trace_payload(run_id)}
+        return self._observability_service.trace(run_id)
 
     def observability_replay(self, run_id: str) -> Dict[str, Any]:
-        return {"success": True, "data": self._observability.to_replay_payload(run_id)}
+        return self._observability_service.replay(run_id)
 
     def record_observation_event(self, event: Dict[str, Any]) -> Dict[str, Any]:
-        return self._observability.record(event)
+        return self._observability_service.record_event(event)
 
     async def create_suggestion_from_execution_event(self, event: Dict[str, Any]) -> Dict[str, Any]:
-        """把执行侧异常/关键事件转成 suggestion 输入并写入建议池。"""
-        return await self._suggestion.capture_from_execution_event(event)
+        return await self._suggestion_application.create_suggestion_from_execution_event(event)
 
     def register_runtime(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         return self._runtime_registry.register(payload)
 
     def _fitness_payload(self) -> Dict[str, Any]:
-        return self._dashboard_views.build_fitness_payload(self._observability, self._runtime_registry, self._suggestion)
+        return self._platform_summary.fitness_payload(self._observability, self._runtime_registry, self._suggestion)
 
     def platform_overview(self) -> Dict[str, Any]:
-        return self._dashboard_views.platform_overview()
+        return self._platform_summary.platform_overview()
 
     def _execution_detail_payload(self, execution_id: str, *, limit: int = 200) -> Dict[str, Any]:
-        eid = (execution_id or "").strip()
-        if not eid:
-            return {"success": False, "error": "execution_id required"}
-        store = get_state_store()
-        state = store.load(eid)
-        if state is None:
-            return {"success": False, "error": f"未找到执行记录: {eid}"}
-        trace = self.observability_trace(eid)
-        return self._dashboard_views.execution_detail(execution_id=eid, state=state, trace=trace.get("data", {}), limit=limit)
+        return self._execution_service.execution_detail(execution_id, limit=limit)
 
     def fitness_view(self) -> Dict[str, Any]:
         payload = self._fitness.evaluate(self._fitness_payload())
-        return self._dashboard_views.fitness_view(payload)
+        return self._platform_summary.fitness_view(payload)
 
     def deploy_view(self) -> Dict[str, Any]:
         payload = self._runtime_registry.list()
-        return self._dashboard_views.deploy_view(payload)
+        return self._platform_summary.deploy_view(payload)
 
     def _suggestion_overview_payload(self) -> Dict[str, Any]:
         overview = asyncio.run(self._suggestion.overview())
@@ -561,17 +438,17 @@ class SprintCycle:
         return self._dashboard_views.suggestion_list_payload(suggestions)
 
     def runtime_latest(self) -> Dict[str, Any]:
-        return self._runtime_registry.latest()
+        return self._execution_service.runtime_latest()
 
     def runtime_update(self, runtime_id: str, **changes: Any) -> Dict[str, Any]:
-        return self._runtime_registry.update(runtime_id, **changes)
+        return self._execution_service.runtime_update(runtime_id, **changes)
 
     def governance_view(self) -> Dict[str, Any]:
         overview = self._suggestion_overview_payload()
-        return self._dashboard_views.governance_view(overview)
+        return self._platform_summary.governance_view(overview)
 
     def fix_view(self) -> Dict[str, Any]:
-        return self._dashboard_views.fix_view(self._suggestion_list_payload(limit=20))
+        return self._platform_summary.fix_view(self._suggestion_list_payload(limit=20))
 
     def architecture_check(self) -> Dict[str, Any]:
         from .governance.arch_guard.architecture_checker import check_architecture
@@ -588,44 +465,13 @@ class SprintCycle:
         *,
         limit: int = 200,
     ) -> Dict[str, Any]:
-        """V2 only exposes canonical trace events from the observability layer."""
-        eid = (execution_id or "").strip()
-        if not eid:
-            return {"success": False, "error": "execution_id required"}
-        trace = self.observability_trace(eid)
-        data = trace.get("data", {}) if isinstance(trace, dict) else {}
-        events = list(data.get("events", []) or [])[:limit]
-        return {"success": True, "data": events, "backend": "canonical"}
+        return self._execution_service.execution_events(execution_id, limit=limit)
 
     def replay_execution(self, execution_id: str, *, limit: int = 500) -> Dict[str, Any]:
-        """V2 replay uses the canonical observability trace payload."""
-        eid = (execution_id or "").strip()
-        if not eid:
-            return {"success": False, "error": "execution_id required"}
-        trace = self.observability_trace(eid)
-        data = trace.get("data", {}) if isinstance(trace, dict) else {}
-        events = list(data.get("events", []) or [])[:limit]
-        return {
-            "success": True,
-            "data": {
-                "execution_id": eid,
-                "event_count": len(events),
-                "latest_event": events[-1] if events else None,
-            },
-            "timeline": events,
-        }
+        return self._execution_service.replay_execution(execution_id, limit=limit)
 
     def execution_detail(self, execution_id: str, *, limit: int = 200) -> Dict[str, Any]:
-        """执行详情：状态、恢复点、回放、状态机摘要一次性返回。"""
-        eid = (execution_id or "").strip()
-        if not eid:
-            return {"success": False, "error": "execution_id required"}
-        store = get_state_store()
-        state = store.load(eid)
-        if state is None:
-            return {"success": False, "error": f"未找到执行记录: {eid}"}
-        trace = self.observability_trace(eid)
-        return self._dashboard_views.execution_detail(execution_id=eid, state=state, trace=trace.get("data", {}), limit=limit)
+        return self._execution_service.execution_detail(execution_id, limit=limit)
 
     def _resume_execution_payload(self, execution_id: str) -> Dict[str, Any]:
         eid = (execution_id or "").strip()
@@ -636,18 +482,14 @@ class SprintCycle:
         return self._resume_execution_payload(execution_id)
 
     def console_overview(self, *, limit: int = 20) -> Dict[str, Any]:
-        """控制台总览：当前执行、最近事件与平台总览。"""
         trace_payload = None
         store = get_state_store()
         states = store.list_executions(limit=max(1, int(limit)))
         executions = [s.to_dict() for s in states]
         latest = executions[0] if executions else None
         if latest and latest.get("execution_id"):
-            try:
-                trace_payload = self.observability_trace(str(latest["execution_id"])).get("data", {})
-            except Exception:
-                trace_payload = None
-        return self._dashboard_views.console_overview(trace_payload=trace_payload, limit=limit)
+            trace_payload = self.observability_trace(str(latest["execution_id"])).get("data", {})
+        return self._platform_summary.console_overview(trace_payload=trace_payload, limit=limit)
 
     def reload_runtime_config(self) -> None:
         """从磁盘重新加载 ``RuntimeConfig``（含 ``sprintcycle.runtime.yaml``）。"""
@@ -658,5 +500,16 @@ class SprintCycle:
         ensure_default_execution_event_backend_for_project(self.project_path, self.config)
         self._orchestrator = None
         self._execution_engine = create_execution_engine()
+        self._execution_service = ExecutionLifecycleService(
+            project_path=self.project_path,
+            config=self.config,
+            observability=self._observability,
+            runtime_registry=self._runtime_registry,
+        )
+        self._governance_orchestration = GovernanceOrchestrationService(
+            project_path=self.project_path,
+            config=self.config,
+            governance=self._get_governance(),
+        )
 
     # ─── 1. plan — 看计划，不干活 ───
