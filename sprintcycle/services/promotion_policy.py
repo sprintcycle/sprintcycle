@@ -30,6 +30,11 @@ class PromotionPolicy:
         reasons = []
 
         completion_score = float(lifecycle_contract.get("completion_score") or health.get("completion_score") or 0.0)
+        validation_refs = dict(lifecycle_contract.get("validation_refs") or {})
+        stage_history = list(lifecycle_contract.get("stage_history") or [])
+        stage = str(lifecycle_contract.get("stage") or health.get("stage") or "")
+        terminal_ok = bool(lifecycle_contract.get("is_terminal") or stage in {"promoted", "failed", "cancelled", "aborted"})
+
         if completion_score < self.min_completion_score:
             reasons.append(f"completion_score<{self.min_completion_score}")
         if self.require_runtime_healthy and not bool(runtime.get("healthy") or runtime.get("verification", {}).get("healthy")):
@@ -40,8 +45,12 @@ class PromotionPolicy:
             reasons.append("missing_trace_evidence")
         if self.require_repair_closed and bool(repair.get("ready") is False and diagnostics.get("repair_ready")):
             reasons.append("repair_not_closed")
-        if not lifecycle_contract.get("validation_refs") and self.require_trace_evidence:
+        if self.require_trace_evidence and not validation_refs:
             reasons.append("missing_validation_refs")
+        if self.require_trace_evidence and not stage_history:
+            reasons.append("missing_stage_history")
+        if self.require_trace_evidence and not terminal_ok:
+            reasons.append("not_terminal")
 
         return {
             "allowed": not reasons,
@@ -53,7 +62,9 @@ class PromotionPolicy:
                 "suggestion_approved": bool(suggestion.get("approved") or governance.get("approved") or governance.get("status") == "approved"),
                 "trace_evidence": bool(trace.get("events") or diagnostics.get("event_count", 0) > 0),
                 "repair_closed": not bool(repair.get("ready") is False and diagnostics.get("repair_ready")),
-                "validation_refs": bool(lifecycle_contract.get("validation_refs")),
+                "validation_refs": bool(validation_refs),
+                "stage_history": bool(stage_history),
+                "terminal_ok": terminal_ok,
             },
         }
 

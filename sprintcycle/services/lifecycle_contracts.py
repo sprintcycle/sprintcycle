@@ -75,6 +75,7 @@ class LifecycleContract:
         errors: List[str] = []
         machine = LifecycleStateMachine()
         valid_stages = set(LIFECYCLE_STAGES) | {"failed", "aborted", "cancelled"}
+        valid_statuses = {"pending", "running", "success", "failed", "cancelled", "promoted"}
         if not self.execution_id:
             errors.append("execution_id is required")
         if not self.task_id:
@@ -86,15 +87,22 @@ class LifecycleContract:
             errors.append(f"invalid stage: {self.stage}")
         if normalized_stage != self.stage:
             errors.append(f"stage is not normalized: {self.stage}")
+        if self.status not in valid_statuses:
+            errors.append(f"invalid status: {self.status}")
         if self.status in TERMINAL_STATUSES and not machine.is_terminal(self.stage):
             errors.append(f"terminal status requires terminal stage: {self.status}/{self.stage}")
         if self.allowed_next_stages and any(stage not in valid_stages for stage in self.allowed_next_stages):
             errors.append("allowed_next_stages contains invalid stage")
+        if self.stage_history and not isinstance(self.stage_history, list):
+            errors.append("stage_history must be a list")
+        if self.stage_history and machine.stage_index(self.stage) < 0:
+            errors.append("stage_history present but stage is invalid")
         return errors
 
     def to_dict(self) -> Dict[str, Any]:
         machine = LifecycleStateMachine()
         payload = asdict(self)
+        validation_errors = self.validate()
         payload["is_terminal"] = machine.is_terminal(self.stage) or self.status in TERMINAL_STATUSES
         payload["stage_index"] = machine.stage_index(self.stage)
         payload["stage_hints"] = {
@@ -115,7 +123,7 @@ class LifecycleContract:
             "skill_review_checklists": list(self.skill_review_checklists or []),
             "skill_trace": dict(self.skill_trace or {}),
         }
-        payload["validation"] = {"ok": not self.validate(), "errors": self.validate()}
+        payload["validation"] = {"ok": not validation_errors, "errors": validation_errors}
         if not payload.get("correlation"):
             payload["correlation"] = build_default_correlation({"execution_id": self.execution_id, "task_id": self.task_id, "metadata": self.metadata}).to_dict()
         return payload

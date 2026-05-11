@@ -344,7 +344,44 @@ class SprintCycle:
             "project_path": self.project_path,
         }
 
-    def plan_task(self, execution_id: str, task_id: str, *, objective: str = "", success_criteria: Optional[List[str]] = None, risks: Optional[List[str]] = None, dependencies: Optional[List[str]] = None, project_path: Optional[str] = None) -> Dict[str, Any]:
+    def normalize_lifecycle_request(
+        self,
+        *,
+        execution_id: str,
+        task_id: str,
+        project_path: Optional[str] = None,
+        source: str = "web",
+        task_type: str = "project_optimization",
+        intent: str = "",
+        metadata: Optional[Dict[str, Any]] = None,
+        suggestion_id: str = "",
+        evolution_id: str = "",
+    ) -> Dict[str, Any]:
+        normalized_metadata = dict(metadata or {})
+        normalized_metadata.update({"source": source, "task_type": task_type, "intent": intent or task_id, "normalized": True})
+        normalized_request = {
+            "execution_id": execution_id,
+            "task_id": task_id,
+            "project_path": project_path or self.project_path,
+            "source": source,
+            "task_type": task_type,
+            "intent": intent or task_id,
+            "suggestion_id": suggestion_id,
+            "evolution_id": evolution_id,
+            "metadata": normalized_metadata,
+        }
+        contract = build_lifecycle_contract(
+            execution_id=execution_id,
+            task_id=task_id,
+            project_path=project_path or self.project_path,
+            stage="normalized",
+            status="pending",
+            metadata=normalized_metadata,
+            input_refs={"execution_id": execution_id, "task_id": task_id, "intent": intent or task_id},
+        )
+        return {"request": normalized_request, "contract": contract.to_dict()}
+
+    def _plan_task_artifact(self, execution_id: str, task_id: str, *, objective: str = "", success_criteria: Optional[List[str]] = None, risks: Optional[List[str]] = None, dependencies: Optional[List[str]] = None, project_path: Optional[str] = None) -> Dict[str, Any]:
         contract = build_lifecycle_contract(
             execution_id=execution_id,
             task_id=task_id,
@@ -356,25 +393,75 @@ class SprintCycle:
         )
         return build_plan_artifact(contract, objective=objective, success_criteria=success_criteria, risks=risks, dependencies=dependencies)
 
-    def prepare_task(self, contract_payload: Dict[str, Any], *, checks: Optional[Dict[str, Any]] = None, blockers: Optional[List[str]] = None) -> Dict[str, Any]:
+    def _prepare_task_artifact(self, contract_payload: Dict[str, Any], *, checks: Optional[Dict[str, Any]] = None, blockers: Optional[List[str]] = None) -> Dict[str, Any]:
         return build_prepare_artifact(contract_payload, checks=checks, blockers=blockers)
 
-    def decompose_task(self, contract_payload: Dict[str, Any], *, subtasks: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
+    def _decompose_task_artifact(self, contract_payload: Dict[str, Any], *, subtasks: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
         return build_decompose_artifact(contract_payload, subtasks=subtasks)
 
-    def run_phase_workflow(self, execution_id: str, task_id: str, *, objective: str = "", success_criteria: Optional[List[str]] = None, risks: Optional[List[str]] = None, dependencies: Optional[List[str]] = None, checks: Optional[Dict[str, Any]] = None, blockers: Optional[List[str]] = None, subtasks: Optional[List[Dict[str, Any]]] = None, project_path: Optional[str] = None) -> Dict[str, Any]:
-        plan_result = self.plan_task(execution_id, task_id, objective=objective, success_criteria=success_criteria, risks=risks, dependencies=dependencies, project_path=project_path)
-        prepared_result = self.prepare_task(plan_result.get("lifecycle_contract", {}), checks=checks, blockers=blockers)
-        decomposed_result = self.decompose_task(prepared_result.get("lifecycle_contract", {}), subtasks=subtasks)
+    def _bridge_execution_run(self, contract: Dict[str, Any], *, metadata: Optional[Dict[str, Any]] = None, suggestion_id: str = "", evolution_id: str = "", objective: str = "", success_criteria: Optional[List[str]] = None, risks: Optional[List[str]] = None, dependencies: Optional[List[str]] = None) -> Dict[str, Any]:
+        execution_metadata = dict(metadata or {})
+        if objective:
+            execution_metadata.setdefault("objective", objective)
+        if success_criteria:
+            execution_metadata.setdefault("success_criteria", list(success_criteria))
+        if risks:
+            execution_metadata.setdefault("risks", list(risks))
+        if dependencies:
+            execution_metadata.setdefault("dependencies", list(dependencies))
+        execution_result = asyncio.run(
+            self.start_execution_run(
+                str(contract.get("task_id") or contract.get("execution_id") or ""),
+                run_id=str(contract.get("execution_id") or contract.get("task_id") or ""),
+                suggestion_id=suggestion_id,
+                evolution_id=evolution_id,
+                metadata={**dict(contract.get("metadata") or {}), **execution_metadata},
+                stage=str(contract.get("stage") or "normalized"),
+                project_name=str(contract.get("project_path") or self.project_path),
+            )
+        )
+        runtime_linkage = self.runtime_lifecycle(str(contract.get("execution_id") or contract.get("task_id") or ""))
+        observability = self.observability_trace(str(contract.get("execution_id") or contract.get("task_id") or ""))
+        return {
+            "execution": execution_result,
+            "runtime": runtime_linkage.get("data", {}).get("runtime", {}) if isinstance(runtime_linkage, dict) else {},
+            "runtime_lifecycle": runtime_linkage.get("data", {}) if isinstance(runtime_linkage, dict) else {},
+            "observability": observability.get("data", {}) if isinstance(observability, dict) else {},
+        }
+
+    def orchestrate_web_request(self, *, execution_id: str, task_id: str, project_path: Optional[str] = None, source: str = "web", task_type: str = "project_optimization", intent: str = "", metadata: Optional[Dict[str, Any]] = None, objective: str = "", success_criteria: Optional[List[str]] = None, risks: Optional[List[str]] = None, dependencies: Optional[List[str]] = None, checks: Optional[Dict[str, Any]] = None, blockers: Optional[List[str]] = None, subtasks: Optional[List[Dict[str, Any]]] = None, suggestion_id: str = "", evolution_id: str = "", execute: bool = False) -> Dict[str, Any]:
+        normalized = self.normalize_lifecycle_request(execution_id=execution_id, task_id=task_id, project_path=project_path, source=source, task_type=task_type, intent=intent, metadata=metadata, suggestion_id=suggestion_id, evolution_id=evolution_id)
+        contract = self._coerce_execution_contract(normalized["contract"])
+        plan_result = self._plan_task_artifact(contract["execution_id"], contract["task_id"], objective=objective, success_criteria=success_criteria, risks=risks, dependencies=dependencies, project_path=contract["project_path"])
+        prepared_result = self._prepare_task_artifact(plan_result.get("lifecycle_contract", contract), checks=checks, blockers=blockers)
+        decomposed_result = self._decompose_task_artifact(prepared_result.get("lifecycle_contract", contract), subtasks=subtasks)
+        execution_bundle = self._bridge_execution_run(
+            decomposed_result.get("lifecycle_contract", contract),
+            metadata=metadata,
+            suggestion_id=suggestion_id,
+            evolution_id=evolution_id,
+            objective=objective,
+            success_criteria=success_criteria,
+            risks=risks,
+            dependencies=dependencies,
+        ) if execute else {}
+        lifecycle_contract = decomposed_result.get("lifecycle_contract", contract)
+        if execution_bundle:
+            lifecycle_contract = {**lifecycle_contract, "execution_refs": {**dict(lifecycle_contract.get("execution_refs") or {}), "execution": execution_bundle.get("execution", {})}, "runtime_refs": {**dict(lifecycle_contract.get("runtime_refs") or {}), "runtime": execution_bundle.get("runtime", {}), "runtime_lifecycle": execution_bundle.get("runtime_lifecycle", {})}, "observation_refs": {**dict(lifecycle_contract.get("observation_refs") or {}), "observability": execution_bundle.get("observability", {})}}
         return {
             "success": True,
             "data": {
+                "normalized_request": normalized["request"],
+                "lifecycle_contract": lifecycle_contract,
                 "plan": plan_result.get("plan", {}),
                 "prepare": prepared_result.get("prepare", {}),
                 "decompose": decomposed_result.get("decompose", {}),
-                "lifecycle_contract": decomposed_result.get("lifecycle_contract", {}),
+                "execution": execution_bundle,
             },
         }
+
+    def run_phase_workflow(self, execution_id: str, task_id: str, *, objective: str = "", success_criteria: Optional[List[str]] = None, risks: Optional[List[str]] = None, dependencies: Optional[List[str]] = None, checks: Optional[Dict[str, Any]] = None, blockers: Optional[List[str]] = None, subtasks: Optional[List[Dict[str, Any]]] = None, project_path: Optional[str] = None) -> Dict[str, Any]:
+        return self.orchestrate_web_request(execution_id=execution_id, task_id=task_id, project_path=project_path, objective=objective, success_criteria=success_criteria, risks=risks, dependencies=dependencies, checks=checks, blockers=blockers, subtasks=subtasks)
 
     def management_overview(self) -> Dict[str, Any]:
         return {"success": True, "data": self._management_overview_payload()}
@@ -394,27 +481,58 @@ class SprintCycle:
     async def start_execution_run(self, task_id: str, **kwargs: Any) -> Dict[str, Any]:
         return await self._execution_service.start_execution_run(task_id, **kwargs)
 
-    def plan_task(self, execution_contract: Dict[str, Any], *, objective: str = "", success_criteria: Optional[List[str]] = None, risks: Optional[List[str]] = None, dependencies: Optional[List[str]] = None, version: str = "v1") -> Dict[str, Any]:
-        contract = build_lifecycle_contract(
+    def _coerce_execution_contract(self, execution_contract: Dict[str, Any]) -> Dict[str, Any]:
+        normalized = self._normalize_lifecycle_request(
             execution_id=str(execution_contract.get("execution_id") or execution_contract.get("task_id") or ""),
             task_id=str(execution_contract.get("task_id") or execution_contract.get("execution_id") or ""),
             project_path=str(execution_contract.get("project_path") or self.project_path),
-            stage=str(execution_contract.get("stage") or "normalized"),
-            status=str(execution_contract.get("status") or "pending"),
+            source=str(execution_contract.get("source") or execution_contract.get("metadata", {}).get("source") or "web"),
+            task_type=str(execution_contract.get("task_type") or execution_contract.get("metadata", {}).get("task_type") or "project_optimization"),
+            intent=str(execution_contract.get("intent") or execution_contract.get("metadata", {}).get("intent") or ""),
             metadata=dict(execution_contract.get("metadata") or {}),
-            input_refs=dict(execution_contract.get("input_refs") or {}),
-            output_refs=dict(execution_contract.get("output_refs") or {}),
-            validation_refs=dict(execution_contract.get("validation_refs") or {}),
-            trace=dict(execution_contract.get("trace") or {}),
-            diagnostics=dict(execution_contract.get("diagnostics") or {}),
+            suggestion_id=str(execution_contract.get("suggestion_id") or execution_contract.get("metadata", {}).get("suggestion_id") or ""),
+            evolution_id=str(execution_contract.get("evolution_id") or execution_contract.get("metadata", {}).get("evolution_id") or ""),
+        )
+        normalized_contract = dict(normalized.get("contract") or {})
+        contract = {
+            "execution_id": str(normalized_contract.get("execution_id") or execution_contract.get("execution_id") or execution_contract.get("task_id") or ""),
+            "task_id": str(normalized_contract.get("task_id") or execution_contract.get("task_id") or execution_contract.get("execution_id") or ""),
+            "project_path": str(normalized_contract.get("project_path") or self.project_path),
+            "stage": str(normalized_contract.get("stage") or "normalized"),
+            "status": str(normalized_contract.get("status") or "pending"),
+            "metadata": dict(normalized_contract.get("metadata") or {}),
+            "input_refs": dict(execution_contract.get("input_refs") or {}),
+            "output_refs": dict(execution_contract.get("output_refs") or {}),
+            "validation_refs": dict(execution_contract.get("validation_refs") or {}),
+            "trace": dict(execution_contract.get("trace") or {}),
+            "diagnostics": dict(execution_contract.get("diagnostics") or {}),
+        }
+        contract["validation_refs"]["normalized"] = bool(normalized_contract)
+        contract["validation_refs"]["has_identity"] = bool(contract["execution_id"] and contract["task_id"] and contract["project_path"])
+        return contract
+
+    def plan_task(self, execution_contract: Dict[str, Any], *, objective: str = "", success_criteria: Optional[List[str]] = None, risks: Optional[List[str]] = None, dependencies: Optional[List[str]] = None, version: str = "v1") -> Dict[str, Any]:
+        contract_payload = self._coerce_execution_contract(execution_contract)
+        contract = build_lifecycle_contract(
+            execution_id=contract_payload["execution_id"],
+            task_id=contract_payload["task_id"],
+            project_path=contract_payload["project_path"],
+            stage=contract_payload["stage"],
+            status=contract_payload["status"],
+            metadata=contract_payload["metadata"],
+            input_refs=contract_payload["input_refs"],
+            output_refs=contract_payload["output_refs"],
+            validation_refs=contract_payload["validation_refs"],
+            trace=contract_payload["trace"],
+            diagnostics=contract_payload["diagnostics"],
         )
         return build_plan_artifact(contract, objective=objective, success_criteria=success_criteria, risks=risks, dependencies=dependencies, version=version)
 
     def prepare_task(self, contract_payload: Dict[str, Any], *, checks: Optional[Dict[str, Any]] = None, blockers: Optional[List[str]] = None) -> Dict[str, Any]:
-        return build_prepare_artifact(contract_payload, checks=checks, blockers=blockers)
+        return build_prepare_artifact(self._coerce_execution_contract(contract_payload), checks=checks, blockers=blockers)
 
     def decompose_task(self, contract_payload: Dict[str, Any], *, subtasks: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
-        return build_decompose_artifact(contract_payload, subtasks=subtasks)
+        return build_decompose_artifact(self._coerce_execution_contract(contract_payload), subtasks=subtasks)
 
     def governance_check(self, gate: str = "review", **kwargs: Any) -> Dict[str, Any]:
         return self._governance_orchestration.governance_check(gate=gate, **kwargs)
@@ -481,6 +599,9 @@ class SprintCycle:
     def record_observation_event(self, event: Dict[str, Any]) -> Dict[str, Any]:
         return self._observability_service.record_event(event)
 
+    def observe_execution(self, execution_id: str) -> Dict[str, Any]:
+        return self._observability_service.trace(execution_id)
+
     async def create_suggestion_from_execution_event(self, event: Dict[str, Any]) -> Dict[str, Any]:
         return await self._suggestion_application.create_suggestion_from_execution_event(event)
 
@@ -490,13 +611,45 @@ class SprintCycle:
     def diagnose_execution(self, execution_id: str) -> Dict[str, Any]:
         return self._repair_orchestration.diagnose(execution_id)
 
+    def diagnose_repair_observe(self, execution_id: str, *, repair_plan: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        diagnosis = self.diagnose_execution(execution_id)
+        repair = self.repair_execution(execution_id, repair_plan=repair_plan) if diagnosis.get("success", False) and diagnosis.get("data", {}).get("repair_ready", False) else diagnosis
+        observation = self.observe_execution(execution_id)
+        lifecycle_contract = observation.get("data", {}).get("lifecycle_contract", {}) if isinstance(observation, dict) else {}
+        if isinstance(repair, dict) and repair.get("success", False):
+            repair_data = repair.get("data", {}) if isinstance(repair, dict) else {}
+            lifecycle_contract = {**dict(lifecycle_contract or {}), "recovery_refs": {**dict(lifecycle_contract.get("recovery_refs") or {}), "repair": repair_data.get("repair_contract", {}), "verify": repair_data.get("verify_contract", {}), "closed_loop": repair_data.get("closed_loop", False)}, "diagnostics": {**dict(lifecycle_contract.get("diagnostics") or {}), "diagnosis": diagnosis.get("data", {}) if isinstance(diagnosis, dict) else {}}, "observation_refs": {**dict(lifecycle_contract.get("observation_refs") or {}), "observability": observation.get("data", {}) if isinstance(observation, dict) else {}}}
+        return {"success": True, "data": {"diagnosis": diagnosis, "repair": repair, "observation": observation, "lifecycle_contract": lifecycle_contract}}
+
     def evaluate_promotion(self, execution_id: str, *, project_path: str = "", suggestion: Optional[Dict[str, Any]] = None, governance: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         contract = self._lifecycle_evolution.build_contract(execution_id, project_path=project_path, suggestion=suggestion, governance=governance)
         runtime = self.runtime_lifecycle(execution_id).get("data", {}).get("runtime", {})
         return self._lifecycle_evolution.evaluate_promotion(contract, runtime=runtime, governance=governance)
 
+    def deliver_runtime_governance_promotion(self, execution_id: str, *, project_path: str = "", suggestion: Optional[Dict[str, Any]] = None, governance: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        runtime_bundle = self.runtime_lifecycle(execution_id)
+        governance_bundle = self.governance_lifecycle(execution_id)
+        promotion_bundle = self.evaluate_promotion(execution_id, project_path=project_path, suggestion=suggestion, governance=governance)
+        lifecycle_contract = {}
+        if isinstance(runtime_bundle, dict):
+            lifecycle_contract = runtime_bundle.get("data", {}).get("runtime", {}) if isinstance(runtime_bundle.get("data", {}), dict) else {}
+        if isinstance(governance_bundle, dict):
+            governance_contract = governance_bundle.get("data", {}).get("summary", {}) if isinstance(governance_bundle.get("data", {}), dict) else {}
+        else:
+            governance_contract = {}
+        return {"success": True, "data": {"runtime": runtime_bundle, "governance": governance_bundle, "promotion": promotion_bundle, "lifecycle_contract": {"runtime": lifecycle_contract, "governance": governance_contract, "promotion": promotion_bundle.get("data", {}) if isinstance(promotion_bundle, dict) else {}}}}
+
     def promote_versioned_evolution(self, execution_id: str, *, project_path: str = "", suggestion: Optional[Dict[str, Any]] = None, governance: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         return self._lifecycle_evolution.promote(execution_id, project_path=project_path, suggestion=suggestion, governance=governance)
+
+    def lifecycle_recovery_and_promotion(self, execution_id: str, *, project_path: str = "", suggestion: Optional[Dict[str, Any]] = None, governance: Optional[Dict[str, Any]] = None, repair_plan: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        recovery = self.diagnose_repair_observe(execution_id, repair_plan=repair_plan)
+        promotion = self.evaluate_promotion(execution_id, project_path=project_path, suggestion=suggestion, governance=governance)
+        delivery_bundle = self.deliver_runtime_governance_promotion(execution_id, project_path=project_path, suggestion=suggestion, governance=governance)
+        lifecycle_contract = {}
+        if isinstance(recovery, dict):
+            lifecycle_contract = recovery.get("data", {}).get("lifecycle_contract", {}) if isinstance(recovery.get("data", {}), dict) else {}
+        return {"success": True, "data": {"recovery": recovery, "promotion": promotion, "delivery": delivery_bundle, "lifecycle_contract": lifecycle_contract}}
 
     async def suggestion_lifecycle_from_event(self, event: Dict[str, Any]) -> Dict[str, Any]:
         result = await self._suggestion_application.create_suggestion_from_execution_event(event)
@@ -551,7 +704,6 @@ class SprintCycle:
         suggestions = self._suggestion_overview_payload()
         governance = asyncio.run(self._governance_orchestration.summary(execution_id=execution_id, limit=limit))
         suggestion_data = suggestions.get("data", {}) if isinstance(suggestions, dict) else {}
-        runtime_snapshot = self._runtime_registry.latest().get("data", {}) if hasattr(self._runtime_registry, "latest") else {}
         promotion_overview = {
             "ready": int(suggestion_data.get("promotion_ready", 0) or 0),
             "blocked": int(suggestion_data.get("promotion_blocked", 0) or 0),
@@ -571,13 +723,15 @@ class SprintCycle:
         runtime_contract = {**runtime_contract, "verified": bool(runtime_contract.get("verified", False)), "healthy": bool(runtime_contract.get("healthy", False)), "ready": bool(runtime_contract.get("ready", False)), "deploy_ready": bool(runtime_contract.get("deploy_ready", False))}
         governance_contract = governance.get("data", {}) if isinstance(governance, dict) else {}
         suggestion_contract = suggestion_data
+        delivery_bundle = self.deliver_runtime_governance_promotion(execution_id, project_path=self.project_path, suggestion=suggestion, governance=governance_contract)
+        delivery_contract = delivery_bundle.get("data", {}).get("lifecycle_contract", {}) if isinstance(delivery_bundle, dict) else {}
         completion_score = 0.0
         completion_score += 20.0 if state else 0.0
         completion_score += 20.0 if health["event_count"] > 0 else 0.0
         completion_score += 20.0 if runtime_contract else 0.0
         completion_score += 15.0 if governance_contract else 0.0
         completion_score += 15.0 if suggestion_contract else 0.0
-        completion_score += 10.0 if promotion.get("ready", 0) else 0.0
+        completion_score += 10.0 if promotion_overview.get("ready", 0) else 0.0
         completion_score += 10.0 if repair.get("ready", False) else 0.0
         repair = {
             "ready": bool(diagnostics.get("repair_ready", False)) if isinstance(diagnostics, dict) else False,
@@ -596,8 +750,35 @@ class SprintCycle:
                 "health": health,
                 "completion_score": completion_score,
             }, runtime=runtime_contract, governance=governance_contract).get("data", {})
+        normalized_request = self.normalize_lifecycle_request(
+            execution_id=str(state.get("execution_id") or execution_id),
+            task_id=str(state.get("metadata", {}).get("task_id") or state.get("execution_id") or execution_id),
+            project_path=self.project_path,
+            source=str(state.get("metadata", {}).get("source") or "observability"),
+            task_type=str(state.get("metadata", {}).get("task_type") or "project_optimization"),
+            intent=str(state.get("metadata", {}).get("intent") or state.get("execution_id") or execution_id),
+            metadata=dict(state.get("metadata") or {}),
+            suggestion_id=str(state.get("metadata", {}).get("suggestion_id") or ""),
+            evolution_id=str(state.get("metadata", {}).get("evolution_id") or ""),
+        )
+        evidence_package = {
+            "normalized_request": normalized_request.get("request", {}),
+            "state": state,
+            "trace": trace_payload,
+            "diagnostics": diagnostics,
+            "runtime": runtime_contract,
+            "governance": governance_contract,
+            "suggestion": suggestion_contract,
+            "delivery": delivery_contract,
+            "repair": repair,
+            "promotion": promotion_eval.get("promotion", {}),
+            "promotion_contract": promotion_eval,
+            "promotion_overview": promotion_overview,
+        }
         contract = {
             "execution_id": execution_id,
+            "evidence_package": evidence_package,
+            "normalized_request": normalized_request.get("request", {}),
             "state": state,
             "trace": trace_payload,
             "lifecycle": {**dict(lifecycle) if isinstance(lifecycle, dict) else {}, "stage": stage, "status": status, "closure_score": closure_score},
@@ -605,6 +786,7 @@ class SprintCycle:
             "runtime": runtime_contract,
             "governance": governance_contract,
             "suggestion": suggestion_contract,
+            "delivery": delivery_contract,
             "promotion": promotion_eval.get("promotion", {}),
             "promotion_contract": promotion_eval,
             "promotion_overview": promotion_overview,
