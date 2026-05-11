@@ -20,6 +20,7 @@ from sprintcycle.dashboard.views.deploy_view import DeployView
 from sprintcycle.dashboard.views.fix_view import FixView
 from sprintcycle.dashboard.views.fitness_view import FitnessView
 from sprintcycle.dashboard.views.governance_view import GovernanceView
+from sprintcycle.platform.spec import build_platform_spec
 
 
 @dataclass

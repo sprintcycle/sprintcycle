@@ -47,6 +47,7 @@ from ..persistence.knowledge_repository import KnowledgeCardRepository
 from ..integrations.langgraph import IntentGraphRuntime, LangGraphRuntimeAdapter
 from ..integrations.phoenix.trace_runtime import PhoenixTraceRuntime
 from ..integrations.phoenix.exporter import PhoenixExporterSpec
+from ..services.lifecycle_contracts import build_lifecycle_contract
 
 
 class SprintOrchestrator:
@@ -220,9 +221,28 @@ class SprintOrchestrator:
         self._last_release_finalization_result = finalize_result
         self._persist_release_finalization(release_plan, finalize_result)
         success = all(r.status in (ExecutionStatus.SUCCESS, ExecutionStatus.SKIPPED) for r in sprint_results)
+        completion_summary = {
+            "execution_id": getattr(release_plan, "execution_id", None),
+            "release_plan_name": getattr(to_run.project, "name", ""),
+            "sprint_count": len(sprint_results),
+            "success": success,
+            "finalization": finalize_result.to_dict() if hasattr(finalize_result, "to_dict") else {},
+            "sprints": [getattr(s.sprint, "name", "") for s in sprint_results],
+        }
+        contract = build_lifecycle_contract(
+            execution_id=getattr(release_plan, "execution_id", ""),
+            task_id=getattr(release_plan, "execution_id", "") or getattr(to_run.project, "name", ""),
+            project_path=self._project_root,
+            stage="delivering",
+            status="success" if success else "failed",
+            metadata={"release_plan": to_run.project.name, "execution_id": getattr(release_plan, "execution_id", None)},
+            delivery_summary=completion_summary,
+            evolution_refs={"finalization": completion_summary["finalization"]},
+        )
         complete_event = self._emit_execution_phase(EventType.EXECUTION_COMPLETE if success else EventType.EXECUTION_FAILED, "ReleasePlan 执行完成", release_plan, to_run.project.name, len(sprint_results), status="success" if success else "failed")
         await self._emit(complete_event)
         self._emit_trace_event(complete_event)
+        self._last_release_finalization_result = {"finalization": completion_summary, "lifecycle_contract": contract.to_dict()}
         return sprint_results
 
     async def resume_from_sprint(self, release_plan: ReleasePlan, resume_from_idx: int, previous_results: List[SprintResult], max_concurrent: int = 3) -> List[SprintResult]:
@@ -259,4 +279,11 @@ class SprintOrchestrator:
             logger.warning("Sprint 失败率较高")
 
     def get_summary(self) -> Dict[str, Any]:
-        return {"callbacks": list(self._callbacks.keys()), "event_bus": self.event_bus is not None}
+        contract = self._last_release_finalization_result if isinstance(self._last_release_finalization_result, dict) else {}
+        return {
+            "callbacks": list(self._callbacks.keys()),
+            "event_bus": self.event_bus is not None,
+            "last_release_finalization": contract.get("finalization", {}) if isinstance(contract, dict) else {},
+            "last_lifecycle_contract": contract.get("lifecycle_contract", {}) if isinstance(contract, dict) else {},
+            "has_execution_backbone": True,
+        }

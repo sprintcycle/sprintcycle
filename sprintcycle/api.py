@@ -371,7 +371,7 @@ class SprintCycle:
         rec = await gov.submit_decision(request_id, decision, note, correction=correction, replay=replay)
         if rec is None:
             return {"success": False, "error": "Request not found or already resolved"}
-        return {"success": True, "data": rec}
+        return {"success": True, "data": {"record": rec, "lifecycle": {"stage": "governing", "status": "success", "decision": decision, "request_id": request_id}}}
 
     async def observability_history(
         self, execution_id: Optional[str] = None, limit: int = 50
@@ -402,6 +402,20 @@ class SprintCycle:
     async def create_suggestion_from_execution_event(self, event: Dict[str, Any]) -> Dict[str, Any]:
         return await self._suggestion_application.create_suggestion_from_execution_event(event)
 
+    async def suggestion_lifecycle_from_event(self, event: Dict[str, Any]) -> Dict[str, Any]:
+        result = await self._suggestion_application.create_suggestion_from_execution_event(event)
+        data = result.get("data", {}) if isinstance(result, dict) else {}
+        contract = data.get("lifecycle_contract", {}) if isinstance(data, dict) else {}
+        suggestion_payload = data.get("suggestion", {}) if isinstance(data, dict) else {}
+        evolution_refs = {
+            "candidate": bool(suggestion_payload),
+            "evolution_ready": bool(suggestion_payload),
+            "source_execution_id": contract.get("execution_id", "") if isinstance(contract, dict) else "",
+            "root_cause": contract.get("metadata", {}).get("root_cause", "") if isinstance(contract, dict) else "",
+        }
+        closure_score = 100.0 if suggestion_payload else 0.0
+        return {"success": bool(result.get("success", False)) if isinstance(result, dict) else False, "data": {"suggestion": suggestion_payload, "lifecycle_contract": contract, "evolution_refs": evolution_refs, "lifecycle": {"stage": contract.get("stage", "suggesting") if isinstance(contract, dict) else "suggesting", "status": contract.get("status", "success") if isinstance(contract, dict) else "success", "closure_score": closure_score}, "health": {"closure_score": closure_score, "is_healthy": bool(suggestion_payload)}}}
+
     def register_runtime(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         return self._runtime_registry.register(payload)
 
@@ -409,18 +423,78 @@ class SprintCycle:
         return self._platform_summary.fitness_payload(self._observability, self._runtime_registry, self._suggestion)
 
     def platform_overview(self) -> Dict[str, Any]:
-        return self._platform_summary.platform_overview()
+        overview = self._platform_summary.platform_overview()
+        data = overview.get("data", {}) if isinstance(overview, dict) else {}
+        summary = data.get("summary", {}) if isinstance(data, dict) else {}
+        data["closure_score"] = float(summary.get("closure_score", 100.0)) if isinstance(summary, dict) else 100.0
+        data["lifecycle"] = {"stage": "normalized", "status": "success" if overview.get("success", False) else "failed", "closure_score": data["closure_score"]}
+        overview["data"] = data
+        return overview
 
     def _execution_detail_payload(self, execution_id: str, *, limit: int = 200) -> Dict[str, Any]:
         return self._execution_service.execution_detail(execution_id, limit=limit)
 
+    def lifecycle_contract(self, execution_id: str, *, limit: int = 200) -> Dict[str, Any]:
+        detail = self._execution_detail_payload(execution_id, limit=limit)
+        data = detail.get("data", {}) if isinstance(detail, dict) else {}
+        state = data.get("state", {}) if isinstance(data, dict) else {}
+        trace = data.get("trace", {}) if isinstance(data, dict) else {}
+        trace_payload = trace.get("data", trace) if isinstance(trace, dict) else {}
+        lifecycle = trace_payload.get("lifecycle", {}) if isinstance(trace_payload, dict) else {}
+        diagnostics = trace_payload.get("diagnostics", {}) if isinstance(trace_payload, dict) else {}
+        health = {
+            "is_healthy": bool(lifecycle.get("is_healthy", True)) if isinstance(lifecycle, dict) else True,
+            "event_count": diagnostics.get("event_count", 0) if isinstance(diagnostics, dict) else 0,
+            "failure_count": diagnostics.get("failure_count", 0) if isinstance(diagnostics, dict) else 0,
+        }
+        stage = str(lifecycle.get("stage") or state.get("metadata", {}).get("stage") or "observing") if isinstance(lifecycle, dict) else "observing"
+        status = str(lifecycle.get("status") or state.get("status") or "unknown") if isinstance(lifecycle, dict) else "unknown"
+        closure_score = float(health["event_count"] > 0 and 100.0 or 0.0)
+        contract = {
+            "execution_id": execution_id,
+            "state": state,
+            "trace": trace_payload,
+            "lifecycle": {**dict(lifecycle) if isinstance(lifecycle, dict) else {}, "stage": stage, "status": status, "closure_score": closure_score},
+            "diagnostics": diagnostics,
+            "health": {**health, "closure_score": closure_score},
+        }
+        return {"success": bool(detail.get("success", False)) if isinstance(detail, dict) else False, "data": contract}
+
     def fitness_view(self) -> Dict[str, Any]:
         payload = self._fitness.evaluate(self._fitness_payload())
-        return self._platform_summary.fitness_view(payload)
+        view = self._platform_summary.fitness_view(payload)
+        data = view.get("data", {}) if isinstance(view, dict) else {}
+        data["closure_score"] = payload.get("lifecycle_health", {}).get("observability_ready", False) and 100.0 or 0.0
+        view["data"] = data
+        return view
 
     def deploy_view(self) -> Dict[str, Any]:
         payload = self._runtime_registry.list()
         return self._platform_summary.deploy_view(payload)
+
+    def deploy_lifecycle(self) -> Dict[str, Any]:
+        deployment = self.deploy_view()
+        runtime = self.runtime_lifecycle()
+        success = bool(deployment.get("success", False)) and bool(runtime.get("success", False))
+        closure_score = 100.0 if success else 0.0
+        return {"success": success, "data": {"deployment": deployment.get("data", {}), "runtime": runtime.get("data", {}), "lifecycle": {"stage": "runtime_linked", "status": "success" if success else "failed", "has_deployment": bool(deployment.get("success", False)), "has_runtime": bool(runtime.get("success", False)), "closure_score": closure_score}, "health": {"closure_score": closure_score, "is_healthy": success}}}
+
+    def runtime_lifecycle(self, runtime_id: str = "") -> Dict[str, Any]:
+        latest = self.runtime_latest()
+        data = latest.get("data", {}) if isinstance(latest, dict) else {}
+        if runtime_id:
+            payload = self._runtime_registry.get(runtime_id)
+            data = payload if isinstance(payload, dict) else {"runtime_id": runtime_id, "success": bool(payload)}
+        has_runtime = bool(data)
+        closure_score = 100.0 if has_runtime else 0.0
+        lifecycle = {
+            "stage": "runtime_linked" if data else "delivering",
+            "status": str(data.get("status") or "unknown") if isinstance(data, dict) else "unknown",
+            "runtime_id": runtime_id or data.get("runtime_id") or data.get("id") or "",
+            "has_runtime": has_runtime,
+            "closure_score": closure_score,
+        }
+        return {"success": True, "data": {"runtime": data, "lifecycle": lifecycle, "health": {"closure_score": closure_score, "is_healthy": has_runtime}}}
 
     def _suggestion_overview_payload(self) -> Dict[str, Any]:
         overview = asyncio.run(self._suggestion.overview())
@@ -439,6 +513,16 @@ class SprintCycle:
     def governance_view(self) -> Dict[str, Any]:
         overview = self._suggestion_overview_payload()
         return self._platform_summary.governance_view(overview)
+
+    def governance_lifecycle(self, execution_id: str = "") -> Dict[str, Any]:
+        summary = asyncio.run(self._governance_orchestration.summary(execution_id=execution_id, limit=50))
+        pending = asyncio.run(self._governance_orchestration.pending(execution_id=execution_id))
+        history = asyncio.run(self._governance_orchestration.history(execution_id=execution_id, limit=50))
+        summary_data = summary.get("data", {}) if isinstance(summary, dict) else {}
+        pending_data = pending.get("data", []) if isinstance(pending, dict) else []
+        history_data = history.get("data", []) if isinstance(history, dict) else []
+        closure_score = 100.0 if summary.get("success", False) and not pending_data else 0.0
+        return {"success": True, "data": {"summary": summary_data, "pending": pending_data, "history": history_data, "lifecycle": {"stage": "governing", "status": "success" if summary.get("success", False) else "failed", "execution_id": execution_id, "pending_count": len(pending_data), "history_count": len(history_data), "summary_count": int(summary_data.get("history_count", 0) if isinstance(summary_data, dict) else 0), "closure_score": closure_score}, "health": {"closure_score": closure_score, "is_healthy": closure_score > 0}}}
 
     def fix_view(self) -> Dict[str, Any]:
         return self._platform_summary.fix_view(self._suggestion_list_payload(limit=20))
@@ -482,7 +566,24 @@ class SprintCycle:
         latest = executions[0] if executions else None
         if latest and latest.get("execution_id"):
             trace_payload = self.observability_trace(str(latest["execution_id"])).get("data", {})
-        return self._platform_summary.console_overview(trace_payload=trace_payload, limit=limit)
+        payload = self._platform_summary.console_overview(trace_payload=trace_payload, limit=limit)
+        data = payload.get("data", {}) if isinstance(payload, dict) else {}
+        lifecycle = data.get("lifecycle", {}) if isinstance(data, dict) else {}
+        health = data.get("health", {}) if isinstance(data, dict) else {}
+        success_count = sum(1 for item in executions if str(item.get("status") or "").lower() == "success")
+        failed_count = sum(1 for item in executions if str(item.get("status") or "").lower() == "failed")
+        total_count = len(executions)
+        closure_score = round((success_count / total_count) * 100, 2) if total_count else 0.0
+        data["closure_score"] = closure_score
+        data["closure_summary"] = {
+            "success_rate": round((success_count / total_count) * 100, 2) if total_count else 0.0,
+            "failure_rate": round((failed_count / total_count) * 100, 2) if total_count else 0.0,
+            "total_count": total_count,
+        }
+        data["lifecycle"] = {**dict(lifecycle), "closure_score": closure_score, "success_count": success_count, "failed_count": failed_count, "total_count": total_count}
+        data["health"] = {**dict(health), "closure_score": closure_score}
+        payload["data"] = data
+        return payload
 
     def reload_runtime_config(self) -> None:
         """从磁盘重新加载 ``RuntimeConfig``（含 ``sprintcycle.runtime.yaml``）。"""

@@ -33,6 +33,7 @@ from ..hooks import (
     SUGGESTION_REVIEWED_EVENT,
     SUGGESTION_REVIEW_RECORD_EVENT,
 )
+from .lifecycle_contracts import build_lifecycle_contract
 
 
 @dataclass
@@ -190,16 +191,27 @@ class SuggestionApplicationService:
 
     async def create_suggestion_from_execution_event(self, event: Dict[str, Any]) -> Dict[str, Any]:
         normalized_event = dict(event or {})
-        _, blocked = self._ensure_before(SUGGESTION_CAPTURE_EXECUTION_EVENT[1], subject_id=str(normalized_event.get("suggestion_id") or ""), execution_id=str(normalized_event.get("run_id") or normalized_event.get("execution_id") or ""), payload=normalized_event)
+        execution_id = str(normalized_event.get("run_id") or normalized_event.get("execution_id") or "")
+        _, blocked = self._ensure_before(SUGGESTION_CAPTURE_EXECUTION_EVENT[1], subject_id=str(normalized_event.get("suggestion_id") or ""), execution_id=execution_id, payload=normalized_event)
         if blocked is not None:
             return blocked
         normalized_event.setdefault("source", "execution")
         normalized_event.setdefault("kind", normalized_event.get("kind") or normalized_event.get("type") or "execution_event")
         normalized_event.setdefault("root_cause", normalized_event.get("root_cause") or normalized_event.get("failure_kind") or "")
         result = await self.suggestion.capture_from_execution_event(normalized_event)
-        self._hooks.after("suggestion", SUGGESTION_CAPTURE_EXECUTION_EVENT[1], self._hook_context(SUGGESTION_CAPTURE_EXECUTION_EVENT[1], subject_id=str(normalized_event.get("suggestion_id") or ""), execution_id=str(normalized_event.get("run_id") or normalized_event.get("execution_id") or ""), payload={"event": normalized_event, "result": result}))
-        self._hooks.event("suggestion", "capture_execution_event", SUGGESTION_CAPTURED_FROM_EXECUTION_EVENT, {"event": normalized_event, "result": result, "source": "execution", "root_cause": normalized_event.get("root_cause", "")})
-        return result
+        contract = build_lifecycle_contract(
+            execution_id=execution_id,
+            task_id=str(normalized_event.get("task_id") or execution_id),
+            project_path=str(normalized_event.get("project_path") or ""),
+            stage="suggesting",
+            status="success",
+            metadata={"source": "execution_event", "root_cause": normalized_event.get("root_cause", "")},
+            suggestions=[result.to_dict() if hasattr(result, "to_dict") else dict(result or {})],
+            governance_refs={"source": "execution_event_capture", "governed": bool(self.governance is not None)},
+        )
+        self._hooks.after("suggestion", SUGGESTION_CAPTURE_EXECUTION_EVENT[1], self._hook_context(SUGGESTION_CAPTURE_EXECUTION_EVENT[1], subject_id=str(normalized_event.get("suggestion_id") or ""), execution_id=execution_id, payload={"event": normalized_event, "result": result, "lifecycle_contract": contract.to_dict()}))
+        self._hooks.event("suggestion", "capture_execution_event", SUGGESTION_CAPTURED_FROM_EXECUTION_EVENT, {"event": normalized_event, "result": result, "source": "execution", "root_cause": normalized_event.get("root_cause", ""), "lifecycle_contract": contract.to_dict()})
+        return {"success": True, "data": {"suggestion": result.to_dict() if hasattr(result, "to_dict") else result, "lifecycle_contract": contract.to_dict()}}
 
 
 __all__ = ["SuggestionApplicationService"]

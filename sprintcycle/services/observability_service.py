@@ -34,13 +34,20 @@ class ObservabilityService:
             "phase_tags": sorted({str((e or {}).get("phase") or (e or {}).get("stage") or "").strip() for e in events if str((e or {}).get("phase") or (e or {}).get("stage") or "").strip()}),
             "root_cause_tags": sorted({str((e or {}).get("root_cause") or (e or {}).get("failure_kind") or "").strip() for e in events if str((e or {}).get("root_cause") or (e or {}).get("failure_kind") or "").strip()}),
         }
-        return {"success": True, "data": {"trace": data, "diagnostics": diagnostics}}
+        lifecycle = {
+            "stage": "observing" if events else "normalized",
+            "status": "success" if not failures else "failed",
+            "is_healthy": not failures,
+            "event_count": len(events),
+        }
+        return {"success": True, "data": {"trace": data, "diagnostics": diagnostics, "lifecycle": lifecycle}}
 
     def replay(self, run_id: str) -> Dict[str, Any]:
         data = self.observability.to_trace_payload(run_id)
         events = list((data or {}).get("events", []) or [])
         diagnostics = {"event_count": len(events), "latest_event": events[-1] if events else None}
-        return {"success": True, "data": {"execution_id": run_id, "diagnostics": diagnostics}, "timeline": events}
+        lifecycle = {"stage": "observing" if events else "normalized", "status": "success" if events else "pending", "is_healthy": True if events else False}
+        return {"success": True, "data": {"execution_id": run_id, "diagnostics": diagnostics, "lifecycle": lifecycle}, "timeline": events}
 
     def pending(self, governance: Any, execution_id: Optional[str] = None) -> Dict[str, Any]:
         if governance is None:

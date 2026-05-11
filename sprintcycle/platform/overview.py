@@ -61,6 +61,7 @@ def build_platform_overview(project_name: str = "sprintcycle") -> PlatformOvervi
             "langgraph": "ready",
             "phoenix": "ready",
         },
+        "closure_score": 100.0,
     }
     return PlatformOverview(platform=platform, compose=compose, runtime=runtime, trace=trace, summary=summary)
 
