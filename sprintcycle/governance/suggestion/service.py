@@ -86,6 +86,25 @@ class SuggestionService:
             raise KeyError(f"suggestion not found: {suggestion_id}")
         if suggestion.status != "approved":
             raise ValueError(f"suggestion {suggestion_id} is not approved")
+        if not suggestion.review_notes and not suggestion.metadata.get("root_cause"):
+            raise ValueError(f"suggestion {suggestion_id} lacks review evidence for promotion")
+        if not suggestion.summary.strip() and not suggestion.details.strip():
+            raise ValueError(f"suggestion {suggestion_id} lacks actionable content for promotion")
+        if not suggestion.impact_scope:
+            raise ValueError(f"suggestion {suggestion_id} lacks impact scope for promotion")
+        promotion_guard = {
+            "status": suggestion.status,
+            "has_review_notes": bool(suggestion.review_notes),
+            "has_root_cause": bool(suggestion.metadata.get("root_cause")),
+            "has_summary": bool(suggestion.summary.strip()),
+            "has_details": bool(suggestion.details.strip()),
+            "has_impact_scope": bool(suggestion.impact_scope),
+            "source_suggestion_id": suggestion.suggestion_id,
+            "source_type": suggestion.source_type,
+            "severity": suggestion.severity,
+            "impact_scope": list(suggestion.impact_scope),
+            "linked_version_id": suggestion.linked_version_id or "",
+        }
         request = EvolutionRequest(
             request_id=f"evo_from_{suggestion.suggestion_id}",
             target="code",
@@ -101,6 +120,8 @@ class SuggestionService:
                 "severity": suggestion.severity,
                 "review_notes": suggestion.review_notes,
                 "metadata": suggestion.metadata,
+                "promotion_guard": promotion_guard,
+                "source_version_id": suggestion.linked_version_id or "",
             },
         )
         suggestion.status = "promoted"
@@ -115,12 +136,33 @@ class SuggestionService:
         source_distribution: dict[str, int] = {}
         severity_distribution: dict[str, int] = {}
         impact_scope_distribution: dict[str, int] = {}
+        promotion_ready = 0
+        promotion_blocked = 0
+        promotion_reasons: dict[str, int] = {}
         for item in all_items:
             counts[item.status] = counts.get(item.status, 0) + 1
             source_distribution[item.source_type] = source_distribution.get(item.source_type, 0) + 1
             severity_distribution[item.severity] = severity_distribution.get(item.severity, 0) + 1
             for scope in item.impact_scope:
                 impact_scope_distribution[scope] = impact_scope_distribution.get(scope, 0) + 1
+            guard_notes = bool(item.review_notes)
+            guard_root_cause = bool(item.metadata.get("root_cause"))
+            guard_content = bool(item.summary.strip()) or bool(item.details.strip())
+            guard_scope = bool(item.impact_scope)
+            is_ready = item.status == "approved" and guard_notes and guard_root_cause and guard_content and guard_scope
+            if is_ready:
+                promotion_ready += 1
+            elif item.status == "approved":
+                promotion_blocked += 1
+                reasons = []
+                if not guard_notes and not guard_root_cause:
+                    reasons.append("missing_review_evidence")
+                if not guard_content:
+                    reasons.append("missing_actionable_content")
+                if not guard_scope:
+                    reasons.append("missing_impact_scope")
+                for reason in reasons or ["unknown_blocker"]:
+                    promotion_reasons[reason] = promotion_reasons.get(reason, 0) + 1
         recent = [s.to_dict() for s in all_items[:10]]
         return SuggestionOverviewResult(
             success=True,
@@ -134,4 +176,7 @@ class SuggestionService:
             source_distribution=source_distribution,
             severity_distribution=severity_distribution,
             impact_scope_distribution=impact_scope_distribution,
+            promotion_ready=promotion_ready,
+            promotion_blocked=promotion_blocked,
+            promotion_reasons=promotion_reasons,
         )

@@ -242,6 +242,19 @@ class SprintOrchestrator:
         complete_event = self._emit_execution_phase(EventType.EXECUTION_COMPLETE if success else EventType.EXECUTION_FAILED, "ReleasePlan 执行完成", release_plan, to_run.project.name, len(sprint_results), status="success" if success else "failed")
         await self._emit(complete_event)
         self._emit_trace_event(complete_event)
+        try:
+            from ..execution.state.state_store import get_state_store
+
+            if getattr(release_plan, "execution_id", None):
+                store = get_state_store()
+                state = store.load(getattr(release_plan, "execution_id", None))
+                if state is not None:
+                    state.metadata["release_finalization"] = completion_summary
+                    state.metadata["lifecycle_contract"] = contract.to_dict()
+                    state.status = "success" if success else "failed"
+                    store.save(state)
+        except Exception as e:
+            logger.warning("persist sprint orchestration lifecycle failed: {}", e)
         self._last_release_finalization_result = {"finalization": completion_summary, "lifecycle_contract": contract.to_dict()}
         return sprint_results
 

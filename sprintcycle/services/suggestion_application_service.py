@@ -208,6 +208,8 @@ class SuggestionApplicationService:
             metadata={"source": "execution_event", "root_cause": normalized_event.get("root_cause", "")},
             suggestions=[result.to_dict() if hasattr(result, "to_dict") else dict(result or {})],
             governance_refs={"source": "execution_event_capture", "governed": bool(self.governance is not None)},
+            evolution_refs={"candidate": True, "source": "execution_event"},
+            repair_refs={"root_cause": normalized_event.get("root_cause", ""), "execution_id": execution_id},
         )
         self._hooks.after("suggestion", SUGGESTION_CAPTURE_EXECUTION_EVENT[1], self._hook_context(SUGGESTION_CAPTURE_EXECUTION_EVENT[1], subject_id=str(normalized_event.get("suggestion_id") or ""), execution_id=execution_id, payload={"event": normalized_event, "result": result, "lifecycle_contract": contract.to_dict()}))
         self._hooks.event("suggestion", "capture_execution_event", SUGGESTION_CAPTURED_FROM_EXECUTION_EVENT, {"event": normalized_event, "result": result, "source": "execution", "root_cause": normalized_event.get("root_cause", ""), "lifecycle_contract": contract.to_dict()})

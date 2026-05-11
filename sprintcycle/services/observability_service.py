@@ -28,19 +28,29 @@ class ObservabilityService:
         data = self.observability.to_trace_payload(run_id)
         events = list((data or {}).get("events", []) or [])
         failures = [e for e in events if str((e or {}).get("kind") or (e or {}).get("type") or "").lower().find("fail") >= 0]
+        phase_tags = sorted({str((e or {}).get("phase") or (e or {}).get("stage") or "").strip() for e in events if str((e or {}).get("phase") or (e or {}).get("stage") or "").strip()})
+        root_cause_tags = sorted({str((e or {}).get("root_cause") or (e or {}).get("failure_kind") or "").strip() for e in events if str((e or {}).get("root_cause") or (e or {}).get("failure_kind") or "").strip()})
+        repair_ready = bool(failures or root_cause_tags)
+        repair_candidates = [e for e in events if str((e or {}).get("repair_hint") or (e or {}).get("root_cause") or (e or {}).get("failure_kind") or "").strip()]
         diagnostics = {
             "event_count": len(events),
             "failure_count": len(failures),
-            "phase_tags": sorted({str((e or {}).get("phase") or (e or {}).get("stage") or "").strip() for e in events if str((e or {}).get("phase") or (e or {}).get("stage") or "").strip()}),
-            "root_cause_tags": sorted({str((e or {}).get("root_cause") or (e or {}).get("failure_kind") or "").strip() for e in events if str((e or {}).get("root_cause") or (e or {}).get("failure_kind") or "").strip()}),
+            "phase_tags": phase_tags,
+            "root_cause_tags": root_cause_tags,
+            "failure_rate": round((len(failures) / len(events)) * 100, 2) if events else 0.0,
+            "observability_ready": bool(events),
+            "repair_ready": repair_ready,
+            "repair_candidate_count": len(repair_candidates),
         }
         lifecycle = {
             "stage": "observing" if events else "normalized",
             "status": "success" if not failures else "failed",
             "is_healthy": not failures,
             "event_count": len(events),
+            "failure_kind": root_cause_tags[0] if root_cause_tags else ("execution_error" if failures else ""),
+            "repair_ready": repair_ready,
         }
-        return {"success": True, "data": {"trace": data, "diagnostics": diagnostics, "lifecycle": lifecycle}}
+        return {"success": True, "data": {"trace": data, "diagnostics": diagnostics, "lifecycle": lifecycle, "repair": {"ready": repair_ready, "candidate_count": len(repair_candidates), "root_causes": root_cause_tags}}}
 
     def replay(self, run_id: str) -> Dict[str, Any]:
         data = self.observability.to_trace_payload(run_id)

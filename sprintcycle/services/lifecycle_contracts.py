@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional
 LIFECYCLE_STAGES: tuple[str, ...] = (
     "normalized",
     "planned",
+    "prepared",
     "scheduled",
     "executing",
     "observing",
@@ -24,6 +25,23 @@ LIFECYCLE_STAGES: tuple[str, ...] = (
     "governing",
     "evolving",
 )
+
+FAILURE_KIND_BY_STAGE: Dict[str, str] = {
+    "normalized": "",
+    "planned": "",
+    "prepared": "",
+    "scheduled": "",
+    "executing": "execution_error",
+    "observing": "observation_error",
+    "repairing": "repair_error",
+    "delivering": "delivery_error",
+    "runtime_linked": "integration_error",
+    "suggesting": "suggestion_error",
+    "governing": "policy_error",
+    "evolving": "evolution_error",
+}
+
+TERMINAL_STATUSES: tuple[str, ...] = ("success", "failed", "cancelled")
 
 
 @dataclass
@@ -48,9 +66,20 @@ class LifecycleContract:
 
     def to_dict(self) -> Dict[str, Any]:
         payload = asdict(self)
-        payload["is_terminal"] = self.status in {"success", "failed", "cancelled"}
+        payload["is_terminal"] = self.status in TERMINAL_STATUSES
         payload["stage_index"] = LIFECYCLE_STAGES.index(self.stage) if self.stage in LIFECYCLE_STAGES else -1
+        payload["stage_hints"] = {
+            "next_stage": next_stage(self.stage),
+            "failure_kind": self.failure_kind or FAILURE_KIND_BY_STAGE.get(self.stage, ""),
+        }
         return payload
+
+
+def next_stage(stage: str) -> str:
+    if stage not in LIFECYCLE_STAGES:
+        return ""
+    idx = LIFECYCLE_STAGES.index(stage)
+    return LIFECYCLE_STAGES[idx + 1] if idx + 1 < len(LIFECYCLE_STAGES) else ""
 
 
 def normalize_lifecycle_metadata(metadata: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -81,15 +110,17 @@ def build_lifecycle_contract(
     metrics: Optional[Dict[str, Any]] = None,
 ) -> LifecycleContract:
     meta = normalize_lifecycle_metadata(metadata)
+    normalized_stage = stage if stage in LIFECYCLE_STAGES else "normalized"
+    normalized_status = status or "pending"
     return LifecycleContract(
         execution_id=execution_id,
         task_id=task_id,
         project_path=project_path,
         task_type=str(meta.get("task_type") or "project_optimization"),
         intent=str(meta.get("intent") or ""),
-        stage=stage,
-        status=status,
-        failure_kind=failure_kind,
+        stage=normalized_stage,
+        status=normalized_status,
+        failure_kind=failure_kind or FAILURE_KIND_BY_STAGE.get(normalized_stage, ""),
         failure_reason=failure_reason,
         delivery_summary=dict(delivery_summary or {}),
         runtime_linkage=dict(runtime_linkage or {}),

@@ -267,6 +267,23 @@ class SprintCycle:
     def suggestion_overview_dashboard(self) -> Dict[str, Any]:
         return self._suggestion_overview().to_dashboard_payload()
 
+    def promotion_readiness(self) -> Dict[str, Any]:
+        overview = self._suggestion_overview().to_dashboard_payload()
+        promotion = overview.get("promotion", {}) if isinstance(overview, dict) else {}
+        ready = int(promotion.get("ready", 0)) if isinstance(promotion, dict) else 0
+        blocked = int(promotion.get("blocked", 0)) if isinstance(promotion, dict) else 0
+        total = ready + blocked
+        return {
+            "success": True,
+            "data": {
+                "ready": ready,
+                "blocked": blocked,
+                "total": total,
+                "ready_rate": round((ready / total) * 100, 2) if total else 0.0,
+                "reasons": dict(promotion.get("reasons", {}) if isinstance(promotion, dict) else {}),
+            },
+        }
+
     async def suggestion_review(self, suggestion_id: str) -> Dict[str, Any]:
         context = await self._suggestion.review_suggestion(suggestion_id)
         return {"success": True, "data": context.to_dict()}
@@ -442,21 +459,60 @@ class SprintCycle:
         trace_payload = trace.get("data", trace) if isinstance(trace, dict) else {}
         lifecycle = trace_payload.get("lifecycle", {}) if isinstance(trace_payload, dict) else {}
         diagnostics = trace_payload.get("diagnostics", {}) if isinstance(trace_payload, dict) else {}
+        runtime = self.runtime_lifecycle(str(state.get("execution_id") or execution_id))
+        suggestions = self._suggestion_overview_payload()
+        governance = asyncio.run(self._governance_orchestration.summary(execution_id=execution_id, limit=limit))
+        suggestion_data = suggestions.get("data", {}) if isinstance(suggestions, dict) else {}
+        promotion = {
+            "ready": int(suggestion_data.get("promotion_ready", 0) or 0),
+            "blocked": int(suggestion_data.get("promotion_blocked", 0) or 0),
+            "reason": str(next(iter((suggestion_data.get("promotion_reasons", {}) or {}).keys()), "")),
+        }
+        repair = {
+            "ready": bool(trace_payload.get("repair", {}).get("ready", False)) if isinstance(trace_payload, dict) else False,
+            "candidate_count": int(trace_payload.get("repair", {}).get("candidate_count", 0)) if isinstance(trace_payload, dict) else 0,
+            "root_causes": list(trace_payload.get("repair", {}).get("root_causes", []) or []) if isinstance(trace_payload, dict) else [],
+        }
+        repair = trace_payload.get("repair", {}) if isinstance(trace_payload, dict) else {}
         health = {
             "is_healthy": bool(lifecycle.get("is_healthy", True)) if isinstance(lifecycle, dict) else True,
             "event_count": diagnostics.get("event_count", 0) if isinstance(diagnostics, dict) else 0,
             "failure_count": diagnostics.get("failure_count", 0) if isinstance(diagnostics, dict) else 0,
+            "repair_ready": bool(diagnostics.get("repair_ready", False)) if isinstance(diagnostics, dict) else False,
         }
         stage = str(lifecycle.get("stage") or state.get("metadata", {}).get("stage") or "observing") if isinstance(lifecycle, dict) else "observing"
         status = str(lifecycle.get("status") or state.get("status") or "unknown") if isinstance(lifecycle, dict) else "unknown"
         closure_score = float(health["event_count"] > 0 and 100.0 or 0.0)
+        runtime_contract = runtime.get("data", {}) if isinstance(runtime, dict) else {}
+        runtime_contract = {**runtime_contract, "verified": bool(runtime_contract.get("verified", False)), "healthy": bool(runtime_contract.get("healthy", False)), "ready": bool(runtime_contract.get("ready", False)), "deploy_ready": bool(runtime_contract.get("deploy_ready", False))}
+        governance_contract = governance.get("data", {}) if isinstance(governance, dict) else {}
+        suggestion_contract = suggestion_data
+        completion_score = 0.0
+        completion_score += 20.0 if state else 0.0
+        completion_score += 20.0 if health["event_count"] > 0 else 0.0
+        completion_score += 20.0 if runtime_contract else 0.0
+        completion_score += 15.0 if governance_contract else 0.0
+        completion_score += 15.0 if suggestion_contract else 0.0
+        completion_score += 10.0 if promotion.get("ready", 0) else 0.0
+        completion_score += 10.0 if repair.get("ready", False) else 0.0
+        repair = {
+            "ready": bool(diagnostics.get("repair_ready", False)) if isinstance(diagnostics, dict) else False,
+            "candidate_count": int(diagnostics.get("repair_candidate_count", 0)) if isinstance(diagnostics, dict) else 0,
+            "root_causes": list(diagnostics.get("root_cause_tags", []) or []) if isinstance(diagnostics, dict) else [],
+        }
         contract = {
             "execution_id": execution_id,
             "state": state,
             "trace": trace_payload,
             "lifecycle": {**dict(lifecycle) if isinstance(lifecycle, dict) else {}, "stage": stage, "status": status, "closure_score": closure_score},
             "diagnostics": diagnostics,
-            "health": {**health, "closure_score": closure_score},
+            "runtime": runtime_contract,
+            "governance": governance_contract,
+            "suggestion": suggestion_contract,
+            "promotion": promotion,
+            "health": {**health, "closure_score": closure_score, "completion_score": completion_score},
+            "repair": repair,
+            "completion_score": completion_score,
         }
         return {"success": bool(detail.get("success", False)) if isinstance(detail, dict) else False, "data": contract}
 

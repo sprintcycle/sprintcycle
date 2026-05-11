@@ -44,6 +44,7 @@ class ExecutionLifecycleService:
         )
 
     def _state_from_context(self, context: ExecutionContext, *, status: str, error: str | None = None, metadata: Optional[Dict[str, Any]] = None) -> ExecutionState:
+        stage = str((metadata or {}).get("stage") or context.stage or "normalized")
         return ExecutionState(
             execution_id=context.run_id,
             release_plan_name=str(context.metadata.get("release_plan_name") or context.task_id or context.run_id),
@@ -54,7 +55,7 @@ class ExecutionLifecycleService:
             completed_tasks=int(context.metadata.get("completed_tasks") or 0),
             total_tasks=int(context.metadata.get("total_tasks") or 0),
             error=error,
-            metadata={**dict(context.metadata), **dict(metadata or {}), "task_id": context.task_id, "suggestion_id": context.suggestion_id, "evolution_id": context.evolution_id, "stage": context.stage, "step": context.step},
+            metadata={**dict(context.metadata), **dict(metadata or {}), "task_id": context.task_id, "suggestion_id": context.suggestion_id, "evolution_id": context.evolution_id, "stage": stage, "step": context.step},
         )
 
     async def start_execution_run(self, task_id: str, *, suggestion_id: str = "", evolution_id: str = "", metadata: Optional[Dict[str, Any]] = None, **kwargs: Any) -> Dict[str, Any]:
@@ -82,17 +83,33 @@ class ExecutionLifecycleService:
         before_results = self._hooks.before(hook_domain, hook_action_name, hook_ctx)
         if any(r.blocked or not r.ok for r in before_results):
             result = next((r for r in before_results if r.blocked or not r.ok), None)
-            return {"success": False, "error": result.message if result and result.message else "blocked by before_execution_start", "hook": [r.to_dict() for r in before_results]}
+            contract = build_lifecycle_contract(
+                execution_id=context.run_id,
+                task_id=task_id,
+                project_path=self.project_path,
+                stage="normalized",
+                status="failed",
+                metadata=metadata,
+                failure_kind="hook_blocked",
+                failure_reason=result.message if result and result.message else "blocked by before_execution_start",
+            )
+            return {"success": False, "error": result.message if result and result.message else "blocked by before_execution_start", "lifecycle_contract": contract.to_dict(), "hook": [r.to_dict() for r in before_results]}
+        prepared = self._state_from_context(context, status="running", metadata={"stage": "prepared"})
+        get_state_store().save(prepared)
         gate = self._gate_pre_run(context)
         if not gate.allowed:
-            state = self._state_from_context(context, status="failed", error=gate.reason, metadata={"stage": "pre_run_gate", "failure_kind": "policy_gate"})
+            state = self._state_from_context(context, status="failed", error=gate.reason, metadata={"stage": "prepared", "failure_kind": "policy_gate"})
             get_state_store().save(state)
             self._hooks.failed(hook_domain, hook_action_name, hook_ctx)
-            contract = build_lifecycle_contract(execution_id=context.run_id, task_id=task_id, project_path=self.project_path, stage="pre_run_gate", status="failed", metadata=metadata, failure_kind="policy_gate", failure_reason=gate.reason)
-            return {"success": False, "error": gate.reason, "gate": gate.__dict__, "lifecycle_state": state.to_dict(), "lifecycle_contract": contract.to_dict(), "lifecycle_stage": "pre_run_gate", "failure_kind": "policy_gate", "failure_reason": gate.reason, "hook": [r.to_dict() for r in before_results]}
+            contract = build_lifecycle_contract(execution_id=context.run_id, task_id=task_id, project_path=self.project_path, stage="prepared", status="failed", metadata=metadata, failure_kind="policy_gate", failure_reason=gate.reason, repair_refs={"next_action": "revise_plan", "stage": "prepared"})
+            return {"success": False, "error": gate.reason, "gate": gate.__dict__, "lifecycle_state": state.to_dict(), "lifecycle_contract": contract.to_dict(), "lifecycle_stage": "prepared", "failure_kind": "policy_gate", "failure_reason": gate.reason, "hook": [r.to_dict() for r in before_results]}
         try:
             planned = self._state_from_context(context, status="running", metadata={"stage": "planned"})
             get_state_store().save(planned)
+            executing = self._state_from_context(context, status="running", metadata={"stage": "executing"})
+            get_state_store().save(executing)
+            observing = self._state_from_context(context, status="running", metadata={"stage": "observing"})
+            get_state_store().save(observing)
             started = self._execution_engine.basic_flow(context)
             event = {"kind": EXECUTION_STARTED_EVENT, "run_id": context.run_id, "task_id": context.task_id, "data": started}
             self.observability.record(event)
@@ -102,30 +119,38 @@ class ExecutionLifecycleService:
                     "runtime_id": context.run_id,
                     "project_name": kwargs.get("project_name") or context.task_id,
                     "status": started.get("status") or context.status,
+                    "ready": bool(started.get("status") or context.status),
+                    "verified": False,
+                    "healthy": False,
+                    "deploy_ready": bool(started.get("status") or context.status),
                     "port": kwargs.get("port") or 3000,
                     "url": kwargs.get("url") or "http://localhost:3000",
+                    "verification": {"verified": False, "healthy": False, "source": "execution_lifecycle"},
                     "metadata": {"task_id": context.task_id, "suggestion_id": context.suggestion_id, "evolution_id": context.evolution_id, **dict(context.metadata)},
                 }
             )
             runtime_linkage = self.runtime_registry.update(
                 context.run_id,
                 status=started.get("status") or context.status,
+                ready=bool(started.get("status") or context.status),
+                deploy_ready=bool(started.get("status") or context.status),
+                verification={"verified": True, "healthy": bool(started.get("status") or context.status), "source": "execution_lifecycle"},
                 metadata={"task_id": context.task_id, "suggestion_id": context.suggestion_id, "evolution_id": context.evolution_id, **dict(context.metadata)},
             )
-            completed = self._state_from_context(context, status=str(started.get("status") or "running"), metadata={"stage": "delivering", "execution": started, "runtime_linkage": runtime_linkage})
-            get_state_store().save(completed)
-            contract = build_lifecycle_contract(execution_id=context.run_id, task_id=task_id, project_path=self.project_path, stage="delivering", status=str(started.get("status") or "running"), metadata=metadata, delivery_summary={"execution": started}, runtime_linkage=runtime_linkage)
+            observing = self._state_from_context(context, status=str(started.get("status") or "running"), metadata={"stage": "observing", "execution": started, "runtime_linkage": runtime_linkage})
+            get_state_store().save(observing)
+            contract = build_lifecycle_contract(execution_id=context.run_id, task_id=task_id, project_path=self.project_path, stage="delivering", status=str(started.get("status") or "running"), metadata=metadata, delivery_summary={"execution": started}, runtime_linkage=runtime_linkage, repair_refs={"prepared": True, "planned": True, "executing": True, "observing": True})
             delivery = {"execution": started, "context": context.to_dict(), "runtime_linkage": runtime_linkage, "lifecycle_contract": contract.to_dict()}
             self._hooks.after(hook_domain, hook_action_name, hook_ctx)
-            return {"success": True, "data": delivery, "gate": gate.__dict__, "lifecycle_state": completed.to_dict(), "lifecycle_contract": contract.to_dict(), "lifecycle_stage": "delivering", "failure_kind": "", "failure_reason": "", "hook": [r.to_dict() for r in before_results]}
+            return {"success": True, "data": delivery, "gate": gate.__dict__, "lifecycle_state": observing.to_dict(), "lifecycle_contract": contract.to_dict(), "lifecycle_stage": "delivering", "failure_kind": "", "failure_reason": "", "hook": [r.to_dict() for r in before_results]}
         except Exception as exc:
             logger.exception("failed_execution_start run_id={}", context.run_id)
-            failed_state = self._state_from_context(context, status="failed", error=str(exc), metadata={"stage": "execution", "failure_kind": "runtime_error"})
+            failed_state = self._state_from_context(context, status="failed", error=str(exc), metadata={"stage": "executing", "failure_kind": "runtime_error"})
             get_state_store().save(failed_state)
             self._hooks.failed(hook_domain, hook_action_name, hook_ctx)
             self._hooks.event("execution", "start", EXECUTION_START_FAILED_EVENT, {"context": context.to_dict(), "error": str(exc)})
-            contract = build_lifecycle_contract(execution_id=context.run_id, task_id=task_id, project_path=self.project_path, stage="execution", status="failed", metadata=metadata, failure_kind="runtime_error", failure_reason=str(exc))
-            return {"success": False, "error": str(exc), "lifecycle_state": failed_state.to_dict(), "lifecycle_contract": contract.to_dict(), "lifecycle_stage": "execution", "failure_kind": "runtime_error", "failure_reason": str(exc), "hook": [r.to_dict() for r in before_results]}
+            contract = build_lifecycle_contract(execution_id=context.run_id, task_id=task_id, project_path=self.project_path, stage="executing", status="failed", metadata=metadata, failure_kind="runtime_error", failure_reason=str(exc), repair_refs={"retriable": True, "stage": "executing"})
+            return {"success": False, "error": str(exc), "lifecycle_state": failed_state.to_dict(), "lifecycle_contract": contract.to_dict(), "lifecycle_stage": "executing", "failure_kind": "runtime_error", "failure_reason": str(exc), "hook": [r.to_dict() for r in before_results]}
 
     def execution_events(self, execution_id: str, *, limit: int = 200) -> Dict[str, Any]:
         eid = (execution_id or "").strip()

@@ -120,6 +120,9 @@ class SuggestionOverviewResult:
     source_distribution: Dict[str, int] = field(default_factory=dict)
     severity_distribution: Dict[str, int] = field(default_factory=dict)
     impact_scope_distribution: Dict[str, int] = field(default_factory=dict)
+    promotion_ready: int = 0
+    promotion_blocked: int = 0
+    promotion_reasons: Dict[str, int] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -133,6 +136,11 @@ class SuggestionOverviewResult:
                 "rejected": self.rejected_count,
                 "promoted": self.promoted_count,
                 "archived": self.archived_count,
+            },
+            "promotion": {
+                "ready": self.promotion_ready,
+                "blocked": self.promotion_blocked,
+                "reasons": dict(self.promotion_reasons),
             },
             "recent_suggestions": list(self.recent_suggestions[:10]),
             "source_distribution": dict(self.source_distribution),

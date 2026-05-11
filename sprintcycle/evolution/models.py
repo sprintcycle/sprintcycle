@@ -89,6 +89,10 @@ class VersionArtifact:
     branch: Optional[str] = None
     manifest_path: Optional[str] = None
     sandbox_id: Optional[str] = None
+    source_suggestion_id: Optional[str] = None
+    source_evolution_request_id: Optional[str] = None
+    rollback_to: Optional[str] = None
+    promotion_guard: Dict[str, Any] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
