@@ -250,15 +250,15 @@ def test_hook_router_resolves_action_and_events():
     assert router.events("execution", "start") == ("execution.started", "execution.start_failed")
 
 
-def test_hook_context_trace_id_is_preserved_in_mutation():
+def test_hook_context_only_allows_payload_and_metadata_mutation():
     registry = HookRegistry()
 
     def mutator(ctx: HookContext):
-        return HookResult(ok=True, mutated_context={"trace_id": "trace-xyz"})
+        return HookResult(ok=True, mutated_context={"payload": {"x": 1}, "metadata": {"y": 2}, "trace_id": "trace-xyz"})
 
     registry.register(
         HookDefinition(
-            name="trace_mutator",
+            name="restricted_mutator",
             domain="execution",
             action="start",
             phase=HookPhase.BEFORE,
@@ -270,7 +270,9 @@ def test_hook_context_trace_id_is_preserved_in_mutation():
     ctx = HookContext(domain="execution", action="start", subject_id="s-1", execution_id="r-1")
     registry.emit(domain="execution", action="start", phase=HookPhase.BEFORE, context=ctx)
 
-    assert ctx.trace_id == "trace-xyz"
+    assert ctx.payload == {"x": 1}
+    assert ctx.metadata == {"y": 2}
+    assert ctx.trace_id == ""
 
 
 def test_unknown_hook_action_raises():

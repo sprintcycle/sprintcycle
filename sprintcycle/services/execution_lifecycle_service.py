@@ -15,7 +15,7 @@ from ..deployment.runtime_registry import RuntimeRegistry
 from ..execution.state.state_store import get_state_store
 from ..execution_core import ExecutionContext, create_execution_engine
 from ..governance.policy.gates import GateResult, pre_run_gate
-from ..hooks import EXECUTION_STARTED_EVENT, EXECUTION_START_FAILED_EVENT, HookContext, HookPhase, HookRegistry, HookRouter
+from ..hooks import EXECUTION_STARTED_EVENT, EXECUTION_START_FAILED_EVENT, HookContext, HookPhase, HookRegistry, HookRunner
 from ..observability.facade import ObservabilityFacade
 
 
@@ -29,7 +29,7 @@ class ExecutionLifecycleService:
 
     def __post_init__(self) -> None:
         self._execution_engine = create_execution_engine()
-        self._hooks = HookRouter(self.hooks)
+        self._hooks = HookRunner(self.hooks)
 
     def _gate_pre_run(self, context: ExecutionContext) -> GateResult:
         return pre_run_gate(
@@ -62,13 +62,13 @@ class ExecutionLifecycleService:
             payload=context.to_dict(),
             metadata=dict(context.metadata),
         )
-        before_results = self._hooks.emit(domain=hook_domain, action=hook_action_name, phase=HookPhase.BEFORE, context=hook_ctx)
+        before_results = self._hooks.before(hook_domain, hook_action_name, hook_ctx)
         if any(r.blocked or not r.ok for r in before_results):
             result = next((r for r in before_results if r.blocked or not r.ok), None)
             return {"success": False, "error": result.message if result and result.message else "blocked by before_execution_start", "hook": [r.to_dict() for r in before_results]}
         gate = self._gate_pre_run(context)
         if not gate.allowed:
-            self._hooks.emit(domain=hook_domain, action=hook_action_name, phase=HookPhase.FAILED, context=hook_ctx)
+            self._hooks.failed(hook_domain, hook_action_name, hook_ctx)
             return {"success": False, "error": gate.reason, "gate": gate.__dict__}
         try:
             started = self._execution_engine.basic_flow(context)
@@ -90,12 +90,12 @@ class ExecutionLifecycleService:
                 status=started.get("status") or context.status,
                 metadata={"task_id": context.task_id, "suggestion_id": context.suggestion_id, "evolution_id": context.evolution_id, **dict(context.metadata)},
             )
-            self._hooks.emit(domain=hook_domain, action=hook_action_name, phase=HookPhase.AFTER, context=hook_ctx)
+            self._hooks.after(hook_domain, hook_action_name, hook_ctx)
             return {"success": True, "data": {"execution": started, "context": context.to_dict()}, "gate": gate.__dict__, "hook": [r.to_dict() for r in before_results]}
         except Exception as exc:
             logger.exception("failed_execution_start run_id={}", context.run_id)
-            emit_hook(self.hooks, domain=hook_domain, action=hook_action_name, phase=HookPhase.FAILED, context=hook_ctx)
-            emit_hook_event(self.hooks, "execution", "start", EXECUTION_START_FAILED_EVENT, {"context": context.to_dict(), "error": str(exc)})
+            self._hooks.failed(hook_domain, hook_action_name, hook_ctx)
+            self._hooks.event("execution", "start", EXECUTION_START_FAILED_EVENT, {"context": context.to_dict(), "error": str(exc)})
             return {"success": False, "error": str(exc), "hook": [r.to_dict() for r in before_results]}
 
     def execution_events(self, execution_id: str, *, limit: int = 200) -> Dict[str, Any]:

@@ -2,21 +2,6 @@
 
 The protocol standardizes before/after/failed hooks and domain events so the
 system can avoid ad-hoc hook-like calls scattered across services.
-
-Semantics
-- Who can hook: code registered in HookRegistry, typically internal services,
-  bootstrap/composition roots, or approved plugins.
-- Timing: before_* runs before the main action, after_* runs on success,
-  on_*_failed runs on failure, emit_domain_event publishes domain events.
-- Failure policy:
-  - fail_closed: block the main flow when a before hook fails or blocks.
-  - fail_open: log/observe and continue.
-  - compensate: use a follow-up action in the caller or subscriber.
-- Flow impact: only before hooks with fail_closed are allowed to stop the main
-  flow by default.
-- Return consumption: before hooks are consumed by the caller; after/failed
-  hooks are generally telemetry side effects; domain events are observed by
-  subscribers.
 """
 
 from __future__ import annotations
@@ -87,23 +72,6 @@ def hook_events(domain: str, action: str) -> tuple[str, ...]:
     return HOOK_EVENTS.get(f"{domain}.{action}", ())
 
 
-def emit_hook_registry(registry: HookRegistry | None, *, domain: str, action: str, phase: HookPhase, context: HookContext) -> list[HookResult]:
-    return emit_hook(registry, domain=domain, action=action, phase=phase, context=context)
-
-
-def emit_hook(registry: HookRegistry | None, *, domain: str, action: str, phase: HookPhase, context: HookContext) -> List[HookResult]:
-    if registry is None:
-        return []
-    return registry.emit(domain=domain, action=action, phase=phase, context=context)
-
-
-def emit_hook_event(registry: HookRegistry | None, domain: str, action: str, event_name: str, payload: Dict[str, Any]) -> None:
-    if registry is None:
-        return
-    if event_name in hook_events(domain, action):
-        registry.emit_domain_event(event_name, payload)
-
-
 class HookPhase(str, Enum):
     BEFORE = "before"
     AFTER = "after"
@@ -162,32 +130,6 @@ HookHandler = Callable[[HookContext], HookResult | Dict[str, Any] | None]
 EventHandler = Callable[[Dict[str, Any]], Any]
 
 
-class HookRouter:
-    def __init__(self, registry: HookRegistry | None) -> None:
-        self.registry = registry
-
-    def action(self, domain: str, action: str) -> tuple[str, str]:
-        return hook_action(domain, action)
-
-    def events(self, domain: str, action: str) -> tuple[str, ...]:
-        return hook_events(domain, action)
-
-    def before(self, domain: str, action: str, context: HookContext) -> list[HookResult]:
-        return emit_hook(self.registry, domain=domain, action=action, phase=HookPhase.BEFORE, context=context)
-
-    def after(self, domain: str, action: str, context: HookContext) -> list[HookResult]:
-        return emit_hook(self.registry, domain=domain, action=action, phase=HookPhase.AFTER, context=context)
-
-    def failed(self, domain: str, action: str, context: HookContext) -> list[HookResult]:
-        return emit_hook(self.registry, domain=domain, action=action, phase=HookPhase.FAILED, context=context)
-
-    def emit(self, *, domain: str, action: str, phase: HookPhase, context: HookContext) -> list[HookResult]:
-        return emit_hook(self.registry, domain=domain, action=action, phase=phase, context=context)
-
-    def event(self, domain: str, action: str, event_name: str, payload: Dict[str, Any]) -> None:
-        emit_hook_event(self.registry, domain, action, event_name, payload)
-
-
 @dataclass
 class HookDefinition:
     name: str
@@ -213,6 +155,24 @@ class HookRegistry:
     def matching(self, *, domain: str, action: str, phase: HookPhase) -> Iterable[HookDefinition]:
         return [h for h in self._hooks if h.domain == domain and h.action == action and h.phase == phase]
 
+    def emit_domain_event(self, event_name: str, payload: Dict[str, Any]) -> None:
+        for handler in self._event_handlers.get(event_name, []):
+            try:
+                handler(dict(payload))
+            except Exception:
+                continue
+
+
+class HookRunner:
+    def __init__(self, registry: HookRegistry | None) -> None:
+        self.registry = registry
+
+    def action(self, domain: str, action: str) -> tuple[str, str]:
+        return hook_action(domain, action)
+
+    def events(self, domain: str, action: str) -> tuple[str, ...]:
+        return hook_events(domain, action)
+
     def _coerce_result(self, raw: HookResult | Dict[str, Any] | None) -> HookResult:
         if isinstance(raw, HookResult):
             return raw
@@ -226,9 +186,19 @@ class HookRegistry:
             )
         return HookResult()
 
+    def _apply_mutation(self, context: HookContext, mutated: Dict[str, Any]) -> None:
+        payload = mutated.get("payload")
+        metadata = mutated.get("metadata")
+        if payload:
+            context.payload.update(dict(payload or {}))
+        if metadata:
+            context.metadata.update(dict(metadata or {}))
+
     def emit(self, *, domain: str, action: str, phase: HookPhase, context: HookContext) -> List[HookResult]:
+        if self.registry is None:
+            return []
         results: List[HookResult] = []
-        for hook in self.matching(domain=domain, action=action, phase=phase):
+        for hook in self.registry.matching(domain=domain, action=action, phase=phase):
             if hook.handler is None:
                 continue
             try:
@@ -238,33 +208,31 @@ class HookRegistry:
                 result = HookResult(ok=False, blocked=phase == HookPhase.BEFORE and hook.policy == HookPolicy.FAIL_CLOSED, message=str(exc))
             results.append(result)
             if result.mutated_context:
-                context.payload.update(dict(result.mutated_context.get("payload", {}) or {}))
-                context.metadata.update(dict(result.mutated_context.get("metadata", {}) or {}))
-                if "subject_id" in result.mutated_context:
-                    context.subject_id = str(result.mutated_context.get("subject_id") or context.subject_id)
-                if "execution_id" in result.mutated_context:
-                    context.execution_id = str(result.mutated_context.get("execution_id") or context.execution_id)
-                if "project_path" in result.mutated_context:
-                    context.project_path = str(result.mutated_context.get("project_path") or context.project_path)
-                if "trace_id" in result.mutated_context:
-                    context.trace_id = str(result.mutated_context.get("trace_id") or context.trace_id)
+                self._apply_mutation(context, dict(result.mutated_context))
             if phase == HookPhase.BEFORE and hook.policy == HookPolicy.FAIL_CLOSED and (not result.ok or result.blocked):
                 break
         return results
 
-    def emit_domain_event(self, event_name: str, payload: Dict[str, Any]) -> None:
-        for handler in self._event_handlers.get(event_name, []):
-            try:
-                handler(dict(payload))
-            except Exception:
-                continue
+    def before(self, domain: str, action: str, context: HookContext) -> List[HookResult]:
+        return self.emit(domain=domain, action=action, phase=HookPhase.BEFORE, context=context)
+
+    def after(self, domain: str, action: str, context: HookContext) -> List[HookResult]:
+        return self.emit(domain=domain, action=action, phase=HookPhase.AFTER, context=context)
+
+    def failed(self, domain: str, action: str, context: HookContext) -> List[HookResult]:
+        return self.emit(domain=domain, action=action, phase=HookPhase.FAILED, context=context)
+
+    def event(self, domain: str, action: str, event_name: str, payload: Dict[str, Any]) -> None:
+        if self.registry is None:
+            return
+        if event_name in hook_events(domain, action):
+            self.registry.emit_domain_event(event_name, payload)
 
 
 __all__ = [
     "EXECUTION_START",
     "EXECUTION_STARTED_EVENT",
     "EXECUTION_START_FAILED_EVENT",
-    "EVENT_HANDLERS",
     "HOOK_ACTIONS",
     "HOOK_EVENTS",
     "GOVERNANCE_CHECK",
@@ -277,7 +245,7 @@ __all__ = [
     "HookPolicy",
     "HookRegistry",
     "HookResult",
-    "HookRouter",
+    "HookRunner",
     "SUGGESTION_APPROVE_SUGGESTION",
     "SUGGESTION_APPROVAL_COMPLETED_EVENT",
     "SUGGESTION_APPROVED_EVENT",
@@ -294,9 +262,6 @@ __all__ = [
     "SUGGESTION_REVIEW",
     "SUGGESTION_REVIEWED_EVENT",
     "SUGGESTION_REVIEW_RECORD_EVENT",
-    "emit_hook",
-    "emit_hook_event",
-    "emit_hook_registry",
     "hook_action",
     "hook_events",
 ]
