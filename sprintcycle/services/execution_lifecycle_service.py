@@ -15,7 +15,7 @@ from ..deployment.runtime_registry import RuntimeRegistry
 from ..execution.state.state_store import get_state_store
 from ..execution_core import ExecutionContext, create_execution_engine
 from ..governance.policy.gates import GateResult, pre_run_gate
-from ..hooks import HookContext, HookPhase, HookRegistry
+from ..hooks import EXECUTION_STARTED_EVENT, EXECUTION_START_FAILED_EVENT, HookContext, HookPhase, HookRegistry, HookRouter
 from ..observability.facade import ObservabilityFacade
 
 
@@ -29,6 +29,7 @@ class ExecutionLifecycleService:
 
     def __post_init__(self) -> None:
         self._execution_engine = create_execution_engine()
+        self._hooks = HookRouter(self.hooks)
 
     def _gate_pre_run(self, context: ExecutionContext) -> GateResult:
         return pre_run_gate(
@@ -51,29 +52,29 @@ class ExecutionLifecycleService:
             step=str(kwargs.get("step") or ""),
             metadata=dict(metadata or kwargs.get("metadata") or {}),
         )
+        hook_domain, hook_action_name = self._hooks.action("execution", "start")
         hook_ctx = HookContext(
-            domain="execution",
-            action="start",
+            domain=hook_domain,
+            action=hook_action_name,
             subject_id=task_id,
             execution_id=context.run_id,
             project_path=self.project_path,
             payload=context.to_dict(),
             metadata=dict(context.metadata),
         )
-        if self.hooks is not None:
-            for result in self.hooks.emit(domain="execution", action="start", phase=HookPhase.BEFORE, context=hook_ctx):
-                if result.blocked or not result.ok:
-                    return {"success": False, "error": result.message or "blocked by before_execution_start", "hook": result.to_dict()}
+        before_results = self._hooks.emit(domain=hook_domain, action=hook_action_name, phase=HookPhase.BEFORE, context=hook_ctx)
+        if any(r.blocked or not r.ok for r in before_results):
+            result = next((r for r in before_results if r.blocked or not r.ok), None)
+            return {"success": False, "error": result.message if result and result.message else "blocked by before_execution_start", "hook": [r.to_dict() for r in before_results]}
         gate = self._gate_pre_run(context)
         if not gate.allowed:
+            self._hooks.emit(domain=hook_domain, action=hook_action_name, phase=HookPhase.FAILED, context=hook_ctx)
             return {"success": False, "error": gate.reason, "gate": gate.__dict__}
-        started = self._execution_engine.basic_flow(context)
-        event = {"kind": "execution.started", "run_id": context.run_id, "task_id": context.task_id, "data": started}
-        self.observability.record(event)
-        if self.hooks is not None:
-            self.hooks.emit_domain_event("execution.started", {"context": context.to_dict(), "execution": started})
-            self.hooks.emit(domain="execution", action="start", phase=HookPhase.AFTER, context=hook_ctx)
         try:
+            started = self._execution_engine.basic_flow(context)
+            event = {"kind": EXECUTION_STARTED_EVENT, "run_id": context.run_id, "task_id": context.task_id, "data": started}
+            self.observability.record(event)
+            self._hooks.event("execution", "start", EXECUTION_STARTED_EVENT, {"context": context.to_dict(), "execution": started})
             self.runtime_registry.register(
                 {
                     "runtime_id": context.run_id,
@@ -84,21 +85,18 @@ class ExecutionLifecycleService:
                     "metadata": {"task_id": context.task_id, "suggestion_id": context.suggestion_id, "evolution_id": context.evolution_id, **dict(context.metadata)},
                 }
             )
-        except Exception:
-            logger.exception("failed_to_register_runtime run_id={}", context.run_id)
-            if self.hooks is not None:
-                self.hooks.emit(domain="execution", action="start", phase=HookPhase.FAILED, context=hook_ctx)
-        try:
             self.runtime_registry.update(
                 context.run_id,
                 status=started.get("status") or context.status,
                 metadata={"task_id": context.task_id, "suggestion_id": context.suggestion_id, "evolution_id": context.evolution_id, **dict(context.metadata)},
             )
-        except Exception:
-            logger.exception("failed_to_update_runtime run_id={}", context.run_id)
-            if self.hooks is not None:
-                self.hooks.emit(domain="execution", action="start", phase=HookPhase.FAILED, context=hook_ctx)
-        return {"success": True, "data": {"execution": started, "context": context.to_dict()}, "gate": gate.__dict__}
+            self._hooks.emit(domain=hook_domain, action=hook_action_name, phase=HookPhase.AFTER, context=hook_ctx)
+            return {"success": True, "data": {"execution": started, "context": context.to_dict()}, "gate": gate.__dict__, "hook": [r.to_dict() for r in before_results]}
+        except Exception as exc:
+            logger.exception("failed_execution_start run_id={}", context.run_id)
+            emit_hook(self.hooks, domain=hook_domain, action=hook_action_name, phase=HookPhase.FAILED, context=hook_ctx)
+            emit_hook_event(self.hooks, "execution", "start", EXECUTION_START_FAILED_EVENT, {"context": context.to_dict(), "error": str(exc)})
+            return {"success": False, "error": str(exc), "hook": [r.to_dict() for r in before_results]}
 
     def execution_events(self, execution_id: str, *, limit: int = 200) -> Dict[str, Any]:
         eid = (execution_id or "").strip()

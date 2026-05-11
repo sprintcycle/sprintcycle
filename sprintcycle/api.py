@@ -52,6 +52,7 @@ from .results import (
     StatusResult,
     StopResult,
 )
+from .hooks import HookRegistry
 from .run_workspace import (
     apply_policy_to_tasks,
     attach_workspace_metadata,

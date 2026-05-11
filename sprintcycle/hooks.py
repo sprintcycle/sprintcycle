@@ -25,6 +25,84 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Dict, Iterable, List, Optional
 
+EXECUTION_START = ("execution", "start")
+EXECUTION_STARTED_EVENT = "execution.started"
+EXECUTION_START_FAILED_EVENT = "execution.start_failed"
+SUGGESTION_REVIEW = ("suggestion", "review")
+SUGGESTION_REVIEW_SUGGESTION = ("suggestion", "review_suggestion")
+SUGGESTION_APPROVE_SUGGESTION = ("suggestion", "approve_suggestion")
+SUGGESTION_REJECT_SUGGESTION = ("suggestion", "reject_suggestion")
+SUGGESTION_PROMOTE_TO_HITL = ("suggestion", "promote_to_hitl")
+SUGGESTION_ATTACH_REPLAY = ("suggestion", "attach_replay")
+SUGGESTION_ARCHIVE = ("suggestion", "archive")
+SUGGESTION_CAPTURE_EXECUTION_EVENT = ("suggestion", "capture_execution_event")
+SUGGESTION_REVIEWED_EVENT = "suggestion.reviewed"
+SUGGESTION_REVIEW_RECORD_EVENT = "suggestion.review_recorded"
+SUGGESTION_APPROVED_EVENT = "suggestion.approved"
+SUGGESTION_REJECTED_EVENT = "suggestion.rejected"
+SUGGESTION_PROMOTED_TO_HITL_EVENT = "suggestion.promoted_to_hitl"
+SUGGESTION_APPROVAL_COMPLETED_EVENT = "suggestion.approval_completed"
+SUGGESTION_REJECTION_COMPLETED_EVENT = "suggestion.rejection_completed"
+SUGGESTION_ARCHIVED_EVENT = "suggestion.archived"
+SUGGESTION_CAPTURED_FROM_EXECUTION_EVENT = "suggestion.captured_from_execution_event"
+GOVERNANCE_CHECK = ("governance", "check")
+GOVERNANCE_CHECKED_EVENT = "governance.checked"
+GOVERNANCE_CHECK_FAILED_EVENT = "governance.check_failed"
+
+HOOK_EVENTS = {
+    "execution.start": (EXECUTION_STARTED_EVENT, EXECUTION_START_FAILED_EVENT),
+    "suggestion.review": (SUGGESTION_REVIEWED_EVENT,),
+    "suggestion.review_suggestion": (SUGGESTION_REVIEW_RECORD_EVENT,),
+    "suggestion.approve_suggestion": (SUGGESTION_APPROVED_EVENT,),
+    "suggestion.reject_suggestion": (SUGGESTION_REJECTED_EVENT,),
+    "suggestion.promote_to_hitl": (SUGGESTION_PROMOTED_TO_HITL_EVENT,),
+    "suggestion.attach_replay": (),
+    "suggestion.archive": (SUGGESTION_ARCHIVED_EVENT,),
+    "suggestion.capture_execution_event": (SUGGESTION_CAPTURED_FROM_EXECUTION_EVENT,),
+    "governance.check": (GOVERNANCE_CHECKED_EVENT, GOVERNANCE_CHECK_FAILED_EVENT),
+}
+
+HOOK_ACTIONS = {
+    "execution.start": EXECUTION_START,
+    "suggestion.review": SUGGESTION_REVIEW,
+    "suggestion.review_suggestion": SUGGESTION_REVIEW_SUGGESTION,
+    "suggestion.approve_suggestion": SUGGESTION_APPROVE_SUGGESTION,
+    "suggestion.reject_suggestion": SUGGESTION_REJECT_SUGGESTION,
+    "suggestion.promote_to_hitl": SUGGESTION_PROMOTE_TO_HITL,
+    "suggestion.attach_replay": SUGGESTION_ATTACH_REPLAY,
+    "suggestion.archive": SUGGESTION_ARCHIVE,
+    "suggestion.capture_execution_event": SUGGESTION_CAPTURE_EXECUTION_EVENT,
+    "governance.check": GOVERNANCE_CHECK,
+}
+
+
+def hook_action(domain: str, action: str) -> tuple[str, str]:
+    key = f"{domain}.{action}"
+    if key not in HOOK_ACTIONS:
+        raise KeyError(f"unknown hook action: {key}")
+    return HOOK_ACTIONS[key]
+
+
+def hook_events(domain: str, action: str) -> tuple[str, ...]:
+    return HOOK_EVENTS.get(f"{domain}.{action}", ())
+
+
+def emit_hook_registry(registry: HookRegistry | None, *, domain: str, action: str, phase: HookPhase, context: HookContext) -> list[HookResult]:
+    return emit_hook(registry, domain=domain, action=action, phase=phase, context=context)
+
+
+def emit_hook(registry: HookRegistry | None, *, domain: str, action: str, phase: HookPhase, context: HookContext) -> List[HookResult]:
+    if registry is None:
+        return []
+    return registry.emit(domain=domain, action=action, phase=phase, context=context)
+
+
+def emit_hook_event(registry: HookRegistry | None, domain: str, action: str, event_name: str, payload: Dict[str, Any]) -> None:
+    if registry is None:
+        return
+    if event_name in hook_events(domain, action):
+        registry.emit_domain_event(event_name, payload)
+
 
 class HookPhase(str, Enum):
     BEFORE = "before"
@@ -84,6 +162,32 @@ HookHandler = Callable[[HookContext], HookResult | Dict[str, Any] | None]
 EventHandler = Callable[[Dict[str, Any]], Any]
 
 
+class HookRouter:
+    def __init__(self, registry: HookRegistry | None) -> None:
+        self.registry = registry
+
+    def action(self, domain: str, action: str) -> tuple[str, str]:
+        return hook_action(domain, action)
+
+    def events(self, domain: str, action: str) -> tuple[str, ...]:
+        return hook_events(domain, action)
+
+    def before(self, domain: str, action: str, context: HookContext) -> list[HookResult]:
+        return emit_hook(self.registry, domain=domain, action=action, phase=HookPhase.BEFORE, context=context)
+
+    def after(self, domain: str, action: str, context: HookContext) -> list[HookResult]:
+        return emit_hook(self.registry, domain=domain, action=action, phase=HookPhase.AFTER, context=context)
+
+    def failed(self, domain: str, action: str, context: HookContext) -> list[HookResult]:
+        return emit_hook(self.registry, domain=domain, action=action, phase=HookPhase.FAILED, context=context)
+
+    def emit(self, *, domain: str, action: str, phase: HookPhase, context: HookContext) -> list[HookResult]:
+        return emit_hook(self.registry, domain=domain, action=action, phase=phase, context=context)
+
+    def event(self, domain: str, action: str, event_name: str, payload: Dict[str, Any]) -> None:
+        emit_hook_event(self.registry, domain, action, event_name, payload)
+
+
 @dataclass
 class HookDefinition:
     name: str
@@ -109,25 +213,63 @@ class HookRegistry:
     def matching(self, *, domain: str, action: str, phase: HookPhase) -> Iterable[HookDefinition]:
         return [h for h in self._hooks if h.domain == domain and h.action == action and h.phase == phase]
 
+    def _coerce_result(self, raw: HookResult | Dict[str, Any] | None) -> HookResult:
+        if isinstance(raw, HookResult):
+            return raw
+        if isinstance(raw, dict):
+            return HookResult(
+                ok=bool(raw.get("ok", True)),
+                blocked=bool(raw.get("blocked", False)),
+                mutated_context=raw.get("mutated_context"),
+                message=str(raw.get("message") or ""),
+                data=raw.get("data"),
+            )
+        return HookResult()
+
     def emit(self, *, domain: str, action: str, phase: HookPhase, context: HookContext) -> List[HookResult]:
         results: List[HookResult] = []
         for hook in self.matching(domain=domain, action=action, phase=phase):
             if hook.handler is None:
                 continue
-            raw = hook.handler(context)
-            result = raw if isinstance(raw, HookResult) else HookResult(**raw) if isinstance(raw, dict) else HookResult()
+            try:
+                raw = hook.handler(context)
+                result = self._coerce_result(raw)
+            except Exception as exc:
+                result = HookResult(ok=False, blocked=phase == HookPhase.BEFORE and hook.policy == HookPolicy.FAIL_CLOSED, message=str(exc))
             results.append(result)
+            if result.mutated_context:
+                context.payload.update(dict(result.mutated_context.get("payload", {}) or {}))
+                context.metadata.update(dict(result.mutated_context.get("metadata", {}) or {}))
+                if "subject_id" in result.mutated_context:
+                    context.subject_id = str(result.mutated_context.get("subject_id") or context.subject_id)
+                if "execution_id" in result.mutated_context:
+                    context.execution_id = str(result.mutated_context.get("execution_id") or context.execution_id)
+                if "project_path" in result.mutated_context:
+                    context.project_path = str(result.mutated_context.get("project_path") or context.project_path)
+                if "trace_id" in result.mutated_context:
+                    context.trace_id = str(result.mutated_context.get("trace_id") or context.trace_id)
             if phase == HookPhase.BEFORE and hook.policy == HookPolicy.FAIL_CLOSED and (not result.ok or result.blocked):
                 break
         return results
 
     def emit_domain_event(self, event_name: str, payload: Dict[str, Any]) -> None:
         for handler in self._event_handlers.get(event_name, []):
-            handler(dict(payload))
+            try:
+                handler(dict(payload))
+            except Exception:
+                continue
 
 
 __all__ = [
-    "EventHandler",
+    "EXECUTION_START",
+    "EXECUTION_STARTED_EVENT",
+    "EXECUTION_START_FAILED_EVENT",
+    "EVENT_HANDLERS",
+    "HOOK_ACTIONS",
+    "HOOK_EVENTS",
+    "GOVERNANCE_CHECK",
+    "GOVERNANCE_CHECKED_EVENT",
+    "GOVERNANCE_CHECK_FAILED_EVENT",
     "HookContext",
     "HookDefinition",
     "HookHandler",
@@ -135,4 +277,26 @@ __all__ = [
     "HookPolicy",
     "HookRegistry",
     "HookResult",
+    "HookRouter",
+    "SUGGESTION_APPROVE_SUGGESTION",
+    "SUGGESTION_APPROVAL_COMPLETED_EVENT",
+    "SUGGESTION_APPROVED_EVENT",
+    "SUGGESTION_ARCHIVE",
+    "SUGGESTION_ARCHIVED_EVENT",
+    "SUGGESTION_ATTACH_REPLAY",
+    "SUGGESTION_CAPTURE_EXECUTION_EVENT",
+    "SUGGESTION_CAPTURED_FROM_EXECUTION_EVENT",
+    "SUGGESTION_PROMOTE_TO_HITL",
+    "SUGGESTION_PROMOTED_TO_HITL_EVENT",
+    "SUGGESTION_REJECT_SUGGESTION",
+    "SUGGESTION_REJECTION_COMPLETED_EVENT",
+    "SUGGESTION_REJECTED_EVENT",
+    "SUGGESTION_REVIEW",
+    "SUGGESTION_REVIEWED_EVENT",
+    "SUGGESTION_REVIEW_RECORD_EVENT",
+    "emit_hook",
+    "emit_hook_event",
+    "emit_hook_registry",
+    "hook_action",
+    "hook_events",
 ]

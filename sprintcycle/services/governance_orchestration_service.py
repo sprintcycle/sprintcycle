@@ -13,7 +13,7 @@ from typing import Any, Dict, Optional
 from loguru import logger
 
 from ..governance.facade import GovernanceFacade
-from ..hooks import HookContext, HookPhase, HookRegistry
+from ..hooks import GOVERNANCE_CHECK, GOVERNANCE_CHECKED_EVENT, GOVERNANCE_CHECK_FAILED_EVENT, emit_hook, emit_hook_event, hook_action, hook_events, HookContext, HookPhase, HookRegistry
 
 
 @dataclass
@@ -30,17 +30,17 @@ class GovernanceOrchestrationService:
 
         start = time.time()
         hook_ctx = HookContext(
-            domain="governance",
-            action="check",
+            domain=GOVERNANCE_CHECK[0],
+            action=GOVERNANCE_CHECK[1],
             subject_id=gate,
             project_path=self.project_path,
             payload=dict(kwargs),
             metadata=dict(kwargs.get("context") or {}),
         )
-        if self.hooks is not None:
-            for result in self.hooks.emit(domain="governance", action="check", phase=HookPhase.BEFORE, context=hook_ctx):
-                if result.blocked or not result.ok:
-                    return {"success": False, "error": result.message or "blocked by before_governance_check", "hook": result.to_dict()}
+        before = emit_hook(self.hooks, domain=GOVERNANCE_CHECK[0], action=GOVERNANCE_CHECK[1], phase=HookPhase.BEFORE, context=hook_ctx)
+        if any(r.blocked or not r.ok for r in before):
+            result = next((r for r in before if r.blocked or not r.ok), None)
+            return {"success": False, "error": result.message if result and result.message else "blocked by before_governance_check", "hook": [r.to_dict() for r in before]}
         try:
             cfg = ArchGuardConfig.from_runtime_config(self.config, self.project_path)
             engine = ArchGuardEngine(cfg)
@@ -54,15 +54,13 @@ class GovernanceOrchestrationService:
                 report = asyncio.run(engine.run_review_gate(self.project_path, context=context))
             gov = GovernanceReportAdapter.to_governance_report(report)
             payload = {"success": True, "gate": gate, "data": gov.to_dict(), "duration": time.time() - start}
-            if self.hooks is not None:
-                self.hooks.emit(domain="governance", action="check", phase=HookPhase.AFTER, context=hook_ctx)
-                self.hooks.emit_domain_event("governance.checked", {"gate": gate, "report": payload["data"], "project_path": self.project_path})
+            emit_hook(self.hooks, domain=GOVERNANCE_CHECK[0], action=GOVERNANCE_CHECK[1], phase=HookPhase.AFTER, context=hook_ctx)
+            emit_hook_event(self.hooks, "governance", "check", GOVERNANCE_CHECKED_EVENT, {"gate": gate, "report": payload["data"], "project_path": self.project_path})
             return payload
         except Exception as e:
             logger.exception("governance_check failed")
-            if self.hooks is not None:
-                self.hooks.emit(domain="governance", action="check", phase=HookPhase.FAILED, context=hook_ctx)
-                self.hooks.emit_domain_event("governance.check_failed", {"gate": gate, "project_path": self.project_path, "error": str(e)})
+            emit_hook(self.hooks, domain=GOVERNANCE_CHECK[0], action=GOVERNANCE_CHECK[1], phase=HookPhase.FAILED, context=hook_ctx)
+            emit_hook_event(self.hooks, "governance", "check", GOVERNANCE_CHECK_FAILED_EVENT, {"gate": gate, "project_path": self.project_path, "error": str(e)})
             return {"success": False, "error": str(e), "duration": time.time() - start}
 
     async def pending(self, execution_id: Optional[str] = None) -> Dict[str, Any]:
