@@ -22,6 +22,9 @@ class SuggestionFacade:
     async def capture_suggestion(self, suggestion: Suggestion) -> Suggestion:
         return await self._service.capture_suggestion(suggestion)
 
+    async def capture_from_execution_event(self, event: Any) -> dict[str, Any]:
+        return await self._service.capture_from_execution_event(event)
+
     async def list_suggestions(
         self,
         status: Optional[SuggestionStatus] = None,

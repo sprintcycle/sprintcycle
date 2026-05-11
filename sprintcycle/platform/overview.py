@@ -44,9 +44,10 @@ def build_platform_overview(project_name: str = "sprintcycle") -> PlatformOvervi
         "sprint_graph": sprint_graph,
         "langgraph": LangGraphRuntimeAdapter(spec=LangGraphRuntimeSpec(project_name=project_name)).build_graph(),
     }
+    trace_runtime = PhoenixTraceRuntime(PhoenixExporterSpec(project_name=project_name))
     trace = {
-        "phoenix": PhoenixTraceRuntime(PhoenixExporterSpec(project_name=project_name)).build(),
-        "phoenix_events": PhoenixTraceRuntime(PhoenixExporterSpec(project_name=project_name)).emit_trace([]),
+        "phoenix": trace_runtime.build(),
+        "phoenix_events": trace_runtime.emit_trace([]),
     }
     summary = {
         "project_name": project_name,
@@ -64,4 +65,10 @@ def build_platform_overview(project_name: str = "sprintcycle") -> PlatformOvervi
     return PlatformOverview(platform=platform, compose=compose, runtime=runtime, trace=trace, summary=summary)
 
 
-__all__ = ["PlatformOverview", "build_platform_overview"]
+def build_platform_overview_view(project_name: str = "sprintcycle") -> Dict[str, Any]:
+    overview = build_platform_overview(project_name).to_dict()
+    overview["project_path"] = project_name
+    return {"success": True, "data": overview}
+
+
+__all__ = ["PlatformOverview", "build_platform_overview", "build_platform_overview_view"]

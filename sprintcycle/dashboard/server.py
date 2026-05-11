@@ -311,11 +311,11 @@ def create_app(project_path: str = ".") -> FastAPI:
 
     @app.get("/api/dashboard/suggestions")
     async def api_dashboard_suggestions(execution_id: Optional[str] = None, limit: int = 20) -> Dict[str, Any]:
-        return dashboard_views.suggestion_board(sc, execution_id=execution_id, limit=limit)
+        return dashboard_workbench.suggestion_board(sc, execution_id=execution_id, limit=limit)
 
     @app.get("/api/dashboard/board")
     async def api_dashboard_board(execution_id: Optional[str] = None, limit: int = 20) -> Dict[str, Any]:
-        return await dashboard_views.suggestion_and_hitl_panel(sc, execution_id=execution_id, limit=limit)
+        return await dashboard_workbench.suggestion_and_hitl_panel(sc, execution_id=execution_id, limit=limit)
 
     @app.get("/api/dashboard/workspace/{execution_id}")
     async def api_dashboard_workspace(execution_id: str, limit: int = 200) -> Dict[str, Any]:

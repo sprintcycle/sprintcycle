@@ -48,6 +48,27 @@ class SuggestionBoardViewModel:
     rejected_count: int = 0
     suggestions: List[SuggestionCardViewModel] = field(default_factory=list)
 
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any], *, execution_id: str = "", limit: int = 20) -> "SuggestionBoardViewModel":
+        items = [SuggestionCardViewModel.from_dict(item) for item in list(data.get("suggestions", []) or [])]
+        if execution_id:
+            items = [item for item in items if str(item.execution_id) == str(execution_id)]
+        total = len(items)
+        counts = {"open": 0, "approved": 0, "rejected": 0}
+        for item in items:
+            if item.status in counts:
+                counts[item.status] += 1
+        if limit >= 0:
+            items = items[:limit]
+        return cls(
+            execution_id=execution_id or str(data.get("execution_id", "")),
+            total=total,
+            open_count=counts["open"],
+            approved_count=counts["approved"],
+            rejected_count=counts["rejected"],
+            suggestions=items,
+        )
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "execution_id": self.execution_id,
@@ -91,6 +112,38 @@ class HitlRequestViewModel:
 
 
 @dataclass
+class DashboardPanelViewModel:
+    execution_id: str
+    suggestions: SuggestionBoardViewModel
+    hitl: List[HitlRequestViewModel] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(
+        cls,
+        suggestions_payload: Dict[str, Any],
+        hitl_payload: List[Dict[str, Any]] | Dict[str, Any],
+        *,
+        execution_id: str = "",
+        limit: int = 20,
+    ) -> "DashboardPanelViewModel":
+        suggestion_board = SuggestionBoardViewModel.from_dict(suggestions_payload, execution_id=execution_id, limit=limit)
+        raw_hitl = hitl_payload.get("requests", []) if isinstance(hitl_payload, dict) else list(hitl_payload or [])
+        hitl_items = [HitlRequestViewModel.from_dict(item) for item in raw_hitl]
+        if execution_id:
+            hitl_items = [item for item in hitl_items if str(item.execution_id) == str(execution_id)]
+        if limit >= 0:
+            hitl_items = hitl_items[:limit]
+        return cls(execution_id=execution_id or suggestion_board.execution_id, suggestions=suggestion_board, hitl=hitl_items)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "execution_id": self.execution_id,
+            "suggestions": self.suggestions.to_dict(),
+            "hitl": [item.__dict__ for item in self.hitl],
+        }
+
+
+@dataclass
 class DashboardProjectionBundle:
     execution_id: str
     trace: Dict[str, Any] = field(default_factory=dict)
@@ -112,7 +165,39 @@ class DashboardProjectionBundle:
         }
 
 
+@dataclass
+class DashboardPanelViewModel:
+    execution_id: str
+    suggestions: SuggestionBoardViewModel
+    hitl: List[HitlRequestViewModel] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(
+        cls,
+        suggestions_payload: Dict[str, Any],
+        hitl_payload: Any,
+        *,
+        execution_id: str = "",
+        limit: int = 20,
+    ) -> "DashboardPanelViewModel":
+        suggestions = SuggestionBoardViewModel.from_dict(suggestions_payload, execution_id=execution_id, limit=limit)
+        hitl_items = [HitlRequestViewModel.from_dict(item) for item in list(hitl_payload or [])]
+        if execution_id:
+            hitl_items = [item for item in hitl_items if str(item.execution_id) == str(execution_id)]
+        if limit >= 0:
+            hitl_items = hitl_items[:limit]
+        return cls(execution_id=execution_id or suggestions.execution_id, suggestions=suggestions, hitl=hitl_items)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "execution_id": self.execution_id,
+            "suggestions": self.suggestions.to_dict(),
+            "hitl": [item.__dict__ for item in self.hitl],
+        }
+
+
 __all__ = [
+    "DashboardPanelViewModel",
     "DashboardProjectionBundle",
     "HitlRequestViewModel",
     "SuggestionBoardViewModel",

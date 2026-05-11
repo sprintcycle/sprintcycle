@@ -64,7 +64,7 @@ from .evolution import MemoryStore, UserIntentEvolutionLoop
 from .fitness import FitnessEvaluator
 from .governance.facade import GovernanceFacade, create_governance_facade
 from .governance.policy.gates import GateResult, pre_run_gate
-from .governance.suggestion import SuggestionBridge, SuggestionFacade, create_suggestion_facade
+from .governance.suggestion import SuggestionFacade, create_suggestion_facade
 from .persistence.knowledge_repository import KnowledgeCardRepository
 from .versioning.interface import get_version_manifest_summary
 from .versioning.sqlite_registry import SQLiteVersionRegistry
@@ -522,8 +522,7 @@ class SprintCycle:
 
     async def create_suggestion_from_execution_event(self, event: Dict[str, Any]) -> Dict[str, Any]:
         """把执行侧异常/关键事件转成 suggestion 输入并写入建议池。"""
-        bridge = SuggestionBridge(self._suggestion._service)
-        return await bridge.capture_from_execution_event(event)
+        return await self._suggestion.capture_from_execution_event(event)
 
     def register_runtime(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         return self._runtime_registry.register(payload)
