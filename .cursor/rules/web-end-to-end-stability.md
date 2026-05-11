@@ -18,6 +18,14 @@
 - Do not remove or bypass any stage that is needed to keep the chain continuous.
 - If a feature improves only one stage, ensure upstream and downstream handoffs still work.
 - If a stage already exists in service or facade form, extend it rather than adding a parallel flow.
+- Keep the lifecycle end-to-end complete: changes must preserve the chain from request entry through execution, repair, delivery, deployment/runtime, suggestion handling, and self-evolution.
+
+### 补充稳定性规则
+- 禁止平行流程：不要创建竞争性的工作流，也不要绕过既有生命周期路径。
+- 扩展优先、替换禁止：如果已有阶段或能力存在，应优先扩展它，而不是另起一套流程。
+- 状态只允许通过正式通道变更：影响执行、建议、治理或自进化状态的改动必须走正式 service / facade / hook 流程。
+- 端到端闭环优先：如果改动只优化局部，必须确认上下游仍然可以稳定衔接。
+- 图编排与领域逻辑分离：编排图只负责流程推进，不承载领域判断与状态污染。
 
 ## 中文
 

@@ -19,6 +19,14 @@
 - Keep graph transitions explicit and minimal.
 - If a node needs business behavior, move that behavior into the owning service/facade/hook and let the graph call it.
 - Avoid hardcoding workflow policy inside graph construction when the policy already exists in the domain layer.
+- Keep graph-based changes aligned with the end-to-end lifecycle and the current execution backbone.
+
+### 补充稳定性规则
+- 禁止平行流程：不要用 graph 构造一条绕开主编排层的并行执行链。
+- 扩展优先、替换禁止：优先在现有 graph 节点、边、hook、service 上扩展能力，不要重建整套编排。
+- 状态只允许通过正式通道变更：graph 中的状态推进必须依赖既有服务和正式状态通道，不得直接污染领域状态。
+- 端到端闭环优先：graph 改动必须保证 Web 任务仍可完整穿过请求、执行、修复、交付和后续治理链路。
+- 图编排与领域逻辑分离：graph 只负责流程与状态迁移，业务规则仍归属 service / facade / hook / orchestrator。
 
 ## 中文
 

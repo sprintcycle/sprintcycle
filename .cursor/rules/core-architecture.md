@@ -64,6 +64,20 @@ You are working on SprintCycle, a layered orchestration system with a stable cor
 - Avoid speculative abstractions and avoid duplicating logic across layers.
 - If behavior belongs to a hook, facade, service, registry, or orchestration stage, implement it there rather than inline.
 
+### Additional stability rules / 补充稳定性规则
+- No parallel workflows: do not create competing pipelines or bypass the established orchestration path.
+- Extension first, replacement last: prefer extending existing services, facades, hooks, registries, and adapters over replacing core flows.
+- State changes must go through official channels: execution, governance, suggestion, and evolution state must be mutated only through their designated services or facades.
+- End-to-end closure first: every change must preserve the web-triggered lifecycle from start to finish and keep downstream handoffs intact.
+- Separate graph orchestration from domain logic: LangGraph or other orchestration graphs must remain flow coordination layers, not domain rule containers.
+
+### 补充稳定性规则
+- 禁止平行流程：不要创建竞争性的工作流，也不要绕过既定编排路径。
+- 扩展优先、替换最后：优先扩展现有的 service、facade、hook、registry 和 adapter，而不是替换核心流程。
+- 状态只允许通过正式通道变更：execution、governance、suggestion、evolution 的状态只能通过各自指定的 service 或 facade 变更。
+- 端到端闭环优先：任何改动都必须保持 Web 触发后的生命周期从开始到结束完整可达，并保持下游交接连续。
+- 图编排与领域逻辑分离：LangGraph 或其他编排图只能作为流程协调层，不能承载领域规则容器。
+
 ## 中文
 
 你正在 SprintCycle 中工作。SprintCycle 是一个分层的编排系统，必须保持稳定的核心架构。
