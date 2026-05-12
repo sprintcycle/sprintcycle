@@ -76,7 +76,7 @@ except ImportError:
     HTTP_AVAILABLE = False
 
 from sprintcycle.api import SprintCycle
-from sprintcycle.config.runtime_config import DashboardPortDefaults
+from sprintcycle.infrastructure.config.runtime_config import DashboardPortDefaults
 
 
 def _text_response(text: str) -> List[Any]:

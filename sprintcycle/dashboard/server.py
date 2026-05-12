@@ -29,7 +29,7 @@ from loguru import logger
 from pydantic import BaseModel
 
 from sprintcycle.api import SprintCycle
-from sprintcycle.config.runtime_config import DashboardPortDefaults
+from sprintcycle.infrastructure.config.runtime_config import DashboardPortDefaults
 from sprintcycle.execution.events import Event, EventType, get_execution_event_backend
 
 from . import config_center
@@ -81,7 +81,7 @@ async def _build_platform_summary(sc: SprintCycle, client_manager: SSEClientMana
 
 
 async def _read_governance_reports(sc: SprintCycle) -> Dict[str, Any]:
-    from sprintcycle.config.runtime_config import RuntimeConfig
+    from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
 
     cfg = RuntimeConfig.from_project(sc.project_path)
     root = Path(sc.project_path).expanduser().resolve()
@@ -251,7 +251,7 @@ def create_app(project_path: str = ".") -> FastAPI:
 
     @app.post("/api/governance/check")
     async def api_governance_check(body: GovernanceCheckBody) -> Dict[str, Any]:
-        from sprintcycle.config.runtime_config import RuntimeConfig
+        from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
         from sprintcycle.governance.runner import run_governance_check_and_persist
 
         cfg = RuntimeConfig.from_project(sc.project_path)

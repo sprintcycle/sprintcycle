@@ -14,7 +14,7 @@ from .null_backend import NullCacheBackend
 from .redis_backend import RedisCacheBackend
 
 if TYPE_CHECKING:
-    from sprintcycle.config.runtime_config import RuntimeConfig
+    from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
 
 
 def resolve_cache_dir_for_project(runtime: "RuntimeConfig", project_path: str) -> Path:

@@ -339,7 +339,7 @@ def register(cli: click.Group) -> None:
     @click.pass_context
     def import_state(ctx: click.Context, json_dir: Path, sqlite_db: Path) -> None:
         """将 JSON 执行状态导入 SQLite（与 storage.backend=sqlite 共用库）"""
-        from sprintcycle.persistence.import_json_state import import_json_executions_to_sqlite
+        from sprintcycle.infrastructure.persistence.import_json_state import import_json_executions_to_sqlite
 
         n = import_json_executions_to_sqlite(json_dir, sqlite_db)
         console.print(

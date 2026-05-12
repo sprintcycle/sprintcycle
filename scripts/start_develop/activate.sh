@@ -2,7 +2,7 @@
 # SprintCycle 开发环境激活脚本
 # 使用方法: source activate.sh
 
-# 获取项目根目录（脚本在 tools/start_develop/ 下）
+# 获取项目根目录（脚本在 scripts/start_develop/ 下）
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 cd "${PROJECT_ROOT}"

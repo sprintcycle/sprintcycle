@@ -1,3 +1,10 @@
+# 部署检查清单
+
+- 确认 `.env` 已准备好
+- 确认 Docker 可用
+- 使用 `scripts/deploy.sh local doctor` 或 `scripts/deploy.sh prod doctor` 做前置检查
+- 根据环境选择 `docker-compose.local.yml` 或 `docker-compose.prod.yml`
+- 如需前端反向代理，参考 `deploy/README.md` 和 `docs/PRODUCTION_NGINX_TLS.md`
 # SprintCycle 部署检查清单
 
 > 📋 确保 SprintCycle 开发环境部署的每一步都正确完成。

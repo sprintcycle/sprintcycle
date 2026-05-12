@@ -7,8 +7,8 @@ from typing import Any, Dict, Optional, cast
 
 from loguru import logger
 
-from sprintcycle.prompt_sources import format_coder_generation_prompt
-from sprintcycle.run_workspace import build_workspace_prompt_section
+from sprintcycle.support.prompt_sources import format_coder_generation_prompt
+from sprintcycle.execution.run_workspace import build_workspace_prompt_section
 
 from ..project_write import ProjectWritePlan
 from .base import AgentContext, AgentExecutor, AgentResult, AgentType

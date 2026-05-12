@@ -14,10 +14,10 @@ git clone https://github.com/sprintcycle/sprintcycle.git
 cd sprintcycle
 
 # 运行部署脚本
-./tools/start_develop/dev-setup.sh
+./scripts/start_develop/dev-setup.sh
 
 # 激活开发环境
-source tools/start_develop/activate.sh
+source scripts/start_develop/activate.sh
 ```
 
 ### 安装开发依赖
@@ -59,7 +59,7 @@ mypy sprintcycle/ --ignore-missing-imports
 lint-imports
 
 # 完整检查
-./tools/start_develop/run-lint.sh
+./scripts/start_develop/run-lint.sh
 ```
 
 ### Dashboard 前端开发
@@ -204,7 +204,7 @@ REDIS_URL=redis://localhost:6379/0
 
 ## 便捷脚本
 
-所有脚本位于 `tools/start_develop/` 目录：
+所有脚本位于 `scripts/start_develop/` 目录：
 
 | 脚本 | 功能 |
 |------|------|
@@ -218,7 +218,7 @@ REDIS_URL=redis://localhost:6379/0
 使用前需先激活环境：
 
 ```bash
-source tools/start_develop/activate.sh
+source scripts/start_develop/activate.sh
 ```
 
 ---

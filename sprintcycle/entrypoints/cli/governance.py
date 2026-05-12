@@ -16,7 +16,7 @@ from sprintcycle.entrypoints.cli._common import console, err_console
 
 def _governance_check_run_and_print(ctx: click.Context, gate: str) -> None:
     """执行门禁、落盘、打印；失败时 ``sys.exit(1)``。"""
-    from sprintcycle.config.runtime_config import RuntimeConfig
+    from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
     from sprintcycle.governance.runner import run_governance_check_and_persist
 
     sc: SprintCycle = ctx.obj["sc"]
@@ -121,7 +121,7 @@ def register(cli: click.Group) -> None:
         用于切换 ``LLM_MODEL`` 等环境后的回归基线对比。未传 pytest 参数时默认 ``tests/ -q --tb=no``；
         使用 ``--quick`` 时默认追加 ``-m golden``（见 ``docs/GOVERNANCE_GOLDEN.md``）。
         """
-        from sprintcycle.config.runtime_config import RuntimeConfig
+        from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
         from sprintcycle.governance.model_compare import run_model_compare
 
         sc: SprintCycle = ctx.obj["sc"]

@@ -9,7 +9,7 @@ from typing import Any, Dict, List
 
 from loguru import logger
 
-from sprintcycle.prompt_sources import REGRESSION_REPORT_HEADER
+from sprintcycle.support.prompt_sources import REGRESSION_REPORT_HEADER
 
 from .base import AgentContext, AgentExecutor, AgentResult, AgentType
 

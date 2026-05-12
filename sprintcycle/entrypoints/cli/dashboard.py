@@ -13,7 +13,7 @@ import click
 from rich.markup import escape
 
 from sprintcycle.entrypoints.cli._common import console, err_console
-from sprintcycle.config.runtime_config import DashboardPortDefaults
+from sprintcycle.infrastructure.config.runtime_config import DashboardPortDefaults
 
 
 def _dashboard_frontend_dir() -> Path:
@@ -47,7 +47,7 @@ def register(cli: click.Group) -> None:
             - POST /messages/ → 发送客户端消息
         """
         try:
-            from sprintcycle.mcp.server import HTTP_AVAILABLE, MCP_AVAILABLE, SSE_AVAILABLE, SprintCycleMCPServer
+            from sprintcycle.entrypoints.mcp.server import HTTP_AVAILABLE, MCP_AVAILABLE, SSE_AVAILABLE, SprintCycleMCPServer
 
             if not MCP_AVAILABLE:
                 err_console.print("[red]MCP SDK 未安装，请执行:[/red] pip install mcp")

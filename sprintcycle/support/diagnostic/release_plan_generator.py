@@ -21,14 +21,14 @@ class LLMReleasePlanGenerator:
     """调用 LLM 生成复杂场景下的 ``ReleasePlan`` 草案。"""
 
     def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None, api_base: Optional[str] = None, provider: Optional[str] = None):
-        from sprintcycle.llm_provider import resolve_provider
+        from sprintcycle.infrastructure.llm_provider import resolve_provider
         cfg = resolve_provider(provider=provider, api_key=api_key, api_base=api_base, model=model)
         self._api_key = cfg.api_key
         self._model = cfg.model
         self._api_base = cfg.api_base
 
     def generate(self, report: ProjectHealthReport, project_path: str) -> List[ReleasePlan]:
-        from sprintcycle.llm_provider import call_llm
+        from sprintcycle.infrastructure.llm_provider import call_llm
         if not self._api_key:
             logger.warning("LLM_API_KEY未设置，跳过LLM生成")
             return []

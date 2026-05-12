@@ -17,11 +17,11 @@ from typing import TYPE_CHECKING, Any, Dict, Optional, TypeVar
 
 from loguru import logger
 
-from sprintcycle.cache.base import CacheBackend
-from sprintcycle.cache.disk import DiskCacheBackend
+from sprintcycle.infrastructure.cache.base import CacheBackend
+from sprintcycle.infrastructure.cache.disk import DiskCacheBackend
 
 if TYPE_CHECKING:
-    from sprintcycle.config.runtime_config import RuntimeConfig
+    from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
 
 T = TypeVar('T')
 
@@ -344,7 +344,7 @@ def configure_execution_cache_from_runtime(runtime: "RuntimeConfig", project_pat
 
     在 ``SprintCycle`` 初始化时调用；多项目同进程时以后实例为准。
     """
-    from sprintcycle.cache.factory import build_cache_backend, resolve_cache_dir_for_project
+    from sprintcycle.infrastructure.cache.factory import build_cache_backend, resolve_cache_dir_for_project
 
     backend = build_cache_backend(runtime, project_path)
     cache_dir = str(resolve_cache_dir_for_project(runtime, project_path))

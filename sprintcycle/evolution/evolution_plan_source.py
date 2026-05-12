@@ -90,12 +90,12 @@ class DiagnosticReleasePlanSource(EvolutionPlanSource):
 
     def generate(self, project_path: str) -> List[ReleasePlan]:
         if self._diagnostic is None:
-            from sprintcycle.diagnostic import ProjectDiagnostic
+            from sprintcycle.support.diagnostic import ProjectDiagnostic
 
             self._diagnostic = ProjectDiagnostic()
 
         if self._generator is None:
-            from sprintcycle.diagnostic import DiagnosticReleasePlanGenerator
+            from sprintcycle.support.diagnostic import DiagnosticReleasePlanGenerator
 
             self._generator = DiagnosticReleasePlanGenerator()
 

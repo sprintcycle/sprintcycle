@@ -17,8 +17,8 @@ from fastapi import HTTPException
 from loguru import logger
 from pydantic import BaseModel, ValidationError
 
-from sprintcycle.config.dynaconf_app import RUNTIME_YAML_NAME
-from sprintcycle.config.runtime_config import RuntimeConfig
+from sprintcycle.infrastructure.config.dynaconf_app import RUNTIME_YAML_NAME
+from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
 from sprintcycle.execution.events import Event, EventType
 
 
