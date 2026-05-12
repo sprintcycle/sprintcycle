@@ -56,21 +56,35 @@ doctor() {
     echo "OK: Docker daemon reachable"
   else
     echo "ERROR: Docker daemon not reachable." >&2
+    current_context="$(docker context show 2>/dev/null || true)"
+    if [[ -n "$current_context" ]]; then
+      echo "Current docker context: $current_context" >&2
+      echo "Available docker contexts:" >&2
+      docker context ls >&2 || true
+    fi
+    echo "" >&2
     if [[ "$OSTYPE" == darwin* ]]; then
-      echo "Hint (macOS): open Docker Desktop and wait until it reports 'Docker is running'." >&2
-      echo "Hint (macOS): if it is already running, try restarting Docker Desktop or your terminal." >&2
-      echo "Hint (macOS): if you're using Colima or Rancher Desktop, make sure the current Docker context is correct." >&2
+      echo "macOS checks:" >&2
+      echo "  1. Open Docker Desktop" >&2
+      echo "  2. Wait until it says Docker is running" >&2
+      echo "  3. Retry: docker info" >&2
+      echo "  4. If using Colima/Rancher Desktop, run: docker context ls" >&2
+      echo "  5. Switch to the correct context, then retry" >&2
     elif [[ "$OSTYPE" == linux* ]]; then
-      echo "Hint (Linux): ensure the docker service is running and your user is in the docker group." >&2
-      echo "  sudo systemctl start docker" >&2
-      echo "  sudo usermod -aG docker \$USER" >&2
-      echo "  newgrp docker" >&2
+      echo "Linux checks:" >&2
+      echo "  1. sudo systemctl start docker" >&2
+      echo "  2. sudo usermod -aG docker \$USER" >&2
+      echo "  3. Log out and back in, or run: newgrp docker" >&2
+      echo "  4. Retry: docker info" >&2
     fi
     if [[ -S /var/run/docker.sock ]]; then
       echo "docker.sock exists at /var/run/docker.sock" >&2
+      ls -l /var/run/docker.sock >&2 || true
     else
       echo "docker.sock not found at /var/run/docker.sock" >&2
     fi
+    echo "" >&2
+    echo "If Docker Desktop is running but inaccessible, try restarting Docker Desktop and this terminal." >&2
     exit 1
   fi
   echo

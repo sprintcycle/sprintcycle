@@ -9,6 +9,7 @@ You are working on SprintCycle, a layered orchestration system with a stable cor
 - Keep the public API thin: it may normalize, route, delegate, and aggregate, but it must not own workflow logic.
 - Keep execution, governance, observability, suggestion handling, deployment/runtime, and evolution strictly separated.
 - Prefer existing services, facades, hooks, registries, adapters, and event backends over introducing parallel paths.
+- During refactoring, file path adjustments, or folder structure adjustments, treat code preservation as a hard requirement: do not lose existing code, do not accidentally remove necessary call chains or dependencies, and do not break any logic that should continue to exist after the move or cleanup.
 - Any new feature must land in the correct layer and use the smallest possible change.
 
 ### 2. Non-negotiable boundaries
@@ -89,6 +90,7 @@ You are working on SprintCycle, a layered orchestration system with a stable cor
 - 公共 API 必须保持“薄”：只负责归一化、路由、委派和结果汇总，不得承载工作流业务逻辑。
 - 执行、治理、可观测性、建议处理、部署/运行时、自进化等职责必须严格分离。
 - 优先复用现有的 service、facade、hook、registry、adapter 和 event backend，不要引入平行路径。
+- 在重构、文件路径调整或文件夹结构调整过程中，代码保留必须作为硬性要求：不要丢失现有代码，不要误删必要的调用链或依赖关系，也不要破坏本来应该继续存在的逻辑。
 - 任何新功能都必须落到正确的层，并采用最小改动原则。
 
 ### 2. 不可破坏的边界

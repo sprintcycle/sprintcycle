@@ -71,18 +71,31 @@ class IntentGraphRuntime:
 
     def plan_generated(self, state: Dict[str, Any]) -> Dict[str, Any]:
         intent_context = state.get("intent_context", {})
-        release_plan = state.get("context", {}).get("release_plan")
-        if hasattr(release_plan, "to_dict"):
-            plan_data = release_plan.to_dict()
-        elif isinstance(release_plan, dict):
-            plan_data = dict(release_plan)
+        raw_release_plan = state.get("context", {}).get("release_plan")
+        if hasattr(raw_release_plan, "to_dict"):
+            plan_obj = raw_release_plan
+            plan_source = "provided_object"
+            plan_data = raw_release_plan.to_dict()
+        elif isinstance(raw_release_plan, dict):
+            plan_obj = raw_release_plan
+            plan_source = "provided_dict"
+            plan_data = dict(raw_release_plan)
         else:
-            plan_data = self.plan_runtime.build_release_plan_from_intent(
+            plan_obj = self.plan_runtime.build_release_plan_from_intent(
                 intent=str(intent_context.get("intent", "")),
                 context={**state.get("context", {}), **intent_context},
-            ).to_dict()
+            )
+            plan_source = "generated"
+            plan_data = plan_obj.to_dict()
         state["release_plan"] = plan_data
-        state.setdefault("timeline", []).append({"node": "plan_generated", "status": "ok", "attempt": state.get("attempt", 1)})
+        state["release_plan_source"] = plan_source
+        state["release_plan_meta"] = {
+            "source": plan_source,
+            "attempt": state.get("attempt", 1),
+            "project_name": self.project_name,
+            "intent": str(intent_context.get("intent", "")),
+        }
+        state.setdefault("timeline", []).append({"node": "plan_generated", "status": "ok", "attempt": state.get("attempt", 1), "release_plan_source": plan_source})
         return state
 
     def sprint_split(self, state: Dict[str, Any]) -> Dict[str, Any]:
@@ -101,7 +114,12 @@ class IntentGraphRuntime:
                 }
             ]
         state["sprints"] = sprints
-        state.setdefault("timeline", []).append({"node": "sprint_split", "status": "ok", "sprint_count": len(sprints), "attempt": state.get("attempt", 1)})
+        state["sprint_split_meta"] = {
+            "sprint_count": len(sprints),
+            "source": state.get("release_plan_source", "generated"),
+            "attempt": state.get("attempt", 1),
+        }
+        state.setdefault("timeline", []).append({"node": "sprint_split", "status": "ok", "sprint_count": len(sprints), "attempt": state.get("attempt", 1), "release_plan_source": state.get("release_plan_source", "generated")})
         return state
 
     async def sprint_dispatch(self, state: Dict[str, Any]) -> Dict[str, Any]:
@@ -164,11 +182,35 @@ class IntentGraphRuntime:
         return state
 
     def finalize(self, state: Dict[str, Any]) -> Dict[str, Any]:
+        release_plan = state.get("release_plan", {}) if isinstance(state.get("release_plan", {}), dict) else {}
+        sprints = list(state.get("sprints", []) or [])
+        sprint_results = list(state.get("sprint_results", []) or [])
+        evaluation = dict(state.get("evaluation", {}) or {})
+        timeline = list(state.get("timeline", []) or [])
+        dashboard_summary = {
+            "project_name": self.project_name,
+            "intent": state.get("intent", ""),
+            "status": evaluation.get("action", "finalize"),
+            "release_plan_source": state.get("release_plan_source", "generated"),
+            "sprint_count": len(sprints),
+            "result_count": len(sprint_results),
+            "failed_sprint_count": int(evaluation.get("failed_sprint_count", 0) or 0),
+            "retryable_failure_count": int(evaluation.get("retryable_failure_count", 0) or 0),
+            "has_release_plan": bool(release_plan),
+            "has_sprint_results": bool(sprint_results),
+        }
         state["final_result"] = {
             "project_name": self.project_name,
             "intent": state.get("intent", ""),
-            "sprint_results": state.get("sprint_results", []),
-            "evaluation": state.get("evaluation", {}),
+            "dashboard_summary": dashboard_summary,
+            "release_plan": release_plan,
+            "release_plan_source": state.get("release_plan_source", "generated"),
+            "release_plan_meta": state.get("release_plan_meta", {}),
+            "sprints": sprints,
+            "sprint_split_meta": state.get("sprint_split_meta", {}),
+            "sprint_results": sprint_results,
+            "evaluation": evaluation,
+            "timeline": timeline,
             "status": "done",
         }
         state.setdefault("timeline", []).append({"node": "finalize", "status": "ok"})
