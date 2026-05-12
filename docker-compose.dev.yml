@@ -5,35 +5,28 @@ services:
     build:
       context: .
       dockerfile: backend.Dockerfile
-    image: sprintcycle-backend:latest
+    image: sprintcycle-backend:dev
     environment:
-      SPRINTCYCLE_ENV: production
+      SPRINTCYCLE_ENV: development
       SPRINTCYCLE_SERVICE: dashboard
       PROJECT_PATH: /workspace
       PYTHONUNBUFFERED: "1"
     volumes:
       - ./:/workspace
       - sprintcycle-data:/workspace/.sprintcycle
-    expose:
-      - "8000"
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    image: sprintcycle-frontend:latest
+    image: sprintcycle-frontend:dev
     depends_on:
-      backend:
-        condition: service_healthy
+      - backend
     ports:
-      - "3000:80"
+      - "${FRONTEND_PORT:-3000}:80"
     restart: unless-stopped
 
 volumes:

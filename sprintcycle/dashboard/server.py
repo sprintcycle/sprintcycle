@@ -191,6 +191,15 @@ def create_app(project_path: str = ".") -> FastAPI:
             allow_headers=["*"],
         )
 
+    @app.get("/health")
+    async def health() -> Dict[str, Any]:
+        return {
+            "success": True,
+            "service": "sprintcycle-dashboard",
+            "status": "ok",
+            "version": "0.9.2",
+        }
+
     @app.middleware("http")
     async def _platform_http_metrics(request: Request, call_next: Callable[[Request], Awaitable[Any]]) -> Any:
         path = request.url.path

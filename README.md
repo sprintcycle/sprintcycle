@@ -151,6 +151,151 @@ sprintcycle dashboard
 sprintcycle dashboard --dev
 ```
 
+### 本地 Docker 部署
+
+如果你希望直接把 SprintCycle 部署到本地机器上的 Docker 中，推荐使用仓库内置的本地编排：
+
+```bash
+cp .env.example .env
+scripts/deploy.sh local up
+```
+
+启动后访问：
+
+```text
+http://localhost:3000
+```
+
+常用本地命令：
+
+```bash
+scripts/check.sh local
+scripts/deploy.sh local logs
+scripts/deploy.sh local restart
+scripts/deploy.sh local down
+```
+
+---
+
+## 生产部署
+
+### 推荐部署拓扑
+
+- `frontend`：Vue Dashboard + Nginx 静态站点，负责 `/` 和 `/api` 统一入口
+- `backend`：FastAPI + SprintCycle 核心服务，负责业务编排、SSE、治理、执行与观测
+- `edge proxy`（可选）：外层 Nginx / Traefik，负责 TLS、域名、限流与统一 HTTPS 出口
+
+### 正式启动命令
+
+生产环境推荐：
+
+```bash
+cp .env.example .env
+# 根据实际域名和路径调整 .env
+
+docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+```
+
+本地开发环境：
+
+```bash
+docker compose -f docker-compose.local.yml --env-file .env up --build
+```
+
+### 健康检查说明
+
+- 后端健康检查：`http://backend:8000/health`
+- 前端健康检查：`http://localhost:3000/health`
+- 对外访问入口：`http://localhost:3000`
+
+建议在外层编排或监控系统里同时检查：
+- `backend` 容器是否健康
+- `frontend` 容器是否健康
+- `/api` 是否可用
+- SSE 连接是否可持续
+
+### 升级 / 回滚说明
+
+#### 升级
+
+1. 更新代码或镜像标签
+2. 重新构建镜像
+3. 滚动重启：
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+```
+
+#### 回滚
+
+1. 切回上一版镜像 tag
+2. 保持 `sprintcycle-data` 卷不变
+3. 重新启动编排：
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env up -d
+```
+
+4. 如果需要快速回退到旧镜像，直接把 `.env` 里的镜像标签改回旧版本
+
+### 环境变量分层
+
+建议分三层管理：
+
+- **基础层**：`.env.example`，记录默认值和变量说明
+- **开发层**：`.env`，本地和联调使用
+- **生产层**：部署平台环境变量或密钥系统，不直接提交到仓库
+
+推荐优先级：
+
+1. 平台注入的环境变量
+2. `.env`
+3. Compose 默认值
+
+### 镜像缓存策略
+
+- 前端：优先缓存 `package-lock.json`，再安装依赖，再复制源码
+- 后端：优先缓存 `pyproject.toml`，再安装 Python 依赖，再复制业务代码
+- 生产构建尽量使用固定版本依赖，减少“今天能装、明天失效”的风险
+- 如果 CI 支持，建议启用 BuildKit cache
+
+### 端口统一规范
+
+建议统一成：
+
+- `3000`：对外 HTTP 入口，前端容器暴露
+- `8000`：后端服务内部端口，仅容器网络内访问
+- `443`：外层 HTTPS 入口，由 Nginx / Traefik / LB 承载
+- `80`：仅用于跳转到 HTTPS
+
+### 外层反向代理与 HTTPS
+
+如果要正式上线，推荐在前面再加一层 edge proxy：
+
+- `/` → `frontend:80`
+- `/api/` → `backend:8000`
+- TLS 终止在 edge proxy
+- HSTS、HTTP/2、证书自动续期都由 edge proxy 负责
+
+这样浏览器只面对一个统一站点地址，例如：
+
+```text
+https://sprintcycle.example.com
+```
+
+### Nginx / TLS / 统一入口
+
+推荐外层 Nginx 配置思路：
+
+- `location /` 代理到前端静态站点
+- `location /api/` 代理到后端 API
+- `location /health` 可代理到前端健康页或后端健康页
+- `listen 443 ssl http2`
+- 配置证书文件与自动续期
+- 启用安全头：`Strict-Transport-Security`、`X-Frame-Options`、`X-Content-Type-Options`
+
+如果你要把外层 Nginx 也放进仓库，我可以继续补一个 `deploy/nginx/` 目录和对应的 TLS 模板。
+
 ---
 
 ## 命令速查
@@ -209,6 +354,47 @@ sprintcycle dashboard --dev
 ## Python API
 
 Python API 与 CLI 共享同一个 `SprintCycle` 入口，`plan`、`run`、`diagnose`、`status`、`rollback`、`stop` 等能力语义一致，方便在脚本、服务和自动化流水线中调用。
+
+---
+
+## 生产部署
+
+如果你要把 SprintCycle 作为长期稳定服务部署，推荐使用前后端分离 + 外层反向代理的方式：
+
+- 前端独立容器：Vue Dashboard + Nginx
+- 后端独立容器：FastAPI + SprintCycle 编排与 API
+- 外层代理：统一域名、TLS、`/` 和 `/api` 入口
+- 持久化卷：保存 `.sprintcycle`、治理产物、执行记录
+
+### 快速启动
+
+```bash
+cp .env.example .env
+docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+```
+
+### 健康检查
+
+- 后端：`curl http://127.0.0.1:8000/health`
+- 前端：`curl http://127.0.0.1:3000/health`
+- 页面：`http://localhost:3000`
+
+### 升级
+
+```bash
+cd /opt/sprintcycle
+git pull
+docker compose -f docker-compose.prod.yml --env-file .env build
+docker compose -f docker-compose.prod.yml --env-file .env up -d
+```
+
+### 回滚
+
+- 回退到上一个稳定镜像标签
+- 保留 `.sprintcycle` 卷数据
+- 重启 `docker compose -f docker-compose.prod.yml --env-file .env up -d`
+
+更多细节见 `docs/PRODUCTION_DEPLOYMENT_GUIDE.md` 与 `docs/PRODUCTION_NGINX_TLS.md`。
 
 ```python
 from sprintcycle import SprintCycle

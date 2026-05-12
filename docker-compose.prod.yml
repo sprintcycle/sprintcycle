@@ -5,15 +5,14 @@ services:
     build:
       context: .
       dockerfile: backend.Dockerfile
-    image: sprintcycle-backend:latest
+    image: ${BACKEND_IMAGE:-sprintcycle-backend:latest}
     environment:
-      SPRINTCYCLE_ENV: production
+      SPRINTCYCLE_ENV: ${SPRINTCYCLE_ENV:-production}
       SPRINTCYCLE_SERVICE: dashboard
-      PROJECT_PATH: /workspace
+      PROJECT_PATH: ${PROJECT_PATH:-/workspace}
       PYTHONUNBUFFERED: "1"
     volumes:
-      - ./:/workspace
-      - sprintcycle-data:/workspace/.sprintcycle
+      - sprintcycle-data:${PROJECT_PATH:-/workspace}/.sprintcycle
     expose:
       - "8000"
     restart: unless-stopped
@@ -28,12 +27,12 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    image: sprintcycle-frontend:latest
+    image: ${FRONTEND_IMAGE:-sprintcycle-frontend:latest}
     depends_on:
       backend:
         condition: service_healthy
     ports:
-      - "3000:80"
+      - "${FRONTEND_PORT:-3000}:80"
     restart: unless-stopped
 
 volumes:

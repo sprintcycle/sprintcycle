@@ -1,10 +1,3 @@
-FROM node:20-slim AS frontend-builder
-WORKDIR /app/frontend
-COPY frontend/package*.json ./
-RUN npm install
-COPY frontend/ ./
-RUN npm run build
-
 FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -16,14 +9,17 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml README.md ./
 COPY sprintcycle ./sprintcycle
-COPY --from=frontend-builder /app/sprintcycle/dashboard/static ./sprintcycle/dashboard/static
 
 RUN pip install --upgrade pip && pip install -e ".[full]"
 
 EXPOSE 8000
+STOPSIGNAL SIGTERM
 
-CMD ["python", "-m", "uvicorn", "sprintcycle.dashboard.server:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000"]
+HEALTHCHECK --interval=15s --timeout=5s --retries=5 --start-period=20s CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"
+
+CMD ["python", "-m", "uvicorn", "sprintcycle.dashboard.server:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
