@@ -23,7 +23,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Web Dashboard 与远程观测（与技术选型表一致）
+# Web Dashboard 与远程观测（生产部署 / 本地 Docker 默认只需要这一组）
 dashboard = [
     "fastapi>=0.100.0",
     "uvicorn[standard]>=0.23.0",
@@ -31,17 +31,11 @@ dashboard = [
     "watchdog>=4.0.0",
     "PyYAML>=6.0",
 ]
-# V2 平台栈：部署 + 执行 + 观测 + UI 一次性安装
+# 平台增强栈：仅在需要 LangGraph 集成时安装
 v2 = [
-    "fastapi>=0.100.0",
-    "uvicorn[standard]>=0.23.0",
-    "httpx>=0.25.0",
-    "watchdog>=4.0.0",
-    "PyYAML>=6.0",
     "langgraph>=0.2.0",
-    "arize-phoenix>=4.0.0",
 ]
-# 完整栈：保留旧命名兼容，指向 V2 平台栈
+# 完整栈：保留旧命名兼容，等价于 dashboard + v2 + Phoenix 观测
 full = [
     "fastapi>=0.100.0",
     "uvicorn[standard]>=0.23.0",

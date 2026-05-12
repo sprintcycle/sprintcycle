@@ -70,6 +70,21 @@ export async function apiPlatformSummary() {
   return data
 }
 
+export async function apiDashboardFitness() {
+  const { data } = await api.get<Record<string, unknown>>('/dashboard/fitness')
+  return data
+}
+
+export async function apiDashboardGovernance() {
+  const { data } = await api.get<Record<string, unknown>>('/dashboard/governance')
+  return data
+}
+
+export async function apiDashboardDeploy() {
+  const { data } = await api.get<Record<string, unknown>>('/dashboard/deploy')
+  return data
+}
+
 export async function apiConsoleOverview(limit = 20) {
   const { data } = await api.get<Record<string, unknown>>('/console/overview', {
     params: { limit },

@@ -9,7 +9,7 @@ ACTION="${2:-up}"
 usage() {
   cat <<'EOF'
 Usage:
-  scripts/deploy.sh <local|prod> [up|down|restart|build|logs|status]
+  scripts/deploy.sh <local|prod> [up|down|restart|build|logs|status|doctor]
 
 Environment variables:
   ENV_FILE   Path to env file (default: ./ .env)
@@ -29,11 +29,40 @@ compose_file() {
   esac
 }
 
-compose_cmd() {
+compose() {
   local file
   file="$(compose_file)"
   [[ -n "$file" ]] || { usage; exit 1; }
-  printf '%s\n' docker compose -f "$file" --env-file "$ENV_FILE"
+  docker compose -f "$file" --env-file "$ENV_FILE"
+}
+
+doctor() {
+  echo "== Docker =="
+  docker --version || true
+  docker compose version || true
+  echo
+
+  echo "== Env file =="
+  if [[ -f "$ENV_FILE" ]]; then
+    echo "OK: $ENV_FILE exists"
+  else
+    echo "Missing env file: $ENV_FILE" >&2
+    exit 1
+  fi
+  echo
+
+  echo "== Permissions =="
+  if docker info >/dev/null 2>&1; then
+    echo "OK: Docker daemon reachable"
+  else
+    echo "ERROR: Docker daemon not reachable. Start Docker Desktop or fix /var/run/docker.sock permissions." >&2
+    exit 1
+  fi
+  echo
+
+  echo "== Compose file =="
+  compose config >/dev/null
+  echo "OK: compose config validated"
 }
 
 main() {
@@ -42,32 +71,27 @@ main() {
 
   require_docker
 
-  if [[ ! -f "$ENV_FILE" ]]; then
-    echo "Missing env file: $ENV_FILE" >&2
-    exit 1
-  fi
-
-  # shellcheck disable=SC2207
-  local cmd=( $(compose_cmd) )
-
   case "$ACTION" in
+    doctor)
+      doctor
+      ;;
     up)
-      "${cmd[@]}" up -d --build
+      compose up -d --build
       ;;
     down)
-      "${cmd[@]}" down
+      compose down
       ;;
     restart)
-      "${cmd[@]}" restart
+      compose restart
       ;;
     build)
-      "${cmd[@]}" build
+      compose build
       ;;
     logs)
-      "${cmd[@]}" logs -f
+      compose logs -f
       ;;
     status)
-      "${cmd[@]}" ps
+      compose ps
       ;;
     *)
       usage

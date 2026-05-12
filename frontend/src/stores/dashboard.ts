@@ -10,12 +10,11 @@ import {
   apiDashboardReplay,
   apiDashboardTrace,
   apiDiagnose,
-  apiExecutionReplay,
-  apiExecutionTrace,
   apiHitlHistory,
   apiHitlPending,
   apiHitlSubmit,
   apiPlan,
+  apiPlatformSummary,
   apiRollback,
   apiRun,
   apiStatus,
@@ -81,7 +80,6 @@ export const useDashboardStore = defineStore('dashboard', () => {
   const selectedTraceNode = ref<Record<string, unknown> | null>(null)
   const selectedFixSuggestion = ref<Record<string, unknown> | null>(null)
   const selectedLinkedRunId = ref<string>('')
-  const selectedLinkedSuggestionId = ref<string>('')
 
   const EVENT_META: Record<string, { icon: string; label: string }> = {
     execution_start: { icon: '🚀', label: 'EXEC START' },

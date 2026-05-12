@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY pyproject.toml README.md ./
 COPY sprintcycle ./sprintcycle
 
-RUN pip install --upgrade pip && pip install -e ".[full]"
+RUN pip install --upgrade pip setuptools wheel && pip install -e ".[dashboard]"
 
 EXPOSE 8000
 STOPSIGNAL SIGTERM

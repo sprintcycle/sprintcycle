@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   backend:
     build:
@@ -11,6 +9,7 @@ services:
       SPRINTCYCLE_SERVICE: dashboard
       PROJECT_PATH: /workspace
       PYTHONUNBUFFERED: "1"
+      SPRINTCYCLE_SKIP_PHOENIX: "1"
     volumes:
       - ./:/workspace
       - sprintcycle-data:/workspace/.sprintcycle
