@@ -9,7 +9,7 @@ You are working on SprintCycle, a layered orchestration system with a stable cor
 - Keep the public API thin: it may normalize, route, delegate, and aggregate, but it must not own workflow logic.
 - Keep execution, governance, observability, suggestion handling, deployment/runtime, and evolution strictly separated.
 - Prefer existing services, facades, hooks, registries, adapters, and event backends over introducing parallel paths.
-- During refactoring, file path adjustments, or folder structure adjustments, treat code preservation as a hard requirement: do not lose existing code, do not accidentally remove necessary call chains or dependencies, and do not break any logic that should continue to exist after the move or cleanup.
+- During refactoring, file path adjustments, or folder structure adjustments, treat code preservation as a hard requirement: do not lose existing code, do not accidentally remove necessary call chains or dependencies, do not break any logic that should continue to exist after the move or cleanup, and make sure all references are handled correctly.
 - Any new feature must land in the correct layer and use the smallest possible change.
 
 ### 2. Non-negotiable boundaries
@@ -42,6 +42,17 @@ You are working on SprintCycle, a layered orchestration system with a stable cor
 - LangGraph currently serves as the orchestration skeleton for `plan / run / observe / repair`.
 - Suggestions, governance, observability, and evolution are coordinated capabilities around the execution backbone and must be integrated through existing services, facades, hooks, registries, and orchestrators.
 - Any implementation change must preserve the continuity of this chain and must not weaken the ability to progress stably from one stage to the next.
+
+### 4.1 Console Web boundary rule
+- The Console Web is the human-machine entry, contract visualization surface, and operation panel.
+- The backend is the contract-driven closed-loop orchestration system.
+- The Console Web may create, submit, display, inspect, and operate on a lifecycle contract, but it must not become the orchestrator itself.
+- The Console Web must not own stage transitions, recovery branching, governance decisions, promotion decisions, or version evolution logic.
+- The Console Web must not duplicate runtime, suggestion, governance, promotion, or repair workflows that already belong to the backend contract flow.
+- The Console Web should stay thin and stateless with respect to orchestration, and should only translate user intent into contract operations.
+- All stable lifecycle completion guarantees must be implemented by the backend contract, stage machine, services, facades, hooks, registries, and orchestrators.
+- If the Console Web needs additional capability, prefer adding contract fields, backend lifecycle states, or operation APIs rather than embedding business logic in the UI layer.
+- Any change that affects recovery, promotion, execution, or evolution must keep the Console Web as an entry and control surface only, not as the source of orchestration truth.
 
 ### 5. LangGraph orchestration rule
 - LangGraph is the core orchestration skeleton for planning and sprint-level scheduling.
@@ -90,7 +101,7 @@ You are working on SprintCycle, a layered orchestration system with a stable cor
 - 公共 API 必须保持“薄”：只负责归一化、路由、委派和结果汇总，不得承载工作流业务逻辑。
 - 执行、治理、可观测性、建议处理、部署/运行时、自进化等职责必须严格分离。
 - 优先复用现有的 service、facade、hook、registry、adapter 和 event backend，不要引入平行路径。
-- 在重构、文件路径调整或文件夹结构调整过程中，代码保留必须作为硬性要求：不要丢失现有代码，不要误删必要的调用链或依赖关系，也不要破坏本来应该继续存在的逻辑。
+- 在重构、文件路径调整或文件夹结构调整过程中，代码保留必须作为硬性要求：不要丢失现有代码，不要误删必要的调用链或依赖关系，也不要破坏本来应该继续存在的逻辑，并且要处理好所有引用问题。
 - 任何新功能都必须落到正确的层，并采用最小改动原则。
 
 ### 2. 不可破坏的边界
@@ -123,6 +134,17 @@ You are working on SprintCycle, a layered orchestration system with a stable cor
 - 当前 LangGraph 以 `plan / run / observe / repair` 为主要编排骨架，负责计划、执行、观测和修复的流程组织，不替代领域服务、治理流程或自进化逻辑。
 - 建议、治理、可观测性和自进化是围绕执行主干协同工作的系统能力，应通过现有 service、facade、hook、registry 和 orchestrator 接入，不得破坏主干架构。
 - 任何实现修改都必须保持这条闭环的连贯性，不能削弱 Web 发起任务后的稳定推进能力，也不能绕过现有服务层、门面层、hook 或编排层。
+
+### 4.1 控制台 Web 边界规则
+- 控制台 Web 是人机入口、contract 可视化层和操作面板。
+- 后端是 contract 驱动的闭环编排系统。
+- 控制台 Web 可以创建、提交、展示、查看和操作 lifecycle contract，但不能演化成编排器本身。
+- 控制台 Web 不能拥有阶段流转、恢复分支、治理决策、promotion 决策或版本演化逻辑。
+- 控制台 Web 不能复制已属于后端 contract 流程的 runtime、suggestion、governance、promotion 或 repair 工作流。
+- 控制台 Web 应保持薄且尽量无状态，只负责把用户意图翻译成 contract 操作。
+- 所有稳定完成生命周期的能力都必须由后端 contract、阶段机、service、facade、hook、registry 和 orchestrator 实现。
+- 如果控制台 Web 需要新增能力，应优先增加 contract 字段、后端生命周期状态或操作 API，而不是把业务逻辑塞进 UI 层。
+- 任何影响恢复、promotion、执行或演化的变更，都必须保持控制台 Web 只作为入口和控制面，而不是编排事实来源。
 
 ### 5. LangGraph 编排规则
 - LangGraph 是规划与 Sprint 级调度的核心编排骨架。

@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="${ENV_FILE:-$ROOT/.env}"
+EXPECTED_DOCKER_CONTEXT="${DOCKER_CONTEXT:-${EXPECTED_DOCKER_CONTEXT:-desktop-linux}}"
 MODE="${1:-}"
 ACTION="${2:-up}"
 
@@ -36,6 +37,15 @@ compose_cmd() {
   docker compose -f "$file" --env-file "$ENV_FILE" "$@"
 }
 
+check_context() {
+  local current_context
+  current_context="$(docker context show 2>/dev/null || true)"
+  if [[ -n "$EXPECTED_DOCKER_CONTEXT" && -n "$current_context" && "$current_context" != "$EXPECTED_DOCKER_CONTEXT" ]]; then
+    echo "WARN: expected docker context '$EXPECTED_DOCKER_CONTEXT' but current context is '$current_context'" >&2
+    echo "Hint: docker context use $EXPECTED_DOCKER_CONTEXT" >&2
+  fi
+}
+
 doctor() {
   echo "== Docker =="
   docker --version || true
@@ -59,9 +69,10 @@ doctor() {
     current_context="$(docker context show 2>/dev/null || true)"
     if [[ -n "$current_context" ]]; then
       echo "Current docker context: $current_context" >&2
-      echo "Available docker contexts:" >&2
-      docker context ls >&2 || true
     fi
+    echo "Expected docker context: $EXPECTED_DOCKER_CONTEXT" >&2
+    echo "Available docker contexts:" >&2
+    docker context ls >&2 || true
     echo "" >&2
     if [[ "$OSTYPE" == darwin* ]]; then
       echo "macOS checks:" >&2
@@ -87,6 +98,10 @@ doctor() {
     echo "If Docker Desktop is running but inaccessible, try restarting Docker Desktop and this terminal." >&2
     exit 1
   fi
+
+  if [[ "$current_context" != "$EXPECTED_DOCKER_CONTEXT" ]]; then
+    echo "NOTE: current context '$current_context' does not match expected '$EXPECTED_DOCKER_CONTEXT'." >&2
+  fi
   echo
 
   echo "== Compose file =="
@@ -111,13 +126,14 @@ main() {
   [[ "$MODE" == "local" || "$MODE" == "prod" ]] || { usage; exit 1; }
 
   require_docker
+  check_context
 
   case "$ACTION" in
     doctor)
       doctor
       ;;
     up)
-      compose_cmd up -d --build
+      compose_cmd up -d
       ;;
     down)
       compose_cmd down
@@ -126,7 +142,7 @@ main() {
       compose_cmd restart
       ;;
     build)
-      compose_cmd build
+      compose_cmd build --pull
       ;;
     logs)
       compose_cmd logs -f
