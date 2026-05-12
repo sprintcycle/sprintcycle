@@ -36,6 +36,17 @@ LIFECYCLE_STAGES: tuple[str, ...] = (
 
 RECOVERY_STAGES: tuple[str, ...] = ("repairing", "verifying")
 FAILURE_STAGES: tuple[str, ...] = ("failed", "aborted", "cancelled")
+RECOVERY_TARGETS: Dict[str, str] = {
+    "executing": "repairing",
+    "observing": "repairing",
+    "diagnosed": "repairing",
+    "repairing": "verifying",
+    "verifying": "observing",
+    "delivering": "repairing",
+    "runtime_linked": "repairing",
+    "governing": "repairing",
+    "promotion_ready": "repairing",
+}
 
 TERMINAL_STAGES: tuple[str, ...] = ("promoted", "failed", "aborted", "cancelled")
 
@@ -58,6 +69,18 @@ STAGE_TRANSITIONS: Dict[str, tuple[str, ...]] = {
     "failed": ("repairing", "cancelled"),
     "aborted": (),
     "cancelled": (),
+}
+REPAIR_ROUTE_BY_STAGE: Dict[str, str] = {
+    "executing": "repairing",
+    "observing": "repairing",
+    "diagnosed": "repairing",
+    "repairing": "verifying",
+    "verifying": "observing",
+    "delivering": "repairing",
+    "runtime_linked": "repairing",
+    "governing": "repairing",
+    "promotion_ready": "repairing",
+    "failed": "repairing",
 }
 
 CORRELATION_KEY_FIELDS: tuple[str, ...] = ("request_id", "execution_id", "task_id", "suggestion_id", "runtime_id", "version_id")
@@ -146,13 +169,17 @@ class LifecycleStateMachine:
         contract["status"] = status or contract.get("status") or "pending"
         contract["stage_history"] = history
         contract["stage_index"] = self.stage_index(target)
-        contract["is_terminal"] = self.is_terminal(target) or str(contract.get("status") or "").lower() in {"success", "failed", "cancelled"}
+        contract["is_terminal"] = self.is_terminal(target) or str(contract.get("status") or "").lower() in {"success", "failed", "cancelled", "promoted"}
         contract.setdefault("metadata", {})
         if metadata:
             contract["metadata"].update(metadata)
         contract["transition_reason"] = reason
         contract["updated_at"] = now
         return contract
+
+    def failure_to_recovery_target(self, stage: object) -> str:
+        normalized = self.normalize_stage(stage)
+        return REPAIR_ROUTE_BY_STAGE.get(normalized, "repairing")
 
     def ensure_correlation(self, payload: Dict[str, Any]) -> CorrelationContext:
         payload = dict(payload or {})

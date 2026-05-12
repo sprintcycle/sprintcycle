@@ -2,7 +2,7 @@
 
 [中文](README.md)
 
-**SprintCycle** is a web / CLI / MCP / SDK orchestration framework: describe intent in natural language, generate an executable Release Plan, and drive planning, execution, observation, repair, delivery, runtime linkage, governance, and self-evolution through a unified lifecycle contract.
+**SprintCycle** is a contract-driven lifecycle orchestration platform for Web / CLI / MCP / SDK. A natural-language intent enters through a unified entrypoint, gets normalized, planned, prepared, decomposed, executed, observed, diagnosed, repaired, delivered, linked to runtime, reviewed by governance, and finally promoted into versioned evolution through a structured lifecycle contract.
 
 Current Version: **0.9.2** (matches `sprintcycle.__version__`)
 
@@ -10,60 +10,74 @@ Current Version: **0.9.2** (matches `sprintcycle.__version__`)
 
 ## Core Positioning
 
-SprintCycle is not just a task runner. It is an end-to-end lifecycle orchestration platform that covers the following closed loop:
+SprintCycle is not a single-purpose task runner. It is an end-to-end **contract-driven lifecycle platform** that keeps one authoritative lifecycle contract across the entire flow and uses a unified state machine, recovery path, promotion gate, and version registry to make Web-initiated work stable and auditable.
 
-1. Intent intake and normalization
-2. Plan generation and validation
-3. Task decomposition and execution preparation
-4. Sprint execution and event recording
-5. Observation, diagnosis, and repair loop
-6. Delivery and runtime linkage
-7. Governance review and suggestion handling
-8. Version promotion and self-evolution
+### End-to-end lifecycle
 
-The current implementation centers on the `SprintCycle` unified entrypoint. Under the hood, workflow services, domain facades, runtime registries, observability, the skills subsystem, and evolution services collaborate to complete the lifecycle.
+```text
+Web Request → Normalize → Plan → Prepare → Decompose → Execute → Observe → Diagnose → Repair → Deliver → Link Runtime → Govern Suggestions → Promote Versioned Evolution
+```
+
+### Key platform principles
+
+- **Unified entrypoint**: Web / CLI / MCP / SDK all enter through the same `SprintCycle` API
+- **Unified contract**: `LifecycleContract` is the single source of truth for lifecycle facts
+- **Unified state machine**: `LifecycleStateMachine` defines canonical lifecycle stages and transitions
+- **Unified recovery**: any failed stage can route into `repair → verify → observe`
+- **Unified final snapshot**: `final_snapshot` captures the complete, promotable end state of an iteration
+- **Unified promotion gate**: promotion only accepts evidence-complete contracts with a valid final snapshot
+- **Unified versioning**: promoted iterations are stored in the version registry as `versioned evolution`
 
 ---
 
 ## Key Capabilities
 
-### Intent-Driven Delivery Loop
+### 1. Intent-driven delivery loop
 - Describe goals in natural language
 - Generate Release Plans (YAML / structured plans)
 - Support sprint orchestration, checkpoint resume, and recovery
 - Support normalized lifecycle stage transitions
 
-### Unified Lifecycle Contract
-- `LifecycleStateMachine` owns canonical stage transition rules
+### 2. Standard lifecycle contract
+- `LifecycleStateMachine` owns the canonical stage transition rules
 - `LifecycleContract` carries cross-service state facts
 - A unified correlation model links `execution_id`, `task_id`, `suggestion_id`, `runtime_id`, `version_id`, and `trace_id`
+- `final_snapshot` aggregates execution, observation, governance, repair, delivery, runtime, and promotion evidence
 
-### Repair and Delivery Loop
+### 3. Repair and delivery loop
 - Explicitly supports `diagnosed → repairing → verifying → observing`
 - Explicitly supports `delivering → runtime_linked → governing → promotion_ready → promoted`
-- Provides structured artifacts for repair, verification, runtime handoff, and suggestion promotion
+- `RepairOrchestrationService` provides a unified recovery route
+- `PromotionPolicy` acts as a promotion gate and blocks incomplete contracts
 
-### Governance and Suggestion Handling
+### 4. Governance and suggestion handling
 - Multi-source validation plugin system powered by pluggy
 - Architecture contract checks, static analysis, YAML validation, ADR checks, mutation testing, and dependency security scanning
 - Suggestion review, approval, rejection, archival, and HITL promotion
+- suggestion / governance / promotion all operate on the same contract
 
-### Observability and Runtime
+### 5. Observability, audit, and runtime
 - Execution events, trace, replay, summary, and health read models
+- Observability traces write audit payloads into the lifecycle contract
 - Runtime registry and deployment linkage
-- Observation views for Dashboard and API consumers
+- `lifecycle_contract(...)` and `evolution_overview(...)` can query final snapshots, active versions, and promotion guards directly
 
-### Dashboard and Integrations
+### 6. Versioned evolution
+- Successful promotion writes to the SQLite version registry
+- Active version pointers are linked to final snapshots
+- `EvolutionOverviewResult` shows recent versions, active versions, and final snapshot versions together
+- Version artifacts keep a final-snapshot contract reference for auditability and rollback
+
+### 7. Dashboard and integrations
 - Vue 3 + Element Plus web dashboard
 - FastAPI backend
 - MCP Server over stdio or SSE
 - Python API and CLI share the same core entrypoint
 
-### Configuration and Extensibility
-- `dynaconf` + `pydantic` configuration stack
-- Local cache and Redis backend abstraction
-- Reserved extension point for message queues
-- Pluggable governance, suggestion, and observability facades
+### 8. Skills subsystem
+- Scene recognition, skill matching, skill injection, review checklist enrichment, and retro cleanup
+- Hooked into the main flow through `SprintOrchestrator`
+- Skill artifacts and execution traces are persistable and auditable
 
 ---
 
@@ -232,7 +246,7 @@ sprintcycle/
 ├── cache/                    # Cache abstraction layer
 ├── mq/                       # Message queue abstraction layer
 ├── validation/               # Multi-source validation plugin system
-└── services/                 # Lifecycle, governance, observability, suggestion, delivery, and evolution services
+└── services/                 # Lifecycle, governance, observability, suggestion, repair, delivery, evolution services
 ```
 
 ---
@@ -247,7 +261,8 @@ sprintcycle/
 
 - `sprintcycle/services/lifecycle_contracts.py`
   - Defines `LifecycleContract`
-  - Carries execution, task, project, trace, diagnostics, runtime, suggestion, governance, and evolution fields
+  - Carries execution, task, project, trace, diagnostics, runtime, suggestion, governance, evolution, recovery, validation_refs, and final snapshot evidence
+  - Provides evidence validation and final snapshot construction helpers
 
 - `sprintcycle/services/phase_workflow.py`
   - Provides structured artifacts for plan / prepare / decompose / observe / diagnose / repair / deliver phases
@@ -259,6 +274,41 @@ sprintcycle/
 
 - `sprintcycle/orchestration/sprint_orchestrator.py`
   - Handles Release Plan expansion, sprint orchestration, task execution, and runtime event coordination
+
+### Recovery, Governance, and Evolution
+
+- `sprintcycle/services/repair_orchestration_service.py`
+  - Provides a unified recovery route, supporting the `diagnose → repair → verify → observe` loop
+
+- `sprintcycle/services/promotion_policy.py`
+  - Provides the promotion gate, only allowing evidence-complete contracts with a correct stage and final snapshot to move forward
+
+- `sprintcycle/services/lifecycle_evolution_service.py`
+  - Builds lifecycle contracts, evaluates promotion, performs promotion, and registers version artifacts
+
+- `sprintcycle/versioning/sqlite_registry.py`
+  - Manages version registration, active version pointers, and manifest indexing
+
+### Observability, Governance, and Suggestions
+
+- `sprintcycle/services/observability_service.py`
+  - Handles trace, replay, execution detail assembly, and observability read models
+  - Writes audit payloads into the lifecycle contract
+
+- `sprintcycle/services/governance_orchestration_service.py`
+  - Handles governance checks and governance read workflows
+
+- `sprintcycle/services/suggestion_application_service.py`
+  - Handles suggestion review, approval, rejection, archival, and HITL promotion
+
+### Dashboard / Overview / Views
+
+- `sprintcycle/services/platform_summary_service.py`
+  - Handles dashboard/platform-facing summary payloads
+
+- `sprintcycle/results.py`
+  - Unified result models
+  - Includes `FinalSnapshotResult`, `FinalSnapshotVersionSummary`, and `EvolutionOverviewResult`
 
 ### Skills Subsystem
 
@@ -272,28 +322,6 @@ sprintcycle/
   - Persists skill artifacts, injection state, execution records, and task traces
 
 The skills subsystem is connected through `SprintOrchestrator._build_sprint_hooks()` and participates in the main flow after planning, before execution, before review, and after retro. It is not a side executor; it is an execution-time capability layer on the main lifecycle.
-
-### Observability, Governance, and Suggestions
-
-- `sprintcycle/services/observability_service.py`
-  - Handles trace, replay, execution detail assembly, and observability read models
-
-- `sprintcycle/services/governance_orchestration_service.py`
-  - Handles governance checks and governance read workflows
-
-- `sprintcycle/services/suggestion_application_service.py`
-  - Handles suggestion review, approval, rejection, archival, and HITL promotion
-
-### Repair, Promotion, and Evolution
-
-- `sprintcycle/services/repair_orchestration_service.py`
-  - Handles repair orchestration and the data shape for repair closed loops
-
-- `sprintcycle/services/promotion_policy.py`
-  - Handles promotion gating for suggestions and version promotion
-
-- `sprintcycle/services/lifecycle_evolution_service.py`
-  - Handles lifecycle evolution, runtime linkage, and promotion readiness
 
 ---
 

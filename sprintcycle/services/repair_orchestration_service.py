@@ -55,20 +55,23 @@ class RepairOrchestrationService:
             input_refs={"diagnosis": diagnosis},
             output_refs={"repair_attempted": True},
         )
-        verify_contract = machine.transition(contract.to_dict(), "verifying", status="running", reason="repair completed", metadata={"source": "repair"})
+        contract_dict = contract.to_dict()
+        verify_contract = machine.transition(contract_dict, "verifying", status="running", reason="repair completed", metadata={"source": "repair"})
         observe_contract = machine.transition(verify_contract, "observing", status="success", reason="verification passed", metadata={"source": "repair"})
-        repair_artifact = build_repair_artifact(contract.to_dict(), closed_loop=True, verify_result=verify_contract)
+        repair_artifact = build_repair_artifact(contract_dict, closed_loop=True, verify_result=verify_contract)
         observe_artifact = build_observe_artifact(observe_contract, trace=trace, diagnostics=dict(diagnosis or {}))
+        lifecycle_contract = {**contract_dict, "stage": observe_contract.get("stage", "observing"), "status": observe_contract.get("status", "success"), "recovery_refs": {**dict(contract_dict.get("recovery_refs") or {}), "closed_loop": True, "verify_result": verify_contract, "observe_result": observe_contract}, "observation_refs": {**dict(contract_dict.get("observation_refs") or {}), "observability": observe_artifact.get("observe", {})}, "evidence": {**dict(observe_contract.get("evidence") or {}), "stages": {**dict((observe_contract.get("evidence") or {}).get("stages") or {}), "repair": {"attempted": True, "closed_loop": True, "verify_result": verify_contract, "present": True}, "verify": {"closed_loop": True, "verify_result": verify_contract, "present": True}, "observe": {"trace": trace, "diagnostics": dict(diagnosis or {}), "present": True}}, "recovery": {"closed_loop": True, "repaired": True}}}
         return {
             "success": True,
             "data": {
                 "execution_id": execution_id,
                 "diagnosis": diagnosis,
-                "repair_contract": contract.to_dict(),
+                "repair_contract": contract_dict,
                 "verify_contract": verify_contract,
                 "observe_contract": observe_contract,
                 "repair_artifact": repair_artifact.get("repair", {}),
                 "observe_artifact": observe_artifact.get("observe", {}),
+                "lifecycle_contract": lifecycle_contract,
                 "closed_loop": True,
             },
         }
@@ -78,6 +81,16 @@ class RepairOrchestrationService:
         if not diagnosis.get("success", False):
             return diagnosis
         return self.repair(execution_id, diagnosis.get("data", {}), repair_plan=repair_plan)
+
+    def recover(self, execution_id: str, *, trace_payload: Optional[Dict[str, Any]] = None, repair_plan: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        diagnosis = self.diagnose(execution_id, trace_payload=trace_payload)
+        if not diagnosis.get("success", False):
+            return diagnosis
+        diagnosis_data = diagnosis.get("data", {}) if isinstance(diagnosis, dict) else {}
+        if not diagnosis_data.get("repair_ready", False):
+            observed = build_observe_artifact({"execution_id": execution_id, "task_id": execution_id, "project_path": "", "stage": "observing", "status": "success"}, trace=trace_payload or self.observability.to_trace_payload(execution_id), diagnostics={"repair_ready": False})
+            return {"success": True, "data": {"execution_id": execution_id, "diagnosis": diagnosis_data, "recovery": {"mode": "observe_only", "repair_ready": False}, "observe_artifact": observed.get("observe", {}), "closed_loop": False}}
+        return self.repair(execution_id, diagnosis_data, repair_plan=repair_plan)
 
 
 __all__ = ["RepairOrchestrationService"]

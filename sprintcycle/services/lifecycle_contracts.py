@@ -24,10 +24,10 @@ STAGE_EVIDENCE_SCHEMA: Dict[str, tuple[str, ...]] = {
     "repair": ("attempted", "closed_loop", "verify_result", "present"),
     "verify": ("closed_loop", "verify_result", "present"),
     "deliver": ("outputs", "runtime_linkage", "present"),
-    "runtime": ("linked", "healthy"),
-    "governance": ("approved",),
+    "runtime": ("linked", "healthy", "present"),
+    "governance": ("approved", "present"),
     "promotion": ("evidence", "completion_score"),
-    "evolution": ("versioned", "version_id"),
+    "evolution": ("versioned", "version_id", "present"),
 }
 
 STAGE_EVIDENCE_TRUTHY_KEYS: Dict[str, tuple[str, ...]] = {
@@ -40,10 +40,10 @@ STAGE_EVIDENCE_TRUTHY_KEYS: Dict[str, tuple[str, ...]] = {
     "repair": ("attempted", "closed_loop", "present"),
     "verify": ("closed_loop", "present"),
     "deliver": ("present",),
-    "runtime": ("linked", "healthy"),
-    "governance": ("approved",),
+    "runtime": ("linked", "healthy", "present"),
+    "governance": ("approved", "present"),
     "promotion": ("evidence", "completion_score"),
-    "evolution": ("versioned", "version_id"),
+    "evolution": ("versioned", "version_id", "present"),
 }
 
 
@@ -82,7 +82,69 @@ STAGE_EVIDENCE_KEYS: tuple[str, ...] = (
     "evolution",
 )
 
+CANONICAL_EVIDENCE_KEYS: Dict[str, str] = {
+    "governing": "governance",
+    "governance": "governance",
+}
+
 TERMINAL_STATUSES: tuple[str, ...] = ("success", "failed", "cancelled", "promoted")
+REQUIRED_EVIDENCE_SECTIONS: tuple[str, ...] = (
+    "contract",
+    "stages",
+    "runtime",
+    "governance",
+    "promotion",
+    "evolution",
+)
+REQUIRED_STAGE_SEQUENCE: tuple[str, ...] = (
+    "normalized",
+    "plan",
+    "prepare",
+    "decompose",
+    "execute",
+    "observe",
+    "diagnose",
+    "repair",
+    "verify",
+    "deliver",
+    "runtime",
+    "governance",
+    "promotion",
+    "evolution",
+)
+RECOVERY_STAGE_TARGETS: Dict[str, str] = {
+    "executing": "repair",
+    "observing": "repair",
+    "diagnosed": "repair",
+    "repairing": "verify",
+    "verifying": "observe",
+    "delivering": "repair",
+    "runtime_linked": "repair",
+    "governing": "repair",
+    "promotion_ready": "repair",
+    "failed": "repair",
+}
+
+
+def ensure_lifecycle_evidence(evidence: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    payload = dict(evidence or {})
+    payload.setdefault("contract", {})
+    payload.setdefault("stages", {})
+    payload.setdefault("runtime", {})
+    payload.setdefault("governance", {})
+    payload.setdefault("promotion", {})
+    payload.setdefault("evolution", {})
+    payload.setdefault("suggestion", {})
+    payload.setdefault("trace", {})
+    payload.setdefault("diagnostics", {})
+    payload.setdefault("recovery", {})
+    stages = payload.setdefault("stages", {})
+    for stage in STAGE_EVIDENCE_KEYS:
+        canonical_stage = CANONICAL_EVIDENCE_KEYS.get(stage, stage)
+        stages.setdefault(canonical_stage, {})
+    if "governing" in stages and "governance" not in stages:
+        stages["governance"] = dict(stages.get("governing") or {})
+    return payload
 
 
 @dataclass
@@ -100,6 +162,7 @@ class LifecycleContract:
     execution_refs: Dict[str, Any] = field(default_factory=dict)
     observation_refs: Dict[str, Any] = field(default_factory=dict)
     recovery_refs: Dict[str, Any] = field(default_factory=dict)
+    recovery_plan_refs: Dict[str, Any] = field(default_factory=dict)
     delivery_refs: Dict[str, Any] = field(default_factory=dict)
     runtime_refs: Dict[str, Any] = field(default_factory=dict)
     governance_refs: Dict[str, Any] = field(default_factory=dict)
@@ -149,6 +212,18 @@ class LifecycleContract:
             errors.append("stage_history must be a list")
         if self.stage_history and machine.stage_index(self.stage) < 0:
             errors.append("stage_history present but stage is invalid")
+        if self.stage_history:
+            order = {stage: idx for idx, stage in enumerate(REQUIRED_STAGE_SEQUENCE)}
+            seen = [str(item.get("to") or "").strip().lower() for item in self.stage_history if isinstance(item, dict)]
+            valid_seen = [stage for stage in seen if stage in order]
+            if valid_seen:
+                last_index = -1
+                for stage in valid_seen:
+                    index = order[stage]
+                    if index < last_index:
+                        errors.append("stage_history is out of order")
+                        break
+                    last_index = index
         return errors
 
     def to_dict(self) -> Dict[str, Any]:
@@ -166,15 +241,12 @@ class LifecycleContract:
         payload["execution_hints"] = dict(self.execution_refs or {})
         payload["observation_hints"] = dict(self.observation_refs or {})
         payload["recovery_hints"] = dict(self.recovery_refs or {})
+        payload["recovery_plan_hints"] = dict(self.recovery_plan_refs or {})
         payload["delivery_hints"] = dict(self.delivery_refs or {})
         payload["runtime_hints"] = dict(self.runtime_refs or {})
         payload["governance_hints"] = dict(self.governance_refs or {})
         payload["evolution_hints"] = dict(self.evolution_refs or {})
-        payload["evidence"] = dict(self.evidence or {})
-        payload["evidence"].setdefault("stages", {})
-        payload["evidence"]["stages"] = dict(payload["evidence"].get("stages") or {})
-        for key in STAGE_EVIDENCE_KEYS:
-            payload["evidence"]["stages"].setdefault(key, {})
+        payload["evidence"] = ensure_lifecycle_evidence(self.evidence)
         payload["suggestion_hints"] = list(self.suggestion_refs or [])
         payload["skill_hints"] = {
             "skill_refs": list(self.skill_refs or []),
@@ -183,6 +255,13 @@ class LifecycleContract:
             "skill_trace": dict(self.skill_trace or {}),
         }
         payload["validation"] = {"ok": not validation_errors, "errors": validation_errors}
+        payload["validation_refs"] = {
+            **dict(payload.get("validation_refs") or {}),
+            "schema_valid": not validation_errors,
+            "normalized": payload.get("stage") == "normalized",
+            "trace_present": bool(payload.get("trace") or payload.get("evidence", {}).get("stages", {}).get("execute", {}).get("trace") or payload.get("evidence", {}).get("stages", {}).get("observe", {}).get("trace")),
+            "versioned_evolution": bool(payload.get("evidence", {}).get("evolution", {}).get("versioned") or payload.get("evolution_refs", {}).get("versioned")),
+        }
         if not payload.get("correlation"):
             payload["correlation"] = build_default_correlation({"execution_id": self.execution_id, "task_id": self.task_id, "metadata": self.metadata}).to_dict()
         return payload
@@ -204,26 +283,54 @@ def normalize_lifecycle_metadata(metadata: Optional[Dict[str, Any]] = None) -> D
     return meta
 
 
+def _has_truthy_path(payload: Dict[str, Any], path: str) -> bool:
+    current: Any = payload
+    for part in path.split("."):
+        if not isinstance(current, dict) or part not in current:
+            return False
+        current = current[part]
+    return bool(current)
+
+
 def validate_lifecycle_evidence(contract: Dict[str, Any]) -> List[str]:
     payload = dict(contract or {})
-    evidence = dict(payload.get("evidence") or {})
+    evidence = ensure_lifecycle_evidence(payload.get("evidence"))
     errors: List[str] = []
     stages = dict(evidence.get("stages") or {}) if isinstance(evidence.get("stages"), dict) else {}
     for stage, required_keys in STAGE_EVIDENCE_SCHEMA.items():
-        stage_payload = dict(stages.get(stage) or {}) if stage in stages else {}
-        if stage in {"governance", "promotion", "evolution", "runtime"}:
-            stage_payload = dict(evidence.get(stage) or {})
+        canonical_stage = CANONICAL_EVIDENCE_KEYS.get(stage, stage)
+        stage_payload = dict(stages.get(canonical_stage) or {}) if canonical_stage in stages else {}
+        if canonical_stage in {"governance", "promotion", "evolution", "runtime"}:
+            stage_payload = dict(evidence.get(canonical_stage) or {})
         if not isinstance(stage_payload, dict):
-            errors.append(f"evidence.{stage} must be a mapping")
+            errors.append(f"evidence.{canonical_stage} must be a mapping")
             continue
         missing = [key for key in required_keys if key not in stage_payload]
         if missing:
-            errors.append(f"evidence.{stage} missing keys: {', '.join(missing)}")
+            errors.append(f"evidence.{canonical_stage} missing keys: {', '.join(missing)}")
             continue
         truthy_required = STAGE_EVIDENCE_TRUTHY_KEYS.get(stage, ())
         for key in truthy_required:
             if key in stage_payload and not stage_payload.get(key):
-                errors.append(f"evidence.{stage}.{key} must be truthy")
+                errors.append(f"evidence.{canonical_stage}.{key} must be truthy")
+    required_stage_names = [stage for stage in REQUIRED_STAGE_SEQUENCE if stage not in {"governance", "governing"}]
+    for stage in required_stage_names:
+        canonical_stage = CANONICAL_EVIDENCE_KEYS.get(stage, stage)
+        if canonical_stage in {"runtime", "governance", "promotion", "evolution"}:
+            if not _has_truthy_path(evidence, canonical_stage):
+                errors.append(f"missing evidence section: {canonical_stage}")
+            continue
+        if not _has_truthy_path(stages, canonical_stage):
+            errors.append(f"missing stage evidence: {canonical_stage}")
+    contract_section = dict(evidence.get("contract") or {})
+    if not contract_section.get("normalized"):
+        errors.append("evidence.contract.normalized must be truthy")
+    if not evidence.get("runtime"):
+        errors.append("evidence.runtime must be present")
+    if not evidence.get("promotion"):
+        errors.append("evidence.promotion must be present")
+    if not evidence.get("evolution"):
+        errors.append("evidence.evolution must be present")
     return errors
 
 
@@ -255,6 +362,7 @@ def build_lifecycle_contract(
     evolution_refs: Optional[Dict[str, Any]] = None,
     evidence: Optional[Dict[str, Any]] = None,
     recovery_refs: Optional[Dict[str, Any]] = None,
+    recovery_plan_refs: Optional[Dict[str, Any]] = None,
     governance_refs: Optional[Dict[str, Any]] = None,
     trace: Optional[Dict[str, Any]] = None,
     diagnostics: Optional[Dict[str, Any]] = None,
@@ -272,16 +380,7 @@ def build_lifecycle_contract(
     machine = LifecycleStateMachine()
     normalized_stage = machine.normalize_stage(stage)
     normalized_status = status or "pending"
-    evidence_payload = dict(evidence or {})
-    evidence_payload.setdefault("contract", {})
-    evidence_payload.setdefault("stages", {})
-    evidence_payload.setdefault("runtime", {})
-    evidence_payload.setdefault("suggestion", {})
-    evidence_payload.setdefault("governance", {})
-    evidence_payload.setdefault("promotion", {})
-    evidence_payload.setdefault("evolution", {})
-    for key in STAGE_EVIDENCE_KEYS:
-        evidence_payload["stages"].setdefault(key, {})
+    evidence_payload = ensure_lifecycle_evidence(evidence)
     contract = LifecycleContract(
         execution_id=execution_id,
         task_id=task_id,
@@ -302,6 +401,7 @@ def build_lifecycle_contract(
         evolution_refs=dict(evolution_refs or {}),
         evidence=evidence_payload,
         recovery_refs=dict(recovery_refs or {}),
+        recovery_plan_refs=dict(recovery_plan_refs or {}),
         governance_refs=dict(governance_refs or {}),
         trace=dict(trace or {}),
         diagnostics=dict(diagnostics or {}),

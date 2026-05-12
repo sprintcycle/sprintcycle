@@ -9,11 +9,13 @@ This document is a current snapshot of the system based on the latest implementa
 
 ### 1. What SprintCycle is
 
-SprintCycle is an orchestration platform that connects the full loop from intent understanding to final delivery, deployment, governance, suggestion handling, observability, and evolution.
+SprintCycle is a contract-driven lifecycle orchestration platform that connects the full loop from Web request intake to final delivery, runtime linkage, governance, and versioned evolution.
 
-For web-platform initiated work, the system is expected to complete the full chain stably for both self-evolution tasks and user project optimization tasks: intent parsing → plan generation → task decomposition → sprint execution → evaluation and fix → final delivery → automatic deployment and runtime operation → suggestion capture and review → self-evolution.
+For web-platform initiated work, the system is designed to complete the whole chain stably for both self-evolution tasks and user project optimization tasks:
 
-The current implementation centers on a public facade plus workflow-specific application services. The public API coordinates, normalizes, and routes requests; the services own the actual workflow logic.
+**Web Request → Normalize → Plan → Prepare → Decompose → Execute → Observe → Diagnose → Repair → Deliver → Link Runtime → Govern Suggestions → Promote Versioned Evolution**
+
+The current implementation centers on a public facade plus workflow-specific application services. The public API normalizes requests, coordinates the lifecycle contract, and routes work to the appropriate services. The services own the actual workflow logic, repair loops, governance decisions, observability evidence, and version promotion.
 
 ### 2. Architecture diagram
 
@@ -25,12 +27,13 @@ graph TD
   A --> S[SuggestionApplicationService]
   A --> O[ObservabilityService]
   A --> P[PlatformSummaryService]
-  A --> F[Domain Facades]
+  A --> R[RepairOrchestrationService]
+  A --> V[LifecycleEvolutionService]
 
   E --> OR[SprintOrchestrator]
   E --> EX[Execution Engine]
   E --> ST[Execution State / Store]
-  E --> R[Runtime Registry]
+  E --> RR[Runtime Registry]
   E --> HB[Execution Event Backend]
   E --> H[Hook Registry]
 
@@ -45,12 +48,13 @@ graph TD
   O --> OB[Observability Facade]
   O --> TR[Trace / Replay Payloads]
 
+  R --> DI[Diagnose / Repair / Verify / Observe]
+  V --> PC[Promotion Policy]
+  V --> VR[SQLite Version Registry]
+  V --> MS[Version Manifest / Active Pointer]
+
   P --> DV[Dashboard Views]
   P --> WV[Workbench / Platform Views]
-
-  F --> GO[Governance]
-  F --> SU[Suggestion]
-  F --> OB
 ```
 
 ### 3. Data flow diagram
@@ -58,18 +62,16 @@ graph TD
 ```mermaid
 flowchart LR
   I[Intent / Workspace Context] --> N[Input Normalization]
-  N --> R[Release Plan / Sprint Request]
-  R --> T[Task Decomposition]
-  T --> X[Sprint Execution]
-  X --> Q[Evaluation / Fix]
-  Q --> D[Final Delivery]
-  D --> U[Deployment / Runtime Operation]
-  X --> O[Observability]
-  Q --> O
-  O --> V[Suggestion Capture]
-  V --> G[Governance Review]
-  G --> E[Self-Evolution / Versioning]
-  E --> R
+  N --> C[Lifecycle Contract]
+  C --> P[Plan / Prepare / Decompose]
+  P --> X[Sprint Execution]
+  X --> O[Observation / Trace]
+  O --> D[Diagnosis]
+  D --> R[Repair / Verify / Observe]
+  R --> L[Delivery / Runtime Linkage]
+  L --> G[Governance Review / Suggestion Handling]
+  G --> E[Promotion / Versioned Evolution]
+  E --> C
 ```
 
 ### 4. Processing flow diagram
@@ -79,11 +81,11 @@ flowchart TD
   A[1. Intent parsing] --> B[2. Plan generation]
   B --> C[3. Task decomposition]
   C --> D[4. Sprint execution]
-  D --> E[5. Evaluation and fix]
-  E --> F[6. Final delivery]
-  F --> G[7. Automatic deployment and runtime operation]
-  G --> H[8. Suggestion capture and review]
-  H --> I[9. Self-evolution / version growth]
+  D --> E[5. Observation and diagnosis]
+  E --> F[6. Repair and verification]
+  F --> G[7. Final delivery and runtime linkage]
+  G --> H[8. Governance and suggestion review]
+  H --> I[9. Promotion to versioned evolution]
 ```
 
 ### 5. Core end-to-end flow
@@ -94,63 +96,69 @@ The system is designed around the following lifecycle:
 2. **Plan generation**
 3. **Task decomposition**
 4. **Sprint execution**
-5. **Evaluation and fix**
-6. **Final delivery**
-7. **Automatic deployment and runtime operation**
-8. **Suggestion capture and review**
-9. **Self-evolution / version growth**
+5. **Observation and diagnosis**
+6. **Repair and verification**
+7. **Final delivery**
+8. **Runtime linkage**
+9. **Governance and suggestion review**
+10. **Promotion to versioned evolution**
 
 For web-triggered work, this lifecycle should remain stable regardless of whether the request starts as an internal self-evolution objective or as an external user project optimization request.
 
 This is not a single monolithic pipeline inside one class. It is a set of connected capabilities distributed across the API, services, facades, execution engine, governance layer, observability layer, and evolution/versioning layer.
 
-### 6. Core multi-round sprint execution flow
+### 6. Lifecycle contract model
 
-A single sprint run is usually only one round in a longer loop. The current implementation supports a repeated cycle of execution, feedback, and follow-up work, so that web-started tasks can continue through evaluation, repair, delivery, deployment, and evolution without breaking the chain.
+The latest implementation centers on a single authoritative lifecycle contract:
 
-```mermaid
-flowchart TD
-  A[Start run] --> B[Build execution context]
-  B --> C[Pre-run gate]
-  C -->|pass| D[Start execution]
-  C -->|blocked| Z[Return blocked result]
-  D --> E[Collect execution events]
-  E --> F[Observe results]
-  F --> G{Needs fix?}
-  G -->|yes| H[Create fix / follow-up tasks]
-  H --> I[Update plan / release plan]
-  I --> J[Next sprint round]
-  J --> B
-  G -->|no| K[Finalize delivery]
-  K --> L[Auto deploy / runtime operation]
-  L --> M[Capture suggestions]
-  M --> N[Governance review]
-  N --> O[Promote approved changes to evolution]
-```
+- **`LifecycleStateMachine`** defines canonical stages and transitions.
+- **`LifecycleContract`** carries the state facts used by all services.
+- **`final_snapshot`** captures the complete promotable end state of an iteration.
+- **`validation_refs`** stores gate-relevant checks such as `final_snapshot`, `promotion_input_final_snapshot`, `versioned_evolution`, and audit markers.
+- **Correlation data** links `execution_id`, `task_id`, `suggestion_id`, `runtime_id`, `version_id`, and `trace_id`.
 
-### 7. Target-state architecture roadmap mapped to current modules
+### 7. Recovery and promotion model
+
+SprintCycle now treats failure recovery and promotion as first-class lifecycle steps:
+
+- Any failed or incomplete stage can route into a unified recovery path.
+- Recovery is organized around `diagnose → repair → verify → observe`.
+- `PromotionPolicy` only allows promotion when evidence is complete, the contract is in a promotable state, and the final snapshot is valid.
+- Successful promotion writes a version artifact into the SQLite version registry.
+- The version artifact keeps a reference to the final snapshot contract for auditability and rollback.
+
+### 8. Runtime and governance linkage
+
+Runtime, suggestion, governance, and promotion all share the same contract lineage:
+
+- runtime evidence and deployment linkage are attached to the lifecycle contract;
+- suggestion review outcomes are attached to the lifecycle contract;
+- governance approval is attached to the lifecycle contract;
+- promotion consumes the final snapshot and writes versioned evolution metadata back into the registry.
+
+### 9. Target-state architecture roadmap mapped to current modules
 
 The target state keeps the existing layered skeleton, but makes the full web-triggered lifecycle more explicit, more recoverable, and more governable. The key components remain the same:
 
 - **AutoGPT** for deployment packaging, platform startup, and environment assembly
 - **LangGraph** for execution-graph adaptation, node orchestration, and step scheduling
 - **Phoenix** for trace, replay, observability, and diagnosis
-- **SprintCycle Core** for planning, execution coordination, repair, governance, suggestion capture, and self-evolution
+- **SprintCycle Core** for planning, execution coordination, repair governance, suggestion capture, and self-evolution
 
 The recommended division of responsibility is:
 
-- **SprintCycle Core as the control plane**: owns request normalization, task context, lifecycle transitions, repair governance, and evolution/version decisions
+- **SprintCycle Core as the control plane**: owns request normalization, lifecycle contracts, transitions, repair governance, and version promotion decisions
 - **AutoGPT as the platform bootstrap layer**: owns startup and environment wiring, but not domain workflow rules
 - **LangGraph as the execution-graph layer**: owns how runnable steps are organized and executed, but not policy or governance decisions
 - **Phoenix as the observability layer**: owns traces, replay, and diagnostics, but not execution control
 
 This means the system should avoid parallel pipelines. Each component should connect through explicit adapters, facades, hooks, or registries so that one authoritative lifecycle remains in place.
 
-#### 7.1 Current code modules and their target-state role
+#### 9.1 Current code modules and their target-state role
 
 - **`sprintcycle/api.py`**
   - Thin public entry layer for CLI, dashboard, MCP, and SDK.
-  - Normalizes requests and delegates to services.
+  - Normalizes requests, builds final snapshots, and delegates to services.
   - Target-state role: keep workflow logic out of the API and use it only for routing and result aggregation.
 
 - **`sprintcycle/services/execution_lifecycle_service.py`**
@@ -174,27 +182,30 @@ This means the system should avoid parallel pipelines. Each component should con
   - Gap: standardize suggestion quality, deduplication, and promotion criteria.
 
 - **`sprintcycle/services/observability_service.py`**
-  - Owns trace, replay, event read, and execution detail assembly.
+  - Owns trace, replay, event read, execution detail assembly, and audit payload generation.
   - Target-state role: diagnostic and replay surface for failures, repairs, and execution history.
-  - Gap: add root-cause tags, phase timing, and structured failure categories.
+  - Gap: continue refining phase timing and structured failure categories.
 
-- **`sprintcycle/services/platform_summary_service.py`**
-  - Owns dashboard/platform-facing summary payloads, including overview, spec, console, fitness, deploy, governance, and fix views.
-  - Target-state role: delivery and summary aggregation for human-facing workbenches.
-  - Gap: include explicit deployment/runtime handoff and evolution readiness indicators.
+- **`sprintcycle/services/repair_orchestration_service.py`**
+  - Owns unified recovery routing and the `diagnose → repair → verify → observe` loop.
+  - Target-state role: centralized recovery controller that feeds the same contract back into the lifecycle.
 
-- **`sprintcycle/governance/facade.py`** and **`sprintcycle/governance/suggestion/facade.py`**
-  - Domain-facing governance and suggestion coordination points.
-  - Target-state role: stable compatibility and coordination layer underneath the services.
+- **`sprintcycle/services/promotion_policy.py`**
+  - Owns promotion gating for final snapshot completeness, runtime health, governance approval, and trace evidence.
+  - Target-state role: hard gate for version promotion.
 
-- **`sprintcycle/observability/facade.py`**
-  - Domain-facing observability coordination point.
-  - Target-state role: event, trace, and replay adapter behind the read-side service.
+- **`sprintcycle/services/lifecycle_evolution_service.py`**
+  - Owns lifecycle contract construction, promotion evaluation, promotion execution, and version artifact registration.
+  - Target-state role: bridge from final snapshot to versioned evolution.
 
-- **`sprintcycle/deployment/runtime_registry.py`** and runtime adapters
-  - Own runtime registration and environment-specific integration.
-  - Target-state role: deployment/runtime linkage after delivery.
-  - Gap: make post-delivery handoff and verification explicit.
+- **`sprintcycle/versioning/sqlite_registry.py`**
+  - Owns version registration, active version pointers, and manifest indexing.
+  - Target-state role: version archive and pointer manager for promoted evolutions.
+
+- **`sprintcycle/results.py`**
+  - Owns unified result models.
+  - Includes `FinalSnapshotResult`, `FinalSnapshotVersionSummary`, and `EvolutionOverviewResult`.
+  - Target-state role: the stable output schema for API, CLI, Dashboard, and SDK consumers.
 
 - **`sprintcycle/execution/skills.py`**, **`sprintcycle/execution/skill_store.py`**, **`sprintcycle/execution/skill_models.py`**, **`sprintcycle/execution/hooks/skill_hooks.py`**
   - Own scene identification, skill matching, skill injection state, persistent records, and sprint lifecycle hooks for skills.
@@ -214,41 +225,9 @@ This means the system should avoid parallel pipelines. Each component should con
   - Target-state role: evolution and version growth layer that receives approved learnings.
   - Gap: stronger linkage from suggestions and governance outcomes into versioned evolution artifacts.
 
-#### 7.2 Target-state end-to-end chain
+### 10. Skills subsystem and main lifecycle call chain
 
-```mermaid
-flowchart LR
-  W[Web request] --> N[Request normalization / intent entry]
-  N --> P[Planning and execution preparation]
-  P --> S[Sprint decomposition]
-  S --> O[SprintOrchestrator execution]
-  O --> V[Execution observation and repair]
-  V --> D[Result delivery and summary generation]
-  D --> R[Deployment / runtime linkage]
-  R --> G[Suggestion capture and governance]
-  G --> E[Self-evolution and version growth]
-```
-
-#### 7.3 Target-state component boundary map
-
-```mermaid
-graph TD
-  U[Users / Web / CLI / Dashboard / MCP / SDK] --> API[SprintCycle API]
-  API --> CORE[SprintCycle Core Services]
-  CORE --> ORCH[SprintOrchestrator]
-  CORE --> GOV[Governance Facade / Checks]
-  CORE --> OBS[Observability Facade / Trace]
-  CORE --> SUG[Suggestion Facade / Review]
-  CORE --> EVT[Execution Event Backend]
-  CORE --> EVOL[Evolution / Version Registry]
-  ORCH --> LG[LangGraph Adapter]
-  OBS --> PH[Phoenix Adapter]
-  CORE --> AG[AutoGPT Platform Adapter]
-```
-
-#### 7.4 Skills 子系统与主生命周期的调用链
-
-skills 子系统不是独立于主生命周期之外的旁路，而是通过 `SprintOrchestrator` 的 sprint 钩子挂入执行链路，在“计划后、执行前、评审前、复盘后”几个关键节点参与上下文增强与证据沉淀。
+The skills subsystem is not a side executor. It is connected to the main lifecycle through `SprintOrchestrator` hooks and participates in the execution-time flow after planning, before execution, before review, and after retro.
 
 ```mermaid
 flowchart TD
@@ -279,62 +258,54 @@ flowchart TD
   Y --> Z[SkillOrchestrator.after_retro 清理上下文]
 ```
 
-这一调用链对应的核心职责如下：
+Key responsibilities:
 
-- **主生命周期** 负责请求进入、生命周期契约、执行编排、结果汇总、交付与状态收束。
-- **skills 子系统** 负责场景识别、skill 匹配、skill 注入、review checklist 增强、技能证据记录和复盘清理。
-- **`SkillStore`** 负责 skill artifact、注入状态、执行记录与 trace 的落盘，形成可追溯证据链。
-- **`SkillLifecycleHook`** 负责把 skill 能力接到 sprint 级别的生命周期节点上，而不是绕开主编排器单独执行。
+- **Main lifecycle** owns request intake, lifecycle contracts, execution coordination, result aggregation, delivery, and terminal state.
+- **Skills subsystem** owns scene recognition, skill matching, skill injection, review checklist enrichment, skill evidence recording, and retro cleanup.
+- **`SkillStore`** persists skill artifacts, injection state, execution records, and traces as auditable evidence.
+- **`SkillLifecycleHook`** attaches skill capability to sprint lifecycle nodes instead of bypassing the main orchestrator.
 
-#### 7.5 Skills 与生命周期契约的关系
+### 11. Skills and lifecycle contracts
 
-当前 `LifecycleContract` 已经覆盖了 execution、delivery、runtime、governance、evolution、suggestion 等主链路字段；skills 子系统在实现上主要通过 hook 和 context 方式接入，尚未成为 contract 的一级字段。
+The current `LifecycleContract` already covers execution, delivery, runtime, governance, evolution, suggestion, recovery, validation, and final snapshot fields. The skills subsystem currently enters the system via hooks and context/state, and its provenance is not yet fully standardized as a first-class lifecycle contract field.
 
-这意味着：
+This means:
 
-- skills 的执行事实已经进入运行时上下文与持久化存储；
-- 但 skills 的 provenance、命中理由、review 影响和晋升结果，还没有完全标准化地回写到统一生命周期契约中；
-- 后续如果要提升可观测性，建议把 `skill_matches`、`task_skill_trace`、`skill_review_checklists` 和 `skill_artifacts` 的摘要纳入生命周期 contract 的扩展字段。
+- skill execution facts already exist in runtime context and persistent storage;
+- however, skill provenance, match rationale, review impact, and promotion results are not yet fully written back into the unified lifecycle contract;
+- if you want stronger observability, consider adding skill summaries to the contract extension fields.
 
-#### 7.6 Target-state maturity roadmap
+### 12. Target-state maturity roadmap
 
 - **P0**: unify intent entry, lifecycle states, execution events, and delivery objects so every web-started task can complete the minimum closed loop without ambiguous completion.
 - **P1**: separate planning from preparation, add diagnosis-grade observability, introduce controlled repair actions, and connect runtime/deployment feedback into the same lifecycle.
 - **P2**: version every evolution step, capture reusable knowledge, optimize policies from feedback, and promote improvements only through governed rollout.
 
-#### 7.7 P0 implementation plan
+### 13. Current maturity summary
 
-P0 is the stabilization phase. The goal is not new capability breadth, but a reliable minimum closed loop.
+From the latest implementation perspective, the platform is no longer a loose set of features. It now has the shape of a real lifecycle-driven system with shared state, repair closures, governance gating, runtime linkage, final snapshots, and evolution promotion.
 
-- **`sprintcycle/api.py`**
-  - Keep request normalization thin and consistent across CLI, dashboard, MCP, and SDK.
-  - Ensure all web-initiated work enters a single intent/task shape.
-
-- **`sprintcycle/services/execution_lifecycle_service.py`**
-  - Introduce explicit lifecycle states for normalized, planned, prepared, executing, observing, delivering, and completed.
-  - Return structured failure results instead of ambiguous partial outcomes.
+The next maturity step is to keep tightening the same contract across all read and write paths, so the Web-initiated flow remains stable even under failure, retry, and promotion scenarios.
 
 ---
 
-## Chinese / 中文
+## 14. 中文补充 / Chinese supplement
 
-### 8. 目标成熟架构补充
+### 14.1 目标成熟架构补充
 
 这部分是在现有实现基础上补充的目标状态，重点解决“从 Web 发起后，系统稳定完成整个迭代链路”的问题。
 
-#### 8.1 统一生命周期中枢
+#### 统一生命周期中枢
 
-系统现在已经逐步从“多个服务各自写状态”升级为“统一生命周期中枢驱动多域协同”。建议把生命周期核心定义成三件事：
+系统现在已经从“多个服务各自写状态”升级为“统一生命周期中枢驱动多域协同”。生命周期核心由三件事构成：
 
 - **LifecycleStateMachine**：唯一阶段迁移规则来源
 - **LifecycleContract**：唯一状态事实载体
 - **Correlation Model**：唯一跨域关联方式
 
-目标不是让每个服务都自己决定“当前处于哪个阶段”，而是让所有服务都围绕同一份契约协作。
+目标不是让每个服务都自己决定“当前处于哪个阶段”，而是让所有服务围绕同一份契约协作。
 
-#### 8.2 目标状态机
-
-建议采用如下标准阶段：
+#### 目标状态机
 
 ```text
 new → normalized → planned → prepared → decomposed → executing → observing → diagnosed → repairing → verifying → delivering → runtime_linked → governing → promotion_ready → promoted
@@ -351,7 +322,7 @@ failed / aborted / cancelled / promoted
 - `diagnosed → repairing → verifying → observing` 构成显式修复闭环
 - `delivering → runtime_linked → governing → promotion_ready → promoted` 构成交付到版本晋升闭环
 
-#### 8.3 事件与关联模型
+#### 事件与关联模型
 
 建议所有事件统一字段：
 
@@ -371,7 +342,7 @@ failed / aborted / cancelled / promoted
 
 这样可以把执行、观测、建议、运行时、版本晋升串成同一条证据链。
 
-#### 8.4 修复闭环
+#### 修复闭环
 
 修复不应只是“标记可修复”，而应成为一个显式编排节点：
 
@@ -385,7 +356,7 @@ Diagnose → Repair → Verify → Observe
 - 修复结果必须回写 lifecycle contract
 - 修复闭环未关闭时，不允许进入晋升门禁
 
-#### 8.5 版本晋升门禁
+#### 版本晋升门禁
 
 版本晋升必须依赖证据链和运行时健康，建议至少满足：
 
@@ -395,10 +366,11 @@ Diagnose → Repair → Verify → Observe
 - suggestion approved
 - repair 已闭环
 - governance 通过
+- final snapshot 有效
 
 否则 promotion 应被阻止。
 
-#### 8.6 文档补充建议
+#### 文档补充建议
 
 如果后续继续写文档，建议在 `SYSTEM_OVERVIEW.md` 里新增以下小节：
 
@@ -408,8 +380,9 @@ Diagnose → Repair → Verify → Observe
 - **Promotion Policy Gate**
 - **Runtime Handoff and Verification**
 - **Suggestion-to-Version Provenance**
+- **Final Snapshot and Version Registry**
 
-#### 8.7 可直接对外表述的系统定位
+#### 可直接对外表述的系统定位
 
 可以把 SprintCycle 定位为：
 
@@ -417,8 +390,6 @@ Diagnose → Repair → Verify → Observe
 
 ---
 
-## 9. Current maturity summary
+## 15. Final note
 
-From the latest implementation perspective, the platform is no longer a loose set of features. It now has the shape of a real lifecycle-driven system with shared state, repair closures, governance gating, runtime linkage, and evolution promotion.
-
-The next maturity step is to keep tightening the same contract across all read and write paths, so the Web-initiated flow remains stable even under failure, retry, and promotion scenarios.
+SprintCycle is now implemented with a much clearer contract-first shape: a single lifecycle contract flows through execution, recovery, governance, promotion, and versioning. The remaining work is mostly about tightening schemas, audit timelines, and dashboard ergonomics rather than changing the fundamental architecture.

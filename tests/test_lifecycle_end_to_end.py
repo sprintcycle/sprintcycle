@@ -66,6 +66,7 @@ async def test_lifecycle_evolution_contract_contains_standard_evidence():
     assert contract["evidence"]["contract"]["normalized"] is True
     assert contract["evidence"]["stages"]["repair"]["closed_loop"] is True
     assert contract["evidence"]["stages"]["verify"]["closed_loop"] is True
+    assert contract["evidence"]["governing"]["approved"] is True
     assert contract["evidence"]["governance"]["approved"] is True
 
 
@@ -95,7 +96,7 @@ async def test_promotion_rejected_when_stage_history_is_missing():
         "project_path": "/tmp/sprintcycle-test",
         "stage": "promotion_ready",
         "status": "pending",
-        "validation_refs": {"ok": True},
+        "validation_refs": {"ok": True, "normalized": True, "trace_present": True},
         "evidence": {
             "contract": {"normalized": True},
             "stages": {
@@ -111,6 +112,7 @@ async def test_promotion_rejected_when_stage_history_is_missing():
             },
             "runtime": {"linked": True, "healthy": True},
             "suggestion": {"approved": True},
+            "governing": {"approved": True},
             "governance": {"approved": True},
             "promotion": {"evidence": True, "completion_score": 100.0},
             "evolution": {"versioned": True, "version_id": "version-8"},
@@ -123,6 +125,28 @@ async def test_promotion_rejected_when_stage_history_is_missing():
 
 
 @pytest.mark.asyncio
+async def test_full_web_lifecycle_orchestrates_to_decomposition():
+    sc = SprintCycle(project_path="/tmp/sprintcycle-test")
+
+    result = sc.orchestrate_web_request(
+        execution_id="exec-0",
+        task_id="task-0",
+        objective="optimize",
+        success_criteria=["done"],
+        checks={"env": True},
+        subtasks=[{"name": "task-a", "depends_on": [], "acceptance": "done"}],
+    )
+
+    assert result["success"] is True
+    contract = result["data"]["lifecycle_contract"]
+    assert contract["stage"] == "decomposed"
+    assert contract["evidence"]["contract"]["normalized"] is True
+    assert contract["evidence"]["stages"]["plan"]["present"] is True
+    assert contract["evidence"]["stages"]["prepare"]["present"] is True
+    assert contract["evidence"]["stages"]["decompose"]["present"] is True
+
+
+@pytest.mark.asyncio
 async def test_promotion_rejected_when_versioning_evidence_is_missing():
     sc = SprintCycle(project_path="/tmp/sprintcycle-test")
     contract = {
@@ -132,7 +156,7 @@ async def test_promotion_rejected_when_versioning_evidence_is_missing():
         "stage": "promotion_ready",
         "status": "pending",
         "stage_history": [{"from": "governing", "to": "promotion_ready", "at": "now", "reason": "gate"}],
-        "validation_refs": {"ok": True},
+        "validation_refs": {"ok": True, "normalized": True, "trace_present": True},
         "evidence": {
             "contract": {"normalized": True},
             "stages": {
@@ -148,6 +172,7 @@ async def test_promotion_rejected_when_versioning_evidence_is_missing():
             },
             "runtime": {"linked": True, "healthy": True},
             "suggestion": {"approved": True},
+            "governing": {"approved": True},
             "governance": {"approved": True},
             "promotion": {"evidence": True, "completion_score": 100.0},
             "evolution": {"versioned": False, "version_id": "version-9"},
@@ -229,6 +254,19 @@ async def test_promotion_rejected_when_evidence_is_incomplete():
 
 
 @pytest.mark.asyncio
+async def test_recovery_path_closes_loop_before_promotion():
+    sc = SprintCycle(project_path="/tmp/sprintcycle-test")
+
+    observation = sc.diagnose_repair_observe("exec-recover", repair_plan={"steps": ["fix-1"]})
+    assert observation["success"] is True
+    lifecycle_contract = observation["data"]["lifecycle_contract"]
+    assert lifecycle_contract["stage"] in {"observing", "diagnosed", "repairing", "verifying", "failed"}
+    assert lifecycle_contract["recovery_refs"]["closed_loop"] is True
+    assert lifecycle_contract["recovery_refs"]["repair"]
+    assert lifecycle_contract["recovery_refs"]["verify"]
+
+
+@pytest.mark.asyncio
 async def test_promotion_rejected_when_runtime_is_not_healthy():
     sc = SprintCycle(project_path="/tmp/sprintcycle-test")
     result = sc._lifecycle_evolution.promotion_policy.evaluate(
@@ -239,7 +277,7 @@ async def test_promotion_rejected_when_runtime_is_not_healthy():
             "stage": "promotion_ready",
             "status": "pending",
             "stage_history": [{"from": "governing", "to": "promotion_ready", "at": "now", "reason": "gate"}],
-            "validation_refs": {"ok": True},
+            "validation_refs": {"ok": True, "normalized": True, "trace_present": True, "versioned_evolution": True},
             "evidence": {
                 "contract": {"normalized": True},
                 "stages": {
@@ -255,7 +293,7 @@ async def test_promotion_rejected_when_runtime_is_not_healthy():
                 },
                 "runtime": {"linked": True, "healthy": False},
                 "suggestion": {"approved": True},
-                "governance": {"approved": True},
+                "governing": {"approved": True},
                 "promotion": {"evidence": True, "completion_score": 100.0},
                 "evolution": {"versioned": True, "version_id": "version-7"},
             },

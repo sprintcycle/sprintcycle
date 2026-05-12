@@ -155,11 +155,55 @@ class EvolutionIndexResult(ResultBase):
 
 
 @dataclass
+class FinalSnapshotResult:
+    """Final lifecycle snapshot summary."""
+
+    execution_id: str = ""
+    stage: str = ""
+    status: str = ""
+    normalized_request: Dict[str, Any] = field(default_factory=dict)
+    lifecycle: Dict[str, Any] = field(default_factory=dict)
+    trace: Dict[str, Any] = field(default_factory=dict)
+    diagnostics: Dict[str, Any] = field(default_factory=dict)
+    runtime: Dict[str, Any] = field(default_factory=dict)
+    governance: Dict[str, Any] = field(default_factory=dict)
+    suggestion: Dict[str, Any] = field(default_factory=dict)
+    delivery: Dict[str, Any] = field(default_factory=dict)
+    repair: Dict[str, Any] = field(default_factory=dict)
+    promotion: Dict[str, Any] = field(default_factory=dict)
+    promotion_contract: Dict[str, Any] = field(default_factory=dict)
+    health: Dict[str, Any] = field(default_factory=dict)
+    validation_refs: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class FinalSnapshotVersionSummary:
+    """Version active pointer 对应的 final snapshot 摘要。"""
+
+    target: str = ""
+    version_id: str = ""
+    final_snapshot: FinalSnapshotResult = field(default_factory=FinalSnapshotResult)
+    promotion_guard: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "target": self.target,
+            "version_id": self.version_id,
+            "final_snapshot": self.final_snapshot.to_dict() if hasattr(self.final_snapshot, "to_dict") else dict(self.final_snapshot),
+            "promotion_guard": dict(self.promotion_guard),
+        }
+
+
+@dataclass
 class EvolutionOverviewResult(ResultBase):
     """演化总览结果。"""
 
     active_versions: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     recent_candidates: List[EvolutionVersionSummary] = field(default_factory=list)
+    final_snapshot_versions: List[FinalSnapshotVersionSummary] = field(default_factory=list)
     index: Dict[str, List[str]] = field(default_factory=dict)
     totals: Dict[str, int] = field(default_factory=dict)
     sandbox_status: Dict[str, Any] = field(default_factory=dict)
@@ -167,6 +211,7 @@ class EvolutionOverviewResult(ResultBase):
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
         data["recent_candidates"] = [v.to_dict() if hasattr(v, "to_dict") else v for v in self.recent_candidates]
+        data["final_snapshot_versions"] = [v.to_dict() if hasattr(v, "to_dict") else v for v in self.final_snapshot_versions]
         return data
 
     def to_dashboard_payload(self) -> Dict[str, Any]:
@@ -191,9 +236,11 @@ class EvolutionOverviewResult(ResultBase):
             }
             for v in self.recent_candidates[:5]
         ]
+        final_snapshots = [v.to_dict() if hasattr(v, "to_dict") else v for v in self.final_snapshot_versions[:5]]
         return {
             "active_versions": active,
             "recent_candidates": recent,
+            "final_snapshot_versions": final_snapshots,
             "totals": dict(self.totals),
             "sandbox_status": dict(self.sandbox_status),
         }
@@ -211,6 +258,10 @@ class EvolutionOverviewResult(ResultBase):
                 f"  active[{target}]: {info.get('version_id', '')}"
                 f" ({info.get('tag', '') or info.get('commit_hash', '')})"
             )
+        if self.final_snapshot_versions:
+            lines.append("  final snapshots:")
+            for item in self.final_snapshot_versions[:5]:
+                lines.append(f"    - {item.target}: {item.version_id}")
         if self.recent_candidates:
             lines.append("  recent:")
             for v in self.recent_candidates[:5]:
@@ -230,5 +281,7 @@ __all__ = [
     "EvolutionVersionSummary",
     "EvolutionVersionListResult",
     "EvolutionIndexResult",
+    "FinalSnapshotResult",
+    "FinalSnapshotVersionSummary",
     "EvolutionOverviewResult",
 ]
