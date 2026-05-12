@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# Block accidental .env commits (tracked or staged)
+if git -C "$ROOT" ls-files --error-unmatch .env >/dev/null 2>&1; then
+  echo "Refusing commit: .env is tracked by git. Remove it from index and keep secrets local." >&2
+  exit 1
+fi
+
+if git -C "$ROOT" diff --cached --name-only -- . | grep -Eq '(^|/)(\.env|\.env\.[^/]+|[^/]+\.env)$'; then
+  echo "Refusing commit: staged env file detected. Use .env.example only." >&2
+  exit 1
+fi
+
+if [[ -x "$ROOT/scripts/check-secrets.sh" ]]; then
+  "$ROOT/scripts/check-secrets.sh"
+else
+  echo "scripts/check-secrets.sh not found or not executable" >&2
+  exit 1
+fi

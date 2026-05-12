@@ -33,7 +33,7 @@ compose_cmd() {
   local file
   file="$(compose_file)"
   [[ -n "$file" ]] || { usage; exit 1; }
-  docker compose -f "$file" --env-file "$ENV_FILE"
+  printf '%s\n' docker compose -f "$file" --env-file "$ENV_FILE"
 }
 
 main() {
@@ -47,24 +47,27 @@ main() {
     exit 1
   fi
 
+  # shellcheck disable=SC2207
+  local cmd=( $(compose_cmd) )
+
   case "$ACTION" in
     up)
-      compose_cmd up -d --build
+      "${cmd[@]}" up -d --build
       ;;
     down)
-      compose_cmd down
+      "${cmd[@]}" down
       ;;
     restart)
-      compose_cmd restart
+      "${cmd[@]}" restart
       ;;
     build)
-      compose_cmd build
+      "${cmd[@]}" build
       ;;
     logs)
-      compose_cmd logs -f
+      "${cmd[@]}" logs -f
       ;;
     status)
-      compose_cmd ps
+      "${cmd[@]}" ps
       ;;
     *)
       usage

@@ -175,6 +175,17 @@ scripts/deploy.sh local restart
 scripts/deploy.sh local down
 ```
 
+### 提交前密钥扫描
+
+为了防止 `DEEPSEEK_API_KEY` 之类的密钥被误提交到 GitHub，仓库提供了提交前检查脚本与 Git hooks：
+
+```bash
+scripts/check-secrets.sh
+scripts/install-githooks.sh
+```
+
+安装 hooks 后，每次提交都会自动扫描疑似密钥字符串。
+
 ---
 
 ## 生产部署
