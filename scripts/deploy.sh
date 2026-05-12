@@ -29,11 +29,11 @@ compose_file() {
   esac
 }
 
-compose() {
+compose_cmd() {
   local file
   file="$(compose_file)"
   [[ -n "$file" ]] || { usage; exit 1; }
-  docker compose -f "$file" --env-file "$ENV_FILE"
+  docker compose -f "$file" --env-file "$ENV_FILE" "$@"
 }
 
 doctor() {
@@ -51,18 +51,45 @@ doctor() {
   fi
   echo
 
-  echo "== Permissions =="
+  echo "== Docker daemon =="
   if docker info >/dev/null 2>&1; then
     echo "OK: Docker daemon reachable"
   else
-    echo "ERROR: Docker daemon not reachable. Start Docker Desktop or fix /var/run/docker.sock permissions." >&2
+    echo "ERROR: Docker daemon not reachable." >&2
+    if [[ "$OSTYPE" == darwin* ]]; then
+      echo "Hint (macOS): open Docker Desktop and wait until it reports 'Docker is running'." >&2
+      echo "Hint (macOS): if it is already running, try restarting Docker Desktop or your terminal." >&2
+      echo "Hint (macOS): if you're using Colima or Rancher Desktop, make sure the current Docker context is correct." >&2
+    elif [[ "$OSTYPE" == linux* ]]; then
+      echo "Hint (Linux): ensure the docker service is running and your user is in the docker group." >&2
+      echo "  sudo systemctl start docker" >&2
+      echo "  sudo usermod -aG docker \$USER" >&2
+      echo "  newgrp docker" >&2
+    fi
+    if [[ -S /var/run/docker.sock ]]; then
+      echo "docker.sock exists at /var/run/docker.sock" >&2
+    else
+      echo "docker.sock not found at /var/run/docker.sock" >&2
+    fi
     exit 1
   fi
   echo
 
   echo "== Compose file =="
-  compose config >/dev/null
+  compose_cmd config >/dev/null
   echo "OK: compose config validated"
+
+  echo
+  echo "== Ports =="
+  if command -v lsof >/dev/null 2>&1; then
+    for port in 3000 8000; do
+      if lsof -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1; then
+        echo "WARN: port $port is already in use"
+      else
+        echo "OK: port $port is free"
+      fi
+    done
+  fi
 }
 
 main() {
@@ -76,22 +103,22 @@ main() {
       doctor
       ;;
     up)
-      compose up -d --build
+      compose_cmd up -d --build
       ;;
     down)
-      compose down
+      compose_cmd down
       ;;
     restart)
-      compose restart
+      compose_cmd restart
       ;;
     build)
-      compose build
+      compose_cmd build
       ;;
     logs)
-      compose logs -f
+      compose_cmd logs -f
       ;;
     status)
-      compose ps
+      compose_cmd ps
       ;;
     *)
       usage
