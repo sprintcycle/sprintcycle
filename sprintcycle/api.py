@@ -377,7 +377,9 @@ class SprintCycle:
             stage="normalized",
             status="pending",
             metadata=normalized_metadata,
+            evidence={"contract": {"normalized": True}, "stages": {"normalized": {"normalized": True}}},
             input_refs={"execution_id": execution_id, "task_id": task_id, "intent": intent or task_id},
+            validation_refs={"normalized": True},
         )
         return {"request": normalized_request, "contract": contract.to_dict()}
 
@@ -389,7 +391,9 @@ class SprintCycle:
             stage="normalized",
             status="pending",
             metadata={"source": "web", "phase": "plan"},
+            evidence={"contract": {"normalized": True}, "stages": {"normalized": {"normalized": True}}},
             input_refs={"execution_id": execution_id, "task_id": task_id, "objective": objective},
+            validation_refs={"normalized": True},
         )
         return build_plan_artifact(contract, objective=objective, success_criteria=success_criteria, risks=risks, dependencies=dependencies)
 
@@ -506,9 +510,12 @@ class SprintCycle:
             "validation_refs": dict(execution_contract.get("validation_refs") or {}),
             "trace": dict(execution_contract.get("trace") or {}),
             "diagnostics": dict(execution_contract.get("diagnostics") or {}),
+            "evidence": dict(execution_contract.get("evidence") or {"contract": {}, "stages": {}}),
         }
         contract["validation_refs"]["normalized"] = bool(normalized_contract)
         contract["validation_refs"]["has_identity"] = bool(contract["execution_id"] and contract["task_id"] and contract["project_path"])
+        contract["evidence"].setdefault("contract", {})["normalized"] = True
+        contract["evidence"].setdefault("stages", {}).setdefault("normalized", {})["normalized"] = True
         return contract
 
     def plan_task(self, execution_contract: Dict[str, Any], *, objective: str = "", success_criteria: Optional[List[str]] = None, risks: Optional[List[str]] = None, dependencies: Optional[List[str]] = None, version: str = "v1") -> Dict[str, Any]:

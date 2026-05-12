@@ -1,13 +1,40 @@
 """Promotion policy for versioned evolution.
 
-Promotion is only allowed when evidence, runtime health, and governance are
-all sufficiently complete.
+Promotion is only allowed when the lifecycle contract contains complete,
+structured evidence for runtime, governance, recovery, and evolution.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
+
+from .lifecycle_contracts import validate_lifecycle_evidence
+
+
+REQUIRED_EVIDENCE_PATHS: tuple[str, ...] = (
+    "contract.normalized",
+    "stages.plan",
+    "stages.prepare",
+    "stages.decompose",
+    "stages.execute",
+    "stages.observe",
+    "stages.diagnose",
+    "stages.deliver",
+    "runtime.linked",
+    "governance.approved",
+    "promotion.evidence",
+    "evolution.versioned",
+)
+
+
+def _path_exists(payload: Dict[str, Any], path: str) -> bool:
+    current: Any = payload
+    for part in path.split("."):
+        if not isinstance(current, dict) or part not in current:
+            return False
+        current = current[part]
+    return bool(current)
 
 
 @dataclass
@@ -20,37 +47,57 @@ class PromotionPolicy:
 
     def evaluate(self, lifecycle_contract: Dict[str, Any], runtime: Optional[Dict[str, Any]] = None, governance: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         lifecycle_contract = dict(lifecycle_contract or {})
+        evidence = dict(lifecycle_contract.get("evidence") or {})
         runtime = dict(runtime or {})
         governance = dict(governance or {})
-        health = dict(lifecycle_contract.get("health") or {})
-        repair = dict(lifecycle_contract.get("repair") or {})
-        trace = dict(lifecycle_contract.get("trace") or {})
-        diagnostics = dict(lifecycle_contract.get("diagnostics") or {})
-        suggestion = dict(lifecycle_contract.get("suggestion") or {})
         reasons = []
 
-        completion_score = float(lifecycle_contract.get("completion_score") or health.get("completion_score") or 0.0)
-        validation_refs = dict(lifecycle_contract.get("validation_refs") or {})
+        evidence_errors = validate_lifecycle_evidence(lifecycle_contract)
+        if evidence_errors:
+            reasons.extend([f"evidence_invalid:{error}" for error in evidence_errors])
+
+        contract_evidence = dict(evidence.get("contract") or {})
+        stages = dict(evidence.get("stages") or {})
+        runtime_evidence = dict(evidence.get("runtime") or {})
+        suggestion_evidence = dict(evidence.get("suggestion") or {})
+        governance_evidence = dict(evidence.get("governance") or {})
+        promotion_evidence = dict(evidence.get("promotion") or {})
+        evolution_evidence = dict(evidence.get("evolution") or {})
+
+        completion_score = float(promotion_evidence.get("completion_score") or lifecycle_contract.get("completion_score") or 0.0)
         stage_history = list(lifecycle_contract.get("stage_history") or [])
-        stage = str(lifecycle_contract.get("stage") or health.get("stage") or "")
+        stage = str(lifecycle_contract.get("stage") or "")
         terminal_ok = bool(lifecycle_contract.get("is_terminal") or stage in {"promoted", "failed", "cancelled", "aborted"})
+        required_paths_present = all(
+            bool(
+                path == "contract.normalized" and contract_evidence.get("normalized")
+                or path == "runtime.linked" and (runtime_evidence.get("healthy") or runtime.get("healthy") or runtime.get("verification", {}).get("healthy"))
+                or path == "governance.approved" and bool(governance_evidence.get("approved") or governance.get("approved") or governance.get("status") == "approved")
+                or path == "promotion.evidence" and bool(promotion_evidence)
+                or path == "evolution.versioned" and bool(evolution_evidence.get("version_id") or evolution_evidence.get("versioned"))
+                or stages.get(path.split(".")[1] if "." in path else path)
+            )
+            for path in REQUIRED_EVIDENCE_PATHS
+        )
 
         if completion_score < self.min_completion_score:
             reasons.append(f"completion_score<{self.min_completion_score}")
-        if self.require_runtime_healthy and not bool(runtime.get("healthy") or runtime.get("verification", {}).get("healthy")):
+        if self.require_runtime_healthy and not bool(runtime_evidence.get("healthy") or runtime.get("healthy") or runtime.get("verification", {}).get("healthy")):
             reasons.append("runtime_not_healthy")
-        if self.require_suggestion_approved and not bool(suggestion.get("approved") or governance.get("approved") or governance.get("status") == "approved"):
+        if self.require_suggestion_approved and not bool(suggestion_evidence.get("approved") or governance_evidence.get("approved") or governance.get("approved") or governance.get("status") == "approved"):
             reasons.append("suggestion_not_approved")
-        if self.require_trace_evidence and not bool(trace.get("events") or diagnostics.get("event_count", 0) > 0):
+        if self.require_trace_evidence and not bool(stages.get("execute", {}).get("trace") or stages.get("observe", {}).get("trace") or lifecycle_contract.get("trace", {}).get("events")):
             reasons.append("missing_trace_evidence")
-        if self.require_repair_closed and bool(repair.get("ready") is False and diagnostics.get("repair_ready")):
+        if self.require_repair_closed and bool(stages.get("repair", {}).get("open") or stages.get("repairing", {}).get("open")):
             reasons.append("repair_not_closed")
-        if self.require_trace_evidence and not validation_refs:
+        if self.require_trace_evidence and not lifecycle_contract.get("validation_refs"):
             reasons.append("missing_validation_refs")
         if self.require_trace_evidence and not stage_history:
             reasons.append("missing_stage_history")
         if self.require_trace_evidence and not terminal_ok:
             reasons.append("not_terminal")
+        if self.require_trace_evidence and not required_paths_present:
+            reasons.append("missing_required_evidence")
 
         return {
             "allowed": not reasons,
@@ -58,13 +105,14 @@ class PromotionPolicy:
             "score": completion_score,
             "checks": {
                 "completion_score": completion_score,
-                "runtime_healthy": bool(runtime.get("healthy") or runtime.get("verification", {}).get("healthy")),
-                "suggestion_approved": bool(suggestion.get("approved") or governance.get("approved") or governance.get("status") == "approved"),
-                "trace_evidence": bool(trace.get("events") or diagnostics.get("event_count", 0) > 0),
-                "repair_closed": not bool(repair.get("ready") is False and diagnostics.get("repair_ready")),
-                "validation_refs": bool(validation_refs),
+                "runtime_healthy": bool(runtime_evidence.get("healthy") or runtime.get("healthy") or runtime.get("verification", {}).get("healthy")),
+                "suggestion_approved": bool(suggestion_evidence.get("approved") or governance_evidence.get("approved") or governance.get("approved") or governance.get("status") == "approved"),
+                "trace_evidence": bool(stages.get("execute", {}).get("trace") or stages.get("observe", {}).get("trace") or lifecycle_contract.get("trace", {}).get("events")),
+                "repair_closed": not bool(stages.get("repair", {}).get("open") or stages.get("repairing", {}).get("open")),
+                "validation_refs": bool(lifecycle_contract.get("validation_refs")),
                 "stage_history": bool(stage_history),
                 "terminal_ok": terminal_ok,
+                "required_evidence": required_paths_present,
             },
         }
 

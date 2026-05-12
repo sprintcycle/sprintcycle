@@ -34,6 +34,9 @@ LIFECYCLE_STAGES: tuple[str, ...] = (
     "promoted",
 )
 
+RECOVERY_STAGES: tuple[str, ...] = ("repairing", "verifying")
+FAILURE_STAGES: tuple[str, ...] = ("failed", "aborted", "cancelled")
+
 TERMINAL_STAGES: tuple[str, ...] = ("promoted", "failed", "aborted", "cancelled")
 
 STAGE_TRANSITIONS: Dict[str, tuple[str, ...]] = {
@@ -52,7 +55,7 @@ STAGE_TRANSITIONS: Dict[str, tuple[str, ...]] = {
     "governing": ("promotion_ready", "failed", "cancelled"),
     "promotion_ready": ("promoted", "failed", "cancelled"),
     "promoted": (),
-    "failed": (),
+    "failed": ("repairing", "cancelled"),
     "aborted": (),
     "cancelled": (),
 }
@@ -123,13 +126,16 @@ class LifecycleStateMachine:
             return -1
 
     def is_terminal(self, stage: object) -> bool:
-        return self.normalize_stage(stage) in TERMINAL_STAGES
+        return self.normalize_stage(stage) in TERMINAL_STAGES or self.normalize_stage(stage) in FAILURE_STAGES
 
     def transition(self, contract: Dict[str, Any], to_stage: str, *, status: Optional[str] = None, reason: str = "", metadata: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         contract = dict(contract or {})
         current = self.normalize_stage(contract.get("stage") or contract.get("current_stage") or "new")
         target = self.normalize_stage(to_stage)
-        err = self.validate_transition(current, target)
+        if current == "failed" and target == "repairing":
+            err = None
+        else:
+            err = self.validate_transition(current, target)
         if err:
             raise ValueError(err)
         history = list(contract.get("stage_history") or [])

@@ -71,7 +71,10 @@ def build_plan_artifact(contract: LifecycleContract, *, objective: str = "", suc
         version=version,
         metadata={"source": "phase_workflow"},
     )
-    return {"lifecycle_contract": {**planned, "plan_refs": artifact.to_dict(), "input_refs": {**dict(contract.input_refs), "objective": artifact.objective}}, "plan": artifact.to_dict()}
+    evidence = dict(planned.get("evidence") or {})
+    evidence.setdefault("stages", {}).setdefault("plan", {}).update({"objective": artifact.objective, "success_criteria": artifact.success_criteria, "risks": artifact.risks, "dependencies": artifact.dependencies, "version": artifact.version, "present": True})
+    evidence.setdefault("contract", {})["normalized"] = bool(evidence.get("contract", {}).get("normalized", True))
+    return {"lifecycle_contract": {**planned, "evidence": evidence, "plan_refs": artifact.to_dict(), "input_refs": {**dict(contract.input_refs), "objective": artifact.objective}}, "plan": artifact.to_dict()}
 
 
 def build_prepare_artifact(contract_payload: Dict[str, Any], *, checks: Optional[Dict[str, Any]] = None, blockers: Optional[List[str]] = None) -> Dict[str, Any]:
@@ -87,7 +90,10 @@ def build_prepare_artifact(contract_payload: Dict[str, Any], *, checks: Optional
         metadata={"source": "phase_workflow"},
     )
     prepared["validation_refs"] = {**dict(prepared.get("validation_refs") or {}), **artifact.checks, "ready": artifact.ready, "blockers": artifact.blockers}
-    return {"lifecycle_contract": {**prepared, "plan_refs": dict(prepared.get("plan_refs") or {}), "validation_refs": prepared.get("validation_refs", {})}, "prepare": artifact.to_dict()}
+    evidence = dict(prepared.get("evidence") or {})
+    evidence.setdefault("stages", {}).setdefault("prepare", {}).update({"ready": artifact.ready, "checks": artifact.checks, "blockers": artifact.blockers, "present": True})
+    prepared["evidence"] = evidence
+    return {"lifecycle_contract": {**prepared, "plan_refs": dict(prepared.get("plan_refs") or {}), "validation_refs": prepared.get("validation_refs", {}), "evidence": evidence}, "prepare": artifact.to_dict()}
 
 
 def build_decompose_artifact(contract_payload: Dict[str, Any], *, subtasks: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
@@ -108,7 +114,10 @@ def build_decompose_artifact(contract_payload: Dict[str, Any], *, subtasks: Opti
         metadata={"source": "phase_workflow"},
     )
     decomposed["plan_refs"] = {**dict(decomposed.get("plan_refs") or {}), "decompose": artifact.to_dict()}
-    return {"lifecycle_contract": decomposed, "decompose": artifact.to_dict()}
+    evidence = dict(decomposed.get("evidence") or {})
+    evidence.setdefault("stages", {}).setdefault("decompose", {}).update({"subtasks": subtasks, "dag": dag, "acceptance_criteria": artifact.acceptance_criteria, "present": True})
+    decomposed["evidence"] = evidence
+    return {"lifecycle_contract": {**decomposed, "evidence": evidence}, "decompose": artifact.to_dict()}
 
 
 @dataclass
@@ -171,6 +180,9 @@ def build_observe_artifact(contract_payload: Dict[str, Any], *, trace: Optional[
     artifact = ObserveArtifact(execution_id=str(observed.get("execution_id") or ""), task_id=str(observed.get("task_id") or ""), project_path=str(observed.get("project_path") or ""), trace=dict(trace or {}), diagnostics=dict(diagnostics or {}), metadata={"source": "phase_workflow"})
     observed["trace"] = artifact.trace
     observed["diagnostics"] = artifact.diagnostics
+    evidence = dict(observed.get("evidence") or {})
+    evidence.setdefault("stages", {}).setdefault("observe", {}).update({"trace": artifact.trace, "diagnostics": artifact.diagnostics, "present": True})
+    observed["evidence"] = evidence
     return {"lifecycle_contract": observed, "observe": artifact.to_dict()}
 
 
@@ -178,6 +190,9 @@ def build_diagnose_artifact(contract_payload: Dict[str, Any], *, root_causes: Op
     diagnosed = dict(contract_payload or {})
     artifact = DiagnoseArtifact(execution_id=str(diagnosed.get("execution_id") or ""), task_id=str(diagnosed.get("task_id") or ""), project_path=str(diagnosed.get("project_path") or ""), root_causes=list(root_causes or []), repair_ready=repair_ready, confidence=float(confidence), recommendations=list(recommendations or []), metadata={"source": "phase_workflow"})
     diagnosed["repair_refs"] = {**dict(diagnosed.get("repair_refs") or {}), "root_causes": artifact.root_causes, "repair_ready": artifact.repair_ready, "confidence": artifact.confidence}
+    evidence = dict(diagnosed.get("evidence") or {})
+    evidence.setdefault("stages", {}).setdefault("diagnose", {}).update({"root_causes": artifact.root_causes, "repair_ready": artifact.repair_ready, "confidence": artifact.confidence, "recommendations": artifact.recommendations, "present": True})
+    diagnosed["evidence"] = evidence
     return {"lifecycle_contract": diagnosed, "diagnose": artifact.to_dict()}
 
 
@@ -185,6 +200,10 @@ def build_repair_artifact(contract_payload: Dict[str, Any], *, closed_loop: bool
     repaired = dict(contract_payload or {})
     artifact = RepairArtifact(execution_id=str(repaired.get("execution_id") or ""), task_id=str(repaired.get("task_id") or ""), project_path=str(repaired.get("project_path") or ""), attempted=True, closed_loop=closed_loop, verify_result=dict(verify_result or {}), metadata={"source": "phase_workflow"})
     repaired["repair_refs"] = {**dict(repaired.get("repair_refs") or {}), "closed_loop": artifact.closed_loop, "verify_result": artifact.verify_result}
+    evidence = dict(repaired.get("evidence") or {})
+    evidence.setdefault("stages", {}).setdefault("repair", {}).update({"attempted": artifact.attempted, "closed_loop": artifact.closed_loop, "verify_result": artifact.verify_result, "present": True})
+    evidence.setdefault("stages", {}).setdefault("verify", {}).update({"closed_loop": artifact.closed_loop, "verify_result": artifact.verify_result, "present": True})
+    repaired["evidence"] = evidence
     return {"lifecycle_contract": repaired, "repair": artifact.to_dict()}
 
 
@@ -193,6 +212,10 @@ def build_deliver_artifact(contract_payload: Dict[str, Any], *, outputs: Optiona
     artifact = DeliverArtifact(execution_id=str(delivered.get("execution_id") or ""), task_id=str(delivered.get("task_id") or ""), project_path=str(delivered.get("project_path") or ""), outputs=dict(outputs or {}), runtime_linkage=dict(runtime_linkage or {}), metadata={"source": "phase_workflow"})
     delivered["output_refs"] = {**dict(delivered.get("output_refs") or {}), **artifact.outputs}
     delivered["runtime_linkage"] = {**dict(delivered.get("runtime_linkage") or {}), **artifact.runtime_linkage}
+    evidence = dict(delivered.get("evidence") or {})
+    evidence.setdefault("stages", {}).setdefault("deliver", {}).update({"outputs": artifact.outputs, "runtime_linkage": artifact.runtime_linkage, "present": True})
+    evidence.setdefault("runtime", {}).update({"linked": bool(artifact.runtime_linkage), "healthy": bool(artifact.runtime_linkage)})
+    delivered["evidence"] = evidence
     return {"lifecycle_contract": delivered, "deliver": artifact.to_dict()}
 
 

@@ -13,6 +13,40 @@ from typing import Any, Dict, List, Optional
 from .lifecycle_state_machine import LIFECYCLE_STAGES, LifecycleStateMachine, build_default_correlation
 
 
+STAGE_EVIDENCE_SCHEMA: Dict[str, tuple[str, ...]] = {
+    "normalized": ("normalized",),
+    "plan": ("objective", "present"),
+    "prepare": ("ready", "checks", "blockers", "present"),
+    "decompose": ("subtasks", "present"),
+    "execute": ("trace", "present"),
+    "observe": ("trace", "diagnostics", "present"),
+    "diagnose": ("root_causes", "repair_ready", "confidence", "recommendations", "present"),
+    "repair": ("attempted", "closed_loop", "verify_result", "present"),
+    "verify": ("closed_loop", "verify_result", "present"),
+    "deliver": ("outputs", "runtime_linkage", "present"),
+    "runtime": ("linked", "healthy"),
+    "governance": ("approved",),
+    "promotion": ("evidence", "completion_score"),
+    "evolution": ("versioned", "version_id"),
+}
+
+STAGE_EVIDENCE_TRUTHY_KEYS: Dict[str, tuple[str, ...]] = {
+    "normalized": ("normalized",),
+    "prepare": ("ready", "present"),
+    "decompose": ("present",),
+    "execute": ("present",),
+    "observe": ("present",),
+    "diagnose": ("present",),
+    "repair": ("attempted", "closed_loop", "present"),
+    "verify": ("closed_loop", "present"),
+    "deliver": ("present",),
+    "runtime": ("linked", "healthy"),
+    "governance": ("approved",),
+    "promotion": ("evidence", "completion_score"),
+    "evolution": ("versioned", "version_id"),
+}
+
+
 FAILURE_KIND_BY_STAGE: Dict[str, str] = {
     "new": "",
     "normalized": "",
@@ -30,6 +64,23 @@ FAILURE_KIND_BY_STAGE: Dict[str, str] = {
     "promotion_ready": "policy_error",
     "promoted": "",
 }
+
+STAGE_EVIDENCE_KEYS: tuple[str, ...] = (
+    "normalized",
+    "plan",
+    "prepare",
+    "decompose",
+    "execute",
+    "observe",
+    "diagnose",
+    "repair",
+    "verify",
+    "deliver",
+    "runtime",
+    "governance",
+    "promotion",
+    "evolution",
+)
 
 TERMINAL_STATUSES: tuple[str, ...] = ("success", "failed", "cancelled", "promoted")
 
@@ -53,6 +104,7 @@ class LifecycleContract:
     runtime_refs: Dict[str, Any] = field(default_factory=dict)
     governance_refs: Dict[str, Any] = field(default_factory=dict)
     evolution_refs: Dict[str, Any] = field(default_factory=dict)
+    evidence: Dict[str, Any] = field(default_factory=dict)
     suggestion_refs: List[Dict[str, Any]] = field(default_factory=list)
     skill_refs: List[Dict[str, Any]] = field(default_factory=list)
     skill_matches: List[Dict[str, Any]] = field(default_factory=list)
@@ -116,6 +168,13 @@ class LifecycleContract:
         payload["recovery_hints"] = dict(self.recovery_refs or {})
         payload["delivery_hints"] = dict(self.delivery_refs or {})
         payload["runtime_hints"] = dict(self.runtime_refs or {})
+        payload["governance_hints"] = dict(self.governance_refs or {})
+        payload["evolution_hints"] = dict(self.evolution_refs or {})
+        payload["evidence"] = dict(self.evidence or {})
+        payload["evidence"].setdefault("stages", {})
+        payload["evidence"]["stages"] = dict(payload["evidence"].get("stages") or {})
+        for key in STAGE_EVIDENCE_KEYS:
+            payload["evidence"]["stages"].setdefault(key, {})
         payload["suggestion_hints"] = list(self.suggestion_refs or [])
         payload["skill_hints"] = {
             "skill_refs": list(self.skill_refs or []),
@@ -145,6 +204,29 @@ def normalize_lifecycle_metadata(metadata: Optional[Dict[str, Any]] = None) -> D
     return meta
 
 
+def validate_lifecycle_evidence(contract: Dict[str, Any]) -> List[str]:
+    payload = dict(contract or {})
+    evidence = dict(payload.get("evidence") or {})
+    errors: List[str] = []
+    stages = dict(evidence.get("stages") or {}) if isinstance(evidence.get("stages"), dict) else {}
+    for stage, required_keys in STAGE_EVIDENCE_SCHEMA.items():
+        stage_payload = dict(stages.get(stage) or {}) if stage in stages else {}
+        if stage in {"governance", "promotion", "evolution", "runtime"}:
+            stage_payload = dict(evidence.get(stage) or {})
+        if not isinstance(stage_payload, dict):
+            errors.append(f"evidence.{stage} must be a mapping")
+            continue
+        missing = [key for key in required_keys if key not in stage_payload]
+        if missing:
+            errors.append(f"evidence.{stage} missing keys: {', '.join(missing)}")
+            continue
+        truthy_required = STAGE_EVIDENCE_TRUTHY_KEYS.get(stage, ())
+        for key in truthy_required:
+            if key in stage_payload and not stage_payload.get(key):
+                errors.append(f"evidence.{stage}.{key} must be truthy")
+    return errors
+
+
 def build_lifecycle_state_machine() -> LifecycleStateMachine:
     return LifecycleStateMachine()
 
@@ -171,6 +253,7 @@ def build_lifecycle_contract(
     skill_review_checklists: Optional[List[Dict[str, Any]]] = None,
     skill_trace: Optional[Dict[str, Any]] = None,
     evolution_refs: Optional[Dict[str, Any]] = None,
+    evidence: Optional[Dict[str, Any]] = None,
     recovery_refs: Optional[Dict[str, Any]] = None,
     governance_refs: Optional[Dict[str, Any]] = None,
     trace: Optional[Dict[str, Any]] = None,
@@ -189,6 +272,16 @@ def build_lifecycle_contract(
     machine = LifecycleStateMachine()
     normalized_stage = machine.normalize_stage(stage)
     normalized_status = status or "pending"
+    evidence_payload = dict(evidence or {})
+    evidence_payload.setdefault("contract", {})
+    evidence_payload.setdefault("stages", {})
+    evidence_payload.setdefault("runtime", {})
+    evidence_payload.setdefault("suggestion", {})
+    evidence_payload.setdefault("governance", {})
+    evidence_payload.setdefault("promotion", {})
+    evidence_payload.setdefault("evolution", {})
+    for key in STAGE_EVIDENCE_KEYS:
+        evidence_payload["stages"].setdefault(key, {})
     contract = LifecycleContract(
         execution_id=execution_id,
         task_id=task_id,
@@ -207,6 +300,7 @@ def build_lifecycle_contract(
         skill_review_checklists=list(skill_review_checklists or []),
         skill_trace=dict(skill_trace or {}),
         evolution_refs=dict(evolution_refs or {}),
+        evidence=evidence_payload,
         recovery_refs=dict(recovery_refs or {}),
         governance_refs=dict(governance_refs or {}),
         trace=dict(trace or {}),
