@@ -1,5 +1,5 @@
 ---
-description: SprintCycle 8-layer directory governance and migration rule
+description: SprintCycle 8-layer governance rule with layered trigger conditions
 alwaysApply: true
 ---
 
@@ -12,6 +12,29 @@ alwaysApply: true
 - 中文：在重构过程中保证代码逻辑不丢、文件不丢、行为不变。
 - EN: Do not introduce compatibility shims, bridge imports, or transition layers.
 - 中文：禁止引入兼容层、桥接导入、过渡适配层。
+
+Current implementation context / 当前实现现状：
+- The repository currently centers on the `sprintcycle` core package and its governing layer structure.
+- This rule should be interpreted against the existing repository shape, not against a hypothetical expanded package tree.
+
+## Trigger layers / 触发分层
+### Tier 1 — Structural trigger / 结构级强触发
+Apply this rule immediately when any change touches:
+- directory moves, renames, deletions, or new top-level directories
+- package boundaries, module layout, or ownership boundaries
+- import paths, relative imports, or cross-package references
+- `__init__.py`, root exports, entrypoints, or adapter/package wiring
+
+### Tier 2 — Architectural trigger / 架构级中触发
+Apply this rule when any change touches:
+- layer-specific code in `entrypoints/`, `presentation/`, `application/`, `execution/`, `governance/`, `observability/`, `domain/`, or `infrastructure/`
+- orchestration flow, call chains, lifecycle transitions, or public API shape
+- config files, dependency files, test layout, or scripts that can affect the architecture
+
+### Tier 3 — Review trigger / 复核级弱触发
+Apply a lightweight review when any change touches:
+- docs, comments, examples, naming, or formatting
+- non-structural text updates that may still affect clarity of ownership or usage
 
 ## Allowed top-level directories / 允许的顶层目录
 Only these directories are allowed directly under `sprintcycle/`:
@@ -69,7 +92,7 @@ Only these directories are allowed directly under `sprintcycle/`:
 - 中文：凡涉及目录结构的变更，必须确认没有丢失逻辑、文件或测试。
 
 ## When editing / 何时采用
-- EN: Apply this rule to every change in SprintCycle, including code edits, file moves, refactors, docs updates, tests, and package export changes.
-- 中文：本规则适用于 SprintCycle 的所有变更，包括代码修改、文件移动、重构、文档更新、测试调整以及包导出变更。
+- EN: Apply this rule to every change in SprintCycle, with strongest enforcement for structural and boundary-affecting edits.
+- 中文：本规则适用于 SprintCycle 的所有变更，其中对结构性和边界性修改执行最强约束。
 - EN: If any file under `sprintcycle/` or repository-root structural file is touched, re-check the 8-layer constraint, root-file safety, import rewrite, and compatibility-layer prohibition.
 - 中文：只要涉及 `sprintcycle/` 下任意文件或仓库根目录结构性文件，就必须重新检查 8 层约束、根目录文件安全、导入重写与禁止兼容层。

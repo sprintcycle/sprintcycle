@@ -73,6 +73,8 @@ You are working on SprintCycle, a layered orchestration system with a stable cor
 - Keep changes localized to the smallest responsible layer.
 - If a request touches multiple subsystems, keep boundaries explicit and coordinate through services rather than direct coupling.
 - Prefer explicit lifecycle steps over implicit side effects.
+- Treat any repository change that could affect architecture, orchestration, lifecycle continuity, or layer ownership as a valid trigger for this rule.
+- When code, docs, configs, tests, or dependency files change, re-check whether the web end-to-end chain and the public coordination layer remain intact.
 
 ### 7. Change strategy
 1. Identify the owning subsystem.

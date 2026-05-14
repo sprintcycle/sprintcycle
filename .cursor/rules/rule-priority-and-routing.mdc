@@ -1,0 +1,43 @@
+---
+description: SprintCycle rule priority and routing guide
+alwaysApply: true
+---
+
+# SprintCycle Rule Priority and Routing / SprintCycle 规则优先级与路由
+
+## Purpose / 目的
+When multiple rules may match the same change, use the following priority to keep review and enforcement consistent.
+
+Current implementation context / 当前实现现状:
+- The repository currently has a small rule set, so this guide exists to prevent overlapping interpretations as the rules grow.
+- The priority order below should be applied against the existing codebase shape and current lifecycle backbone.
+
+- Structural changes must be reviewed first by the 8-layer governance rule.
+- Lifecycle and end-to-end chain changes must be reviewed first by the web end-to-end stability rule.
+- Graph behavior changes must be reviewed first by the LangGraph orchestration rule.
+- Public architecture and ownership changes must be reviewed first by the core architecture rule.
+
+## Priority order / 优先级顺序
+### Tier 1 — Primary rule / 主规则
+Use the most specific rule that matches the change:
+1. `sprintcycle-8-layer-governance.mdc`
+2. `web-end-to-end-stability.md`
+3. `langgraph-orchestration.md`
+4. `core-architecture.md`
+
+### Tier 2 — Secondary review / 次级复核
+If a change touches multiple areas, apply the primary rule first and then perform a lightweight secondary review with the overlapping rule(s).
+
+### Tier 3 — General review / 通用复核
+If a change does not clearly fit one of the above, do a lightweight architecture review before deciding whether to escalate.
+
+## Routing guidance / 路由指引
+- Structure, imports, package exports, and cross-layer ownership → `sprintcycle-8-layer-governance.mdc`
+- Lifecycle continuity, web entry, execution backbone, and end-to-end closure → `web-end-to-end-stability.md`
+- Graph nodes, state transitions, and `plan / run / observe / repair` behavior → `langgraph-orchestration.md`
+- Public API boundaries, responsibilities, and architectural separation → `core-architecture.md`
+
+## Escalation rule / 升级规则
+- Always start with a lightweight review for any file change.
+- Escalate to full review when the change can affect boundaries, imports, exports, lifecycle continuity, execution flow, or ownership.
+- If two or more rules match, prefer the rule above with the highest priority and use the others as supporting checks.
