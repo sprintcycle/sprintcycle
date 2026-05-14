@@ -13,9 +13,9 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from sprintcycle.support.quality_spec.spec.constraint_spec import ConstraintSpec
-from sprintcycle.support.quality_spec.spec.task_spec import TaskSpec
-from sprintcycle.support.quality_spec.spec.verification_strategy import VerificationStrategySpec
+from sprintcycle.domain.quality_spec.spec.constraint_spec import ConstraintSpec
+from sprintcycle.domain.quality_spec.spec.task_spec import TaskSpec
+from sprintcycle.domain.quality_spec.spec.verification_strategy import VerificationStrategySpec
 
 
 class ExecutionMode(Enum):

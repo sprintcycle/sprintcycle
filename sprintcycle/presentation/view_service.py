@@ -13,14 +13,14 @@ from .projections import SuggestionBoardViewModel
 from .service import DashboardQueryService
 from sprintcycle.execution.state import summarize_state_machine
 from sprintcycle.execution.state.state_store import get_state_store
-from sprintcycle.platform.overview import build_platform_overview_view
-from sprintcycle.dashboard.projections import DashboardPanelViewModel
-from sprintcycle.dashboard.views.architecture_view import ArchitectureView
-from sprintcycle.dashboard.views.deploy_view import DeployView
-from sprintcycle.dashboard.views.fix_view import FixView
-from sprintcycle.dashboard.views.fitness_view import FitnessView
-from sprintcycle.dashboard.views.governance_view import GovernanceView
-from sprintcycle.platform.spec import build_platform_spec
+from sprintcycle.domain.platform.overview import build_platform_overview_view
+from sprintcycle.presentation.projections import DashboardPanelViewModel
+from sprintcycle.presentation.views.architecture_view import ArchitectureView
+from sprintcycle.presentation.views.deploy_view import DeployView
+from sprintcycle.presentation.views.fix_view import FixView
+from sprintcycle.presentation.views.fitness_view import FitnessView
+from sprintcycle.presentation.views.governance_view import GovernanceView
+from sprintcycle.domain.platform.spec import build_platform_spec
 
 
 @dataclass

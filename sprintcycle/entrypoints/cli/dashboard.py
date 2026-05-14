@@ -90,7 +90,7 @@ def register(cli: click.Group) -> None:
         try:
             import uvicorn
 
-            from sprintcycle.dashboard.server import create_app
+            from sprintcycle.presentation.server import create_app
         except ImportError as e:
             err_console.print(f"[red]依赖缺失:[/red] {escape(str(e))}")
             err_console.print("[dim]安装命令:[/dim] pip install fastapi uvicorn")
