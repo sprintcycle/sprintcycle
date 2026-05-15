@@ -90,14 +90,6 @@ export async function apiDashboardLifecycleContractReview(executionId: string, b
   return data
 }
 
-export async function apiDashboardLifecycleContractReview(executionId: string, body: Record<string, unknown>) {
-  const { data } = await api.post<Record<string, unknown>>(
-    `/dashboard/lifecycle-contract/${encodeURIComponent(executionId)}/review`,
-    body,
-  )
-  return data
-}
-
 export async function apiDashboardGovernance() {
   const { data } = await api.get<Record<string, unknown>>('/dashboard/governance')
   return data

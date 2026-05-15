@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 
-import { apiConsoleOverview, apiDashboardLifecycleContract, apiExecutionDetail, apiExecutionReplay, apiPlatformSummary, apiRollback, apiRun } from '@/api'
+import { apiConsoleOverview, apiExecutionDetail, apiExecutionReplay, apiPlatformSummary, apiRollback, apiRun } from '@/api'
 
 type Summary = Record<string, unknown>
 
@@ -12,7 +12,6 @@ const consoleOverview = ref<Summary | null>(null)
 const replay = ref<Summary | null>(null)
 const replayExecId = ref('')
 const execDetail = ref<Summary | null>(null)
-const lifecycleContract = ref<Summary | null>(null)
 const selectedExecId = ref('')
 const pollMs = 4000
 let timer: ReturnType<typeof setInterval> | null = null
@@ -56,14 +55,12 @@ async function load() {
     replayExecId.value = execId
     replay.value = execId ? await apiExecutionReplay(execId, 200) : null
     execDetail.value = execId ? await apiExecutionDetail(execId, 120) : null
-    lifecycleContract.value = execId ? await apiDashboardLifecycleContract(execId, 120) : null
   } catch (e) {
     error.value = e instanceof Error ? e.message : String(e)
     summary.value = null
     consoleOverview.value = null
     replay.value = null
     execDetail.value = null
-    lifecycleContract.value = null
   } finally {
     loading.value = false
   }
@@ -107,16 +104,27 @@ const detailState = computed(() => asRecord(execDetail.value?.data ?? execDetail
 const detailCheckpoint = computed(() => asRecord(execDetail.value?.data ?? execDetail.value).checkpoint)
 const detailResume = computed(() => asRecord(execDetail.value?.data ?? execDetail.value).resume_point)
 const detailCanResume = computed(() => Boolean((execDetail.value?.data ?? (execDetail.value as Record<string, unknown>))?.can_resume))
-const contractData = computed(() => asRecord(lifecycleContract.value?.data ?? lifecycleContract.value))
-const contractScore = computed(() => Number(contractData.value.completion_score ?? 0))
-const contractStage = computed(() => String(contractData.value.stage ?? '—'))
-const contractStatus = computed(() => String(contractData.value.status ?? '—'))
 const failureHint = computed(() => {
   const d = asRecord(execDetail.value?.data ?? execDetail.value)
   const st = String(asRecord(d.state).status ?? '')
   if (!d.state || st === 'success' || st === 'completed') return '当前执行未进入失败态'
   if (detailCanResume.value) return '建议优先续跑；若状态游标不可靠，可先查看 checkpoint 后再回放。'
   return '建议先查看 checkpoint 与最后稳定态；必要时执行回滚后重新规划。'
+})
+
+const contractSummary = computed(() => {
+  const d = asRecord(execDetail.value?.data ?? execDetail.value)
+  const contract = asRecord(d)
+  const evaluation = asRecord(contract.evaluation ?? contract.evaluation_refs)
+  const scoreCard = asRecord(evaluation.score_card)
+  return {
+    stage: String(asRecord(contract.lifecycle).stage ?? '—'),
+    status: String(asRecord(contract.lifecycle).status ?? '—'),
+    verdict: String(evaluation.verdict ?? '—'),
+    reason: String(evaluation.reason ?? '—'),
+    score: Number(scoreCard.total ?? contract.completion_score ?? 0),
+    promotionReady: Boolean(asRecord(contract.promotion).passed ?? false),
+  }
 })
 
 async function selectExecution(execId: string) {
@@ -302,6 +310,14 @@ async function rollbackSelectedExecution() {
                 <div class="detail-row mono"><span>当前 Sprint</span><b>{{ String(detailState.current_sprint ?? '') }}/{{ String(detailState.total_sprints ?? '') }}</b></div>
                 <div class="detail-row mono"><span>Checkpoint</span><b>{{ String(detailCheckpoint.sprint_name ?? '') }}</b></div>
                 <div class="detail-row mono"><span>Resume</span><b>{{ String(detailResume.sprint_name ?? '') }}</b></div>
+              </div>
+              <div class="detail-box">
+                <div class="detail-row mono"><span>Contract Stage</span><b>{{ contractSummary.stage }}</b></div>
+                <div class="detail-row mono"><span>Contract Status</span><b>{{ contractSummary.status }}</b></div>
+                <div class="detail-row mono"><span>Verdict</span><b>{{ contractSummary.verdict }}</b></div>
+                <div class="detail-row mono"><span>Score</span><b>{{ String(contractSummary.score) }}</b></div>
+                <div class="detail-row mono"><span>Promotion Ready</span><b>{{ String(contractSummary.promotionReady) }}</b></div>
+                <div class="detail-row mono"><span>Reason</span><b>{{ contractSummary.reason }}</b></div>
               </div>
               <div v-for="(ev, idx) in replayTimeline.slice(-10)" :key="idx" class="timeline-line mono">
                 <span class="muted">{{ String(ev.timestamp ?? ev.created_at ?? '') }}</span>

@@ -23,6 +23,7 @@ export const router = createRouter({
         { path: 'promotion', name: 'promotion', component: () => import('@/views/PromotionView.vue') },
         { path: 'deploy', name: 'deploy', component: () => import('@/views/DeployView.vue') },
         { path: 'fitness', name: 'fitness', component: () => import('@/views/FitnessView.vue') },
+        { path: 'contract-review', name: 'contract-review', component: () => import('@/views/ContractReviewView.vue') },
       ],
     },
   ],

@@ -65,11 +65,13 @@ from .persistence.knowledge_repository import KnowledgeCardRepository
 from .versioning.interface import get_version_manifest_summary
 from .versioning.sqlite_registry import SQLiteVersionRegistry
 from .observability.facade import ObservabilityFacade
+from .services.deployment_spec_service import DeploymentSpecService
 from .services.execution_lifecycle_service import ExecutionLifecycleService
 from .services.governance_orchestration_service import GovernanceOrchestrationService
 from .services.lifecycle_evolution_service import LifecycleEvolutionService
 from .services.observability_service import ObservabilityService
 from .services.phase_workflow import build_decompose_artifact, build_plan_artifact, build_prepare_artifact
+from .services.platform_launch_service import PlatformLaunchService
 from .services.platform_summary_service import PlatformSummaryService
 from .services.promotion_policy import PromotionPolicy
 from .services.repair_orchestration_service import RepairOrchestrationService
@@ -158,6 +160,8 @@ class SprintCycle:
             promotion_policy=self._promotion_policy,
         )
         self._fitness = FitnessEvaluator()
+        self._deployment_spec = DeploymentSpecService()
+        self._platform_launch = PlatformLaunchService(spec_service=self._deployment_spec)
 
     @property
     def intent_evolution_loop(self) -> UserIntentEvolutionLoop:
@@ -937,7 +941,8 @@ class SprintCycle:
         promotion = self.evaluate_promotion(runtime_id or self.project_path, project_path=self.project_path, governance=self.governance_lifecycle().get("data", {}).get("summary", {}))
         success = bool(deployment.get("success", False)) and bool(runtime.get("success", False))
         closure_score = 100.0 if success else 0.0
-        return {"success": success, "data": {"deployment": deployment.get("data", {}), "runtime": runtime.get("data", {}), "contract": contract.get("data", {}) if isinstance(contract, dict) else {}, "promotion": promotion.get("data", {}), "lifecycle": {"stage": "runtime_linked", "status": "success" if success else "failed", "has_deployment": bool(deployment.get("success", False)), "has_runtime": bool(runtime.get("success", False)), "promotion_ready": bool((promotion.get("data", {}) or {}).get("promotion", {}).get("passed", False)), "closure_score": closure_score}, "health": {"closure_score": closure_score, "is_healthy": success}}}
+        launch = self.launch_platform(contract.get("data", {}) if isinstance(contract, dict) else {}, launch_mode="auto", platform="dashboard") if runtime_id else {"success": False, "data": {}}
+        return {"success": success, "data": {"deployment": deployment.get("data", {}), "runtime": runtime.get("data", {}), "contract": contract.get("data", {}) if isinstance(contract, dict) else {}, "promotion": promotion.get("data", {}), "launch": launch.get("data", {}), "lifecycle": {"stage": "runtime_linked", "status": "success" if success else "failed", "has_deployment": bool(deployment.get("success", False)), "has_runtime": bool(runtime.get("success", False)), "promotion_ready": bool((promotion.get("data", {}) or {}).get("promotion", {}).get("passed", False)), "launch_ready": bool((launch.get("data", {}) or {}).get("status") == "running"), "closure_score": closure_score}, "health": {"closure_score": closure_score, "is_healthy": success}}}
 
     def runtime_lifecycle(self, runtime_id: str = "") -> Dict[str, Any]:
         latest = self.runtime_latest()
@@ -969,6 +974,9 @@ class SprintCycle:
 
     def runtime_update(self, runtime_id: str, **changes: Any) -> Dict[str, Any]:
         return self._execution_service.runtime_update(runtime_id, **changes)
+
+    def launch_platform(self, contract: Dict[str, Any], *, launch_mode: str = "auto", platform: str = "dashboard") -> Dict[str, Any]:
+        return self._platform_launch.launch(contract, launch_mode=launch_mode, platform=platform)
 
     def governance_view(self) -> Dict[str, Any]:
         overview = self._suggestion_overview_payload()

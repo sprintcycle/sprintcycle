@@ -79,6 +79,9 @@ mode="horizontal" router :default-active="route.path" class="sc-menu" background
       <el-menu-item index="/fitness">
         🧪 Fitness
       </el-menu-item>
+      <el-menu-item index="/contract-review">
+        📑 Contract Review
+      </el-menu-item>
     </el-menu>
 
     <div class="sc-main">

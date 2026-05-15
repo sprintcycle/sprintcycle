@@ -14,7 +14,7 @@ const latestContract = computed(() => {
   const latestKey = keys[keys.length - 1] || ''
   return latestKey ? (lifecycleContracts.value?.[latestKey] as Record<string, unknown>) || {} : {}
 })
-const evaluation = computed(() => ((latestContract.value?.evaluation as Record<string, unknown> | undefined) || (latestContract.value?.evaluation_refs as Record<string, unknown> | undefined)) || {})
+const evaluation = computed(() => (latestContract.value?.evaluation as Record<string, unknown> | undefined) || {})
 const scoreCard = computed(() => (evaluation.value?.score_card as Record<string, unknown> | undefined) || {})
 const promotion = computed(() => (latestContract.value?.promotion as Record<string, unknown> | undefined) || {})
 const promotionReady = computed(() => Boolean(promotion.value?.passed ?? false))

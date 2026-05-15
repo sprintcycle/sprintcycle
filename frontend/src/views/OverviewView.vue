@@ -48,6 +48,8 @@ const recentFailures = computed(() => executions.value.filter((ex) => ['failed',
 const contractStage = computed(() => String(lifecycleContract.value?.data?.stage ?? lifecycleContract.value?.stage ?? '—'))
 const contractStatus = computed(() => String(lifecycleContract.value?.data?.status ?? lifecycleContract.value?.status ?? '—'))
 const contractScore = computed(() => Number((lifecycleContract.value?.data as Record<string, unknown> | undefined)?.completion_score ?? 0))
+const contractVerdict = computed(() => String(((lifecycleContract.value?.data as Record<string, unknown> | undefined)?.evaluation as Record<string, unknown> | undefined)?.verdict ?? (lifecycleContract.value?.data as Record<string, unknown> | undefined)?.promotion?.status ?? '—'))
+const contractReason = computed(() => String(((lifecycleContract.value?.data as Record<string, unknown> | undefined)?.evaluation as Record<string, unknown> | undefined)?.reason ?? '—'))
 
 function openTraceFromExecution(executionId: string) {
   router.push({ name: 'trace' })
@@ -66,6 +68,7 @@ const topLinks = [
   { label: 'Promotion', route: 'promotion' },
   { label: 'Deploy', route: 'deploy' },
   { label: 'Fitness', route: 'fitness' },
+  { label: 'Contract Review', route: 'contract-review' },
 ]
 </script>
 
@@ -119,6 +122,8 @@ const topLinks = [
             <div><span>Stage</span><b>{{ contractStage }}</b></div>
             <div><span>Status</span><b>{{ contractStatus }}</b></div>
             <div><span>Score</span><b>{{ contractScore }}</b></div>
+            <div><span>Verdict</span><b>{{ contractVerdict }}</b></div>
+            <div><span>Reason</span><b>{{ contractReason }}</b></div>
             <div><span>Execution</span><b>{{ String(lifecycleContract?.data?.execution_id ?? lifecycleContract?.execution_id ?? '—') }}</b></div>
           </div>
         </el-card>

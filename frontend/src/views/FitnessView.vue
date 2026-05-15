@@ -20,7 +20,7 @@ const latestContract = computed(() => {
   return (key ? lifecycleContracts.value?.[key] : null) as Record<string, unknown> | null
 })
 
-const review = computed(() => ((latestContract.value?.evaluation as Record<string, unknown> | undefined) || (latestContract.value?.evaluation_refs as Record<string, unknown> | undefined)) || {})
+const review = computed(() => (latestContract.value?.evaluation as Record<string, unknown> | undefined) || {})
 const scoreCard = computed(() => (review.value?.score_card as Record<string, unknown> | undefined) || {})
 const passed = computed(() => Boolean(scoreCard.value?.passed ?? review.value?.passed ?? false))
 const verdict = computed(() => String(review.value?.verdict ?? (scoreCard.value?.passed ? 'passed' : 'pending')))
