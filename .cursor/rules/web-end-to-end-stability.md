@@ -5,6 +5,8 @@ The web-triggered lifecycle is a stability contract for SprintCycle.
 
 Current implementation context / 当前实现现状：
 - The web path still depends on the existing `ReleasePlan → SprintOrchestrator.execute_release_plan → SprintExecutor` backbone.
+- The HTTP protocol entry now lives in `sprintcycle/interfaces/http/`.
+- Dashboard container and dashboard view concerns live in `sprintcycle/presentation/`.
 - Stability rules should be read against the current end-to-end chain already present in the codebase.
 
 - For any task initiated from the Web platform, the system must be able to complete the full lifecycle stably.
@@ -37,6 +39,7 @@ Apply a lightweight review when changes touch:
 - `SprintCycle` is the public coordination layer and must remain thin.
 - The execution backbone centers on `ReleasePlan → SprintOrchestrator.execute_release_plan → SprintExecutor`.
 - LangGraph currently serves as the orchestration skeleton for `intent → plan → sprint decomposition → sprint execution → observe → repair`.
+- `interfaces/http/` now owns HTTP public/internal route adaptation, while `presentation/` owns dashboard-specific views and container responsibilities.
 - Suggestions, governance, observability, and evolution are coordinated capabilities around the execution backbone and must be integrated through existing services, facades, hooks, registries, and orchestrators.
 - Any implementation change must preserve the continuity of this chain and must not weaken the ability to progress stably from one stage to the next.
 

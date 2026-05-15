@@ -14,8 +14,8 @@ alwaysApply: true
 - 中文：禁止引入兼容层、桥接导入、过渡适配层。
 
 Current implementation context / 当前实现现状：
-- The repository currently centers on the `sprintcycle` core package and its governing layer structure.
-- This rule should be interpreted against the existing repository shape, not against a hypothetical expanded package tree.
+- The repository now separates HTTP protocol entry into `interfaces/http/` and dashboard container/view concerns into `presentation/`.
+- This rule should be interpreted against the existing repository shape, not against an older `entrypoints/`-centric assumption.
 
 ## Trigger layers / 触发分层
 ### Tier 1 — Structural trigger / 结构级强触发
@@ -23,22 +23,22 @@ Apply this rule immediately when any change touches:
 - directory moves, renames, deletions, or new top-level directories
 - package boundaries, module layout, or ownership boundaries
 - import paths, relative imports, or cross-package references
-- `__init__.py`, root exports, entrypoints, or adapter/package wiring
+- `__init__.py`, root exports, or adapter/package wiring
 
 ### Tier 2 — Architectural trigger / 架构级中触发
 Apply this rule when any change touches:
-- layer-specific code in `entrypoints/`, `presentation/`, `application/`, `execution/`, `governance/`, `observability/`, `domain/`, or `infrastructure/`
+- layer-specific code in `presentation/`, `interfaces/http/`, `application/`, `execution/`, `governance/`, `observability/`, `domain/`, or `infrastructure/`
 - orchestration flow, call chains, lifecycle transitions, or public API shape
 - config files, dependency files, test layout, or scripts that can affect the architecture
 
 ### Tier 3 — Review trigger / 复核级弱触发
 Apply a lightweight review when any change touches:
-- docs, comments, examples, naming, or formatting
+- docs, comments, examples, or formatting
 - non-structural text updates that may still affect clarity of ownership or usage
 
 ## Allowed top-level directories / 允许的顶层目录
 Only these directories are allowed directly under `sprintcycle/`:
-- `entrypoints/`
+- `interfaces/`
 - `presentation/`
 - `application/`
 - `execution/`
@@ -58,7 +58,7 @@ Only these directories are allowed directly under `sprintcycle/`:
 - 中文：保持包边界清晰，避免跨层职责泄漏。
 
 ## Layer mapping / 分层映射
-- `entrypoints/` → CLI, HTTP, MCP, external entry adapters / CLI、HTTP、MCP 等入口适配
+- `interfaces/` → HTTP public/internal route adapters / HTTP 公共与内部路由适配
 - `presentation/` → dashboard, views, projections, view models / 仪表盘、视图、投影、视图模型
 - `application/` → orchestration, workflows, use cases / 编排、工作流、用例
 - `execution/` → workers, engine, state machine, runtime execution / 执行器、引擎、状态机、运行时执行

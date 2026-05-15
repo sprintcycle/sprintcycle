@@ -2,7 +2,7 @@
 
 [中文](README.md)
 
-**SprintCycle** is a contract-driven lifecycle orchestration platform for Web / SDK. A natural-language intent enters through a unified entrypoint, gets normalized, planned, prepared, decomposed, executed, observed, diagnosed, repaired, delivered, linked to runtime, reviewed by governance, and finally promoted into versioned evolution through a structured lifecycle contract.
+**SprintCycle** is a contract-driven lifecycle orchestration platform for Web Dashboard / REST API / SDK. A natural-language intent enters through a unified entrypoint, gets normalized, planned, prepared, decomposed, executed, observed, diagnosed, repaired, delivered, linked to runtime, reviewed by governance, and finally promoted into versioned evolution through a structured lifecycle contract.
 
 Current Version: **0.9.2** (matches `sprintcycle.__version__`)
 
@@ -20,7 +20,7 @@ Web Request → Normalize → Plan → Prepare → Decompose → Execute → Obs
 
 ### Key platform principles
 
-- **Unified entrypoint**: Web / SDK enter through the same `SprintCycle` API
+- **Unified entrypoint**: Dashboard / REST API / SDK enter through the same `SprintCycle` API
 - **Unified contract**: `LifecycleContract` is the single source of truth for lifecycle facts
 - **Unified state machine**: `LifecycleStateMachine` defines canonical lifecycle stages and transitions
 - **Unified recovery**: any failed stage can route into `repair → verify → observe`
@@ -191,6 +191,7 @@ sprintcycle dashboard --dev
 | Command | Description |
 |---------|-------------|
 | `sprintcycle dashboard` | Start the web UI |
+| HTTP API | Exposed through `sprintcycle.interfaces.http` as public / internal routes |
 
 ### System Commands
 
@@ -205,7 +206,7 @@ sprintcycle dashboard --dev
 
 ## Python API
 
-The Python API and CLI share the same `SprintCycle` entrypoint. `plan`, `run`, `diagnose`, `status`, `rollback`, and `stop` all align semantically with the CLI, making it easy to use in scripts, services, and automation pipelines.
+The Python API and Dashboard / REST API share the same `SprintCycle` entrypoint. `plan`, `run`, `diagnose`, `status`, `rollback`, and `stop` all align semantically with the REST surface, making it easy to use in scripts, services, and automation pipelines.
 
 ```python
 from sprintcycle import SprintCycle

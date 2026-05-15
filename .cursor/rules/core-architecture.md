@@ -4,8 +4,10 @@
 You are working on SprintCycle, a layered orchestration system with a stable core architecture.
 
 Current implementation context / 当前实现现状：
-- The repository is centered on a single `sprintcycle` core package.
-- Architecture rules should be read against that single-package core, not against a multi-package or multi-module assumption.
+- The repository is centered on the `sprintcycle` core package.
+- The HTTP protocol layer now lives under `sprintcycle/interfaces/http/`.
+- The dashboard/container and view/projection concerns live under `sprintcycle/presentation/`.
+- Architecture rules should be read against this current split, not against an older `entrypoints/`-centric assumption.
 
 - Preserve the current architecture and core skeleton.
 - Keep the public API thin: it may normalize, route, delegate, and aggregate, but it must not own workflow logic.
@@ -20,6 +22,7 @@ Apply this rule when changes touch:
 - service/facade/hook/registry/adapter responsibilities
 - request normalization, routing, delegation, or result aggregation
 - workflows, orchestration, or lifecycle transitions
+- `presentation/` and `interfaces/http/` responsibilities
 
 ### Tier 2 — Boundary trigger / 边界级中触发
 Apply this rule when changes touch:
@@ -54,9 +57,11 @@ Apply a lightweight review when changes touch:
 - Do not duplicate observability, governance, or suggestion logic inside execution code.
 - Do not mutate suggestion or governance state outside their designated workflows.
 - Do not introduce competing pipelines that weaken the current skeleton.
+- Do not reintroduce CLI/MCP as formal product entry paths.
 
 ## Layer ownership / 分层职责
-- API layer: request normalization, thin routing, compatibility, and result aggregation.
+- `interfaces/http/`: request normalization, thin routing, protocol adaptation, and result aggregation for HTTP public/internal APIs.
+- `presentation/`: dashboard container, views, projections, and view models.
 - Service layer: workflow logic and orchestration of domain behavior.
 - Facade layer: stable domain-facing coordination and compatibility.
 - Hook layer: lifecycle interception, before/after/failed behavior, policy gating, and annotations.

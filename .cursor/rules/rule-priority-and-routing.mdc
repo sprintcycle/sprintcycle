@@ -11,11 +11,12 @@ When multiple rules may match the same change, use the following priority to kee
 Current implementation context / 当前实现现状:
 - The repository currently has a small rule set, so this guide exists to prevent overlapping interpretations as the rules grow.
 - The priority order below should be applied against the existing codebase shape and current lifecycle backbone.
+- HTTP protocol ownership is now split into `interfaces/http/` and Dashboard container ownership into `presentation/`.
 
 - Structural changes must be reviewed first by the 8-layer governance rule.
 - Lifecycle and end-to-end chain changes must be reviewed first by the web end-to-end stability rule.
 - Graph behavior changes must be reviewed first by the LangGraph orchestration rule.
-- Public architecture and ownership changes must be reviewed first by the core architecture rule.
+- Public architecture, ownership changes, and HTTP layer split must be reviewed first by the core architecture rule.
 
 ## Priority order / 优先级顺序
 ### Tier 1 — Primary rule / 主规则
@@ -32,10 +33,10 @@ If a change touches multiple areas, apply the primary rule first and then perfor
 If a change does not clearly fit one of the above, do a lightweight architecture review before deciding whether to escalate.
 
 ## Routing guidance / 路由指引
-- Structure, imports, package exports, and cross-layer ownership → `sprintcycle-8-layer-governance.mdc`
+- Structure, imports, package exports, directory moves, and cross-layer ownership → `sprintcycle-8-layer-governance.mdc`
 - Lifecycle continuity, web entry, execution backbone, and end-to-end closure → `web-end-to-end-stability.md`
 - Graph nodes, state transitions, and `plan / run / observe / repair` behavior → `langgraph-orchestration.md`
-- Public API boundaries, responsibilities, and architectural separation → `core-architecture.md`
+- Public API boundaries, responsibilities, presentation/interfaces split, and architectural separation → `core-architecture.md`
 
 ## Escalation rule / 升级规则
 - Always start with a lightweight review for any file change.

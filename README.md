@@ -2,7 +2,7 @@
 
 [English](README_EN.md)
 
-**SprintCycle** 是一个面向 Web / SDK 的统一生命周期编排平台：从自然语言意图进入，经过标准化、计划、准备、拆解、执行、观测、诊断、修复、交付、运行时联动、治理与版本化演化，最终沉淀为可追溯、可回放、可晋升的 `final snapshot` 与 `versioned evolution`。
+**SprintCycle** 是一个面向 Web Dashboard / REST API / SDK 的统一生命周期编排平台：从自然语言意图进入，经过标准化、计划、准备、拆解、执行、观测、诊断、修复、交付、运行时联动、治理与版本化演化，最终沉淀为可追溯、可回放、可晋升的 `final snapshot` 与 `versioned evolution`。
 
 当前版本：**0.9.2**（与 `sprintcycle.__version__` 一致）
 
@@ -20,7 +20,7 @@ Web Request → Normalize → Plan → Prepare → Decompose → Execute → Obs
 
 ### 当前实现的关键原则
 
-- **统一入口**：Web / SDK 最终进入同一套 `SprintCycle` 入口
+- **统一入口**：Dashboard / REST API / SDK 最终进入同一套 `SprintCycle` 入口
 - **统一契约**：`LifecycleContract` 作为全链路唯一事实载体
 - **统一状态机**：`LifecycleStateMachine` 定义生命周期阶段与迁移规则
 - **统一恢复**：任一阶段失败都可进入 `repair → verify → observe` 恢复分支
@@ -347,6 +347,7 @@ https://sprintcycle.example.com
 | 命令 | 说明 |
 |------|------|
 | `sprintcycle dashboard` | 启动 Web UI |
+| HTTP API | 通过 `sprintcycle.interfaces.http` 暴露 public / internal 路由 |
 
 ### 系统命令
 
@@ -361,7 +362,7 @@ https://sprintcycle.example.com
 
 ## Python API
 
-Python API 与 CLI 共享同一个 `SprintCycle` 入口，`plan`、`run`、`diagnose`、`status`、`rollback`、`stop` 等能力语义一致，方便在脚本、服务和自动化流水线中调用。
+Python API 与 Dashboard / REST API 共享同一个 `SprintCycle` 入口，`plan`、`run`、`diagnose`、`status`、`rollback`、`stop` 等能力语义一致，方便在脚本、服务和自动化流水线中调用。
 
 ---
 
@@ -427,7 +428,7 @@ result = await api.run("重构认证模块")
 ```
 sprintcycle/
 ├── api.py                    # 统一 API 入口
-├── cli/                      # CLI 包
+├── interfaces/               # HTTP 接口层（public / internal）
 ├── config/                   # 配置管理
 ├── orchestration/            # Sprint 编排引擎
 ├── execution/                # 执行引擎
@@ -435,7 +436,6 @@ sprintcycle/
 ├── governance/               # 治理引擎、插件与建议处理
 ├── dashboard/                # Web Dashboard
 ├── events/                   # 事件总线
-├── mcp/                      # MCP Server
 ├── runtime_observability/    # 运行时观测与回放
 ├── cache/                    # 缓存抽象层
 ├── mq/                       # 消息队列抽象层
