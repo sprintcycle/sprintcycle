@@ -4,7 +4,7 @@ Execution 模块。
 **推荐执行入口**：``SprintCycle``（``ReleasePlan`` → ``expand_release_plan_for_execution`` →
 ``SprintOrchestrator``）。
 """
-from ..evolution.types import SprintContext
+from ..application.evolution.types import SprintContext
 from .agents import (
     AgentContext,
     AgentExecutor,

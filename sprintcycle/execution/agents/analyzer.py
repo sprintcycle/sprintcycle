@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
-from sprintcycle.support.prompt_sources import format_analyzer_bug_llm_prompt
+from sprintcycle.domain.support_legacy.prompt_sources import format_analyzer_bug_llm_prompt
 
 from .base import AgentConfig, AgentContext, AgentExecutor, AgentResult, AgentType
 from .bug_models import (

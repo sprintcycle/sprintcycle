@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Optional
 
-from ..evolution.models import EvolutionPlan, SandboxSpec
+from ...application.evolution.models import EvolutionPlan, SandboxSpec
 
 
 class SandboxManager(ABC):

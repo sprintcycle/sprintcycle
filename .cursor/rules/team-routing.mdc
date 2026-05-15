@@ -1,0 +1,31 @@
+---
+description: SprintCycle team routing and role selection guide
+alwaysApply: true
+---
+
+# SprintCycle Team Routing / 团队路由规则
+
+## Purpose
+This rule turns SprintCycle into a practical multi-role team: choose the right reviewer or implementer before making changes.
+
+For the canonical team model, see `docs/CURSOR_TEAM_PLAYBOOK.md`.
+
+## Role selection
+- Architecture or ownership boundaries -> `arch-guardian`
+- LangGraph flow, node behavior, or state transitions -> `graph-orchestrator`
+- Execution lifecycle, runtime registry, observability, or promotion/evolution -> `lifecycle-auditor`
+- Missing tests, regressions, or compatibility risk -> `test-risk-reviewer`
+- Final synthesis across multiple reviews -> `review-commander`
+- Need a coordinated task plan -> `team-commander`
+
+## Working policy
+- Start with the smallest relevant role.
+- Escalate only when a change spans multiple subsystems.
+- Prefer review before rewrite when boundaries are unclear.
+- Keep implementation changes localized to the owning layer.
+- Use the final review command only after specialist reviews are complete.
+
+## Response discipline
+- State which role is being used and why when the task is multi-step or high-risk.
+- If a request is underspecified, ask for the smallest missing detail first.
+- Avoid parallel interpretations when one clear owner exists.

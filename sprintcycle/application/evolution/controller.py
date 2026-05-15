@@ -21,7 +21,7 @@ from .models import (
     ValidationResult,
     VersionArtifact,
 )
-from ..sandbox.manager import SandboxManager
+from ...infrastructure.sandbox.manager import SandboxManager
 from ..versioning.manifests import VersionManifest
 from ..versioning.registry import VersionRegistry
 
