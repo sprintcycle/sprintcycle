@@ -2,7 +2,7 @@
 
 [中文](README.md)
 
-**SprintCycle** is a contract-driven lifecycle orchestration platform for Web / CLI / MCP / SDK. A natural-language intent enters through a unified entrypoint, gets normalized, planned, prepared, decomposed, executed, observed, diagnosed, repaired, delivered, linked to runtime, reviewed by governance, and finally promoted into versioned evolution through a structured lifecycle contract.
+**SprintCycle** is a contract-driven lifecycle orchestration platform for Web / SDK. A natural-language intent enters through a unified entrypoint, gets normalized, planned, prepared, decomposed, executed, observed, diagnosed, repaired, delivered, linked to runtime, reviewed by governance, and finally promoted into versioned evolution through a structured lifecycle contract.
 
 Current Version: **0.9.2** (matches `sprintcycle.__version__`)
 
@@ -20,7 +20,7 @@ Web Request → Normalize → Plan → Prepare → Decompose → Execute → Obs
 
 ### Key platform principles
 
-- **Unified entrypoint**: Web / CLI / MCP / SDK all enter through the same `SprintCycle` API
+- **Unified entrypoint**: Web / SDK enter through the same `SprintCycle` API
 - **Unified contract**: `LifecycleContract` is the single source of truth for lifecycle facts
 - **Unified state machine**: `LifecycleStateMachine` defines canonical lifecycle stages and transitions
 - **Unified recovery**: any failed stage can route into `repair → verify → observe`
@@ -71,8 +71,7 @@ Web Request → Normalize → Plan → Prepare → Decompose → Execute → Obs
 ### 7. Dashboard and integrations
 - Vue 3 + Element Plus web dashboard
 - FastAPI backend
-- MCP Server over stdio or SSE
-- Python API and CLI share the same core entrypoint
+- Python API and Web Dashboard share the same core entrypoint
 
 ### 8. Skills subsystem
 - Scene recognition, skill matching, skill injection, review checklist enrichment, and retro cleanup
@@ -107,7 +106,6 @@ pip install -e "[full,dev]"
 |------|---------|
 | `dashboard` / `full` | Web Dashboard (FastAPI + Uvicorn) |
 | `cache-redis` | Redis backend for execution cache |
-| `mcp-sse` | Expose MCP over SSE |
 | `dev` | Test, type-check, import-linter, and other development dependencies |
 | `mutation` | Mutation testing with `mutmut` |
 
@@ -192,7 +190,6 @@ sprintcycle dashboard --dev
 
 | Command | Description |
 |---------|-------------|
-| `sprintcycle serve` | Start the MCP Server (stdio by default; use `--transport sse` for remote agents) |
 | `sprintcycle dashboard` | Start the web UI |
 
 ### System Commands
@@ -233,7 +230,6 @@ Common exports include:
 ```
 sprintcycle/
 ├── api.py                    # Unified API entrypoint
-├── cli/                      # CLI package
 ├── config/                   # Configuration management
 ├── orchestration/            # Sprint orchestration engine
 ├── execution/                # Execution engine
@@ -241,7 +237,6 @@ sprintcycle/
 ├── governance/               # Governance engine, plugins, and suggestion handling
 ├── dashboard/                # Web Dashboard
 ├── events/                   # Event bus
-├── mcp/                      # MCP server
 ├── runtime_observability/    # Runtime observability and replay
 ├── cache/                    # Cache abstraction layer
 ├── mq/                       # Message queue abstraction layer
@@ -374,12 +369,11 @@ pytest tests/ -v
 ```bash
 pip install sprintcycle
 # or:
-pip install "sprintcycle[dashboard,mcp-sse]"
+pip install "sprintcycle[dashboard]"
 
 sprintcycle init
 sprintcycle run "Add unit tests for the login module"
 sprintcycle dashboard
-sprintcycle serve
 ```
 
 ---

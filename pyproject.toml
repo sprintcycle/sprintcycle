@@ -13,7 +13,6 @@ dependencies = [
     "rich>=13.0",
     "questionary>=2.0",
     "loguru>=0.7.0",
-    "mcp>=1.0.0",
     "pydantic>=2.0",
     "pluggy>=1.5.0",
     "dynaconf>=3.2.0",
@@ -45,8 +44,6 @@ full = [
     "langgraph>=0.2.0",
     "arize-phoenix>=4.0.0",
 ]
-# SSE transport for remote agent access (uvicorn for HTTP server, starlette for ASGI)
-mcp-sse = ["uvicorn>=0.23.0", "starlette>=0.27.0"]
 # Redis 缓存后端（RuntimeConfig cache_backend=redis）
 cache-redis = ["redis>=5.0.0"]
 # Development dependencies
@@ -63,7 +60,6 @@ mutation = [
 ]
 
 [project.scripts]
-sprintcycle = "sprintcycle.cli:cli"
 
 [tool.setuptools.packages.find]
 include = ["sprintcycle*"]

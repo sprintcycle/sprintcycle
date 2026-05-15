@@ -2,7 +2,7 @@
 
 [English](README_EN.md)
 
-**SprintCycle** 是一个面向 Web / CLI / MCP / SDK 的统一生命周期编排平台：从自然语言意图进入，经过标准化、计划、准备、拆解、执行、观测、诊断、修复、交付、运行时联动、治理与版本化演化，最终沉淀为可追溯、可回放、可晋升的 `final snapshot` 与 `versioned evolution`。
+**SprintCycle** 是一个面向 Web / SDK 的统一生命周期编排平台：从自然语言意图进入，经过标准化、计划、准备、拆解、执行、观测、诊断、修复、交付、运行时联动、治理与版本化演化，最终沉淀为可追溯、可回放、可晋升的 `final snapshot` 与 `versioned evolution`。
 
 当前版本：**0.9.2**（与 `sprintcycle.__version__` 一致）
 
@@ -20,7 +20,7 @@ Web Request → Normalize → Plan → Prepare → Decompose → Execute → Obs
 
 ### 当前实现的关键原则
 
-- **统一入口**：Web / CLI / MCP / SDK 最终进入同一套 `SprintCycle` 入口
+- **统一入口**：Web / SDK 最终进入同一套 `SprintCycle` 入口
 - **统一契约**：`LifecycleContract` 作为全链路唯一事实载体
 - **统一状态机**：`LifecycleStateMachine` 定义生命周期阶段与迁移规则
 - **统一恢复**：任一阶段失败都可进入 `repair → verify → observe` 恢复分支
@@ -71,8 +71,7 @@ Web Request → Normalize → Plan → Prepare → Decompose → Execute → Obs
 ### 7. Dashboard 与集成
 - Vue 3 + Element Plus Web Dashboard
 - FastAPI 后端
-- MCP Server（stdio / SSE）
-- Python API 与 CLI 共享同一套核心入口
+- Python API 与 Web Dashboard 共享同一套核心入口
 
 ### 8. Skills 子系统
 - 场景识别、skill 匹配、skill 注入、review checklist 增强、复盘清理
@@ -107,7 +106,6 @@ pip install -e "[full,dev]"
 |------|------|
 | `dashboard` / `full` | Web Dashboard（FastAPI + Uvicorn） |
 | `cache-redis` | 执行缓存 Redis 后端 |
-| `mcp-sse` | 以 SSE 方式对外提供 MCP |
 | `dev` | 测试、类型检查、import-linter 等开发依赖 |
 | `mutation` | 突变测试（`mutmut`） |
 
@@ -348,7 +346,6 @@ https://sprintcycle.example.com
 
 | 命令 | 说明 |
 |------|------|
-| `sprintcycle serve` | 启动 MCP Server（默认 stdio；`--transport sse` 用于远程 Agent） |
 | `sprintcycle dashboard` | 启动 Web UI |
 
 ### 系统命令
@@ -570,12 +567,11 @@ pytest tests/ -v
 ```bash
 pip install sprintcycle
 # 或：
-pip install "sprintcycle[dashboard,mcp-sse]"
+pip install "sprintcycle[dashboard]"
 
 sprintcycle init
 sprintcycle run "为登录模块添加单元测试"
 sprintcycle dashboard
-sprintcycle serve
 ```
 
 ---
