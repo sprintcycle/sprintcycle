@@ -232,18 +232,14 @@ Common exports include:
 ```
 sprintcycle/
 ├── api.py                    # Unified API entrypoint
-├── config/                   # Configuration management
-├── orchestration/            # Sprint orchestration engine
-├── execution/                # Execution engine
-├── release_plan/             # Release Plan models and parsing
-├── governance/               # Governance engine, plugins, and suggestion handling
-├── dashboard/                # Web Dashboard
-├── events/                   # Event bus
-├── runtime_observability/    # Runtime observability and replay
-├── cache/                    # Cache abstraction layer
-├── mq/                       # Message queue abstraction layer
-├── validation/               # Multi-source validation plugin system
-└── services/                 # Lifecycle, governance, observability, suggestion, repair, delivery, evolution services
+├── interfaces/               # HTTP interface layer (public / internal)
+├── presentation/             # Dashboard container, views, and projections
+├── application/              # Use cases and service orchestration
+├── execution/                # Execution engine and state machine
+├── governance/               # Governance, audit, versioning, and suggestions
+├── observability/            # Observability, replay, and diagnostics
+├── domain/                   # Domain models, rules, and protocols
+└── infrastructure/           # Adapters, storage, cache, and external integrations
 ```
 
 ---
@@ -252,21 +248,21 @@ sprintcycle/
 
 ### Lifecycle Core
 
-- `sprintcycle/services/lifecycle_state_machine.py`
+- `sprintcycle/application/services/lifecycle_state_machine.py`
   - Defines the canonical stages: `new → normalized → planned → prepared → decomposed → executing → observing → diagnosed → repairing → verifying → delivering → runtime_linked → governing → promotion_ready → promoted`
   - Provides stage transitions, event building, and correlation helpers
 
-- `sprintcycle/services/lifecycle_contracts.py`
+- `sprintcycle/application/services/lifecycle_contracts.py`
   - Defines `LifecycleContract`
   - Carries execution, task, project, trace, diagnostics, runtime, suggestion, governance, evolution, recovery, validation_refs, and final snapshot evidence
   - Provides evidence validation and final snapshot construction helpers
 
-- `sprintcycle/services/phase_workflow.py`
+- `sprintcycle/application/services/phase_workflow.py`
   - Provides structured artifacts for plan / prepare / decompose / observe / diagnose / repair / deliver phases
 
 ### Runtime Lifecycle
 
-- `sprintcycle/services/execution_lifecycle_service.py`
+- `sprintcycle/application/services/execution_lifecycle_service.py`
   - Handles execution bootstrap, normalization, runtime registration, observation event emission, and execution detail reads
 
 - `sprintcycle/orchestration/sprint_orchestrator.py`
@@ -274,13 +270,13 @@ sprintcycle/
 
 ### Recovery, Governance, and Evolution
 
-- `sprintcycle/services/repair_orchestration_service.py`
+- `sprintcycle/application/services/repair_orchestration_service.py`
   - Provides a unified recovery route, supporting the `diagnose → repair → verify → observe` loop
 
-- `sprintcycle/services/promotion_policy.py`
+- `sprintcycle/application/services/promotion_policy.py`
   - Provides the promotion gate, only allowing evidence-complete contracts with a correct stage and final snapshot to move forward
 
-- `sprintcycle/services/lifecycle_evolution_service.py`
+- `sprintcycle/application/services/lifecycle_evolution_service.py`
   - Builds lifecycle contracts, evaluates promotion, performs promotion, and registers version artifacts
 
 - `sprintcycle/versioning/sqlite_registry.py`
@@ -288,19 +284,19 @@ sprintcycle/
 
 ### Observability, Governance, and Suggestions
 
-- `sprintcycle/services/observability_service.py`
+- `sprintcycle/application/services/observability_service.py`
   - Handles trace, replay, execution detail assembly, and observability read models
   - Writes audit payloads into the lifecycle contract
 
-- `sprintcycle/services/governance_orchestration_service.py`
+- `sprintcycle/application/services/governance_orchestration_service.py`
   - Handles governance checks and governance read workflows
 
-- `sprintcycle/services/suggestion_application_service.py`
+- `sprintcycle/application/services/suggestion_application_service.py`
   - Handles suggestion review, approval, rejection, archival, and HITL promotion
 
 ### Dashboard / Overview / Views
 
-- `sprintcycle/services/platform_summary_service.py`
+- `sprintcycle/application/services/platform_summary_service.py`
   - Handles dashboard/platform-facing summary payloads
 
 - `sprintcycle/results.py`

@@ -9,18 +9,26 @@ alwaysApply: false
 
 LangGraph is the orchestration skeleton for SprintCycle planning and sprint-level execution coordination.
 
+### Runtime layout
+- The current LangGraph integration lives under `infrastructure/integrations/langgraph/`.
+- `IntentGraphRuntime` is the top-level runtime for `Intent → Plan → Sprint Split → Dispatch → Finalize`.
+- `SprintGraphRuntime` is the per-sprint runtime for `Prepare → Execute → Observe → Repair → Finalize`.
+- These runtimes are orchestration adapters, not domain owners.
+
 ### Purpose
-- Current LangGraph scope is `intent → plan → sprint decomposition → sprint execution → observe → repair`.
-- LangGraph should structure plan decomposition into sprints and coordinate internal scheduling within each sprint.
+- Current LangGraph scope is `intent → plan → sprint split → dispatch → finalize` at the top level, with `prepare → execute → observe → repair → finalize` inside each sprint.
+- `IntentGraphRuntime` coordinates request intake, release-plan creation, sprint decomposition, sprint dispatch, and final aggregation.
+- `SprintGraphRuntime` coordinates per-sprint preparation, execution, observability, repair routing, and sprint finalization.
 - Keep LangGraph focused on orchestration flow, state transitions, and routing between stages.
 - Do not put domain business rules directly inside graph nodes when the logic belongs to application services, facades, hooks, or orchestrators.
 
 ### Non-negotiable boundaries
 - Do not use LangGraph as a shortcut to bypass existing architecture boundaries.
-- Plan splitting, sprint creation, sprint sequencing, retry/fix routing, and intra-sprint dispatch must remain aligned with the layered architecture.
+- Plan generation, sprint splitting, sprint creation, sprint sequencing, retry/fix routing, and intra-sprint dispatch must remain aligned with the layered architecture.
 - Prefer reusing existing extension points, hook phases, registries, and service methods rather than introducing parallel graph-specific business logic.
 - Preserve the clean separation between orchestration and domain responsibility.
 - Any LangGraph change must keep the end-to-end lifecycle intact and must not weaken governance, observability, suggestion handling, or evolution flows.
+- Keep the top-level intent graph and per-sprint graph consistent with the runtime split above.
 
 ### Implementation guidance
 - Treat graph nodes as orchestration units, not as domain service replacements.

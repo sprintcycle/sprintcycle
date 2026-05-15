@@ -1,10 +1,8 @@
 """
-SprintCycle 统一异常体系与公共类型
+SprintCycle 统一异常体系与公共类型。
 
-所有模块抛出的业务异常均继承自 SprintCycleError，
+所有模块抛出的业务异常均继承自 `SprintCycleError`，
 便于调用方统一捕获和处理。
-
-v0.9.1: 新增统一 Severity 枚举，替代散落各处的 ErrorSeverity/BugSeverity/IssueSeverity
 """
 
 from enum import Enum
@@ -19,14 +17,8 @@ class Severity(Enum):
     INFO = "info"
 
 
-# Backward compat aliases — will be removed in v1.0
-ErrorSeverity = Severity
-BugSeverity = Severity
-IssueSeverity = Severity
-
-
 class SprintCycleError(Exception):
-    """SprintCycle 基础异常"""
+    """SprintCycle 基础异常。"""
     pass
 
 
@@ -62,9 +54,6 @@ class LLMError(SprintCycleError):
 
 __all__ = [
     "Severity",
-    "ErrorSeverity",
-    "BugSeverity",
-    "IssueSeverity",
     "SprintCycleError",
     "ConfigError",
     "ExecutionError",

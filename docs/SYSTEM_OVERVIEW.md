@@ -141,7 +141,7 @@ Runtime, suggestion, governance, and promotion all share the same contract linea
 The target state keeps the existing layered skeleton, but makes the full web-triggered lifecycle more explicit, more recoverable, and more governable. The key components remain the same:
 
 - **AutoGPT** for deployment packaging, platform startup, and environment assembly
-- **LangGraph** for execution-graph adaptation, node orchestration, and step scheduling
+- **LangGraph** for execution-graph adaptation, with a top-level `IntentGraphRuntime` and per-sprint `SprintGraphRuntime` coordinating orchestration steps
 - **Phoenix** for trace, replay, observability, and diagnosis
 - **SprintCycle Core** for planning, execution coordination, repair governance, suggestion capture, and self-evolution
 
@@ -149,7 +149,7 @@ The recommended division of responsibility is:
 
 - **SprintCycle Core as the control plane**: owns request normalization, lifecycle contracts, transitions, repair governance, and version promotion decisions
 - **AutoGPT as the platform bootstrap layer**: owns startup and environment wiring, but not domain workflow rules
-- **LangGraph as the execution-graph layer**: owns how runnable steps are organized and executed, but not policy or governance decisions
+- **LangGraph as the execution-graph layer**: owns top-level intent orchestration and per-sprint execution flow (`Intent → Plan → Sprint Split → Dispatch → Finalize`, `Prepare → Execute → Observe → Repair → Finalize`), but not policy or governance decisions
 - **Phoenix as the observability layer**: owns traces, replay, and diagnostics, but not execution control
 
 This means the system should avoid parallel pipelines. Each component should connect through explicit adapters, facades, hooks, or registries so that one authoritative lifecycle remains in place.
@@ -212,8 +212,9 @@ This means the system should avoid parallel pipelines. Each component should con
   - Target-state role: an execution-time capability layer that can enrich planning, execution, review, and retro with scene-specific knowledge from the OpenClaw skill source.
   - Gap: formalize promotion criteria for skill artifacts, unify skill provenance with lifecycle contracts, and make skill activation more visible in read-side summaries.
 
-- **`sprintcycle/integrations/langgraph/`**
+- **`sprintcycle/infrastructure/integrations/langgraph/`**
   - LangGraph runtime and graph construction adapters.
+  - `IntentGraphRuntime` handles top-level intent orchestration, and `SprintGraphRuntime` handles per-sprint execution orchestration.
   - Target-state role: execution-graph adapter, not domain owner.
 
 - **`sprintcycle/integrations/phoenix/`**

@@ -1,8 +1,8 @@
 """
-SprintCycle 统一返回值类型
+SprintCycle 统一返回值类型。
 
 所有操作（plan/run/diagnose/status/rollback/stop）返回统一的 Result 对象，
-支持 to_dict() 序列化，确保 CLI / MCP / Dashboard 输出一致。
+支持 to_dict() 序列化，确保 Dashboard / REST API / SDK 输出一致。
 """
 
 from dataclasses import asdict, dataclass, field
@@ -246,7 +246,7 @@ class EvolutionOverviewResult(ResultBase):
         }
 
     def to_cli_text(self) -> str:
-        """CLI 友好的文本摘要。"""
+        """文本摘要。"""
         lines = ["Evolution Overview"]
         lines.append(f"  versions: {self.totals.get('versions', 0)}")
         lines.append(f"  code_active: {self.totals.get('code_active', 0)}")

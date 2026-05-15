@@ -430,18 +430,13 @@ result = await api.run("重构认证模块")
 sprintcycle/
 ├── api.py                    # 统一 API 入口
 ├── interfaces/               # HTTP 接口层（public / internal）
-├── config/                   # 配置管理
-├── orchestration/            # Sprint 编排引擎
-├── execution/                # 执行引擎
-├── release_plan/             # Release Plan 模型与解析
-├── governance/               # 治理引擎、插件与建议处理
-├── dashboard/                # Web Dashboard
-├── events/                   # 事件总线
-├── runtime_observability/    # 运行时观测与回放
-├── cache/                    # 缓存抽象层
-├── mq/                       # 消息队列抽象层
-├── validation/               # 多源验证插件系统
-└── services/                 # 生命周期、治理、观测、建议、交付、修复、演化服务
+├── presentation/             # Dashboard 容器、视图与投影
+├── application/              # 用例编排与服务层
+├── execution/                # 执行引擎与状态机
+├── governance/               # 治理、审计、版本与建议
+├── observability/            # 观测、回放与诊断
+├── domain/                   # 领域模型、规则与协议
+└── infrastructure/           # 适配器、存储、缓存、外部集成
 ```
 
 ---

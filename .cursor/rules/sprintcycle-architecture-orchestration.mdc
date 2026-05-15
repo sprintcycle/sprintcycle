@@ -44,7 +44,7 @@ You are working on SprintCycle, a layered orchestration system with a stable cor
 - Based on the current implementation, the core chain should be understood as: request normalization / intent entry → plan and execution preparation → sprint orchestration and decomposition → SprintOrchestrator execution → execution observation and repair → result delivery and summary generation → deployment / runtime coordination → suggestion capture and governance → self-evolution and version evolution.
 - `SprintCycle` is the public coordination layer and must remain thin.
 - The execution backbone centers on `ReleasePlan → SprintOrchestrator.execute_release_plan → SprintExecutor`.
-- LangGraph currently serves as the orchestration skeleton for `plan / run / observe / repair`.
+- LangGraph currently serves as the orchestration skeleton for `intent / plan / sprint split / dispatch / finalize` at the top level, and `prepare / execute / observe / repair / finalize` within each sprint.
 - Suggestions, governance, observability, and evolution are coordinated capabilities around the execution backbone and must be integrated through existing services, facades, hooks, registries, and orchestrators.
 - Any implementation change must preserve the continuity of this chain and must not weaken the ability to progress stably from one stage to the next.
 

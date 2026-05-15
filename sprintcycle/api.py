@@ -1,12 +1,10 @@
 """
 SprintCycle public API.
 
-This module exposes the main coordination layer for CLI, dashboard, MCP, and
+This module exposes the main coordination layer for Dashboard, REST API, and
 SDK usage. It handles request normalization, thin delegation, result assembly,
-and compatibility adapters where legacy behavior still exists.
-
-The current runtime flow centers on `SprintCycle` coordinating execution,
-governance, suggestion, observability, and platform summary services.
+and stable coordination across execution, governance, suggestion,
+observability, and platform summary services.
 """
 
 import asyncio
@@ -18,7 +16,7 @@ from typing import Any, Dict, List, Optional
 from loguru import logger
 
 from .config import RuntimeConfig
-from .deployment.runtime_registry import RuntimeRegistry
+from .infrastructure.runtime_registry import RuntimeRegistry
 from .execution.cache import configure_execution_cache_from_runtime
 from .execution.events import (
     ensure_default_execution_event_backend_for_project,
@@ -65,34 +63,28 @@ from .persistence.knowledge_repository import KnowledgeCardRepository
 from .versioning.interface import get_version_manifest_summary
 from .versioning.sqlite_registry import SQLiteVersionRegistry
 from .observability.facade import ObservabilityFacade
-from .services.deployment_spec_service import DeploymentSpecService
-from .services.execution_lifecycle_service import ExecutionLifecycleService
-from .services.governance_orchestration_service import GovernanceOrchestrationService
-from .services.lifecycle_evolution_service import LifecycleEvolutionService
-from .services.observability_service import ObservabilityService
-from .services.phase_workflow import build_decompose_artifact, build_plan_artifact, build_prepare_artifact
-from .services.platform_launch_service import PlatformLaunchService
-from .services.platform_summary_service import PlatformSummaryService
-from .services.promotion_policy import PromotionPolicy
-from .services.repair_orchestration_service import RepairOrchestrationService
-from .services.suggestion_application_service import SuggestionApplicationService
+from .infrastructure.deployment_spec_service import DeploymentSpecService
+from .application.services.execution_lifecycle_service import ExecutionLifecycleService
+from .application.services.governance_orchestration_service import GovernanceOrchestrationService
+from .application.services.lifecycle_evolution_service import LifecycleEvolutionService
+from .application.services.observability_service import ObservabilityService
+from .application.services.phase_workflow import build_decompose_artifact, build_plan_artifact, build_prepare_artifact
+from .infrastructure.platform_launch_service import PlatformLaunchService
+from .application.services.platform_summary_service import PlatformSummaryService
+from .application.services.promotion_policy import PromotionPolicy
+from .application.services.repair_orchestration_service import RepairOrchestrationService
+from .application.services.suggestion_application_service import SuggestionApplicationService
 from .platform.overview import build_platform_overview
 from .integrations.langgraph.runtime import LangGraphRuntimeAdapter, LangGraphRuntimeSpec
 from .integrations.phoenix.runtime import PhoenixRuntimeAdapter, PhoenixRuntimeSpec
 from .integrations.phoenix.exporter import PhoenixExporterSpec
 from .integrations.langgraph.graph import build_default_langgraph_graph_spec
 from .platform.views import PlatformComposeView, PlatformSpecView
-from .dashboard.view_service import DashboardViewService
-from .dashboard.workbench import DashboardWorkbenchService
 from .dashboard.views.architecture_view import ArchitectureView
-from .dashboard.views.deploy_view import DeployView
-from .dashboard.views.fix_view import FixView
-from .dashboard.views.fitness_view import FitnessView
-from .dashboard.views.governance_view import GovernanceView
 
 
 class SprintCycle:
-    """SprintCycle 统一 API — Dashboard / CLI / MCP / SDK 共用。
+    """SprintCycle 统一 API — Dashboard / REST API / SDK 共用。
 
     **执行主架构**：``ReleasePlan`` → ``SprintOrchestrator.execute_release_plan`` → ``SprintExecutor``。
     自进化与普通迭代在执行栈上汇合。
@@ -138,12 +130,8 @@ class SprintCycle:
             hooks=self._hooks,
         )
         self._observability_service = ObservabilityService(observability=self._observability)
-        self._dashboard_views = DashboardViewService(project_path=self.project_path)
-        self._dashboard_workbench = DashboardWorkbenchService(view_service=self._dashboard_views)
         self._platform_summary = PlatformSummaryService(
             project_path=self.project_path,
-            dashboard_views=self._dashboard_views,
-            dashboard_workbench=self._dashboard_workbench,
         )
         self._governance_orchestration = GovernanceOrchestrationService(
             project_path=self.project_path,
@@ -271,7 +259,7 @@ class SprintCycle:
         return result
 
     def evolution_overview_cli(self) -> str:
-        """CLI 友好的演化总览文本。"""
+        """文本形式的演化总览。"""
         return asyncio.run(self.evolution_overview()).to_cli_text()
 
     def evolution_overview_dashboard(self) -> Dict[str, Any]:
@@ -963,11 +951,15 @@ class SprintCycle:
 
     def _suggestion_overview_payload(self) -> Dict[str, Any]:
         overview = asyncio.run(self._suggestion.overview())
-        return self._dashboard_views.suggestion_overview_payload(overview)
+        return overview.to_dashboard_payload() if hasattr(overview, "to_dashboard_payload") else dict(overview or {})
 
     def _suggestion_list_payload(self, limit: int = 20) -> Dict[str, Any]:
         suggestions = asyncio.run(self._suggestion.list_suggestions(limit=limit))
-        return self._dashboard_views.suggestion_list_payload(suggestions)
+        if hasattr(suggestions, "to_dashboard_payload"):
+            return suggestions.to_dashboard_payload()
+        if isinstance(suggestions, dict):
+            return dict(suggestions)
+        return {"items": list(suggestions or [])}
 
     def runtime_latest(self) -> Dict[str, Any]:
         return self._execution_service.runtime_latest()
@@ -1033,13 +1025,10 @@ class SprintCycle:
     def execution_detail(self, execution_id: str, *, limit: int = 200) -> Dict[str, Any]:
         return self._execution_service.execution_detail(execution_id, limit=limit)
 
-    def _resume_execution_payload(self, execution_id: str) -> Dict[str, Any]:
-        eid = (execution_id or "").strip()
-        return {"success": False, "error": f"resume is removed in V2 for execution_id={eid}"}
-
     def resume_execution(self, execution_id: str) -> Dict[str, Any]:
-        """兼容入口：V2 中已移除实际 resume 执行能力。"""
-        return self._resume_execution_payload(execution_id)
+        """Resume is intentionally unavailable in the current terminal architecture."""
+        eid = (execution_id or "").strip()
+        return {"success": False, "error": f"resume is unavailable for execution_id={eid}"}
 
     def console_overview(self, *, limit: int = 20) -> Dict[str, Any]:
         trace_payload = None
