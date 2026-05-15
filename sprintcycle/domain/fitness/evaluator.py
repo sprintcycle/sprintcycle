@@ -9,14 +9,20 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, List
 
+from sprintcycle.application.services.evaluator_agent import EvaluatorAgent
+
 
 @dataclass
 class FitnessEvaluator:
+    def __post_init__(self) -> None:
+        self._agent = EvaluatorAgent()
+
     def evaluate(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         events: List[Dict[str, Any]] = list(payload.get("events") or [])
         executions: List[Dict[str, Any]] = list(payload.get("executions") or [])
         suggestions: List[Dict[str, Any]] = list(payload.get("suggestions") or [])
         runtimes: List[Dict[str, Any]] = list(payload.get("runtimes") or [])
+        contract = dict(payload.get("contract") or {})
 
         total_events = len(events)
         success_events = sum(
@@ -40,6 +46,19 @@ class FitnessEvaluator:
         score += exec_ok * 5
         score = max(0, min(100, score))
 
+        agent_result = self._agent.evaluate(
+            contract or {
+                "execution_id": str(payload.get("execution_id") or ""),
+                "task_id": str(payload.get("task_id") or ""),
+                "project_path": str(payload.get("project_path") or ""),
+                "goal": str(payload.get("goal") or payload.get("intent") or ""),
+                "acceptance_criteria": list(payload.get("acceptance_criteria") or []),
+                "evidence": dict(payload.get("evidence") or {"contract": {}, "stages": {}}),
+            },
+            evidence=dict(payload.get("evidence") or {}),
+        )
+
+        agent_data = agent_result.get("data", {})
         return {
             "success": True,
             "data": {
@@ -51,5 +70,8 @@ class FitnessEvaluator:
                 "approved_suggestions": approved,
                 "healthy_runtimes": runtime_ok,
                 "healthy_executions": exec_ok,
+                "agent": agent_data,
+                "agent_score": agent_data.get("score_card", {}),
+                "agent_verdict": agent_data.get("verdict", ""),
             },
         }

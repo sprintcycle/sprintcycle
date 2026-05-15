@@ -14,17 +14,16 @@ Current implementation context / 当前实现现状:
 - HTTP protocol ownership is now split into `interfaces/http/` and Dashboard container ownership into `presentation/`.
 
 - Structural changes must be reviewed first by the 8-layer governance rule.
-- Lifecycle and end-to-end chain changes must be reviewed first by the web end-to-end stability rule.
+- Lifecycle and end-to-end chain changes must be reviewed first by the architecture/orchestration rule.
 - Graph behavior changes must be reviewed first by the LangGraph orchestration rule.
-- Public architecture, ownership changes, and HTTP layer split must be reviewed first by the core architecture rule.
+- Public architecture, ownership changes, and HTTP/presentation split must be reviewed first by the architecture/orchestration rule.
 
 ## Priority order / 优先级顺序
 ### Tier 1 — Primary rule / 主规则
 Use the most specific rule that matches the change:
 1. `sprintcycle-8-layer-governance.mdc`
-2. `web-end-to-end-stability.md`
-3. `langgraph-orchestration.md`
-4. `core-architecture.md`
+2. `sprintcycle-architecture-orchestration.mdc`
+3. `langgraph-orchestration.mdc`
 
 ### Tier 2 — Secondary review / 次级复核
 If a change touches multiple areas, apply the primary rule first and then perform a lightweight secondary review with the overlapping rule(s).
@@ -34,9 +33,9 @@ If a change does not clearly fit one of the above, do a lightweight architecture
 
 ## Routing guidance / 路由指引
 - Structure, imports, package exports, directory moves, and cross-layer ownership → `sprintcycle-8-layer-governance.mdc`
-- Lifecycle continuity, web entry, execution backbone, and end-to-end closure → `web-end-to-end-stability.md`
-- Graph nodes, state transitions, and `plan / run / observe / repair` behavior → `langgraph-orchestration.md`
-- Public API boundaries, responsibilities, presentation/interfaces split, and architectural separation → `core-architecture.md`
+- Lifecycle continuity, web entry, execution backbone, and end-to-end closure → `sprintcycle-architecture-orchestration.mdc`
+- Graph nodes, state transitions, and `plan / run / observe / repair` behavior → `langgraph-orchestration.mdc`
+- Public API boundaries, responsibilities, presentation/interfaces split, and architectural separation → `sprintcycle-architecture-orchestration.mdc`
 
 ## Escalation rule / 升级规则
 - Always start with a lightweight review for any file change.

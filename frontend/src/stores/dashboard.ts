@@ -7,6 +7,7 @@ import { useRouter } from 'vue-router'
 import {
   apiClients,
   apiDashboardFix,
+  apiDashboardLifecycleContract,
   apiDashboardReplay,
   apiDashboardTrace,
   apiDiagnose,
@@ -77,6 +78,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
   const fixSuggestions = ref<Record<string, unknown>[]>([])
   const promotionLog = ref<Record<string, unknown>[]>([])
   const deployPayload = ref<Record<string, unknown>>({})
+  const lifecycleContracts = ref<Record<string, Record<string, unknown>>>({})
   const selectedTraceNode = ref<Record<string, unknown> | null>(null)
   const selectedFixSuggestion = ref<Record<string, unknown> | null>(null)
   const selectedLinkedRunId = ref<string>('')
@@ -339,6 +341,12 @@ export const useDashboardStore = defineStore('dashboard', () => {
           replayPayload.value = (replay.data as Record<string, unknown>) || {}
         } catch {
           replayPayload.value = {}
+        }
+        try {
+          const contract = await apiDashboardLifecycleContract(latestId)
+          lifecycleContracts.value = { [latestId]: (contract.data as Record<string, unknown>) || {} }
+        } catch {
+          lifecycleContracts.value = {}
         }
       }
       try {
@@ -678,6 +686,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
     replayPayload,
     promotionLog,
     deployPayload,
+    lifecycleContracts,
     selectedTraceNode,
     selectedFixSuggestion,
     selectedLinkedRunId,

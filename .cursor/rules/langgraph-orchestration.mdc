@@ -1,0 +1,52 @@
+---
+description: SprintCycle LangGraph orchestration boundaries and flow control
+alwaysApply: false
+---
+
+# SprintCycle LangGraph Orchestration Rule / SprintCycle LangGraph 编排规则
+
+## English
+
+LangGraph is the orchestration skeleton for SprintCycle planning and sprint-level execution coordination.
+
+### Purpose
+- Current LangGraph scope is `intent → plan → sprint decomposition → sprint execution → observe → repair`.
+- LangGraph should structure plan decomposition into sprints and coordinate internal scheduling within each sprint.
+- Keep LangGraph focused on orchestration flow, state transitions, and routing between stages.
+- Do not put domain business rules directly inside graph nodes when the logic belongs to application services, facades, hooks, or orchestrators.
+
+### Non-negotiable boundaries
+- Do not use LangGraph as a shortcut to bypass existing architecture boundaries.
+- Plan splitting, sprint creation, sprint sequencing, retry/fix routing, and intra-sprint dispatch must remain aligned with the layered architecture.
+- Prefer reusing existing extension points, hook phases, registries, and service methods rather than introducing parallel graph-specific business logic.
+- Preserve the clean separation between orchestration and domain responsibility.
+- Any LangGraph change must keep the end-to-end lifecycle intact and must not weaken governance, observability, suggestion handling, or evolution flows.
+
+### Implementation guidance
+- Treat graph nodes as orchestration units, not as domain service replacements.
+- Keep graph transitions explicit and minimal.
+- If a node needs business behavior, move that behavior into the owning service/facade/hook and let the graph call it.
+- Avoid hardcoding workflow policy inside graph construction when the policy already exists in the domain layer.
+
+## 中文
+
+LangGraph 是 SprintCycle 规划与 Sprint 级执行协调的编排骨架。
+
+### 目的
+- 当前 LangGraph 的范围是 `intent → plan → sprint decomposition → sprint execution → observe → repair`。
+- 应使用 LangGraph 来组织 plan 拆分为 sprint，并协调每个 sprint 内部的调度。
+- LangGraph 只应聚焦于编排流程、状态转移和阶段间路由。
+- 不要把领域业务规则直接写进 graph 节点，除非这些逻辑本来就属于 application service、facade、hook 或 orchestrator。
+
+### 不可破坏的边界
+- 不要把 LangGraph 当成绕过现有架构边界的捷径。
+- plan 拆分、sprint 创建、sprint 排序、修复重试路由、sprint 内部派发，都必须与分层架构保持一致。
+- 优先复用现有扩展点、hook phase、registry 和 service 方法，而不是引入平行的 graph 专用业务逻辑。
+- 必须保持编排与领域责任的清晰分离。
+- 任何 LangGraph 变更都必须保持端到端生命周期完整，不能削弱治理、可观测性、建议处理或自进化流程。
+
+### 实现指引
+- 把 graph 节点当作编排单元，而不是领域 service 的替代品。
+- 保持 graph 转移显式且最小化。
+- 如果某个节点需要业务行为，就把行为移到所属 service/facade/hook，再由 graph 调用。
+- 当领域层已经存在策略时，不要在 graph 构建里硬编码工作流策略。

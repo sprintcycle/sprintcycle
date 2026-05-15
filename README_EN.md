@@ -72,6 +72,7 @@ Web Request → Normalize → Plan → Prepare → Decompose → Execute → Obs
 - Vue 3 + Element Plus web dashboard
 - FastAPI backend
 - Python API and Web Dashboard share the same core entrypoint
+- Quality decisions are being made explicit through an independent Evaluator Agent and a Sprint Contract
 
 ### 8. Skills subsystem
 - Scene recognition, skill matching, skill injection, review checklist enrichment, and retro cleanup

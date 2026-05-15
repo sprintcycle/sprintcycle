@@ -99,6 +99,38 @@ def build_internal_router(service: InternalAPIService, project_path: str) -> API
         record_audit_event(request_id=ctx.request_id, actor=ctx.caller, action="internal.observability_trace", resource="/api/dashboard/trace", outcome="success")
         return result
 
+    @router.get("/api/dashboard/fitness")
+    async def dashboard_fitness(request: Request) -> dict:
+        ctx = _ctx(request)
+        check_rate_limit(request, route="/api/dashboard/fitness", context=ctx)
+        result = deps.service.fitness_view(context=ctx)
+        record_audit_event(request_id=ctx.request_id, actor=ctx.caller, action="internal.fitness_view", resource="/api/dashboard/fitness", outcome="success")
+        return result
+
+    @router.get("/api/dashboard/deploy")
+    async def dashboard_deploy(request: Request) -> dict:
+        ctx = _ctx(request)
+        check_rate_limit(request, route="/api/dashboard/deploy", context=ctx)
+        result = deps.service.deploy_view(context=ctx)
+        record_audit_event(request_id=ctx.request_id, actor=ctx.caller, action="internal.deploy_view", resource="/api/dashboard/deploy", outcome="success")
+        return result
+
+    @router.get("/api/dashboard/lifecycle-contract")
+    async def dashboard_lifecycle_contract(request: Request, execution_id: str, limit: int = 200) -> dict:
+        ctx = _ctx(request)
+        check_rate_limit(request, route="/api/dashboard/lifecycle-contract", context=ctx)
+        result = deps.service.lifecycle_contract(execution_id, limit=limit, context=ctx)
+        record_audit_event(request_id=ctx.request_id, actor=ctx.caller, action="internal.lifecycle_contract", resource="/api/dashboard/lifecycle-contract", outcome="success")
+        return result
+
+    @router.post("/api/dashboard/lifecycle-contract/{execution_id}/review")
+    async def dashboard_lifecycle_contract_review(request: Request, execution_id: str, body: dict) -> dict:
+        ctx = _ctx(request)
+        check_rate_limit(request, route="/api/dashboard/lifecycle-contract/{execution_id}/review", context=ctx)
+        result = deps.service.lifecycle_contract_review(execution_id, body, context=ctx)
+        record_audit_event(request_id=ctx.request_id, actor=ctx.caller, action="internal.lifecycle_contract_review", resource="/api/dashboard/lifecycle-contract/{execution_id}/review", outcome="success")
+        return result
+
     @router.get("/api/console/overview")
     async def console_overview(request: Request, limit: int = 20) -> dict:
         ctx = _ctx(request)

@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
-import { apiDashboardFitness, apiDashboardGovernance, apiDashboardDeploy, apiPlatformSummary } from '@/api'
+import { apiDashboardFitness, apiDashboardGovernance, apiDashboardDeploy, apiDashboardLifecycleContract, apiPlatformSummary } from '@/api'
 
 const router = useRouter()
 const loading = ref(false)
@@ -10,6 +10,7 @@ const summary = ref<Record<string, unknown> | null>(null)
 const fitness = ref<Record<string, unknown> | null>(null)
 const governance = ref<Record<string, unknown> | null>(null)
 const deploy = ref<Record<string, unknown> | null>(null)
+const lifecycleContract = ref<Record<string, unknown> | null>(null)
 
 async function refresh() {
   loading.value = true
@@ -18,6 +19,9 @@ async function refresh() {
     fitness.value = await apiDashboardFitness()
     governance.value = await apiDashboardGovernance()
     deploy.value = await apiDashboardDeploy()
+    const primary = summary.value?.executions_overview as Record<string, unknown> | undefined
+    const execId = typeof primary?.primary_execution === 'object' ? String((primary?.primary_execution as Record<string, unknown>)?.execution_id ?? '') : ''
+    lifecycleContract.value = execId ? await apiDashboardLifecycleContract(execId) : null
   } finally {
     loading.value = false
   }
@@ -41,6 +45,9 @@ const runtimeRows = computed(() => {
   return Array.isArray(d?.data) ? (d!.data as Record<string, unknown>[]) : []
 })
 const recentFailures = computed(() => executions.value.filter((ex) => ['failed', 'cancelled'].includes(String(ex.status ?? ''))).slice(0, 5))
+const contractStage = computed(() => String(lifecycleContract.value?.data?.stage ?? lifecycleContract.value?.stage ?? '—'))
+const contractStatus = computed(() => String(lifecycleContract.value?.data?.status ?? lifecycleContract.value?.status ?? '—'))
+const contractScore = computed(() => Number((lifecycleContract.value?.data as Record<string, unknown> | undefined)?.completion_score ?? 0))
 
 function openTraceFromExecution(executionId: string) {
   router.push({ name: 'trace' })
@@ -103,6 +110,16 @@ const topLinks = [
             <div><span>Promoted</span><b>{{ promotedCount }}</b></div>
             <div><span>Runtimes</span><b>{{ runtimeCount }}</b></div>
             <div><span>HITL</span><b>{{ String((summary?.hitl as Record<string, unknown> | undefined)?.open_requests ?? 0) }}</b></div>
+          </div>
+        </el-card>
+
+        <el-card shadow="never" class="panel-card">
+          <template #header>Lifecycle Contract</template>
+          <div class="summary-grid">
+            <div><span>Stage</span><b>{{ contractStage }}</b></div>
+            <div><span>Status</span><b>{{ contractStatus }}</b></div>
+            <div><span>Score</span><b>{{ contractScore }}</b></div>
+            <div><span>Execution</span><b>{{ String(lifecycleContract?.data?.execution_id ?? lifecycleContract?.execution_id ?? '—') }}</b></div>
           </div>
         </el-card>
 

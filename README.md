@@ -72,6 +72,7 @@ Web Request → Normalize → Plan → Prepare → Decompose → Execute → Obs
 - Vue 3 + Element Plus Web Dashboard
 - FastAPI 后端
 - Python API 与 Web Dashboard 共享同一套核心入口
+- 结合独立 Evaluator Agent 与 Sprint Contract，将质量判断、评分与交付证据显式化
 
 ### 8. Skills 子系统
 - 场景识别、skill 匹配、skill 注入、review checklist 增强、复盘清理

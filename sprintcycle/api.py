@@ -57,6 +57,7 @@ from .run_workspace import (
 )
 from .evolution import MemoryStore, UserIntentEvolutionLoop
 from .fitness import FitnessEvaluator
+from .application.services.evaluator_agent import EvaluatorAgent, SprintContractRecord, SprintScoreCard
 from .governance.facade import GovernanceFacade, create_governance_facade
 from .governance.policy.gates import GateResult, pre_run_gate
 from .governance.suggestion import SuggestionFacade, create_suggestion_facade
@@ -477,11 +478,26 @@ class SprintCycle:
                 "contract": {**dict((lifecycle_contract.get("evidence") or {}).get("contract") or {}), "normalized": True},
             },
         }
+        review = self.evaluate_sprint_contract({"contract": lifecycle_contract, "evidence": lifecycle_contract.get("evidence", {})})
+        lifecycle_contract["evaluation_refs"] = review.get("data", {})
+        lifecycle_contract["validation_refs"] = {
+            **dict(lifecycle_contract.get("validation_refs") or {}),
+            "evaluator_reviewed": True,
+            "evaluator_passed": bool(review.get("data", {}).get("score_card", {}).get("passed", False)),
+        }
+        lifecycle_contract["evidence"] = {
+            **dict(lifecycle_contract.get("evidence") or {}),
+            "promotion": {
+                **dict((lifecycle_contract.get("evidence") or {}).get("promotion") or {}),
+                "evaluation": review.get("data", {}),
+            },
+        }
         return {
             "success": True,
             "data": {
                 "normalized_request": normalized["request"],
                 "lifecycle_contract": lifecycle_contract,
+                "evaluation": review.get("data", {}),
                 "final_snapshot": lifecycle_contract,
                 "plan": plan_result.get("plan", {}),
                 "prepare": prepared_result.get("prepare", {}),
@@ -842,8 +858,12 @@ class SprintCycle:
             suggestion_id=str(state.get("metadata", {}).get("suggestion_id") or ""),
             evolution_id=str(state.get("metadata", {}).get("evolution_id") or ""),
         )
+        normalized_request_payload = normalized_request.get("request", {})
+        lifecycle_payload = {**dict(lifecycle) if isinstance(lifecycle, dict) else {}, "stage": stage, "status": status, "closure_score": closure_score}
+        promotion_payload = promotion_eval.get("promotion", {})
+        evaluation_payload = promotion_eval
         evidence_package = {
-            "normalized_request": normalized_request.get("request", {}),
+            "normalized_request": normalized_request_payload,
             "state": state,
             "trace": trace_payload,
             "diagnostics": diagnostics,
@@ -852,46 +872,48 @@ class SprintCycle:
             "suggestion": suggestion_contract,
             "delivery": delivery_contract,
             "repair": repair,
-            "promotion": promotion_eval.get("promotion", {}),
-            "promotion_contract": promotion_eval,
+            "promotion": promotion_payload,
+            "promotion_contract": evaluation_payload,
             "promotion_overview": promotion_overview,
+        }
+        final_snapshot = {
+            "execution_id": execution_id,
+            "stage": stage,
+            "status": status,
+            "normalized_request": normalized_request_payload,
+            "lifecycle": lifecycle_payload,
+            "runtime": runtime_contract,
+            "governance": governance_contract,
+            "suggestion": suggestion_contract,
+            "delivery": delivery_contract,
+            "diagnostics": diagnostics,
+            "trace": trace_payload,
+            "repair": repair,
+            "promotion": promotion_payload,
+            "promotion_contract": evaluation_payload,
+            "health": {**health, "closure_score": closure_score, "completion_score": completion_score},
+            "validation_refs": {"final_snapshot": True, "promotion_input_final_snapshot": bool(evaluation_payload)},
         }
         contract = {
             "execution_id": execution_id,
-            "evidence_package": evidence_package,
-            "normalized_request": normalized_request.get("request", {}),
+            "normalized_request": normalized_request_payload,
             "state": state,
             "trace": trace_payload,
-            "lifecycle": {**dict(lifecycle) if isinstance(lifecycle, dict) else {}, "stage": stage, "status": status, "closure_score": closure_score},
+            "lifecycle": lifecycle_payload,
             "diagnostics": diagnostics,
             "runtime": runtime_contract,
             "governance": governance_contract,
             "suggestion": suggestion_contract,
             "delivery": delivery_contract,
-            "promotion": promotion_eval.get("promotion", {}),
-            "promotion_contract": promotion_eval,
+            "promotion": promotion_payload,
+            "evaluation": evaluation_payload,
+            "promotion_contract": evaluation_payload,
             "promotion_overview": promotion_overview,
             "health": {**health, "closure_score": closure_score, "completion_score": completion_score},
             "repair": repair,
             "completion_score": completion_score,
-            "final_snapshot": {
-                "execution_id": execution_id,
-                "stage": stage,
-                "status": status,
-                "normalized_request": normalized_request.get("request", {}),
-                "lifecycle": {**dict(lifecycle) if isinstance(lifecycle, dict) else {}, "stage": stage, "status": status, "closure_score": closure_score},
-                "runtime": runtime_contract,
-                "governance": governance_contract,
-                "suggestion": suggestion_contract,
-                "delivery": delivery_contract,
-                "diagnostics": diagnostics,
-                "trace": trace_payload,
-                "repair": repair,
-                "promotion": promotion_eval.get("promotion", {}),
-                "promotion_contract": promotion_eval,
-                "health": {**health, "closure_score": closure_score, "completion_score": completion_score},
-                "validation_refs": {"final_snapshot": True, "promotion_input_final_snapshot": bool(promotion_eval)},
-            },
+            "evidence_package": evidence_package,
+            "final_snapshot": final_snapshot,
         }
         return {"success": bool(detail.get("success", False)) if isinstance(detail, dict) else False, "data": contract}
 
@@ -910,9 +932,12 @@ class SprintCycle:
     def deploy_lifecycle(self) -> Dict[str, Any]:
         deployment = self.deploy_view()
         runtime = self.runtime_lifecycle()
+        runtime_id = str((runtime.get("data", {}) or {}).get("runtime", {}).get("runtime_id", ""))
+        contract = self.lifecycle_contract(runtime_id) if runtime_id else {"success": False, "data": {}}
+        promotion = self.evaluate_promotion(runtime_id or self.project_path, project_path=self.project_path, governance=self.governance_lifecycle().get("data", {}).get("summary", {}))
         success = bool(deployment.get("success", False)) and bool(runtime.get("success", False))
         closure_score = 100.0 if success else 0.0
-        return {"success": success, "data": {"deployment": deployment.get("data", {}), "runtime": runtime.get("data", {}), "lifecycle": {"stage": "runtime_linked", "status": "success" if success else "failed", "has_deployment": bool(deployment.get("success", False)), "has_runtime": bool(runtime.get("success", False)), "closure_score": closure_score}, "health": {"closure_score": closure_score, "is_healthy": success}}}
+        return {"success": success, "data": {"deployment": deployment.get("data", {}), "runtime": runtime.get("data", {}), "contract": contract.get("data", {}) if isinstance(contract, dict) else {}, "promotion": promotion.get("data", {}), "lifecycle": {"stage": "runtime_linked", "status": "success" if success else "failed", "has_deployment": bool(deployment.get("success", False)), "has_runtime": bool(runtime.get("success", False)), "promotion_ready": bool((promotion.get("data", {}) or {}).get("promotion", {}).get("passed", False)), "closure_score": closure_score}, "health": {"closure_score": closure_score, "is_healthy": success}}}
 
     def runtime_lifecycle(self, runtime_id: str = "") -> Dict[str, Any]:
         latest = self.runtime_latest()
@@ -969,7 +994,22 @@ class SprintCycle:
         return ArchitectureView(payload=result.to_dict()).to_payload()
 
     def evaluate_fitness(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        payload = dict(payload or {})
+        if "contract" not in payload:
+            payload["contract"] = {
+                "execution_id": str(payload.get("execution_id") or ""),
+                "task_id": str(payload.get("task_id") or ""),
+                "project_path": str(payload.get("project_path") or self.project_path),
+                "goal": str(payload.get("goal") or payload.get("intent") or ""),
+                "acceptance_criteria": list(payload.get("acceptance_criteria") or []),
+                "evidence": dict(payload.get("evidence") or {"contract": {}, "stages": {}}),
+            }
         return self._fitness.evaluate(payload)
+
+    def evaluate_sprint_contract(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        agent = EvaluatorAgent()
+        result = agent.evaluate(payload.get("contract") or payload, evidence=payload.get("evidence"))
+        return result
 
     def execution_events(
         self,

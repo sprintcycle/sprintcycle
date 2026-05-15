@@ -21,6 +21,8 @@ export const router = createRouter({
         { path: 'governance', name: 'governance', component: () => import('@/views/GovernanceView.vue') },
         { path: 'fix', name: 'fix', component: () => import('@/views/FixView.vue') },
         { path: 'promotion', name: 'promotion', component: () => import('@/views/PromotionView.vue') },
+        { path: 'deploy', name: 'deploy', component: () => import('@/views/DeployView.vue') },
+        { path: 'fitness', name: 'fitness', component: () => import('@/views/FitnessView.vue') },
       ],
     },
   ],

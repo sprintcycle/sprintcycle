@@ -51,6 +51,14 @@ class InternalAPIService:
     def fitness_view(self, context: Optional[RequestContext] = None) -> Dict[str, Any]:
         return self.sc.fitness_view()
 
+    def evaluate_sprint_contract(self, payload: Dict[str, Any], context: Optional[RequestContext] = None) -> Dict[str, Any]:
+        return self.sc.evaluate_sprint_contract(payload)
+
+    def lifecycle_contract_review(self, execution_id: str, payload: Optional[Dict[str, Any]] = None, context: Optional[RequestContext] = None) -> Dict[str, Any]:
+        body = dict(payload or {})
+        body.setdefault("contract", self.sc.lifecycle_contract(execution_id).get("data", {}))
+        return self.sc.evaluate_sprint_contract(body)
+
     def deploy_view(self, context: Optional[RequestContext] = None) -> Dict[str, Any]:
         return self.sc.deploy_view()
 
