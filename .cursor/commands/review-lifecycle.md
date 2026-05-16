@@ -4,6 +4,10 @@ Use the `lifecycle-auditor` subagent to review execution lifecycle, runtime link
 
 使用 `lifecycle-auditor` 子代理审查执行生命周期、运行时联动、可观测性以及演化/晋升一致性。
 
+Canonical references:
+- `docs/AI_GOVERNANCE.md` for governance rules that affect lifecycle flow
+- `docs/CURSOR_TEAM_PLAYBOOK.md` for execution role boundaries
+
 ## When to use / 适用场景
 - Execution lifecycle changes / 执行生命周期变更
 - Runtime registry changes / runtime registry 变更

@@ -4,6 +4,10 @@ Use the `arch-guardian` subagent to review the current change for layered-archit
 
 使用 `arch-guardian` 子代理审查当前变更是否违反分层架构、职责归属和跨层耦合约束。
 
+Canonical references:
+- `docs/AI_GOVERNANCE.md` for governance hierarchy and ownership boundaries
+- `docs/CURSOR_TEAM_PLAYBOOK.md` for architecture review role boundaries
+
 ## When to use / 适用场景
 - Service migrations / 服务迁移
 - Import/export changes / import-export 变更

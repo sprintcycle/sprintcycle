@@ -4,6 +4,10 @@ Use the `graph-orchestrator` subagent to review graph nodes, state transitions, 
 
 使用 `graph-orchestrator` 子代理审查 graph 节点、状态流转、调度流程与 plan/sprint 拆分行为。
 
+Canonical references:
+- `docs/AI_GOVERNANCE.md` for governance rules that affect workflow routing
+- `docs/CURSOR_TEAM_PLAYBOOK.md` for execution role boundaries
+
 ## When to use / 适用场景
 - LangGraph runtime changes / LangGraph runtime 变更
 - Node responsibility changes / 节点职责变更

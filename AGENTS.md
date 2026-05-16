@@ -84,6 +84,9 @@ SprintCycle 是一个面向 Web Dashboard / REST API / SDK 的契约驱动生命
 - 只有在改动影响用户可见行为、架构、安装或工作流时，才更新 `README.md`、`README_EN.md` 或其他文档。
 - Keep terminology consistent with the existing contract-driven lifecycle language.
 - 保持术语与现有的 contract-driven lifecycle 语言一致。
+- `docs/AI_GOVERNANCE.md` is the project-level governance source of truth for AI collaboration.
+- `docs/CURSOR_TEAM_PLAYBOOK.md` is the execution-layer companion that explains roles, routing, and workflow order.
+- `AGENTS.md` provides the repository-level baseline and should remain aligned with the governance document, but it does not duplicate its full policy.
 
 ## When in doubt / 不确定时
 

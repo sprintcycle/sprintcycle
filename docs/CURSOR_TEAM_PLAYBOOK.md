@@ -1,143 +1,267 @@
 # SprintCycle Cursor Team Playbook
 
-This document defines the project-specific AI operating team for SprintCycle development work.
+This document defines the operating model for AI-assisted development work in SprintCycle. It describes the minimum complete team, command entry points, task routing policy, and the relationship between this playbook and the governance document.
 
-## 1. Team model
+## 1. Relationship to AI governance
 
-SprintCycle work should be handled by a small, explicit team with clear ownership:
+This playbook is the execution manual.
+`docs/AI_GOVERNANCE.md` is the governance source of truth.
 
-- `team-commander` — intake, task classification, routing, and work breakdown
-- `arch-guardian` — layer boundaries, ownership, and cross-layer coupling
-- `graph-orchestrator` — LangGraph flow, state transitions, and dispatch orchestration
-- `lifecycle-auditor` — runtime, observability, promotion, and execution continuity
-- `test-risk-reviewer` — regression, edge cases, compatibility, and missing tests
-- `review-commander` — final synthesis across specialist reviews
+- Governance defines the rules
+- This playbook defines how the team executes those rules
+- Task specs define what a specific task must accomplish
+- See the governance overview diagram in `docs/AI_GOVERNANCE.md` for the full layer map
 
-## 2. Role ownership
+## 2. Team model
 
-### `team-commander`
+SprintCycle’s minimum complete AI development team is intentionally small and explicit:
+
+- `Coordinator` — intake, classification, routing, and work breakdown
+- `Spec` — task specification, scope definition, and acceptance criteria
+- `Architect` — boundaries, dependencies, and task decomposition
+- `Implementation` — code changes and implementation execution
+- `QA/Review` — regression checks, spec compliance, and validation
+
+This is the smallest team that can still complete the full loop from intake to validated delivery.
+
+## 3. Role responsibilities
+
+### 3.1 Coordinator
 Use first when the request is broad, multi-step, or ambiguous.
 
 Responsibilities:
-- classify the task
-- identify the owning subsystem
-- choose the minimum specialist path
-- propose the execution order
-- ask for the smallest missing detail when needed
+- classify task complexity
+- choose OpenSpec or Spec-Kit
+- select the minimum required workflow
+- assign the next role
+- decide whether a task needs Architect involvement
+- collect final results and trigger review loops if necessary
 
-### `arch-guardian`
-Use for structure, ownership, imports, exports, and boundary risks.
-
+### 3.2 Spec
 Responsibilities:
-- keep API and presentation layers thin
-- prevent cross-layer business logic leakage
-- detect duplicate or misplaced responsibilities
-- preserve the current SprintCycle architecture skeleton
+- transform the request into an explicit task spec
+- define scope, non-goals, constraints, and acceptance criteria
+- choose OpenSpec for low complexity tasks
+- choose Spec-Kit for medium/high complexity tasks
 
-### `graph-orchestrator`
-Use for graph runtime changes, node responsibilities, and stage transitions.
-
+### 3.3 Architect
 Responsibilities:
-- keep graph nodes orchestration-only
-- verify plan/sprint split and dispatch flow
-- ensure explicit and minimal state transitions
-- avoid embedding domain rules in graph nodes
+- split the task into safe sub-steps
+- define dependencies and boundaries
+- identify parallelizable parts
+- keep the implementation surface small
 
-### `lifecycle-auditor`
-Use for runtime lifecycle, observability, and promotion/evolution continuity.
-
+### 3.4 Implementation
 Responsibilities:
-- validate execution chain continuity
-- check runtime registry and execution state consistency
-- verify trace, replay, and evidence capture
-- detect breaks in recovery or promotion paths
+- implement only what is covered by the spec
+- avoid unrelated refactors
+- keep changes localized to the owning layer
 
-### `test-risk-reviewer`
-Use for risky behavior changes or after implementation to identify coverage gaps.
-
+### 3.5 QA/Review
 Responsibilities:
-- find missing tests for changed behavior
-- identify failure-path and edge-case gaps
-- call out compatibility concerns
-- recommend concrete test names and assertions
+- verify the change against the spec
+- check for regressions and edge cases
+- block completion when acceptance criteria are not met
+- recommend concrete follow-up fixes
 
-### `review-commander`
-Use at the end of a multi-review workflow.
-
-Responsibilities:
-- consolidate specialist findings
-- remove duplicates
-- prioritize blockers
-- produce a single final verdict
-
-## 3. Command entry points
+## 4. Command entry points
 
 Use commands when you want a fixed entry that maps to a specific role.
 
-- `/team-command` → `team-commander`
-- `/review-arch` → `arch-guardian`
-- `/review-graph` → `graph-orchestrator`
-- `/review-lifecycle` → `lifecycle-auditor`
-- `/review-tests` → `test-risk-reviewer`
-- `/review-final` → `review-commander`
-- `/commit-message` → summarize current changes and draft commit text
+- `/team-command` → `Coordinator`
+- `/review-arch` → `Architect`
+- `/review-tests` → `QA/Review`
+- `/review-final` → final synthesis
+- `/commit-message` → summarize changes and draft commit text
 
-## 4. Recommended workflows
+If the repository later introduces commands for spec routing, document them here.
 
-### A. New feature or multi-step change
-1. Run `/team-command`
-2. Follow the routing plan
-3. Implement in the owning layer only
-4. Run the relevant review command(s)
-5. Finish with `/review-final`
+## 5. Routing policy
 
-### B. Architecture or refactor work
-1. Run `/team-command`
-2. Review with `/review-arch`
-3. If graph or lifecycle is involved, add `/review-graph` and/or `/review-lifecycle`
-4. Add `/review-tests` if behavior changed
-5. End with `/review-final`
+### 5.1 OpenSpec route
+Use OpenSpec for:
+- low complexity
+- small scope
+- low risk
+- no architecture change
+- no contract change
 
-### C. Bug fix with regression risk
-1. Run `/team-command`
-2. Implement the smallest safe fix
-3. Run `/review-tests`
-4. If the fix touches boundaries or lifecycle, add the specialist review
+Recommended flow:
+- Coordinator
+- OpenSpec
+- Implementation
+- QA/Review
+- Complete
 
-### D. Final shipping pass
-1. Specialist review(s)
-2. `/review-final`
-3. `/commit-message`
+### 5.2 Spec-Kit route
+Use Spec-Kit for:
+- medium complexity
+- high complexity
+- boundary-sensitive changes
+- cross-module work
+- higher regression risk
 
-## 5. Decision rules
+Recommended flow:
+- Coordinator
+- Spec-Kit
+- Architect
+- Implementation
+- QA/Review
+- Complete
 
-- Start with the smallest relevant role.
-- Escalate only when more than one subsystem is involved.
-- Prefer review before rewrite when ownership is unclear.
-- Keep implementation localized to the owning layer.
-- Use final review only after specialist reviews are complete.
+### 5.3 Skipping Architect
+Architect can be skipped only when:
+- the task is low complexity
+- the change is localized
+- the boundaries are already obvious
 
-## 6. SprintCycle-specific principles
+### 5.4 Mandatory review
+QA/Review is mandatory for:
+- contract changes
+- refactors
+- cross-layer changes
+- anything that may regress behavior
 
-- Public API should stay thin.
-- Graph should orchestrate, not own business rules.
-- Lifecycle and observability must remain continuous.
-- Governance, suggestion handling, and evolution flows must not be bypassed.
-- Tests should cover changed behavior and failure paths, not just happy paths.
+## 6. Complexity decision guide
 
-## 7. Practical examples
+### Low complexity
+Typical signals:
+- one file
+- limited surface area
+- low risk
+- simple acceptance criteria
 
-- HTTP/API routing change → `team-commander` → `arch-guardian`
-- LangGraph node refactor → `team-commander` → `graph-orchestrator`
-- Execution/runtime change → `team-commander` → `lifecycle-auditor`
-- API contract change → `team-commander` → `arch-guardian` + `test-risk-reviewer`
-- Large cross-layer PR → all relevant specialists → `review-commander`
+Use OpenSpec.
 
-## 8. Maintenance
+### Medium complexity
+Typical signals:
+- multiple files
+- some dependencies
+- moderate risk
+- explicit validation needed
 
-When adding a new agent, command, or rule:
+Use Spec-Kit.
 
-- add its ownership and trigger conditions here
-- keep naming aligned with the existing team vocabulary
-- update the routing rule if the new role affects priority
-- update the README so contributors can discover the new capability quickly
+### High complexity
+Typical signals:
+- architecture change
+- runtime or governance change
+- cross-layer coupling
+- migration or refactor work
+- high regression risk
+
+Use Spec-Kit and require Architect plus QA/Review.
+
+## 7. Conflict avoidance rules
+
+- Do not maintain duplicate global constraints in both spec systems
+- Do not let a task spec override governance rules
+- Do not treat OpenSpec as a second governance system
+- Do not rewrite the same rule in multiple places
+- If a rule changes, update the governance layer first
+
+## 8. Recommended work patterns
+
+### A. Small bug fix
+1. Coordinator
+2. OpenSpec
+3. Implementation
+4. QA/Review
+5. Complete
+
+### B. Standard feature
+1. Coordinator
+2. Spec-Kit
+3. Architect
+4. Implementation
+5. QA/Review
+6. Complete
+
+### C. Large refactor
+1. Coordinator
+2. Spec-Kit
+3. Architect
+4. Implementation
+5. QA/Review
+6. Loop back if needed
+7. Complete
+
+## 9. Workflow protocol
+
+SprintCycle uses a mixed-mode execution protocol so the same five roles can handle both small iterations and larger refactors without changing the team model.
+
+### 9.1 Lightweight flow
+Use the lightweight flow when the task is small, localized, and low risk.
+
+```text
+Coordinator → Spec → Implementation → QA/Review → Done
+```
+
+### 9.2 Strict flow
+Use the strict flow when the task is multi-file, boundary-sensitive, or higher risk.
+
+```text
+Coordinator → Spec → Architect → Implementation → QA/Review → Done
+```
+
+### 9.3 Handoff rules
+Every role must pass a compact handoff package to the next role.
+
+- Coordinator → Spec: task summary, complexity, route, risks
+- Spec → Architect / Implementation: goals, non-goals, scope, constraints, acceptance criteria
+- Architect → Implementation: breakdown, dependencies, boundaries, implementation order
+- Implementation → QA/Review: changed files, deviations, self-check summary, validation focus
+- QA/Review → Coordinator: verdict, missing checks, risk level, required follow-up
+
+### 9.4 Escalation rules
+- If the Spec discovers scope expansion, escalate to the strict flow.
+- If Implementation finds hidden dependencies, escalate to the strict flow.
+- If QA/Review finds high regression risk, block completion and route back through Coordinator.
+
+### 9.5 Output templates
+Each role should keep its output short and structured.
+
+- Coordinator: classification, routing, workflow mode, risks, next step
+- Spec: goal, non-goals, scope, constraints, acceptance criteria, recommended route
+- Architect: breakdown, dependencies, boundaries, implementation order, risks
+- Implementation: changes made, files touched, notes, self-check summary
+- QA/Review: validation summary, missing checks, high-risk scenarios, verdict, follow-up
+
+## 10. AI team quick card
+
+### 10.1 Minimum complete team
+- Coordinator
+- Spec
+- Architect
+- Implementation
+- QA/Review
+
+### 10.2 Default full flow
+```text
+Coordinator → Spec → Architect → Implementation → QA/Review → Done
+```
+
+### 10.3 Lightweight flow
+```text
+Coordinator → Spec → Implementation → QA/Review → Done
+```
+
+### 10.4 Routing rule
+- Low complexity → OpenSpec + lightweight flow
+- Medium complexity → Spec-Kit + strict flow
+- High complexity → Spec-Kit + strict flow + stronger review
+
+### 10.5 One-line rule of thumb
+- `Coordinator` decides the route
+- `Spec` writes the task contract
+- `Architect` breaks down the work
+- `Implementation` changes the code
+- `QA/Review` decides pass or loop back
+
+## 11. Maintenance
+
+When adding a new agent, command, or routing rule:
+- add it here
+- define its trigger conditions
+- keep the name aligned with the existing team vocabulary
+- update `docs/AI_GOVERNANCE.md` if it affects governance

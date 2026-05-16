@@ -6,17 +6,20 @@ alwaysApply: true
 # SprintCycle Team Routing / 团队路由规则
 
 ## Purpose
-This rule turns SprintCycle into a practical multi-role team: choose the right reviewer or implementer before making changes.
+This rule maps requests to the smallest responsible role and keeps routing aligned with the governance hierarchy.
 
-For the canonical team model, see `docs/CURSOR_TEAM_PLAYBOOK.md`.
+Canonical references:
+- `docs/AI_GOVERNANCE.md` for project-level governance
+- `docs/CURSOR_TEAM_PLAYBOOK.md` for execution roles and workflows
 
 ## Role selection
+- Need a coordinated task plan or complexity routing -> `team-commander`
+- Need to define task scope, non-goals, or acceptance criteria -> `team-commander` → `Spec`
 - Architecture or ownership boundaries -> `arch-guardian`
 - LangGraph flow, node behavior, or state transitions -> `graph-orchestrator`
 - Execution lifecycle, runtime registry, observability, or promotion/evolution -> `lifecycle-auditor`
 - Missing tests, regressions, or compatibility risk -> `test-risk-reviewer`
 - Final synthesis across multiple reviews -> `review-commander`
-- Need a coordinated task plan -> `team-commander`
 
 ## Working policy
 - Start with the smallest relevant role.
@@ -24,6 +27,13 @@ For the canonical team model, see `docs/CURSOR_TEAM_PLAYBOOK.md`.
 - Prefer review before rewrite when boundaries are unclear.
 - Keep implementation changes localized to the owning layer.
 - Use the final review command only after specialist reviews are complete.
+- Do not invent parallel governance rules inside task-specific specs.
+- Use OpenSpec for low-complexity work and Spec-Kit for medium/high-complexity work.
+
+## Complexity routing
+- Low complexity -> OpenSpec route
+- Medium complexity -> Spec-Kit route
+- High complexity -> Spec-Kit route with Architect + QA/Review
 
 ## Response discipline
 - State which role is being used and why when the task is multi-step or high-risk.

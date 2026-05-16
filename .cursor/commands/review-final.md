@@ -4,7 +4,9 @@ Use the `review-commander` subagent to consolidate all specialist review finding
 
 使用 `review-commander` 子代理汇总各专岗审查结论并给出最终决定。
 
-See `docs/CURSOR_TEAM_PLAYBOOK.md` for the review workflow and role boundaries.
+Canonical references:
+- `docs/AI_GOVERNANCE.md` for governance and review hierarchy
+- `docs/CURSOR_TEAM_PLAYBOOK.md` for review workflow and role boundaries
 
 ## When to use / 适用场景
 - Large changes spanning multiple layers / 跨多层的大改动

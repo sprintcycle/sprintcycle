@@ -8,15 +8,14 @@ alwaysApply: true
 ## Purpose / 目的
 When multiple rules may match the same change, use the following priority to keep review and enforcement consistent.
 
-Current implementation context / 当前实现现状:
-- The repository currently has a small rule set, so this guide exists to prevent overlapping interpretations as the rules grow.
-- The priority order below should be applied against the existing codebase shape and current lifecycle backbone.
-- HTTP protocol ownership is now split into `interfaces/http/` and Dashboard container ownership into `presentation/`.
+Canonical references:
+- `docs/AI_GOVERNANCE.md` for governance hierarchy and routing principles
+- `docs/CURSOR_TEAM_PLAYBOOK.md` for role selection and workflow order
 
-- Structural changes must be reviewed first by the 8-layer governance rule.
-- Lifecycle and end-to-end chain changes must be reviewed first by the architecture/orchestration rule.
-- Graph behavior changes must be reviewed first by the LangGraph orchestration rule.
-- Public architecture, ownership changes, and HTTP/presentation split must be reviewed first by the architecture/orchestration rule.
+Current implementation context / 当前实现现状:
+- The repository keeps a small, explicit rule set to avoid overlapping interpretations.
+- The priority order below should be applied against the current codebase shape and governance hierarchy.
+- HTTP protocol ownership is split into `interfaces/http/` and Dashboard container ownership into `presentation/`.
 
 ## Priority order / 优先级顺序
 ### Tier 1 — Primary rule / 主规则
@@ -25,17 +24,23 @@ Use the most specific rule that matches the change:
 2. `sprintcycle-architecture-orchestration.mdc`
 3. `langgraph-orchestration.mdc`
 
-### Tier 2 — Secondary review / 次级复核
+### Tier 2 — Governance and workflow alignment / 治理与流程对齐
+If a change affects AI routing, role selection, or workflow shape, align it with:
+- `docs/AI_GOVERNANCE.md`
+- `docs/CURSOR_TEAM_PLAYBOOK.md`
+- `team-routing.mdc`
+
+### Tier 3 — Secondary review / 次级复核
 If a change touches multiple areas, apply the primary rule first and then perform a lightweight secondary review with the overlapping rule(s).
 
-### Tier 3 — General review / 通用复核
+### Tier 4 — General review / 通用复核
 If a change does not clearly fit one of the above, do a lightweight architecture review before deciding whether to escalate.
 
 ## Routing guidance / 路由指引
 - Structure, imports, package exports, directory moves, and cross-layer ownership → `sprintcycle-8-layer-governance.mdc`
 - Lifecycle continuity, web entry, execution backbone, and end-to-end closure → `sprintcycle-architecture-orchestration.mdc`
 - Graph nodes, state transitions, and `plan / run / observe / repair` behavior → `langgraph-orchestration.mdc`
-- Public API boundaries, responsibilities, presentation/interfaces split, and architectural separation → `sprintcycle-architecture-orchestration.mdc`
+- AI role routing, command selection, and workflow order → `team-routing.mdc`
 
 ## Escalation rule / 升级规则
 - Always start with a lightweight review for any file change.
