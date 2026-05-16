@@ -1,8 +1,8 @@
 # Review command / 最终审查命令
 
-Use the `review-agent` to consolidate all specialist findings into a final decision.
+Use the `it-review-agent` to consolidate all specialist findings into a final decision.
 
-使用 `review-agent` 汇总各专岗结论并给出最终决定。
+使用 `it-review-agent` 汇总各专岗结论并给出最终决定。
 
 Canonical references:
 - `docs/AI_GOVERNANCE.md` for governance and review hierarchy

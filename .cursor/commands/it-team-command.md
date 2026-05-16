@@ -1,8 +1,8 @@
 # Team command / 团队总控命令
 
-Use the `team-commander` subagent to classify the task, choose the right workflow, and produce a minimal execution plan.
+Use the `it-team-agent` to classify the task, choose the right workflow, and produce a minimal execution plan.
 
-使用 `team-commander` 子代理对需求分类、选择合适工作流，并给出最小执行计划。
+使用 `it-team-agent` 对需求分类、选择合适工作流，并给出最小执行计划。
 
 Canonical references:
 - `docs/AI_GOVERNANCE.md` for governance and routing policy

@@ -479,12 +479,12 @@ Every role must be able to produce one of three outcomes:
 - `loop back`
 
 ### 8.2 Return-to-owner matrix / 回流归属表
-- Requirement ambiguity / 需求不清楚 -> `team-agent`
-- Spec incompleteness / 规范不完整 -> `spec-agent`
-- Boundary or dependency ambiguity / 边界或依赖不清晰 -> `architect-agent`
-- Scope creep or implementation overreach / 范围扩大或实现越界 -> `implement-agent`
-- Missing tests or high regression risk / 缺失测试或高回归风险 -> `qa-agent`
-- Conflicting cross-role conclusions / 跨角色结论冲突 -> `review-agent`
+- Requirement ambiguity / 需求不清楚 -> `it-team-agent`
+- Spec incompleteness / 规范不完整 -> `it-spec-agent`
+- Boundary or dependency ambiguity / 边界或依赖不清晰 -> `it-architect-agent`
+- Scope creep or implementation overreach / 范围扩大或实现越界 -> `it-implement-agent`
+- Missing tests or high regression risk / 缺失测试或高回归风险 -> `it-qa-agent`
+- Conflicting cross-role conclusions / 跨角色结论冲突 -> `it-review-agent`
 
 - 需求不清楚 -> `team-agent`
 - 规范不完整 -> `spec-agent`

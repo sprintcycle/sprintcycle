@@ -12,19 +12,19 @@ Before using commands, read:
 
 These are the 7 primary commands recommended for the minimal complete workflow:
 
-- `/team-command`
-- `/spec-command`
-- `/architect-command`
-- `/implement-command`
-- `/qa-command`
-- `/review-command`
-- `/commit-message-command`
+- `/it-team-command`
+- `/it-it-spec-command`
+- `/it-it-architect-command`
+- `/it-it-implement-command`
+- `/it-it-qa-command`
+- `/it-review-command`
+- `/it-it-it-commit-message-command`
 
 ## Command groups / 命令分组
 
 ### 1. Intake and routing / 接单与路由
 
-#### `/team-command`
+#### `/it-team-command`
 Use this as the first entry point for new work.
 
 Responsibilities:
@@ -42,7 +42,7 @@ Use for:
 
 ### 2. Spec and implementation flow / 规范与实现流程
 
-#### `/spec-command`
+#### `/it-spec-command`
 Use this when you want to turn a request into a task spec.
 
 Responsibilities:
@@ -56,7 +56,7 @@ Use for:
 - spec drafting / 规范草拟
 - complexity-based spec routing / 按复杂度选择规范路径
 
-#### `/architect-command`
+#### `/it-architect-command`
 Use this when you need task decomposition and boundary design.
 
 Responsibilities:
@@ -71,7 +71,7 @@ Use for:
 - cross-module design / 跨模块设计
 - refactor planning / 重构规划
 
-#### `/implement-command`
+#### `/it-implement-command`
 Use this when the spec and breakdown are ready and code changes should begin.
 
 Responsibilities:
@@ -85,7 +85,7 @@ Use for:
 - feature delivery / 功能交付
 - localized fixes / 局部修复
 
-#### `/qa-command`
+#### `/it-qa-command`
 Use this when implementation is ready for validation.
 
 Responsibilities:
@@ -102,7 +102,7 @@ Use for:
 
 ### 3. Review and synthesis / 审查与汇总
 
-#### `/review-command`
+#### `/it-review-command`
 Runs final synthesis through the review commander path.
 
 Use for:
@@ -112,7 +112,7 @@ Use for:
 
 ### 4. Delivery support / 交付支持
 
-#### `/commit-message-command`
+#### `/it-commit-message-command`
 Summarizes the current change and drafts a commit message.
 
 Use for:

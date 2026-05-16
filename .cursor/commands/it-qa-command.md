@@ -1,8 +1,8 @@
 # QA command / 验证命令
 
-Use the `QA/Review` role to validate an implementation against the spec and check for regressions, edge cases, and missing coverage.
+Use the `it-qa-agent` to validate an implementation against the spec and check for regressions, edge cases, and missing coverage.
 
-使用 `QA/Review` 角色基于规范验证实现，并检查回归、边界情况和缺失覆盖。
+使用 `it-qa-agent` 基于规范验证实现，并检查回归、边界情况和缺失覆盖。
 
 Canonical references:
 - `docs/AI_GOVERNANCE.md` for governance constraints that affect validation scope

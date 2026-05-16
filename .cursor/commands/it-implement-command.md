@@ -1,8 +1,8 @@
 # Implement command / 实现命令
 
-Use the `Implementation` role to make code changes for an approved spec and architecture breakdown.
+Use the `it-implement-agent` to make code changes for an approved spec and architecture breakdown.
 
-使用 `Implementation` 角色基于已批准的规范和架构拆分进行代码修改。
+使用 `it-implement-agent` 基于已批准的规范和架构拆分进行代码修改。
 
 Canonical references:
 - `docs/AI_GOVERNANCE.md` for governance constraints

@@ -1,5 +1,5 @@
 ---
-name: qa-agent
+name: it-qa-agent
 description: SprintCycle QA 助手，已合并 `test-risk-reviewer` 的职责。
 ---
 

@@ -1,5 +1,5 @@
 ---
-name: architect-agent
+name: it-architect-agent
 description: SprintCycle 架构拆分助手，已合并 `arch-guardian` 与 `graph-orchestrator` 的职责。
 ---
 

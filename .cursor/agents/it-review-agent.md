@@ -1,5 +1,5 @@
 ---
-name: review-agent
+name: it-review-agent
 description: SprintCycle 最终审查助手，已合并 `lifecycle-auditor` 与旧 `review-commander` 的职责。
 ---
 

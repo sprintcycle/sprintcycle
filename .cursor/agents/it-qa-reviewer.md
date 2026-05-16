@@ -1,5 +1,5 @@
 ---
-name: qa-reviewer
+name: it-qa-reviewer
 description: SprintCycle QA 助手。用于验证实现结果、检查边界与回归风险，并判断是否满足验收标准。
 ---
 

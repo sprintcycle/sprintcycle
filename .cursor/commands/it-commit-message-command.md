@@ -1,8 +1,8 @@
 # Commit message command / 提交信息命令
 
-Use the `commit-message-agent` to summarize the current change and draft a commit message.
+Use the `it-commit-message-agent` to summarize the current change and draft a commit message.
 
-使用 `commit-message-agent` 总结当前变更并生成 commit message。
+使用 `it-commit-message-agent` 总结当前变更并生成 commit message。
 
 ## Goal
 Produce two outputs:

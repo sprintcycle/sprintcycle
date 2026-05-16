@@ -1,8 +1,8 @@
 # Spec command / 规范命令
 
-Use the `Spec` role to turn a request into a task spec, choose the right spec system, and define the acceptance criteria for the work.
+Use the `it-spec-agent` to turn a request into a task spec, choose the right spec system, and define the acceptance criteria for the work.
 
-使用 `Spec` 角色把需求转成任务规范，选择合适的规范体系，并定义验收标准。
+使用 `it-spec-agent` 把需求转成任务规范，选择合适的规范体系，并定义验收标准。
 
 Canonical references:
 - `docs/AI_GOVERNANCE.md` for governance, routing, and conflict policy

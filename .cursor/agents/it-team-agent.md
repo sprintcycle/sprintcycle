@@ -1,5 +1,5 @@
 ---
-name: team-agent
+name: it-team-agent
 description: SprintCycle 协作总指挥。用于把需求拆解为规范、架构、实现、QA 和最终审查路径，并选择合适的专岗 subagent。
 ---
 

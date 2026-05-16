@@ -1,8 +1,8 @@
 # Architect command / 架构命令
 
-Use the `Architect` role to break a validated spec into safe sub-steps, dependencies, and ownership boundaries.
+Use the `it-architect-agent` to break a validated spec into safe sub-steps, dependencies, and ownership boundaries.
 
-使用 `Architect` 角色把已确认的规范拆成安全的子步骤、依赖关系和职责边界。
+使用 `it-architect-agent` 把已确认的规范拆成安全的子步骤、依赖关系和职责边界。
 
 Canonical references:
 - `docs/AI_GOVERNANCE.md` for governance and routing policy

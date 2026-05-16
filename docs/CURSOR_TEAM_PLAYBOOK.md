@@ -131,13 +131,13 @@ Use commands when you want a fixed entry that maps to a specific role.
 
 当你希望使用一个固定入口映射到某个角色时，使用命令。
 
-- `/team-command` → `team-agent`
-- `/spec-command` → `spec-agent`
-- `/architect-command` → `architect-agent`
-- `/implement-command` → `implement-agent`
-- `/qa-command` → `qa-agent`
-- `/review-command` → `review-agent`
-- `/commit-message-command` → `commit-message-agent`
+- `/team-command` → `it-team-agent`
+- `/spec-command` → `it-spec-agent`
+- `/architect-command` → `it-architect-agent`
+- `/implement-command` → `it-implement-agent`
+- `/qa-command` → `it-qa-agent`
+- `/review-command` → `it-review-agent`
+- `/commit-message-command` → `it-commit-message-agent`
 
 If the repository later introduces commands for spec routing, document them here.
 

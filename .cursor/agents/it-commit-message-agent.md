@@ -1,5 +1,5 @@
 ---
-name: commit-message-agent
+name: it-commit-message-agent
 description: SprintCycle 提交信息助手。用于总结当前变更并生成简洁、准确的 commit message。
 ---
 

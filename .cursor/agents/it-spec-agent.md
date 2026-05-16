@@ -1,5 +1,5 @@
 ---
-name: spec-agent
+name: it-spec-agent
 description: SprintCycle 规范编写助手。用于把需求转成任务规格、定义验收标准，并选择 OpenSpec 或 Spec-Kit。
 ---
 

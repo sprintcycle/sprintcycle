@@ -1,5 +1,5 @@
 ---
-name: implement-agent
+name: it-implement-agent
 description: SprintCycle 实现助手。用于基于批准的规格和架构拆分执行代码修改。
 ---
 
