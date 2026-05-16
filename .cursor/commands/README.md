@@ -12,13 +12,13 @@ Before using commands, read:
 
 These are the 7 primary commands recommended for the minimal complete workflow:
 
-- `/it-team-command`
+- `/it-it-team-command`
 - `/it-it-spec-command`
-- `/it-it-architect-command`
-- `/it-it-implement-command`
-- `/it-it-qa-command`
-- `/it-review-command`
-- `/it-it-it-commit-message-command`
+- `/it-it-it-architect-command`
+- `/it-it-it-implement-command`
+- `/it-it-it-qa-command`
+- `/it-it-review-command`
+- `/it-it-commit-message-command`
 
 ## Command groups / 命令分组
 
