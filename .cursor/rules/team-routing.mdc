@@ -9,24 +9,24 @@ alwaysApply: true
 This rule maps requests to the smallest responsible role and keeps routing aligned with the governance hierarchy.
 
 Canonical references:
-- `docs/AI_GOVERNANCE.md` for project-level governance
-- `docs/CURSOR_TEAM_PLAYBOOK.md` for execution roles and workflows
+- `docs/AI_GOVERNANCE.md` for project-level governance / 项目级治理总纲
+- `docs/CURSOR_TEAM_PLAYBOOK.md` for execution roles and workflows / 执行角色与工作流
 
 ## Role selection
-- Need a coordinated task plan or complexity routing -> `team-commander`
-- Need to define task scope, non-goals, or acceptance criteria -> `team-commander` → `Spec`
-- Architecture or ownership boundaries -> `arch-guardian`
-- LangGraph flow, node behavior, or state transitions -> `graph-orchestrator`
-- Execution lifecycle, runtime registry, observability, or promotion/evolution -> `lifecycle-auditor`
-- Missing tests, regressions, or compatibility risk -> `test-risk-reviewer`
-- Final synthesis across multiple reviews -> `review-commander`
+- Need a coordinated task plan or complexity routing -> `team-agent`
+- Need to define task scope, non-goals, or acceptance criteria -> `team-agent` → `spec-agent`
+- Architecture or ownership boundaries -> `architect-agent`
+- LangGraph flow, node behavior, or state transitions -> `architect-agent`
+- Execution lifecycle, runtime linkage, observability, or promotion/evolution -> `review-agent`
+- Missing tests, regressions, or compatibility risk -> `qa-agent`
+- Final synthesis across multiple reviews -> `review-agent`
 
 ## Working policy
 - Start with the smallest relevant role.
 - Escalate only when a change spans multiple subsystems.
 - Prefer review before rewrite when boundaries are unclear.
 - Keep implementation changes localized to the owning layer.
-- Use the final review command only after specialist reviews are complete.
+- Use the final review command only after QA and specialist checks are complete.
 - Do not invent parallel governance rules inside task-specific specs.
 - Use OpenSpec for low-complexity work and Spec-Kit for medium/high-complexity work.
 

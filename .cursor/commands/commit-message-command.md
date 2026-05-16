@@ -1,6 +1,8 @@
-# Generate change summary and commit message
+# Commit message command / 提交信息命令
 
-You are helping write a Git commit message for the current changes.
+Use the `commit-message-agent` to summarize the current change and draft a commit message.
+
+使用 `commit-message-agent` 总结当前变更并生成 commit message。
 
 ## Goal
 Produce two outputs:
@@ -38,14 +40,3 @@ Optional 1–2 line body explaining why the change was made.
 - Do not include implementation trivia unless it is needed for clarity.
 - Keep the subject short and action-oriented.
 - Prefer lowercase unless the repository convention suggests otherwise.
-
-## Example
-### 当前变更摘要
-- Update deployment spec ownership in infrastructure layer
-- Remove duplicated service responsibilities from deployment flow
-- Refresh related docs and architecture guidance
-
-### Commit message
-fix deployment spec handling to preserve runtime ownership
-
-Ensure deployment-related orchestration stays in the infrastructure layer and avoids duplicating service responsibilities.

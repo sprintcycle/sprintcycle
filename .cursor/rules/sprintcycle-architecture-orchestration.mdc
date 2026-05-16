@@ -1,5 +1,5 @@
 ---
-description: SprintCycle architecture, orchestration, and web boundary rules
+description: SprintCycle architecture and orchestration boundaries
 alwaysApply: true
 ---
 
@@ -58,6 +58,24 @@ You are working on SprintCycle, a layered orchestration system with a stable cor
 - All stable lifecycle completion guarantees must be implemented by the backend contract, stage machine, services, facades, hooks, registries, and orchestrators.
 - If the Console Web needs additional capability, prefer adding contract fields, backend lifecycle states, or operation APIs rather than embedding business logic in the UI layer.
 
+### LangGraph orchestration boundaries
+- LangGraph is the orchestration skeleton for SprintCycle planning and sprint-level execution coordination.
+- The current LangGraph integration lives under `infrastructure/integrations/langgraph/`.
+- `IntentGraphRuntime` is the top-level runtime for `Intent → Plan → Sprint Split → Dispatch → Finalize`.
+- `SprintGraphRuntime` is the per-sprint runtime for `Prepare → Execute → Observe → Repair → Finalize`.
+- These runtimes are orchestration adapters, not domain owners.
+- Current LangGraph scope is `intent → plan → sprint split → dispatch → finalize` at the top level, with `prepare → execute → observe → repair → finalize` inside each sprint.
+- `IntentGraphRuntime` coordinates request intake, release-plan creation, sprint decomposition, sprint dispatch, and final aggregation.
+- `SprintGraphRuntime` coordinates per-sprint preparation, execution, observability, repair routing, and sprint finalization.
+- Keep LangGraph focused on orchestration flow, state transitions, and routing between stages.
+- Do not put domain business rules directly inside graph nodes when the logic belongs to application services, facades, hooks, or orchestrators.
+- Do not use LangGraph as a shortcut to bypass existing architecture boundaries.
+- Plan generation, sprint splitting, sprint creation, sprint sequencing, retry/fix routing, and intra-sprint dispatch must remain aligned with the layered architecture.
+- Prefer reusing existing extension points, hook phases, registries, and service methods rather than introducing parallel graph-specific business logic.
+- Preserve the clean separation between orchestration and domain responsibility.
+- Any LangGraph change must keep the end-to-end lifecycle intact and must not weaken governance, observability, suggestion handling, or evolution flows.
+- Keep the top-level intent graph and per-sprint graph consistent with the runtime split above.
+
 ### Interaction rules
 - For every request, first identify the owning subsystem.
 - Determine whether the change is additive, behavioral, or structural.
@@ -82,6 +100,7 @@ You are working on SprintCycle, a layered orchestration system with a stable cor
 - Prefer service-level changes over API-level complexity.
 - Prefer explicit flow over hidden behavior.
 - Avoid speculative abstractions and avoid duplicating logic across layers.
+- Keep the 8-layer directory policy and import-rewrite discipline enforced for structural changes.
 
 ## 中文
 
@@ -122,7 +141,7 @@ You are working on SprintCycle, a layered orchestration system with a stable cor
 - 以当前实现为准，核心链路应理解为：请求归一化 / 意图入口 → 计划与执行准备 → Sprint 编排与拆分 → SprintOrchestrator 执行 → 执行观测与修复 → 结果交付与摘要生成 → 部署 / 运行时联动 → 建议捕获与治理 → 自进化与版本演化。
 - `SprintCycle` 是公共协调层，只负责归一化、路由、委派和结果汇总，不承载核心工作流逻辑。
 - 执行主干当前以 `ReleasePlan → SprintOrchestrator.execute_release_plan → SprintExecutor` 为核心。
-- 当前 LangGraph 以 `plan / run / observe / repair` 为主要编排骨架，负责计划、执行、观测和修复的流程组织，不替代领域服务、治理流程或自进化逻辑。
+- 当前 LangGraph 以 `intent / plan / sprint split / dispatch / finalize` 以及 `prepare / execute / observe / repair / finalize` 作为编排骨架，负责计划、执行、观测和修复的流程组织，不替代领域服务、治理流程或自进化逻辑。
 - 建议、治理、可观测性和自进化是围绕执行主干协同工作的系统能力，应通过现有 service、facade、hook、registry 和 orchestrator 接入，不得破坏主干架构。
 - 任何实现修改都必须保持这条闭环的连贯性，不能削弱 Web 发起任务后的稳定推进能力，也不能绕过现有服务层、门面层、hook 或编排层。
 
@@ -135,6 +154,19 @@ You are working on SprintCycle, a layered orchestration system with a stable cor
 - 控制台 Web 应保持薄且尽量无状态，只负责把用户意图翻译成 contract 操作。
 - 所有稳定完成生命周期的能力都必须由后端 contract、阶段机、service、facade、hook、registry 和 orchestrator 实现。
 - 如果控制台 Web 需要新增能力，应优先增加 contract 字段、后端生命周期状态或操作 API，而不是把业务逻辑塞进 UI 层。
+
+### 编排边界
+- LangGraph 是 SprintCycle 规划与 Sprint 级执行协调的编排骨架。
+- 当前 LangGraph 的范围是 `intent → plan → sprint decomposition → sprint execution → observe → repair`。
+- 应使用 LangGraph 来组织 plan 拆分为 sprint，并协调每个 sprint 内部的调度。
+- LangGraph 只应聚焦于编排流程、状态转移和阶段间路由。
+- 不要把领域业务规则直接写进 graph 节点，除非这些逻辑本来就属于 application service、facade、hook 或 orchestrator。
+- 不要把 LangGraph 当成绕过现有架构边界的捷径。
+- plan 拆分、sprint 创建、sprint 排序、修复重试路由、sprint 内部派发，都必须与分层架构保持一致。
+- 优先复用现有扩展点、hook phase、registry 和 service 方法，而不是引入平行的 graph 专用业务逻辑。
+- 必须保持编排与领域责任的清晰分离。
+- 任何 LangGraph 变更都必须保持端到端生命周期完整，不能削弱治理、可观测性、建议处理或自进化流程。
+- keep the top-level intent graph and per-sprint graph consistent with the runtime split above.
 
 ### 交互规则
 - 对于每个需求，先识别所属子系统。
@@ -160,3 +192,4 @@ You are working on SprintCycle, a layered orchestration system with a stable cor
 - 优先在 service 层修改，而不是增加 API 层复杂度。
 - 优先显式流程，而不是隐藏行为。
 - 避免投机性的抽象，也避免在多层重复逻辑。
+- 保持 8 层目录政策和 import 重写纪律在结构性变更中持续生效。
