@@ -2,6 +2,14 @@
 
 This document defines the operating model for AI-assisted development work in SprintCycle. It describes the minimum complete team, command entry points, task routing policy, and the relationship between this playbook and the governance document.
 
+## 文档关系 / Document hierarchy
+
+- `AGENTS.md` — 仓库级底线 / repository-level baseline
+- `docs/AI_GOVERNANCE.md` — 治理总纲 / governance charter
+- `docs/CURSOR_TEAM_PLAYBOOK.md` — 执行手册 / execution manual
+- `.cursor/rules/` — 路由和优先级 / routing and priority
+- `.cursor/commands/` — 命令入口 / command entry points
+
 ## 1. Relationship to AI governance
 
 This playbook is the execution manual.
@@ -69,6 +77,7 @@ Responsibilities:
 Use commands when you want a fixed entry that maps to a specific role.
 
 - `/team-command` → `Coordinator`
+- `/spec-kit` → `Spec-Kit` template + task spec workflow
 - `/review-arch` → `Architect`
 - `/review-tests` → `QA/Review`
 - `/review-final` → final synthesis

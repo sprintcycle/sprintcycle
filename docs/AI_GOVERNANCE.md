@@ -2,6 +2,14 @@
 
 This document defines the governance model for Cursor multi-Agent collaboration in SprintCycle, including role boundaries, spec routing, rule ownership, command responsibilities, and conflict resolution.
 
+## 文档关系 / Document hierarchy
+
+- `AGENTS.md` — 仓库级底线 / repository-level baseline
+- `docs/AI_GOVERNANCE.md` — 治理总纲 / governance charter
+- `docs/CURSOR_TEAM_PLAYBOOK.md` — 执行手册 / execution manual
+- `.cursor/rules/` — 路由和优先级 / routing and priority
+- `.cursor/commands/` — 命令入口 / command entry points
+
 ## 1. Purpose
 
 SprintCycle uses a contract-driven architecture. AI collaboration must therefore follow the same discipline: one source of truth for rules, explicit routing for task complexity, and clear separation between governance, workflow, and task-level specs.

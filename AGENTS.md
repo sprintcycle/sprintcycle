@@ -10,6 +10,14 @@ SprintCycle is a contract-driven lifecycle orchestration platform for Web Dashbo
 
 SprintCycle 是一个面向 Web Dashboard / REST API / SDK 的契约驱动生命周期编排平台。系统围绕统一的 `LifecycleContract`、规范的状态机、治理检查、恢复流程与版本化演化来组织整个执行闭环。
 
+## Document hierarchy / 文档层级
+
+- `AGENTS.md` — repository-level baseline / 仓库级底线
+- `docs/AI_GOVERNANCE.md` — project-level governance charter / 治理总纲
+- `docs/CURSOR_TEAM_PLAYBOOK.md` — execution manual / 执行手册
+- `.cursor/rules/` — routing and priority rules / 路由和优先级
+- `.cursor/commands/` — command entry points / 命令入口
+
 ## What to optimize for / 需要优先优化的目标
 
 - Prefer small, safe, incremental changes.
