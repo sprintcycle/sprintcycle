@@ -399,6 +399,11 @@ Recommended flow:
 - 必要时回流
 - 完成
 
+### 6.4 Default threshold / 默认阈值
+If a task is not clearly low complexity, route it to Spec-Kit.
+
+如果任务不能明确归类为低复杂度，默认路由到 Spec-Kit。
+
 ## 7. Conflict prevention / 冲突预防
 
 ### 7.1 What may not be duplicated / 哪些内容不能重复
@@ -492,6 +497,11 @@ Every role must be able to produce one of three outcomes:
 - 范围扩大或实现越界 -> `implement-agent`
 - 缺失测试或高回归风险 -> `qa-agent`
 - 跨角色结论冲突 -> `review-agent`
+
+### 8.3 Spec-Kit defaulting / Spec-Kit 默认路由
+If a task is not clearly low complexity, the Coordinator must route it to Spec-Kit before implementation begins.
+
+如果任务不能明确归类为低复杂度，Coordinator 必须在实现开始前将其路由到 Spec-Kit。
 
 ### 8.3 Blocking criteria / 阻断条件
 A gate must block progression when the change:

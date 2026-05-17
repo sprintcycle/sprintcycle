@@ -10,123 +10,166 @@ Before using commands, read:
 
 ## Core command set / 核心命令集
 
-These are the 7 primary commands recommended for the minimal complete workflow:
+These are the 7 primary commands for the minimal complete workflow:
 
-- `/it-it-team-command`
-- `/it-it-spec-command`
-- `/it-it-it-architect-command`
-- `/it-it-it-implement-command`
-- `/it-it-it-qa-command`
-- `/it-it-review-command`
-- `/it-it-commit-message-command`
+- `/team-command`
+- `/spec-command`
+- `/architect-command`
+- `/implement-command`
+- `/qa-command`
+- `/review-command`
+- `/commit-message-command`
 
-## Command groups / 命令分组
+## Routing summary / 路由摘要
 
-### 1. Intake and routing / 接单与路由
+- `/team-command` is the intake and routing entry point.
+- `/spec-command` turns a request into a routed task spec.
+- `/architect-command` decomposes boundaries and dependencies.
+- `/implement-command` applies the approved changes.
+- `/qa-command` validates behavior and decides pass, change, or loop back.
+- `/review-command` consolidates final judgment.
+- `/commit-message-command` drafts the delivery summary and commit text.
 
-#### `/it-team-command`
-Use this as the first entry point for new work.
+- `/team-command` 是接单与路由入口。
+- `/spec-command` 将需求转成带路由的任务规范。
+- `/architect-command` 负责边界和依赖拆解。
+- `/implement-command` 负责执行已批准的改动。
+- `/qa-command` 负责验证并决定通过、修改或回流。
+- `/review-command` 负责整合最终结论。
+- `/commit-message-command` 负责交付摘要和提交信息。
+
+## Command details / 命令说明
+
+### `/team-command`
+Use this first for new work, ambiguous requests, or multi-step changes.
 
 Responsibilities:
-- classify task complexity / 任务复杂度分类
-- choose OpenSpec or Spec-Kit / 选择 OpenSpec 或 Spec-Kit
-- route to the right workflow mode / 路由到正确的工作流模式
-- identify whether Architect is needed / 判断是否需要 Architect
-- produce the minimal execution path / 给出最小执行路径
+- classify task complexity
+- choose OpenSpec or Spec-Kit
+- select the minimum required workflow
+- decide whether Architect is required
+- produce the routing decision and next step
 
 Use for:
-- new feature planning / 新功能规划
-- multi-step refactors / 多步骤重构
-- cross-layer changes / 跨层改动
-- unclear requirements / 需求不明确
+- new feature planning
+- multi-step refactors
+- cross-layer changes
+- unclear requirements
 
-### 2. Spec and implementation flow / 规范与实现流程
-
-#### `/it-spec-command`
+### `/spec-command`
 Use this when you want to turn a request into a task spec.
 
 Responsibilities:
-- define goal, non-goals, scope, constraints, and acceptance criteria / 定义目标、非目标、范围、约束和验收标准
-- choose OpenSpec for low complexity or Spec-Kit for medium/high complexity / 低复杂度选 OpenSpec，中高复杂度选 Spec-Kit
-- produce the spec handoff for Implementation or Architect / 为实现或架构拆分生成交接包
+- define goal, non-goals, scope, constraints, and acceptance criteria
+- choose OpenSpec for low complexity or Spec-Kit for medium/high complexity
+- produce a spec handoff for Implementation or Architect
 
 Use for:
-- request clarification / 需求澄清
-- task scoping / 任务范围界定
-- spec drafting / 规范草拟
-- complexity-based spec routing / 按复杂度选择规范路径
+- request clarification
+- task scoping
+- spec drafting
+- complexity-based spec routing
 
-#### `/it-architect-command`
-Use this when you need task decomposition and boundary design.
+### `/architect-command`
+Use this when the task needs decomposition or boundary design.
 
 Responsibilities:
-- split work into safe sub-steps / 拆分安全子步骤
-- define dependencies and ownership boundaries / 定义依赖与职责边界
-- identify parallelizable parts / 找出可并行部分
-- produce an implementation plan / 产出实现计划
+- split work into safe sub-steps
+- define dependencies and ownership boundaries
+- identify parallelizable parts
+- produce an implementation plan
 
 Use for:
-- multi-file changes / 多文件改动
-- boundary-sensitive work / 边界敏感工作
-- cross-module design / 跨模块设计
-- refactor planning / 重构规划
+- multi-file changes
+- boundary-sensitive work
+- cross-module design
+- refactor planning
 
-#### `/it-implement-command`
+### `/implement-command`
 Use this when the spec and breakdown are ready and code changes should begin.
 
 Responsibilities:
-- implement only what the spec covers / 只实现规范覆盖的内容
-- keep changes localized / 保持改动局部化
-- report files touched, deviations, and self-check notes / 汇报修改文件、偏差和自检说明
+- implement only what the spec covers
+- keep changes localized
+- report files touched, deviations, and self-check notes
 
 Use for:
-- code changes / 代码修改
-- refactors with approved scope / 已批准范围内的重构
-- feature delivery / 功能交付
-- localized fixes / 局部修复
+- code changes
+- refactors with approved scope
+- feature delivery
+- localized fixes
 
-#### `/it-qa-command`
+### `/qa-command`
 Use this when implementation is ready for validation.
 
 Responsibilities:
-- verify behavior against the spec / 按规范验证行为
-- check regressions and edge cases / 检查回归与边界场景
-- identify missing tests or follow-up work / 找出缺失测试或后续工作
-- decide whether the change passes or must loop back / 判断通过或回流
+- verify behavior against the spec
+- check regressions and edge cases
+- identify missing tests or follow-up work
+- decide whether the change passes or must loop back
 
 Use for:
-- validation / 验证
-- regression review / 回归审查
-- test gap discovery / 测试缺口发现
-- release readiness checks / 发布就绪检查
+- validation
+- regression review
+- test gap discovery
+- release readiness checks
 
-### 3. Review and synthesis / 审查与汇总
+### `/review-command`
+Use this for final synthesis when multiple checks or judgments need consolidation.
 
-#### `/it-review-command`
-Runs final synthesis through the review commander path.
-
-Use for:
-- multi-review changes / 多个审查结论汇总
-- final verdict consolidation / 最终结论整合
-- release-ready decision-making / 发布前决策
-
-### 4. Delivery support / 交付支持
-
-#### `/it-commit-message-command`
-Summarizes the current change and drafts a commit message.
+Responsibilities:
+- consolidate review results
+- resolve cross-role conflicts
+- produce the final verdict
+- summarize rule updates or blockers
 
 Use for:
-- preparing a commit summary / 准备提交摘要
-- aligning commit text with the repository's style / 对齐仓库提交风格
+- multi-review changes
+- final verdict consolidation
+- release-ready decision-making
+
+### `/commit-message-command`
+Use this to summarize the current change and draft a commit message.
+
+Responsibilities:
+- summarize the task outcome
+- align commit text with repository style
+- keep the message concise and accurate
+
+Use for:
+- preparing a commit summary
+- aligning commit text with the repository's style
+
+## Routing policy / 路由策略
+
+### OpenSpec route / OpenSpec 路由
+Use OpenSpec for low complexity, small scope, low risk tasks with no architecture or contract change.
+
+Use for:
+- single-file or tiny-surface edits
+- localized fixes
+- quick bug fixes
+
+### Spec-Kit route / Spec-Kit 路由
+Use Spec-Kit for anything medium or high complexity, boundary-sensitive, cross-module, or higher risk.
+
+Use for:
+- multi-file work
+- boundary-sensitive changes
+- refactors and migrations
+- contract or state changes
+
+### Default rule / 默认规则
+If a task is not clearly low complexity, route it to Spec-Kit by default.
 
 ## Quality gates and return-to-owner / 质量门禁与回流归属
 
-- `team-command` should route uncertainty back to the smallest owner / `team-command` 应将不确定性回流到最小责任人
-- `spec-command` should return incomplete scope or acceptance criteria to `team-command` or itself as needed / `spec-command` 应将不完整范围或验收标准回流给 `team-command` 或自身
-- `architect-command` should return boundary or dependency ambiguity to `spec-command` or itself as needed / `architect-command` 应将边界或依赖不清回流给 `spec-command` 或自身
-- `implement-command` should return scope creep or overreach to `architect-command` / `implement-command` 应将范围扩大或越界回流给 `architect-command`
-- `qa-command` should return missing tests or unresolved risks to `implement-command` / `qa-command` 应将缺失测试或未解决风险回流给 `implement-command`
-- `review-command` is the final gate and returns unresolved consolidation issues upstream / `review-command` 是最终门禁，并将未解决的汇总问题向上回流
+- `team-command` returns uncertainty to the smallest owner and confirms the route.
+- `spec-command` returns incomplete scope or acceptance criteria to `team-command` or itself as needed.
+- `architect-command` returns boundary or dependency ambiguity to `spec-command` or itself as needed.
+- `implement-command` returns scope creep or overreach to `architect-command`.
+- `qa-command` returns missing tests or unresolved risks to `implement-command`.
+- `review-command` is the final gate and returns unresolved consolidation issues upstream.
 
 ## Delivery observability and retro / 交付可观测性与复盘
 
@@ -154,17 +197,6 @@ Final verdict
 Lessons learned
 Rule improvement candidates
 ```
-
-## Recommended command flow / 推荐命令流
-
-### Low complexity / 低复杂度
-`/team-command` → `/spec-command` → `/implement-command` → `/qa-command` → `/review-command`
-
-### Medium complexity / 中复杂度
-`/team-command` → `/spec-command` → `/architect-command` → `/implement-command` → `/qa-command` → `/review-command`
-
-### High complexity / 高复杂度
-`/team-command` → `/spec-command` → `/architect-command` → `/implement-command` → `/qa-command` → `/review-command`
 
 ## Maintenance / 维护
 
