@@ -152,7 +152,7 @@ You are working on SprintCycle, a layered orchestration system with a stable cor
 - 控制台 Web 不能拥有阶段流转、恢复分支、治理决策、promotion 决策或版本演化逻辑。
 - 控制台 Web 不能复制已属于后端 contract 流程的 runtime、suggestion、governance、promotion 或 repair 工作流。
 - 控制台 Web 应保持薄且尽量无状态，只负责把用户意图翻译成 contract 操作。
-- 所有稳定完成生命周期的能力都必须由后端 contract、阶段机、service、facade、hook、registry 和 orchestrator 实现。
+- 所有需要稳定完成生命周期的能力，应尽量通过后端的 contract、阶段机，以及现有的 service、facade、hook、registry 和 orchestrator 等扩展点来实现。
 - 如果控制台 Web 需要新增能力，应优先增加 contract 字段、后端生命周期状态或操作 API，而不是把业务逻辑塞进 UI 层。
 
 ### 编排边界
