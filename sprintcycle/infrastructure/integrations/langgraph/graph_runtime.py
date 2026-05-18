@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict
+from typing import Any, Dict, Optional
 
+from .compiler import compile_intent_graph, compile_sprint_graph
 from .graph import LangGraphGraphSpec, build_default_langgraph_graph_spec
 
 
@@ -12,44 +13,26 @@ from .graph import LangGraphGraphSpec, build_default_langgraph_graph_spec
 class LangGraphExecutionRuntime:
     graph_spec: LangGraphGraphSpec = field(default_factory=build_default_langgraph_graph_spec)
 
-    def build(self) -> Dict[str, Any]:
-        try:
-            from langgraph.graph import StateGraph  # type: ignore
-        except Exception as exc:
-            raise RuntimeError("LangGraph runtime is required for SprintCycle V2") from exc
-
-        graph = StateGraph(dict)
-
-        def _plan(state: Dict[str, Any]) -> Dict[str, Any]:
-            return {**state, "stage": "plan", "visited": state.get("visited", []) + ["plan"]}
-
-        def _run(state: Dict[str, Any]) -> Dict[str, Any]:
-            return {**state, "stage": "run", "visited": state.get("visited", []) + ["run"]}
-
-        def _observe(state: Dict[str, Any]) -> Dict[str, Any]:
-            return {**state, "stage": "observe", "visited": state.get("visited", []) + ["observe"]}
-
-        def _repair(state: Dict[str, Any]) -> Dict[str, Any]:
-            return {**state, "stage": "repair", "visited": state.get("visited", []) + ["repair"]}
-
-        handlers: Dict[str, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
-            "plan": _plan,
-            "run": _run,
-            "observe": _observe,
-            "repair": _repair,
-        }
-
-        for node in self.graph_spec.nodes:
-            graph.add_node(node.name, handlers[node.name])
-        for edge in self.graph_spec.edges:
-            graph.add_edge(edge.source, edge.target)
-        graph.set_entry_point(self.graph_spec.nodes[0].name if self.graph_spec.nodes else "plan")
-        graph.set_finish_point(self.graph_spec.nodes[-1].name if self.graph_spec.nodes else "repair")
-
+    def build(self, checkpointer: Optional[Any] = None) -> Dict[str, Any]:
+        intent_runtime = compile_intent_graph(checkpointer=checkpointer)
+        sprint_runtime = compile_sprint_graph(checkpointer=checkpointer)
         return {
             "graph_spec": self.graph_spec.to_dict(),
-            "graph_runtime": str(graph),
-            "nodes": list(handlers.keys()),
+            "intent_runtime": intent_runtime,
+            "sprint_runtime": sprint_runtime,
+            "nodes": {
+                "intent": list(intent_runtime.nodes),
+                "sprint": list(sprint_runtime.nodes),
+            },
+            "entrypoints": {
+                "intent": intent_runtime.entrypoint,
+                "sprint": sprint_runtime.entrypoint,
+            },
+            "finish_points": {
+                "intent": intent_runtime.finish_point,
+                "sprint": sprint_runtime.finish_point,
+            },
+            "checkpointer": checkpointer,
         }
 
 
