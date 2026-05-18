@@ -41,10 +41,9 @@ from ..prompt_sources import compute_prompt_sources_fingerprint
 from ..release_plan.expand import expand_release_plan_for_execution
 from ..release_plan.models import ReleasePlan, SprintBacklogItem, SprintDefinition
 from ..evolution.intent_evolution_loop import UserIntentEvolutionLoop
-from ..evolution.intent_evolution_loop import UserIntentEvolutionLoop
 from ..evolution.memory_store import MemoryStore
 from ..persistence.knowledge_repository import KnowledgeCardRepository
-from ..integrations.langgraph import IntentGraphRuntime, LangGraphRuntimeAdapter
+from ..integrations.langgraph.compiler import compile_intent_graph
 from ..integrations.phoenix.trace_runtime import PhoenixTraceRuntime
 from ..integrations.phoenix.exporter import PhoenixExporterSpec
 from ..services.lifecycle_contracts import build_lifecycle_contract
@@ -72,8 +71,6 @@ class SprintOrchestrator:
         self._skill_store = SkillStore()
         self._skill_orchestrator = SkillOrchestrator()
         self._last_release_finalization_result = None
-        self._langgraph_runtime = LangGraphRuntimeAdapter()
-        self._intent_graph = IntentGraphRuntime(project_name=self._project_root)
         self._phoenix_runtime = PhoenixTraceRuntime(PhoenixExporterSpec(project_name=self._project_root))
 
     def _get_event_bus(self) -> ExecutionEventBackend:
@@ -191,20 +188,27 @@ class SprintOrchestrator:
         to_run = expand_release_plan_for_execution(release_plan)
         await self._emit(self._emit_execution_phase(EventType.EXECUTION_START, f"开始执行 ReleasePlan: {to_run.project.name}", release_plan, to_run.project.name, 0))
         self._emit_trace_event(self._emit_execution_phase(EventType.EXECUTION_START, "trace:start", release_plan, to_run.project.name, 0))
-        self._langgraph_runtime.build()
-        self._intent_graph.build()
+        intent_runtime = compile_intent_graph(checkpointer=getattr(self.config, "checkpoint_store", None))
+        intent_graph = intent_runtime.graph
         intent_context = {
             "project_path": self._project_root,
             "runtime_config": self.config.to_dict() if hasattr(self.config, "to_dict") else {},
-            "sprint_executor": self._make_sprint_executor(max_concurrent),
             "release_plan": to_run,
             "release_plan_id": getattr(release_plan, "execution_id", None),
             "events": self._collect_current_events(),
         }
-        intent_result = await self._intent_graph.run(intent=getattr(to_run.project, "name", ""), context=intent_context)
+        intent_state = {
+            "intent": getattr(to_run.project, "name", ""),
+            "context": intent_context,
+            "release_plan": to_run,
+            "status": "pending",
+            "attempt": 1,
+            "metadata": {"execution_id": getattr(release_plan, "execution_id", None), "checkpointer": getattr(self.config, "checkpoint_store", None)},
+        }
+        intent_result = await intent_graph.ainvoke(intent_state)
         sprint_results: List[SprintResult] = []
         for sprint_state in intent_result.get("sprint_results", []):
-            sprint_payload = sprint_state.get("final_sprint_result", sprint_state.get("sprint_result", {}))
+            sprint_payload = sprint_state.get("final_result", sprint_state.get("execution_result", sprint_state.get("sprint_result", {})))
             sprint_name = sprint_payload.get("sprint_name", sprint_state.get("sprint", {}).get("name", ""))
             sprint_status = sprint_payload.get("status", "success")
             sprint_results.append(
@@ -216,7 +220,7 @@ class SprintOrchestrator:
                 )
             )
         if not sprint_results:
-            raise RuntimeError("IntentGraph 未产出 sprint_results")
+            raise RuntimeError("Compiled intent graph 未产出 sprint_results")
         finalize_result = await self._release_finalization_runner.run(to_run, sprint_results, context={"execution_id": getattr(release_plan, "execution_id", None)})
         self._last_release_finalization_result = finalize_result
         self._persist_release_finalization(release_plan, finalize_result)

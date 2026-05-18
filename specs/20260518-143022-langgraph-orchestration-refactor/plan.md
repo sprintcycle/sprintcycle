@@ -1,4 +1,4 @@
-# Implementation Plan: LangGraph Orchestration Refactor（LangGraph 编排重构实现计划）
+# Implementation Plan: LangGraph Orchestration Cleanup（LangGraph 编排清理实现计划）
 
 **Branch**: `20260518-143022-langgraph-orchestration-refactor`（分支：`20260518-143022-langgraph-orchestration-refactor`） | **Date**: 2026-05-18（日期：2026-05-18） | **Spec**: `specs/20260518-143022-langgraph-orchestration-refactor/spec.md`（规格：`specs/20260518-143022-langgraph-orchestration-refactor/spec.md`）
 
@@ -8,15 +8,15 @@
 
 ## Summary（摘要）
 
-Refactor SprintCycle’s LangGraph integration so the top-level intent flow and per-sprint flow are backed by compiled LangGraph `StateGraph` runtimes instead of descriptive graph specs plus method chaining. The refactor keeps SprintCycle’s layered architecture intact: `infrastructure/integrations/langgraph/` owns graph compilation, routing, checkpoint abstractions, and LangGraph-specific state; application-level orchestration remains thin and delegates into the compiled graphs; `SprintExecutor` remains the concrete execution engine but is invoked only from inside the sprint graph.（重构 SprintCycle 的 LangGraph 集成，使顶层意图流程和每个 sprint 的流程由已编译的 LangGraph `StateGraph` 运行时支撑，而不是由描述性图规范加方法串联支撑。此次重构保持 SprintCycle 的分层架构不变：`infrastructure/integrations/langgraph/` 负责图编译、路由、checkpoint 抽象和 LangGraph 专用状态；application 层编排保持轻量并委派给已编译图；`SprintExecutor` 仍是具体执行引擎，但只能在 sprint 图内部被调用。）
+Remove the old LangGraph runtime entry points and switch `SprintOrchestrator` to the compiler-backed `StateGraph.compile()` path as the only supported orchestration route. The refactor preserves SprintCycle’s layered architecture: `sprintcycle/infrastructure/integrations/langgraph/` owns graph compilation, state, checkpoint abstraction, and LangGraph-specific helpers; application-layer orchestration remains thin and consumes compiled graph artifacts; `SprintExecutor` remains the concrete sprint execution engine but is only reachable through the sprint graph.（移除旧的 LangGraph 运行时入口，并将 `SprintOrchestrator` 切换到基于 compiler 的 `StateGraph.compile()` 路径，作为唯一受支持的编排路线。此次重构保留 SprintCycle 的分层架构：`sprintcycle/infrastructure/integrations/langgraph/` 负责图编译、状态、checkpoint 抽象和 LangGraph 专用辅助；application 层编排保持轻量并消费已编译图产物；`SprintExecutor` 仍是具体 sprint 执行引擎，但只能通过 sprint 图触达。）
 
 ## Technical Context（技术上下文）
 
 **Language/Version**: Python 3.11+（语言/版本：Python 3.11 及以上）
 
-**Primary Dependencies**: LangGraph, existing SprintCycle application/orchestrator/service layers, current self-evolution/execution runtime components, and a local checkpoint abstraction that can later be swapped for a persistent store（主要依赖：LangGraph、现有 SprintCycle application/orchestrator/service 层、当前自进化/执行运行时组件，以及可后续替换为持久化存储的本地 checkpoint 抽象）
+**Primary Dependencies**: LangGraph, existing SprintCycle application/orchestrator/service layers, current execution runtime components, and a local checkpoint abstraction that can later be replaced with durable storage（主要依赖：LangGraph、现有 SprintCycle application/orchestrator/service 层、当前执行运行时组件，以及可后续替换为持久化存储的本地 checkpoint 抽象）
 
-**Storage**: Default local JSON/file-based checkpoint implementation for development and tests; the abstraction must allow a future persistent backend without graph changes（存储：开发与测试默认使用本地 JSON/文件型 checkpoint 实现；抽象必须允许后续切换到持久化后端而无需改图逻辑）
+**Storage**: Default local JSON/file-based checkpoint implementation for development and tests; abstraction must allow future persistent backend replacement without graph rewrites（存储：开发与测试默认使用本地 JSON/文件型 checkpoint 实现；抽象必须允许未来替换为持久化后端而无需重写图逻辑）
 
 **Testing**: pytest, async unit tests, LangGraph compile-path verification, mocked LLM collaborator, mocked checkpoint store, mocked SprintExecutor（测试：pytest、异步单元测试、LangGraph 编译路径验证、mock 的 LLM 协作者、mock 的 checkpoint 存储、mock 的 SprintExecutor）
 
@@ -26,7 +26,7 @@ Refactor SprintCycle’s LangGraph integration so the top-level intent flow and 
 
 **Performance Goals**: Preserve deterministic orchestration, avoid duplicate execution paths, and keep graph compile/invoke overhead bounded relative to the existing runtime path（性能目标：保持编排确定性，避免重复执行路径，并将图编译/调用开销控制在现有运行时路径的合理范围内）
 
-**Constraints**: Preserve current architecture and core skeleton; keep orchestration thin; do not move domain policy into graph nodes; do not introduce a bypass path that directly calls SprintExecutor from application code once compiled graphs exist; keep observability/recovery state explicit; use `sprintcycle/application/release/orchestrator.py` as the canonical thin application entrypoint（约束：保留当前架构和核心骨架；保持编排薄；不要把领域策略移入图节点；一旦存在编译后的图，不要在 application 代码中引入直接调用 SprintExecutor 的旁路；保持可观测性/恢复状态显式；使用 `sprintcycle/application/release/orchestrator.py` 作为 canonical 薄 application 入口）
+**Constraints**: Preserve current architecture and core skeleton; keep orchestration thin; do not move domain policy into graph nodes; do not introduce a bypass path that directly calls `SprintExecutor` from application code once compiled graphs exist; keep observability/recovery state explicit; use `sprintcycle/application/release/orchestrator.py` as the canonical thin application entrypoint（约束：保留当前架构和核心骨架；保持编排薄；不要把领域策略移入图节点；一旦存在编译后的图，不要在 application 代码中引入直接调用 `SprintExecutor` 的旁路；保持可观测性/恢复状态显式；使用 `sprintcycle/application/release/orchestrator.py` 作为 canonical 薄 application 入口）
 
 **Scale/Scope**: A focused refactor across the LangGraph integration package plus small coordination updates in the application orchestration boundary and tests（规模/范围：覆盖 LangGraph 集成包的聚焦重构，以及 application 编排边界和测试中的少量协调更新）
 
@@ -47,11 +47,10 @@ Refactor SprintCycle’s LangGraph integration so the top-level intent flow and 
 specs/20260518-143022-langgraph-orchestration-refactor/
 ├── spec.md              # Feature specification（功能规格）
 ├── plan.md              # This file (/speckit-plan command output)（本文件（/speckit-plan 命令输出））
-├── research.md          # Phase 0 output (/speckit-plan command)（阶段 0 输出（/speckit-plan 命令））
-├── data-model.md        # Phase 1 output (/speckit-plan command)（阶段 1 输出（/speckit-plan 命令））
-├── quickstart.md        # Phase 1 output (/speckit-plan command)（阶段 1 输出（/speckit-plan 命令））
-├── contracts/           # Phase 1 output (/speckit-plan command)（阶段 1 输出（/speckit-plan 命令））
-└── tasks.md             # Phase 2 output (/speckit-tasks command - NOT created by /speckit-plan)（阶段 2 输出（/speckit-tasks 命令 - 不由 /speckit-plan 创建））
+├── research.md          # Phase 0 output（阶段 0 输出）
+├── data-model.md        # Phase 1 output（阶段 1 输出）
+├── quickstart.md        # Phase 1 output（阶段 1 输出）
+└── contracts/           # Phase 1 output（阶段 1 输出）
 ```
 
 ### Source Code (repository root)（源代码（仓库根目录））
@@ -64,17 +63,13 @@ sprintcycle/
 ├── infrastructure/
 │   └── integrations/
 │       └── langgraph/
+│           ├── compiler.py            # Graph compilation and singleton accessors（图编译与单例访问器）
 │           ├── states.py              # IntentState / SprintState definitions（状态定义）
 │           ├── intent_nodes.py        # Intent graph nodes and routing helpers（意图图节点与路由辅助）
 │           ├── sprint_nodes.py        # Sprint graph nodes and routing helpers（sprint 图节点与路由辅助）
-│           ├── compiler.py            # Graph compilation and singleton accessors（图编译与单例访问器）
 │           ├── checkpoint.py          # CheckpointStore abstraction + default local implementation（checkpoint 抽象 + 默认本地实现）
-│           ├── graph.py               # Existing graph spec types, updated to align with compiled graphs（现有图规范类型，更新以对齐编译图）
-│           ├── graph_runtime.py       # Runtime wrapper updated to return compiled graph artifacts（运行时包装，更新为返回已编译图产物）
-│           ├── runtime.py             # Thin adapter around graph/runtime spec and compiled graph access（围绕图/运行时规范与编译图访问的薄适配器）
-│           ├── intent_graph.py        # Top-level intent runtime compatibility surface（顶层意图运行时兼容层）
-│           ├── sprint_graph.py        # Per-sprint runtime compatibility surface（每个 sprint 的运行时兼容层）
-│           ├── plan_runtime.py        # Planning/runtime coordination compatibility updates（计划/运行时协调兼容更新）
+│           ├── graph.py               # Graph spec metadata aligned with compiled graphs（与编译图对齐的图元数据）
+│           ├── runtime.py             # Thin adapter around compiled graph access（围绕编译图访问的薄适配器）
 │           └── adapter.py             # Integration adapter surface aligned to compiled graph usage（与编译图使用对齐的集成适配器）
 └── tests/
     ├── application/
@@ -93,23 +88,23 @@ sprintcycle/
 
 ## Phase 0 - Research（阶段 0 - 调研）
 
-1. Audit the current LangGraph integration files (`graph.py`, `graph_runtime.py`, `runtime.py`, `intent_graph.py`, `sprint_graph.py`, `plan_runtime.py`, `adapter.py`) to map where descriptive graph specs and method chaining still exist.（审计当前 LangGraph 集成文件，映射描述性图规范和方法串联仍存在的位置。）
-2. Identify the smallest viable compatibility surface needed in the application boundary so compiled graphs can be invoked without exposing workflow policy there.（识别 application 边界所需的最小兼容面，以便在不向外暴露工作流策略的情况下调用已编译图。）
-3. Confirm how `SprintExecutor` is currently reached and define the graph-only invocation path that preserves the execution backbone while removing bypass routes.（确认 `SprintExecutor` 当前如何被触达，并定义仅通过图调用的路径，在去除旁路的同时保留执行主干。）
-4. Define a checkpoint contract that supports local development recovery now and can later swap to a durable backend without graph rewrites; prefer LangGraph-native checkpointer injection at compile/runtime boundaries with a thin adapter interface above it.（定义一个 checkpoint 契约，既支持当前本地开发恢复，又能在未来无需重写图逻辑的情况下切换到持久化后端；优先在 compile/runtime 边界使用 LangGraph 原生 checkpointer 注入，并在其上方保持一个薄适配接口。）
+1. Audit the current LangGraph integration files to map where descriptive graph specs and legacy runtime wrappers still exist, and identify all references that must be removed or updated.（审计当前 LangGraph 集成文件，映射描述性图规范和旧运行时包装器仍存在的位置，并识别所有必须删除或更新的引用。）
+2. Confirm the compiled graph contract exposed by `compiler.py`, including graph object shape, state inputs/outputs, and checkpoint injection points.（确认 `compiler.py` 暴露的已编译图契约，包括图对象形状、状态输入/输出和 checkpoint 注入点。）
+3. Identify the minimal application-layer update required for `SprintOrchestrator` to consume compiled graphs without duplicating routing logic or touching `SprintExecutor` directly.（识别 `SprintOrchestrator` 消费已编译图所需的最小 application 层更新，且不重复路由逻辑或直接触碰 `SprintExecutor`。）
+4. Determine the cleanest retirement path for `intent_graph.py`, `sprint_graph.py`, and `graph_runtime.py` so no production code continues importing them.（确定 `intent_graph.py`、`sprint_graph.py` 和 `graph_runtime.py` 最干净的退役路径，使生产代码不再导入它们。）
 
 ## Phase 1 - Design（阶段 1 - 设计）
 
-1. Design explicit `IntentState` and `SprintState` models that carry only orchestration-relevant data plus explicit error/timeline/evaluation fields.（设计显式的 `IntentState` 和 `SprintState` 模型，只携带与编排相关的数据以及显式错误/时间线/评估字段。）
-2. Design the top-level graph node flow for intent understanding, plan generation, sprint splitting, sprint dispatch, evaluation, and finalization.（设计顶层图在意图理解、计划生成、sprint 拆分、sprint 派发、评估和完成方面的节点流。）
+1. Design explicit `IntentState` and `SprintState` models that carry orchestration-relevant data plus explicit error, retry, and timing fields.（设计显式的 `IntentState` 和 `SprintState` 模型，只携带与编排相关的数据以及显式错误、重试和时间字段。）
+2. Design the top-level graph node flow for intent understanding, plan generation, sprint splitting, sprint dispatch, evaluation, and finalization using the compiled graph path.（设计顶层图在意图理解、计划生成、sprint 拆分、sprint 派发、评估和完成方面的节点流，并使用已编译的图路径。）
 3. Design the per-sprint graph node flow for prepare, execute, observe, repair, and finalize, with `SprintExecutor` only reachable inside the execute node.（设计每个 sprint 在 prepare、execute、observe、repair 和 finalize 方面的节点流，并确保 `SprintExecutor` 只能在 execute 节点内部被触达。）
-4. Design the graph compilation helpers and singleton accessors so application code receives compiled graph objects instead of descriptive graph specs.（设计图编译辅助函数与单例访问器，使 application 代码接收的是已编译图对象而非描述性图规范。）
-5. Design a checkpoint abstraction plus default local implementation, including the `thread_id`/configurable key path used for restore.（设计 checkpoint 抽象及默认本地实现，包括用于恢复的 `thread_id`/configurable key 路径。）
-6. Design the thin application-level orchestration update needed to invoke the compiled top-level graph without duplicating routing logic.（设计调用已编译顶层图所需的薄 application 层编排更新，同时不重复路由逻辑。）
+4. Design the graph compilation helpers so application code receives compiled graph objects instead of descriptive graph specs or legacy runtime wrappers.（设计图编译辅助函数，使 application 代码接收的是已编译图对象，而不是描述性图规范或旧运行时包装器。）
+5. Design the checkpoint abstraction plus default local implementation, including the restore key path used by compiled graph invocation.（设计 checkpoint 抽象及默认本地实现，包括已编译图调用使用的恢复 key 路径。）
+6. Design the thin application-level orchestration update needed to invoke the compiled top-level graph and consume its results without duplicating orchestration policy.（设计调用已编译顶层图并消费其结果所需的薄 application 层编排更新，同时不重复编排策略。）
 
 ## Phase 1 Output Artifacts（阶段 1 输出工件）
 
-- `data-model.md`: Intent/Sprint state, checkpoint abstraction, runtime adapter output, and execution evidence structures.（`data-model.md`：意图/sprint 状态、checkpoint 抽象、运行时适配器输出和执行证据结构。）
+- `data-model.md`: Intent/Sprint state, checkpoint abstraction, compiled runtime output, and execution evidence structures.（`data-model.md`：意图/sprint 状态、checkpoint 抽象、已编译运行时输出和执行证据结构。）
 - `quickstart.md`: Minimal local flow to compile graphs, invoke the intent graph, and verify checkpoint-backed recovery.（`quickstart.md`：编译图、调用意图图并验证 checkpoint 支持恢复的最小本地流程。）
 - `contracts/`: Any runtime or orchestration contracts needed to keep the graph boundary explicit and testable.（`contracts/`：为保持图边界显式且可测试所需的任何运行时或编排契约。）
 
