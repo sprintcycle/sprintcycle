@@ -14,10 +14,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Create virtual environment
+        run: python -m venv .venv
       - name: Install
-        run: pip install -e ".[dev]"
+        run: .venv/bin/python -m pip install -e "[dev]"
       - name: Import linter contracts
-        run: lint-imports
+        run: .venv/bin/lint-imports
 
   test:
     runs-on: ubuntu-latest
@@ -28,13 +30,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Create virtual environment
+        run: python -m venv .venv
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - name: Install
-        run: pip install -e ".[dev,dashboard]"
+        run: .venv/bin/python -m pip install -e "[dev,dashboard]"
       - name: Install dashboard frontend
         working-directory: frontend
         run: npm ci
@@ -45,9 +49,9 @@ jobs:
         working-directory: frontend
         run: npm run build
       - name: Ruff check
-        run: pip install ruff && ruff check sprintcycle tests
+        run: .venv/bin/python -m pip install ruff && .venv/bin/python -m ruff check sprintcycle tests
       - name: Pytest
-        run: python -m pytest tests/ -q --tb=short
+        run: .venv/bin/python -m pytest tests/ -q --tb=short
       - name: Frontend ESLint
         working-directory: frontend
         run: npm run lint
