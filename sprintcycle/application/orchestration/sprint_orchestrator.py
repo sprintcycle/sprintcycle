@@ -13,11 +13,11 @@ from typing import Any, Callable, Dict, List, Optional
 
 from loguru import logger
 
-from ..config import RuntimeConfig
+from ...infrastructure.config.runtime_config import RuntimeConfig
 from ..evolution.measurement import MeasurementResult
-from .finalization import ReleaseFinalizationPolicy, ReleaseFinalizationRunner
-from .policies import SprintEvaluator, SprintMeasurementPolicy, SprintPersistencePolicy
-from ..execution.events import (
+from ...execution.orchestrator.finalization import ReleaseFinalizationPolicy, ReleaseFinalizationRunner
+from ...execution.policies import SprintEvaluator, SprintMeasurementPolicy, SprintPersistencePolicy
+from ...execution.events import (
     Event,
     EventType,
     ExecutionEventBackend,
@@ -43,7 +43,7 @@ from ..release_plan.models import ReleasePlan, SprintBacklogItem, SprintDefiniti
 from ..evolution.intent_evolution_loop import UserIntentEvolutionLoop
 from ..evolution.memory_store import MemoryStore
 from ..persistence.knowledge_repository import KnowledgeCardRepository
-from ..integrations.langgraph.compiler import compile_intent_graph
+from ..integrations.langgraph.compiler import compile_intent_graph, compile_sprint_graph
 from ..integrations.phoenix.trace_runtime import PhoenixTraceRuntime
 from ..integrations.phoenix.exporter import PhoenixExporterSpec
 from ..services.lifecycle_contracts import build_lifecycle_contract
@@ -272,13 +272,42 @@ class SprintOrchestrator:
         to_run = expand_release_plan_for_execution(release_plan)
         await self._emit(self._emit_execution_phase(EventType.EXECUTION_START, f"断点续跑: 从 Sprint {resume_from_idx} 继续", release_plan, to_run.project.name, resume_from_idx))
         self._emit_trace_event(self._emit_execution_phase(EventType.EXECUTION_START, "trace:resume:start", release_plan, to_run.project.name, resume_from_idx))
+        sprint_runtime = compile_sprint_graph(checkpointer=getattr(self.config, "checkpoint_store", None))
         results = list(previous_results)
-        ex = self._make_sprint_executor(max_concurrent)
-        ex.set_release_plan(to_run)
-        ex.set_sprint_hooks(self._build_sprint_hooks(to_run))
-        ctx = self._base_runner_context(to_run)
-        tail = await ex.execute_sprints(to_run.sprints[resume_from_idx:], mode="normal", context=ctx, release_plan=to_run, sprint_index_offset=resume_from_idx)
-        results.extend(tail)
+        for sprint_index, sprint in enumerate(to_run.sprints[resume_from_idx:], start=resume_from_idx):
+            sprint_state = {
+                "sprint": sprint,
+                "context": {
+                    "project_name": to_run.project.name,
+                    "project_path": self._project_root,
+                    "runtime_config": self.config.to_dict() if hasattr(self.config, "to_dict") else {},
+                    "sprint_executor": self._make_sprint_executor(max_concurrent),
+                },
+                "attempt": 1,
+                "status": "pending",
+                "metadata": {
+                    "execution_id": getattr(release_plan, "execution_id", None),
+                    "checkpointer": getattr(self.config, "checkpoint_store", None),
+                    "resume_from_idx": resume_from_idx,
+                    "sprint_index": sprint_index,
+                },
+            }
+            graph_result = await sprint_runtime.graph.ainvoke(sprint_state)
+            final_result = dict(graph_result.get("final_sprint_result", graph_result.get("final_result", graph_result.get("sprint_result", {}))) or {})
+            if not final_result:
+                final_result = {
+                    "sprint_name": getattr(sprint, "name", ""),
+                    "status": graph_result.get("status", "failed"),
+                    "task_results": [],
+                }
+            results.append(
+                SprintResult(
+                    sprint=sprint,
+                    status=ExecutionStatus.SUCCESS if str(final_result.get("status", "success")).lower() in ("success", "skipped") else ExecutionStatus.FAILED,
+                    task_results=[],
+                    duration=float(final_result.get("duration", 0.0)),
+                )
+            )
         success = all(r.status in (ExecutionStatus.SUCCESS, ExecutionStatus.SKIPPED) for r in results)
         complete_event = self._emit_execution_phase(EventType.EXECUTION_COMPLETE if success else EventType.EXECUTION_FAILED, "断点续跑完成", release_plan, to_run.project.name, len(results), status="success" if success else "failed")
         await self._emit(complete_event)

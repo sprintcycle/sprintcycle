@@ -1,0 +1,8 @@
+{
+    "mcpServers": {
+      "spec-kit-ui-mcp": {
+        "command": "npx",
+        "args": ["-y", "spec-kit-ui-mcp", "--work-dir", "工作目录地址"]
+      }
+    }
+  }

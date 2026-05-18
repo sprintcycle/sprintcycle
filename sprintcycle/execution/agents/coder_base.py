@@ -7,7 +7,7 @@ from typing import Any, Dict, Optional, cast
 
 from loguru import logger
 
-from sprintcycle.support.prompt_sources import format_coder_generation_prompt
+from sprintcycle.domain.support_legacy.prompt_sources import format_coder_generation_prompt
 from sprintcycle.execution.run_workspace import build_workspace_prompt_section
 
 from ..project_write import ProjectWritePlan

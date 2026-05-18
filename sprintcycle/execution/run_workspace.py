@@ -14,7 +14,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
-from .release_plan.models import ReleasePlan
+from ..application.release_plan.models import ReleasePlan
 
 # 与 CLI / API / MCP / Dashboard 共用的合法取值
 WRITE_POLICIES = frozenset({"auto", "create", "incremental", "safe"})
