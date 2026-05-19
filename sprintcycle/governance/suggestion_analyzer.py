@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional
 
-from .suggestion import (
+from .suggestion.models import (
     Suggestion,
     SuggestionImpactScope,
     SuggestionSeverity,

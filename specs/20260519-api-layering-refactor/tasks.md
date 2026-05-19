@@ -12,9 +12,9 @@
 
 **Purpose**: Prepare the refactor workspace and document the intended module boundaries.
 
-- [ ] T001 Review `sprintcycle/api.py` public methods and record the responsibility clusters in `specs/20260519-api-layering-refactor/data-model.md`
-- [ ] T002 [P] Create `specs/20260519-api-layering-refactor/contracts/` and add boundary contract notes for façade, service, and access layers
-- [ ] T003 [P] Add a concise verification checklist to `specs/20260519-api-layering-refactor/quickstart.md` for exercising the refactored `SprintCycle` façade
+- [x] T001 Review `sprintcycle/api.py` public methods and record the responsibility clusters in `specs/20260519-api-layering-refactor/data-model.md`
+- [x] T002 [P] Create `specs/20260519-api-layering-refactor/contracts/` and add boundary contract notes for façade, service, and access layers
+- [x] T003 [P] Add a concise verification checklist to `specs/20260519-api-layering-refactor/quickstart.md` for exercising the refactored `SprintCycle` façade
 
 ---
 
@@ -22,10 +22,10 @@
 
 **Purpose**: Establish the shared boundary map and extraction targets that all refactor work depends on.
 
-- [ ] T004 Extract the full `SprintCycle` method inventory and map each method to façade, service, or access ownership in `specs/20260519-api-layering-refactor/data-model.md`
-- [ ] T005 Define the thin façade initialization and delegation rules for `SprintCycle` in `specs/20260519-api-layering-refactor/data-model.md`
-- [ ] T006 Define the access-layer boundary responsibilities for registries, repositories, and stores in `specs/20260519-api-layering-refactor/data-model.md`
-- [ ] T007 Identify the compatibility shims required to preserve existing public method signatures and payload shapes in `specs/20260519-api-layering-refactor/data-model.md`
+- [x] T004 Extract the full `SprintCycle` method inventory and map each method to façade, service, or access ownership in `specs/20260519-api-layering-refactor/data-model.md`
+- [x] T005 Define the thin façade initialization and delegation rules for `SprintCycle` in `specs/20260519-api-layering-refactor/data-model.md`
+- [x] T006 Define the access-layer boundary responsibilities for registries, repositories, and stores in `specs/20260519-api-layering-refactor/data-model.md`
+- [x] T007 Identify the compatibility shims required to preserve existing public method signatures and payload shapes in `specs/20260519-api-layering-refactor/data-model.md`
 
 **Checkpoint**: Boundary map is ready, and implementation can proceed without guessing ownership.
 
@@ -39,13 +39,13 @@
 
 ### Implementation for User Story 1
 
-- [ ] T008 [P] [US1] Extract orchestration-heavy lifecycle logic from `sprintcycle/api.py` into `sprintcycle/application/services/`
-- [ ] T009 [P] [US1] Extract governance, observability, suggestion, deployment/runtime, and evolution workflows from `sprintcycle/api.py` into purpose-specific service modules under `sprintcycle/application/services/`
-- [ ] T010 [P] [US1] Move direct storage, registry, repository, and store access behind access-oriented modules under `sprintcycle/infrastructure/`
-- [ ] T011 [US1] Reduce `sprintcycle/api.py` to boundary normalization, service wiring, and response assembly only
-- [ ] T012 [US1] Wire the new service and access modules into `SprintCycle` initialization and method delegation in `sprintcycle/api.py`
-- [ ] T013 [US1] Preserve compatibility shims for any public methods whose internal implementation moved but whose signature or return shape must stay stable in `sprintcycle/api.py`
-- [ ] T014 [US1] Update imports and module references so the new layer boundaries are the only path used by `sprintcycle/api.py`
+- [x] T008 [P] [US1] Extract orchestration-heavy lifecycle logic from `sprintcycle/api.py` into `sprintcycle/application/services/`
+- [x] T009 [P] [US1] Extract governance, observability, suggestion, deployment/runtime, and evolution workflows from `sprintcycle/api.py` into purpose-specific service modules under `sprintcycle/application/services/`
+- [x] T010 [P] [US1] Move direct storage, registry, repository, and store access behind access-oriented modules under `sprintcycle/infrastructure/`
+- [x] T011 [US1] Reduce `sprintcycle/api.py` to boundary normalization, service wiring, and response assembly only
+- [x] T012 [US1] Wire the new service and access modules into `SprintCycle` initialization and method delegation in `sprintcycle/api.py`
+- [x] T013 [US1] Preserve compatibility shims for any public methods whose internal implementation moved but whose signature or return shape must stay stable in `sprintcycle/api.py`
+- [x] T014 [US1] Update imports and module references so the new layer boundaries are the only path used by `sprintcycle/api.py`
 
 **Checkpoint**: `SprintCycle` remains callable from existing consumers, but the workflow logic now lives behind clearer service and access boundaries.
 
@@ -55,10 +55,10 @@
 
 **Purpose**: Final cleanup, documentation alignment, and validation of the refactor boundaries.
 
-- [ ] T015 [P] Update `specs/20260519-api-layering-refactor/quickstart.md` with final verification steps for the refactored `SprintCycle` façade
-- [ ] T016 [P] Update `specs/20260519-api-layering-refactor/data-model.md` and `specs/20260519-api-layering-refactor/contracts/` to reflect the final module ownership map
-- [ ] T017 Run the targeted pytest subset covering `sprintcycle/api.py` entrypoints and any refactored service boundaries
-- [ ] T018 Review `sprintcycle/api.py` and the new service/access modules for residual orchestration logic, import coupling, or boundary leaks
+- [x] T015 [P] Update `specs/20260519-api-layering-refactor/quickstart.md` with final verification steps for the refactored `SprintCycle` façade
+- [x] T016 [P] Update `specs/20260519-api-layering-refactor/data-model.md` and `specs/20260519-api-layering-refactor/contracts/` to reflect the final module ownership map
+- [x] T017 Run the targeted pytest subset covering `sprintcycle/api.py` entrypoints and any refactored service boundaries
+- [x] T018 Review `sprintcycle/api.py` and the new service/access modules for residual orchestration logic, import coupling, or boundary leaks
 
 ---
 

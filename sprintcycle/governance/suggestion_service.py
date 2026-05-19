@@ -5,11 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional
 
-from .suggestion import (
+from .suggestion.bridge import SuggestionBridge
+from .suggestion.facade import SuggestionFacade
+from .suggestion.models import (
     Suggestion,
     SuggestionApprovalRecord,
-    SuggestionBridge,
-    SuggestionFacade,
     SuggestionOverviewResult,
     SuggestionReviewContext,
     SuggestionReviewRecord,

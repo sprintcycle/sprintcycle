@@ -61,7 +61,8 @@ class ExecutionOrchestrator:
         req = request or ExecutionRunRequest()
         normalized_context = ExecutionContext.from_any(context).to_dict() if context is not None else {}
         normalized_context.update(req.context or {})
-        execution_id = req.execution_id or normalized_context.get("execution_id")        results = await self._executor.execute_sprints(
+        execution_id = req.execution_id or normalized_context.get("execution_id")
+        results = await self._executor.execute_sprints(
             sprints,
             mode=req.mode,
             context=normalized_context,

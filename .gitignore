@@ -35,6 +35,12 @@ conda-meta/
 *.manifest
 *.spec
 
+# Cursor automation session state (ci-fix-loop)
+.cursor/.ci-fix-loop-active
+.cursor/.ci-fix-loop-iterations
+.cursor/.ci-local-last-exit
+.cursor/ci-local-last.log
+
 # IDE
 .idea/
 .vscode/

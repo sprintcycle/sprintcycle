@@ -10,7 +10,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Optional
 
 from .lifecycle_contracts import LifecycleContract, build_lifecycle_contract
-from .lifecycle_state_machine import build_lifecycle_state_machine
+from .lifecycle_contracts import build_lifecycle_state_machine
 
 
 @dataclass

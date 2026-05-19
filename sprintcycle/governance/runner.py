@@ -33,7 +33,12 @@ from .arch_guard.sdd_checks import (
 from .arch_guard.argv_extensions import extend_argv_items_with_plugins
 from .arch_guard.yaml_checks import checks_for_gate, run_argv_checks
 from .hitl import HitlDecision, HitlGate, HitlPolicyResult
-from .observability import ObservabilityFacade, create_observability_facade
+from .hitl.facade import HitlFacade, create_hitl_facade
+
+
+def create_observability_facade(project_path: str, cfg: "RuntimeConfig") -> HitlFacade:
+    """Compatibility alias: governance runner HITL path uses the hitl facade."""
+    return create_hitl_facade(project_path, cfg)
 from .yaml_merge import load_merged_governance_data
 
 if TYPE_CHECKING:
@@ -72,7 +77,7 @@ class GovernanceRunner:
 
     def __init__(self, runtime_config: "RuntimeConfig"):
         self._cfg = runtime_config
-        self._observability: Optional[ObservabilityFacade] = None
+        self._observability: Optional[HitlFacade] = None
 
     def _project(self, project_path: str) -> Path:
         return Path(project_path).expanduser().resolve()
@@ -80,7 +85,7 @@ class GovernanceRunner:
     def _load_yaml_data(self, root: Path) -> Dict[str, Any]:
         return load_merged_governance_data(root, self._cfg)
 
-    def _observability_facade(self, project_path: str) -> ObservabilityFacade:
+    def _observability_facade(self, project_path: str) -> HitlFacade:
         if self._observability is None:
             self._observability = create_observability_facade(project_path, self._cfg)
         return self._observability

@@ -7,7 +7,9 @@ from typing import Any, Dict
 
 from ...infrastructure.integrations.autogpt.compose import build_default_compose_spec
 from ...infrastructure.integrations.autogpt.runtime import AutoGPTRuntimeSpec
-from ...infrastructure.integrations.langgraph import IntentGraphRuntime, LangGraphRuntimeAdapter, LangGraphRuntimeSpec, PlanRuntime, SprintGraphRuntime
+from ...infrastructure.integrations.langgraph import LangGraphRuntimeAdapter, LangGraphRuntimeSpec
+from ...infrastructure.integrations.langgraph.compiler import compile_intent_graph, compile_sprint_graph
+from ...infrastructure.integrations.langgraph.plan_runtime import PlanRuntime
 from ...infrastructure.integrations.phoenix.exporter import PhoenixExporterSpec
 from ...infrastructure.integrations.phoenix.trace_runtime import PhoenixTraceRuntime
 from .spec import build_platform_spec
@@ -34,8 +36,18 @@ class PlatformOverview:
 def build_platform_overview(project_name: str = "sprintcycle") -> PlatformOverview:
     platform = build_platform_spec(project_name).to_dict()
     compose = build_default_compose_spec(project_name).to_dict()
-    intent_graph = IntentGraphRuntime(project_name=project_name).build()
-    sprint_graph = SprintGraphRuntime(project_name=project_name).build()
+    intent_compiled = compile_intent_graph()
+    sprint_compiled = compile_sprint_graph()
+    intent_graph = {
+        "graph_name": intent_compiled.graph_name,
+        "nodes": list(intent_compiled.nodes),
+        "edges": list(intent_compiled.edges),
+    }
+    sprint_graph = {
+        "graph_name": sprint_compiled.graph_name,
+        "nodes": list(sprint_compiled.nodes),
+        "edges": list(sprint_compiled.edges),
+    }
     plan_runtime = PlanRuntime(project_name=project_name).build()
     runtime = {
         "autogpt": AutoGPTRuntimeSpec(project_name=project_name).to_dict(),

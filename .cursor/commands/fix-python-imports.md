@@ -1,45 +1,82 @@
 # Fix Python imports / 修复 Python 导入
 
-Use this command to recursively scan the repository for broken Python imports, align every import to the code that already exists in its final location, and drive the project to a final passing state.
+Repair broken Python imports by aligning them to code that **already exists** in its final location. Default assumption: failures come from **file/directory path changes** during refactor, not missing implementations.
 
 ## Goal
-- Recursively scan all Python files in the repository for broken, missing, or incorrect imports.
-- Repair import failures by pointing imports at the current real module paths.
-- Move directly toward the final working state instead of preserving compatibility layers or temporary shims.
-- Run a fast smoke test first, then the full test suite once the smoke test is green.
-- Continue fixing failures until the project reaches a passing state, or clearly report the first non-import blocker.
+
+- Recursively resolve `ModuleNotFoundError`, `ImportError`, and pytest collect-only import failures.
+- **Path migration first:** update importing files to new module paths; do not recreate old paths.
+- Run fast smoke, then full tests when smoke is green.
+- Stop on non-import blockers with a clear report.
+
+## Default hypothesis: path migration
+
+Most import breaks in this repo are caused by **moves/renames** (8-layer restructure, folder policy). Before creating new modules:
+
+1. Treat `old.package.module` as a **relocated** module, not a deleted one.
+2. Find where the symbol lives **now** (`rg`, `git log --follow`, `git log --diff-filter=R`).
+3. Change only the `import` / `from ... import` lines in the **importer**.
+4. Do **not** add compatibility shims, fallback imports, or re-export aliases under the old path.
+
+## Path migration workflow (mandatory for cluster A)
+
+1. From the traceback, extract:
+   - broken module string (e.g. `sprintcycle.foo.bar`)
+   - missing name (class/function) if present
+   - importing file path
+2. Locate the new module:
+   ```bash
+   git log --follow --name-status -- 'sprintcycle/**/bar.py'
+   git log --diff-filter=R --summary -30 -- sprintcycle/
+   rg -n 'class MissingName|def missing_name' sprintcycle tests
+   ```
+3. Record a mapping (include in your report):
+
+   | Broken import | Hypothesis | New import path | Evidence (git/rg) |
+   |---------------|------------|-----------------|-------------------|
+
+4. Apply the smallest edit in the importing file(s).
+5. If multiple files import the same stale path, fix the **same cluster** in one iteration.
+6. Re-run smoke:
+   ```bash
+   bash scripts/import-smoke.sh
+   # or: make ci-smoke
+   ```
+
+### When the symbol truly does not exist
+
+Only after search + git history show the code was removed (not moved):
+
+- Stop and report as a **non-import blocker**.
+- Do not invent placeholder modules.
 
 ## Rules
-- Only fix import-related issues unless a test failure proves a closely related change is required.
-- Do not perform unrelated refactors.
-- Prefer the smallest possible edit that restores importability.
-- Do not add compatibility shims, fallback paths, transitional glue, or re-export aliases.
-- Use the repository virtual environment for all Python and pytest commands.
-- Always use `.venv/bin/python` and `.venv/bin/pytest`.
-- Do not use the system Python interpreter.
-- Do not use global `pytest`.
+
+- Only import-related changes unless a test proves a tightly coupled fix is required.
+- No unrelated refactors.
+- Smallest edit that restores importability.
+- No compatibility shims, `try/except ImportError`, or re-export aliases.
+- Use `.venv/bin/python` and `.venv/bin/pytest` only (see `python-venv-only.mdc`).
 
 ## Execution flow
-1. Scan the whole repository recursively for Python import errors.
-2. Build a path-mapping view of where each broken import now lives in the current codebase.
-3. Identify the broken import chain and the owning file.
-4. If the code already exists in a new location, update the importing code to the new final path instead of recreating the old module path.
-5. Apply the smallest necessary fix that moves the code toward the final desired structure.
-6. Run a fast smoke test first.
-7. If the smoke test fails, fix the cause and repeat.
-8. When the smoke test passes, run the full test suite.
-9. If the full test suite fails due to import issues, fix them and rerun.
-10. Stop only when the tests pass or a non-import blocker is identified and reported.
+
+1. Run `make ci-smoke` (or `bash scripts/import-smoke.sh`) for baseline.
+2. Build path-mapping for each broken import (table above).
+3. Fix one import cluster; re-run smoke.
+4. When smoke passes, run `.venv/bin/pytest tests/ -q --tb=short`.
+5. If pytest fails on imports, repeat from step 2.
+6. When imports are clean but assertions fail, stop — hand off to `/ci-fix-loop` cluster D.
 
 ## Test selection
-- Prefer an existing project smoke test or the narrowest useful pytest subset.
-- If no dedicated smoke test exists, choose the fastest reasonable subset that exercises import paths first.
-- After the smoke test passes, run the full suite with `.venv/bin/pytest`.
+
+- **Smoke:** `make ci-smoke` (`lint-imports` + `test_architecture_imports` + `pytest --collect-only`)
+- **Full:** `.venv/bin/pytest tests/ -q --tb=short`
 
 ## Output
+
 Report:
-- which broken import paths were aligned to final module locations
-- what was changed
-- what smoke test was run
-- whether the full test suite passed
-- any remaining blockers, if present
+
+- Path migration table
+- Files changed
+- Smoke + full pytest results
+- Remaining blockers (if any)

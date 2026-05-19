@@ -11,8 +11,16 @@ from .projections import (
     SuggestionCardViewModel,
 )
 from .service import DashboardQueryService
-from .server import create_app
 from .workbench import DashboardWorkbenchService
+
+
+def __getattr__(name: str):
+    if name == "create_app":
+        from .server import create_app
+
+        return create_app
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
     "create_app",

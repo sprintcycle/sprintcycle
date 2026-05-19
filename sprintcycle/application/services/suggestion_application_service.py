@@ -17,7 +17,7 @@ from ...governance.versioning.registry import VersionRegistry
 from ..evolution.models import VersionArtifact
 from .promotion_policy import PromotionPolicy
 from .lifecycle_state_machine import build_default_correlation
-from ..hooks import (
+from ...hooks import (
     HookContext,
     HookPhase,
     HookRegistry,

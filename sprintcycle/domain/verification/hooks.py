@@ -4,9 +4,9 @@ from typing import Any, Dict, Optional
 
 from loguru import logger
 
-from ..execution.events import Event, EventType, ExecutionEventBackend
-from ..execution.hooks.sprint_hooks import SprintLifecycleHooks
-from ..execution.sprint_types import SprintResult
+from sprintcycle.execution.events import Event, EventType, ExecutionEventBackend
+from sprintcycle.execution.hooks.sprint_hooks import SprintLifecycleHooks
+from sprintcycle.execution.sprint_types import SprintResult
 from ...application.release_plan.models import ReleasePlan, SprintDefinition
 from .config import VerificationConfig
 from .engine import VerificationEngine

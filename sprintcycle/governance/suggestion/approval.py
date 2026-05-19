@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from .models import SuggestionApprovalRecord, SuggestionReviewRecord, SuggestionStore
+from .models import SuggestionApprovalRecord, SuggestionReviewRecord
+from .store import SuggestionStore
 
 
 class SuggestionApprovalService:

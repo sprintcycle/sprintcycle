@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
 import asyncio
@@ -26,7 +26,7 @@ from sprintcycle.domain.platform.spec import build_platform_spec
 @dataclass
 class DashboardViewService:
     project_path: str
-    query_service: DashboardQueryService = DashboardQueryService()
+    query_service: DashboardQueryService = field(default_factory=lambda: DashboardQueryService())
 
     def build_fitness_payload(self, observability: Any, runtime_registry: Any, suggestion: SuggestionFacade) -> Dict[str, Any]:
         return {
