@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
-from .config import RuntimeConfig
+from .infrastructure.config.runtime_config import RuntimeConfig
 from .infrastructure.runtime_registry import RuntimeRegistry
 from .execution.cache import configure_execution_cache_from_runtime
 from .execution.events import (
@@ -43,7 +43,7 @@ from .results import (
     StatusResult,
     StopResult,
 )
-from .evolution.models import VersionArtifact
+from .application.evolution.models import VersionArtifact
 from .hooks import HookRegistry
 from .run_workspace import (
     apply_policy_to_tasks,
@@ -53,7 +53,7 @@ from .run_workspace import (
     normalize_reference_paths,
     normalize_write_policy,
 )
-from .evolution import MemoryStore, UserIntentEvolutionLoop
+from .application.evolution import MemoryStore, UserIntentEvolutionLoop
 from .fitness import FitnessEvaluator
 from .application.services.evaluator_agent import EvaluatorAgent, SprintContractRecord, SprintScoreCard
 from .governance.facade import GovernanceFacade, create_governance_facade
@@ -75,10 +75,10 @@ from .application.services.promotion_policy import PromotionPolicy
 from .application.services.repair_orchestration_service import RepairOrchestrationService
 from .application.services.suggestion_application_service import SuggestionApplicationService
 from .platform.overview import build_platform_overview
-from .integrations.langgraph.runtime import LangGraphRuntimeAdapter, LangGraphRuntimeSpec
-from .integrations.phoenix.runtime import PhoenixRuntimeAdapter, PhoenixRuntimeSpec
-from .integrations.phoenix.exporter import PhoenixExporterSpec
-from .integrations.langgraph.graph import build_default_langgraph_graph_spec
+from .infrastructure.integrations.langgraph.runtime import LangGraphRuntimeAdapter, LangGraphRuntimeSpec
+from .infrastructure.integrations.phoenix.runtime import PhoenixRuntimeAdapter, PhoenixRuntimeSpec
+from .infrastructure.integrations.phoenix.exporter import PhoenixExporterSpec
+from .infrastructure.integrations.langgraph.graph import build_default_langgraph_graph_spec
 from .platform.views import PlatformComposeView, PlatformSpecView
 from .dashboard.views.architecture_view import ArchitectureView
 
@@ -851,7 +851,12 @@ class SprintCycle:
             evolution_id=str(state.get("metadata", {}).get("evolution_id") or ""),
         )
         normalized_request_payload = normalized_request.get("request", {})
-        lifecycle_payload = {**dict(lifecycle) if isinstance(lifecycle, dict) else {}, "stage": stage, "status": status, "closure_score": closure_score}
+        lifecycle_payload = {
+            **(dict(lifecycle) if isinstance(lifecycle, dict) else {}),
+            "stage": stage,
+            "status": status,
+            "closure_score": closure_score,
+        }
         promotion_payload = promotion_eval.get("promotion", {})
         evaluation_payload = promotion_eval
         evidence_package = {

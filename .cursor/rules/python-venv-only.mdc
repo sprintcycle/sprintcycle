@@ -1,0 +1,26 @@
+---
+description: Require the project .venv for all Python commands and pytest runs
+alwaysApply: true
+---
+
+# Python Environment Policy
+
+- Always use the repository `.venv` for Python work.
+- Prefer explicit paths like `.venv/bin/python` and `.venv/bin/pytest`.
+- Do not use the system Python interpreter.
+- Do not invoke global `pytest`.
+- If a shell command needs activation, source `.venv/bin/activate` first.
+
+## Examples
+
+```bash
+.venv/bin/python -m pytest
+```
+
+```bash
+source .venv/bin/activate && python -m pytest
+```
+
+```bash
+.venv/bin/python script.py
+```
