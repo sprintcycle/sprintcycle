@@ -10,10 +10,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
-from ..governance.facade import GovernanceFacade
-from ..governance.suggestion import SuggestionFacade
-from ..versioning.sqlite_registry import SQLiteVersionRegistry
-from ..versioning.registry import VersionRegistry
+from ...governance.facade import GovernanceFacade
+from ...governance.suggestion import SuggestionFacade
+from ...governance.versioning.sqlite_registry import SQLiteVersionRegistry
+from ...governance.versioning.registry import VersionRegistry
 from ..evolution.models import VersionArtifact
 from .promotion_policy import PromotionPolicy
 from .lifecycle_state_machine import build_default_correlation

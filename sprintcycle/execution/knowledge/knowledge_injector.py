@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, List, Optional
 from loguru import logger
 
 if TYPE_CHECKING:
-    from ...release_plan.models import ReleasePlan, SprintDefinition
+    from ...application.release_plan.models import ReleasePlan, SprintDefinition
 
 
 RELEASE_PLAN_OVERLAY_FILENAME = "release_plan_overlay.yaml"
@@ -56,7 +56,7 @@ def knowledge_injection_is_material(res: KnowledgeInjectionResult) -> bool:
 
 class KnowledgeInjector:
     def __init__(self, db_path: str):
-        from ...persistence.knowledge_repository import KnowledgeCardRepository
+        from ...infrastructure.persistence.knowledge_repository import KnowledgeCardRepository
 
         self._repo = KnowledgeCardRepository(db_path)
 

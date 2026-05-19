@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
-from ..release_plan.payload_keys import metadata_plan_id
+from ..application.release_plan.payload_keys import metadata_plan_id
 
 
 class RoutingLevel(Enum):

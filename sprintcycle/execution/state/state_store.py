@@ -17,7 +17,7 @@ from ..sprint_types import ExecutionStatus
 from .machine import ExecutionStateMachine, validate_transition
 
 if TYPE_CHECKING:
-    from ...config.runtime_config import RuntimeConfig
+    from ...infrastructure.config.runtime_config import RuntimeConfig
 
 
 

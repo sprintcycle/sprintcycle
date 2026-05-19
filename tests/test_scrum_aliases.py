@@ -11,7 +11,7 @@ from sprintcycle import (
     SprintDefinition,
     ReleasePlanParser,
 )
-from sprintcycle.release_plan import models as rm
+from sprintcycle.application.release_plan import models as rm
 
 
 def test_root_package_matches_release_plan_models() -> None:
@@ -24,7 +24,7 @@ def test_root_package_matches_release_plan_models() -> None:
 
 
 def test_release_plan_parser_is_single_export() -> None:
-    from sprintcycle.release_plan.parser import ReleasePlanParser as ParserCls
+    from sprintcycle.application.release_plan.parser import ReleasePlanParser as ParserCls
 
     assert ReleasePlanParser is ParserCls
 

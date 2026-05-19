@@ -11,7 +11,7 @@ import sqlite3
 from pathlib import Path
 from typing import Optional
 
-from ..evolution.models import EvolutionTarget, VersionArtifact
+from ...application.evolution.models import EvolutionTarget, VersionArtifact
 from .registry import VersionRegistry
 
 

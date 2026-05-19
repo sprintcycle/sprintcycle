@@ -2,7 +2,7 @@
 
 import pytest
 
-from sprintcycle.config import RuntimeConfig
+from sprintcycle.infrastructure.config import RuntimeConfig
 from sprintcycle.execution.events import (
     EventBus,
     ensure_default_execution_event_backend_for_project,

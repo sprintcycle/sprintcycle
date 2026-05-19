@@ -10,9 +10,9 @@ from pathlib import Path
 import pytest
 
 from sprintcycle.api import SprintCycle
-from sprintcycle.config import RuntimeConfig
-from sprintcycle.orchestration.sprint_orchestrator import SprintOrchestrator
-from sprintcycle.release_plan.models import (
+from sprintcycle.infrastructure.config import RuntimeConfig
+from sprintcycle.application.orchestration.sprint_orchestrator import SprintOrchestrator
+from sprintcycle.application.release_plan.models import (
     ExecutionMode,
     ProductAnchor,
     ReleasePlan,

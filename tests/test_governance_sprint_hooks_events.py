@@ -4,11 +4,11 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from sprintcycle.config import RuntimeConfig
+from sprintcycle.infrastructure.config import RuntimeConfig
 from sprintcycle.execution.events import EventType, reset_event_bus
 from sprintcycle.governance.report import GovernanceReport, GovernanceViolation
 from sprintcycle.governance.sprint_hooks import GovernanceSprintHooks
-from sprintcycle.release_plan.models import SprintBacklogItem, SprintDefinition
+from sprintcycle.application.release_plan.models import SprintBacklogItem, SprintDefinition
 
 
 @pytest.mark.asyncio

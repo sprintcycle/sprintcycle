@@ -7,8 +7,8 @@ from typing import Any, Dict, List
 
 from loguru import logger
 
-from ..quality_spec.reports.finding import Finding as QualityFinding
-from ..quality_spec.spec.task_spec import TaskSpec
+from ..domain.quality_spec.reports.finding import Finding as QualityFinding
+from ..domain.quality_spec.spec.task_spec import TaskSpec
 
 
 def _to_guard_finding(rule_id: str, severity: str, message: str, location: Dict[str, Any] | None = None):

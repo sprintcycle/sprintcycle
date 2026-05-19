@@ -11,7 +11,7 @@ from typing import Any, Dict, Sequence
 
 from loguru import logger
 
-from ...release_plan.models import SprintBacklogItem
+from ...application.release_plan.models import SprintBacklogItem
 from ..sprint_types import TaskResult
 
 

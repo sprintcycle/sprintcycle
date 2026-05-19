@@ -4,7 +4,7 @@ from typing import List
 
 from .model import VerificationFinding, VerificationReport
 
-from ..governance.report import GovernanceReport, GovernanceViolation
+from ...governance.report import GovernanceReport, GovernanceViolation
 
 
 class VerificationReportAdapter:

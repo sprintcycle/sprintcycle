@@ -13,13 +13,13 @@ from typing import TYPE_CHECKING, Optional
 
 from loguru import logger
 
-from ..release_plan.parser import ReleasePlanParser
+from ...application.release_plan.parser import ReleasePlanParser
 from .base import IntentHandler, IntentResult
 
 if TYPE_CHECKING:
     from ..api import SprintCycle
-    from ..config import RuntimeConfig
-    from ..release_plan.models import ReleasePlan
+    from ...infrastructure.config import RuntimeConfig
+    from ...application.release_plan.models import ReleasePlan
 
 
 def parse_release_plan_file(file_path: str) -> "ReleasePlan":

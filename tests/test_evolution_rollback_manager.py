@@ -18,7 +18,7 @@ from sprintcycle.execution.rollback import (
     _run_git,
     _is_git_repo,
 )
-from sprintcycle.evolution.rollback_manager import EvolutionRollbackManager
+from sprintcycle.application.evolution.rollback_manager import EvolutionRollbackManager
 
 
 # =============================================================================

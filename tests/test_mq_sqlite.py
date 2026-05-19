@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from sprintcycle.mq import MQMessage, SQLiteMQ
+from sprintcycle.infrastructure.mq import MQMessage, SQLiteMQ
 
 
 def test_sqlite_mq_publish_subscribe_ack(tmp_path):

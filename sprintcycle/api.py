@@ -57,7 +57,6 @@ from .application.evolution import MemoryStore, UserIntentEvolutionLoop
 from .fitness import FitnessEvaluator
 from .application.services.evaluator_agent import EvaluatorAgent, SprintContractRecord, SprintScoreCard
 from .governance.facade import GovernanceFacade, create_governance_facade
-from .governance.policy.gates import GateResult, pre_run_gate
 from .governance.suggestion import SuggestionFacade, create_suggestion_facade
 from .persistence.knowledge_repository import KnowledgeCardRepository
 from .versioning.interface import get_version_manifest_summary

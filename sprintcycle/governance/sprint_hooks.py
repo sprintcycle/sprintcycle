@@ -22,7 +22,7 @@ from loguru import logger
 from ..execution.events import Event, EventType, ExecutionEventBackend
 from ..execution.hooks.sprint_hooks import SprintLifecycleHooks
 from ..execution.sprint_types import SprintResult
-from ..release_plan.models import ReleasePlan, SprintDefinition
+from ..application.release_plan.models import ReleasePlan, SprintDefinition
 from .arch_guard.config import ArchGuardConfig
 from .arch_guard.engine import ArchGuardEngine
 from .arch_guard.reporter import GovernanceReportAdapter
@@ -30,7 +30,7 @@ from .report import GovernanceReport
 from .runner import persist_planning_report, persist_report
 
 if TYPE_CHECKING:
-    from ..config.runtime_config import RuntimeConfig
+    from ..infrastructure.config.runtime_config import RuntimeConfig
 
 
 class GovernanceSprintHooks(SprintLifecycleHooks):

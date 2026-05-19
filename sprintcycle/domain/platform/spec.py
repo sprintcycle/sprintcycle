@@ -5,9 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict
 
-from ..integrations.autogpt.deploy import AutoGPTDeploymentSpec
-from ..integrations.langgraph.adapter import LangGraphExecutionAdapter
-from ..integrations.phoenix.adapter import PhoenixObservabilityAdapter
+from ...infrastructure.integrations.autogpt.deploy import AutoGPTDeploymentSpec
+from ...infrastructure.integrations.langgraph.adapter import LangGraphExecutionAdapter
+from ...infrastructure.integrations.phoenix.adapter import PhoenixObservabilityAdapter
 
 
 @dataclass

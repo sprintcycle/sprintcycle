@@ -33,7 +33,7 @@ class QualityLifecycleHooks:
         if runtime_config is None or not execution_id:
             return None
         try:
-            from ...governance.hitl import HitlGate, HitlService, create_hitl_coordinator, evaluate_hitl_policy
+            from ....governance.hitl import HitlGate, HitlService, create_hitl_coordinator, evaluate_hitl_policy
             from ...execution.events import get_execution_event_backend
         except Exception:
             return None

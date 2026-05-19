@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 # 使用 TYPE_CHECKING 避免循环导入
 if TYPE_CHECKING:
-    from ..orchestration.sprint_orchestrator import SprintResult
-    from ..release_plan.models import ReleasePlan
+    from ...application.orchestration.sprint_orchestrator import SprintResult
+    from ...application.release_plan.models import ReleasePlan
     from ..results import RunResult
 
 
@@ -90,7 +90,7 @@ class IntentHandler(ABC):
         pass
 
     def validate_release_plan(self, release_plan: "ReleasePlan") -> bool:
-        from ..release_plan.validator import ReleasePlanValidator
+        from ...application.release_plan.validator import ReleasePlanValidator
 
         result = ReleasePlanValidator().validate(release_plan)
         return result.is_valid
@@ -102,7 +102,7 @@ class IntentHandler(ABC):
         sprint_results: List["SprintResult"],
         error: Optional[str] = None,
     ) -> IntentResult:
-        from ..orchestration.sprint_orchestrator import ExecutionStatus
+        from ...application.orchestration.sprint_orchestrator import ExecutionStatus
 
         completed_sprints = sum(
             1

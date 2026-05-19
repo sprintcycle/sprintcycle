@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from ...quality_spec.context import build_quality_context
-from ...quality_spec.hooks.quality_hooks import QualityLifecycleHooks
-from ...quality_spec.hooks.lifecycle_report import LifecycleReport
-from ...quality_spec.reports.report import Report
-from ...release_plan.models import ReleasePlan, SprintBacklogItem, SprintDefinition
+from ...domain.quality_spec.context import build_quality_context
+from ...domain.quality_spec.hooks.quality_hooks import QualityLifecycleHooks
+from ...domain.quality_spec.hooks.lifecycle_report import LifecycleReport
+from ...domain.quality_spec.reports.report import Report
+from ...application.release_plan.models import ReleasePlan, SprintBacklogItem, SprintDefinition
 from .sprint_hooks import SprintLifecycleHooks
 from .task_hooks import TaskLifecycleHooks
 from ..sprint_types import SprintResult, TaskResult

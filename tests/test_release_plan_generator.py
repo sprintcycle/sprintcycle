@@ -9,14 +9,14 @@ from pathlib import Path
 
 import pytest
 
-from sprintcycle.config.runtime_config import RuntimeConfig
-from sprintcycle.intent.parser import ActionType, ParsedIntent
-from sprintcycle.release_plan.generator import (
+from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
+from sprintcycle.domain.intent.parser import ActionType, ParsedIntent
+from sprintcycle.execution.planners.generator import (
     IntentReleasePlanGenerator,
     EvolutionParams,
     ExecutionMode,
 )
-from sprintcycle.release_plan.models import ReleasePlan
+from sprintcycle.application.release_plan.models import ReleasePlan
 
 
 class TestIntentReleasePlanGenerator:

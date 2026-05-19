@@ -14,7 +14,7 @@ from typing import Any, Callable, Dict, List, Optional, Set
 
 from loguru import logger
 
-from ..mq import MQMessage, SQLiteMQ
+from ..infrastructure.mq import MQMessage, SQLiteMQ
 from .events import Event, EventType
 
 

@@ -6,8 +6,8 @@ from typing import Dict, Optional
 
 from loguru import logger
 
-from ...config import RuntimeConfig
-from ...release_plan.models import ReleasePlan, SprintDefinition
+from ...infrastructure.config import RuntimeConfig
+from ...application.release_plan.models import ReleasePlan, SprintDefinition
 from ..hooks.sprint_hooks import SprintLifecycleHooks
 from ..sprint_types import SprintResult
 from .knowledge_injector import KnowledgeInjector

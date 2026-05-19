@@ -5,11 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict
 
-from ..integrations.autogpt.compose import build_default_compose_spec
-from ..integrations.autogpt.runtime import AutoGPTRuntimeSpec
-from ..integrations.langgraph import IntentGraphRuntime, LangGraphRuntimeAdapter, LangGraphRuntimeSpec, PlanRuntime, SprintGraphRuntime
-from ..integrations.phoenix.exporter import PhoenixExporterSpec
-from ..integrations.phoenix.trace_runtime import PhoenixTraceRuntime
+from ...infrastructure.integrations.autogpt.compose import build_default_compose_spec
+from ...infrastructure.integrations.autogpt.runtime import AutoGPTRuntimeSpec
+from ...infrastructure.integrations.langgraph import IntentGraphRuntime, LangGraphRuntimeAdapter, LangGraphRuntimeSpec, PlanRuntime, SprintGraphRuntime
+from ...infrastructure.integrations.phoenix.exporter import PhoenixExporterSpec
+from ...infrastructure.integrations.phoenix.trace_runtime import PhoenixTraceRuntime
 from .spec import build_platform_spec
 
 

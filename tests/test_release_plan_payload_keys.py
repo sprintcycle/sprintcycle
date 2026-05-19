@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sprintcycle.release_plan.payload_keys import (
+from sprintcycle.application.release_plan.payload_keys import (
     KEY_PLAN_ID,
     KEY_PLAN_NAME,
     KEY_PLAN_YAML,

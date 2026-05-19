@@ -7,7 +7,7 @@ from loguru import logger
 from ..execution.events import Event, EventType, ExecutionEventBackend
 from ..execution.hooks.sprint_hooks import SprintLifecycleHooks
 from ..execution.sprint_types import SprintResult
-from ..release_plan.models import ReleasePlan, SprintDefinition
+from ...application.release_plan.models import ReleasePlan, SprintDefinition
 from .config import VerificationConfig
 from .engine import VerificationEngine
 from .reporter import VerificationReportAdapter

@@ -7,7 +7,7 @@ from typing import Optional
 
 import click
 
-from ..config import RuntimeConfig
+from ...infrastructure.config import RuntimeConfig
 from .config import VerificationConfig
 from .engine import VerificationEngine
 from .reporter import VerificationReportAdapter

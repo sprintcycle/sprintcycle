@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from sprintcycle.release_plan.generator import IntentReleasePlanGenerator
-from sprintcycle.release_plan.models import ExecutionMode
+from sprintcycle.execution.planners.generator import IntentReleasePlanGenerator
+from sprintcycle.application.release_plan.models import ExecutionMode
 from sprintcycle.run_workspace import (
     effective_write_policy,
     normalize_reference_paths,
@@ -35,7 +35,7 @@ def test_normalize_reference_paths_requires_dir(tmp_path: Path) -> None:
 
 
 def test_normal_build_uses_anchor_for_project_path(tmp_path: Path) -> None:
-    from sprintcycle.intent.parser import ActionType, ParsedIntent
+    from sprintcycle.domain.intent.parser import ActionType, ParsedIntent
 
     intent = ParsedIntent(
         action=ActionType.BUILD,

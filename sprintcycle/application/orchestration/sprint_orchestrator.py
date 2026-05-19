@@ -34,18 +34,18 @@ from ..execution.hooks.task_hooks import ChainedTaskHooks, TaskLifecycleHooks
 from ..execution.knowledge.knowledge_hook import KnowledgeInjectionHook
 from ..execution.sprint_executor import SprintExecutor
 from ..execution.sprint_types import ExecutionStatus, SprintResult, TaskResult
-from ..governance.sprint_hooks import GovernanceSprintHooks
-from ..governance.task_hooks import GovernanceTaskLifecycleHooks
-from ..verification.hooks import VerificationSprintHooks
-from ..prompt_sources import compute_prompt_sources_fingerprint
+from ...governance.sprint_hooks import GovernanceSprintHooks
+from ...governance.task_hooks import GovernanceTaskLifecycleHooks
+from ...domain.verification.hooks import VerificationSprintHooks
+from ...domain.support_legacy.prompt_sources import compute_prompt_sources_fingerprint
 from ..release_plan.expand import expand_release_plan_for_execution
 from ..release_plan.models import ReleasePlan, SprintBacklogItem, SprintDefinition
 from ..evolution.intent_evolution_loop import UserIntentEvolutionLoop
 from ..evolution.memory_store import MemoryStore
-from ..persistence.knowledge_repository import KnowledgeCardRepository
-from ..integrations.langgraph.compiler import compile_intent_graph, compile_sprint_graph
-from ..integrations.phoenix.trace_runtime import PhoenixTraceRuntime
-from ..integrations.phoenix.exporter import PhoenixExporterSpec
+from ...infrastructure.persistence.knowledge_repository import KnowledgeCardRepository
+from ...infrastructure.integrations.langgraph.compiler import compile_intent_graph, compile_sprint_graph
+from ...infrastructure.integrations.phoenix.trace_runtime import PhoenixTraceRuntime
+from ...infrastructure.integrations.phoenix.exporter import PhoenixExporterSpec
 from ..services.lifecycle_contracts import build_lifecycle_contract
 
 
@@ -121,7 +121,7 @@ class SprintOrchestrator:
         if getattr(self.config, "governance_enabled", False) and getattr(self.config, "governance_task_hooks_enabled", False):
             task_hooks = GovernanceTaskLifecycleHooks(self.config, self._project_root, self._get_event_bus())
         if self._hitl_coordinator is not None and getattr(self.config, "hitl_enabled", False):
-            from ..hitl.hooks import HitlTaskHooks
+            from ...governance.hitl.hooks import HitlTaskHooks
             hitl_th = HitlTaskHooks(self.config, self._hitl_coordinator)
             if task_hooks is not None:
                 task_hooks = ChainedTaskHooks((hitl_th, task_hooks))
@@ -138,7 +138,7 @@ class SprintOrchestrator:
         if getattr(self.config, "verification_enabled", False):
             parts.append(VerificationSprintHooks(self._project_root, self.config, self._get_event_bus()))
         if self._hitl_coordinator is not None:
-            from ..hitl.hooks import HitlSprintHooks
+            from ...governance.hitl.hooks import HitlSprintHooks
             parts.append(HitlSprintHooks(self.config, self._hitl_coordinator))
         parts.append(_OrchestratorSprintHooks(self, release_plan))
         return ChainedSprintHooks(tuple(parts))
@@ -168,7 +168,7 @@ class SprintOrchestrator:
             logger.warning("persist release finalization failed: {}", e)
 
     async def _post_sprint_measurement(self, release_plan: ReleasePlan, *, sprint_index: int = 0, sprint: Optional[SprintDefinition] = None, sprint_result: Optional[SprintResult] = None) -> Optional[MeasurementResult]:
-        from ..config.quality import runs_pytest
+        from ...infrastructure.config.quality import runs_pytest
         from ..evolution.measurement import MeasurementProvider
         if not runs_pytest(self.config.effective_quality_level()):
             return None

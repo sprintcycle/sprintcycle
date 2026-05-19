@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from sprintcycle.config.runtime_config import RuntimeConfig
+from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
 from sprintcycle.execution.events import EventBus, EventType
 from sprintcycle.execution.hooks.governance_context import (
     CTX_GOVERNANCE_TASK_AFTER_DETAIL,
@@ -27,7 +27,7 @@ from sprintcycle.governance.runner import (
 )
 from sprintcycle.governance.task_hooks import GovernanceTaskLifecycleHooks
 from sprintcycle.governance.yaml_checks import filter_argv_items_by_governance_sources, run_argv_checks, run_argv_item
-from sprintcycle.release_plan.models import SprintBacklogItem
+from sprintcycle.application.release_plan.models import SprintBacklogItem
 
 
 def test_governance_report_to_dict_and_should_block_ci():
@@ -419,7 +419,7 @@ def test_compose_supply_chain_latest_image_warning(tmp_path: Path) -> None:
 
 
 def test_planning_gate_spec_ref_missing_with_release_plan(tmp_path: Path) -> None:
-    from sprintcycle.release_plan.models import (
+    from sprintcycle.application.release_plan.models import (
         ExecutionMode,
         ProductAnchor,
         ReleasePlan,

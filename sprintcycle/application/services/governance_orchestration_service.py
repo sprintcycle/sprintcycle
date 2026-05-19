@@ -14,7 +14,7 @@ from typing import Any, Dict, Optional
 
 from loguru import logger
 
-from ..governance.facade import GovernanceFacade
+from ...governance.facade import GovernanceFacade
 from ..hooks import GOVERNANCE_CHECK, GOVERNANCE_CHECKED_EVENT, GOVERNANCE_CHECK_FAILED_EVENT, HookContext, HookRegistry, HookRunner
 
 
@@ -26,9 +26,9 @@ class GovernanceOrchestrationService:
     hooks: HookRegistry | None = None
 
     def governance_check(self, gate: str = "review", **kwargs: Any) -> Dict[str, Any]:
-        from ..governance.arch_guard.config import ArchGuardConfig
-        from ..governance.arch_guard.engine import ArchGuardEngine
-        from ..governance.arch_guard.reporter import GovernanceReportAdapter
+        from ...governance.arch_guard.config import ArchGuardConfig
+        from ...governance.arch_guard.engine import ArchGuardEngine
+        from ...governance.arch_guard.reporter import GovernanceReportAdapter
 
         start = time.time()
         hook_ctx = HookContext(

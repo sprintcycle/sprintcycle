@@ -4,7 +4,7 @@ SprintCycle 配置模块测试
 
 import pytest
 import os
-from sprintcycle.config import (
+from sprintcycle.infrastructure.config import (
     EvolutionRunConfig,
     EvolutionLLMConfig,
     CodingLLMConfig,

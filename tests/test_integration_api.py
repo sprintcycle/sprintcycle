@@ -41,7 +41,7 @@ class TestAPIPlan:
              patch('sprintcycle.api.IntentReleasePlanGenerator') as mock_generator:
 
             # Setup mock ReleasePlan
-            from sprintcycle.release_plan.models import ReleasePlan, ProductAnchor, SprintDefinition, SprintBacklogItem, ExecutionMode
+            from sprintcycle.application.release_plan.models import ReleasePlan, ProductAnchor, SprintDefinition, SprintBacklogItem, ExecutionMode
             mock_plan = ReleasePlan(
                 project=ProductAnchor(name="TestProject", path=self.temp_dir),
                 mode=ExecutionMode.NORMAL,
@@ -74,7 +74,7 @@ class TestAPIPlan:
              patch('sprintcycle.api.IntentReleasePlanGenerator') as mock_generator, \
              patch('sprintcycle.api.ReleasePlanValidator') as mock_validator:
 
-            from sprintcycle.release_plan.models import ReleasePlan, ProductAnchor, SprintDefinition, SprintBacklogItem, ExecutionMode
+            from sprintcycle.application.release_plan.models import ReleasePlan, ProductAnchor, SprintDefinition, SprintBacklogItem, ExecutionMode
             mock_plan = ReleasePlan(
                 project=ProductAnchor(name="TestProject", path=self.temp_dir),
                 mode=ExecutionMode.EVOLUTION,
@@ -126,7 +126,7 @@ class TestAPIRun:
         with patch('sprintcycle.api.IntentParser') as mock_parser, \
              patch('sprintcycle.api.IntentReleasePlanGenerator') as mock_generator, \
              patch('sprintcycle.api.get_state_store') as mock_get_store, \
-             patch('sprintcycle.orchestration.sprint_orchestrator.SprintOrchestrator') as mock_dispatcher_cls:
+             patch('sprintcycle.application.orchestration.sprint_orchestrator.SprintOrchestrator') as mock_dispatcher_cls:
 
             # Setup mock state store
             mock_store = MagicMock(spec=StateStore)
@@ -135,7 +135,7 @@ class TestAPIRun:
                 MagicMock(execution_id="test-exec-123")
             ]
 
-            from sprintcycle.release_plan.models import ReleasePlan, ProductAnchor, SprintDefinition, SprintBacklogItem, ExecutionMode
+            from sprintcycle.application.release_plan.models import ReleasePlan, ProductAnchor, SprintDefinition, SprintBacklogItem, ExecutionMode
             from sprintcycle.execution.sprint_types import SprintResult, TaskResult
 
             mock_plan = ReleasePlan(
@@ -200,13 +200,13 @@ sprints:
 
         with patch('sprintcycle.api.ReleasePlanParser') as mock_parser, \
              patch('sprintcycle.api.get_state_store') as mock_get_store, \
-             patch('sprintcycle.orchestration.sprint_orchestrator.SprintOrchestrator') as mock_dispatcher_cls:
+             patch('sprintcycle.application.orchestration.sprint_orchestrator.SprintOrchestrator') as mock_dispatcher_cls:
 
             mock_store = MagicMock(spec=StateStore)
             mock_get_store.return_value = mock_store
             mock_store.list_executions.return_value = []
 
-            from sprintcycle.release_plan.models import ReleasePlan, ProductAnchor, ExecutionMode
+            from sprintcycle.application.release_plan.models import ReleasePlan, ProductAnchor, ExecutionMode
             mock_plan = ReleasePlan(
                 project=ProductAnchor(name="YAMLProject", path="."),
                 mode=ExecutionMode.NORMAL,
@@ -233,7 +233,7 @@ sprints:
 
     def test_run_release_plan_success(self):
         """run_release_plan: validated in-memory ReleasePlan → RunResult (same stack as run)."""
-        from sprintcycle.release_plan.models import (
+        from sprintcycle.application.release_plan.models import (
             ExecutionMode,
             ProductAnchor,
             ReleasePlan,
@@ -290,7 +290,7 @@ sprints:
 
     def test_run_release_plan_validation_failure(self):
         """run_release_plan returns failed RunResult when validator rejects plan."""
-        from sprintcycle.release_plan.models import (
+        from sprintcycle.application.release_plan.models import (
             ExecutionMode,
             ProductAnchor,
             ReleasePlan,
@@ -618,7 +618,7 @@ class TestAPIResume:
 
         with patch('sprintcycle.api.get_state_store') as mock_get_store, \
              patch('sprintcycle.api.ReleasePlanParser') as mock_parser, \
-             patch('sprintcycle.orchestration.sprint_orchestrator.SprintOrchestrator') as mock_dispatcher_cls:
+             patch('sprintcycle.application.orchestration.sprint_orchestrator.SprintOrchestrator') as mock_dispatcher_cls:
 
             mock_store = MagicMock(spec=StateStore)
             mock_get_store.return_value = mock_store
@@ -658,7 +658,7 @@ sprints:
             mock_store.load.return_value = mock_state
             mock_store.can_resume.return_value = True
 
-            from sprintcycle.release_plan.models import ReleasePlan, ProductAnchor, ExecutionMode
+            from sprintcycle.application.release_plan.models import ReleasePlan, ProductAnchor, ExecutionMode
             mock_plan = ReleasePlan(
                 project=ProductAnchor(name="ResumeProject", path="."),
                 mode=ExecutionMode.NORMAL,

@@ -7,9 +7,9 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from loguru import logger
 
 if TYPE_CHECKING:
-    from ...config.runtime_config import RuntimeConfig
-    from ...evolution.measurement import MeasurementResult
-    from ...release_plan.models import ReleasePlan, SprintDefinition
+    from ...infrastructure.config.runtime_config import RuntimeConfig
+    from ...application.evolution.measurement import MeasurementResult
+    from ...application.release_plan.models import ReleasePlan, SprintDefinition
     from ..sprint_types import SprintResult
 
 
@@ -32,7 +32,7 @@ def persist_sprint_outcome_card(
     if not getattr(config, "persist_sprint_knowledge_cards", True):
         return None
     try:
-        from ...persistence.knowledge_repository import KnowledgeCardRepository
+        from ...infrastructure.persistence.knowledge_repository import KnowledgeCardRepository
         from .knowledge_hook import resolve_knowledge_db_path
     except Exception as e:  # pragma: no cover
         logger.debug("knowledge card deps unavailable: {}", e)

@@ -31,7 +31,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Protocol, Self
 
 if TYPE_CHECKING:
-    from ..config.runtime_config import RuntimeConfig
+    from ..infrastructure.config.runtime_config import RuntimeConfig
 
 from loguru import logger
 
@@ -265,7 +265,7 @@ def ensure_default_execution_event_backend_for_project(
         return
     from pathlib import Path
 
-    from ..config.runtime_config import RuntimeConfig
+    from ..infrastructure.config.runtime_config import RuntimeConfig
 
     cfg = config if config is not None else RuntimeConfig.from_project(project_path)
     mode = (getattr(cfg, "execution_event_backend", None) or "sqlite").strip().lower()

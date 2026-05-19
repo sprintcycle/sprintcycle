@@ -18,7 +18,7 @@ from .store import HitlSqliteStore, default_hitl_db_path
 from .types import HitlCorrection, HitlDecision, HitlGate, HitlRequestRecord, HitlReplayDirective, HitlRiskLevel
 
 if TYPE_CHECKING:
-    from ...config.runtime_config import RuntimeConfig
+    from ...infrastructure.config.runtime_config import RuntimeConfig
 
 
 def _timeout_decision(config: "RuntimeConfig") -> HitlDecision:

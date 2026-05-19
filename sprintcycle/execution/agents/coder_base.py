@@ -140,7 +140,7 @@ class CoderAgent(AgentExecutor):
     def _maybe_get_codegen_cache(self, context: AgentContext, cache_key: str) -> Optional[Dict[str, Any]]:
         if not context.config.get("cache_llm_codegen", True):
             return None
-        from ..cache import get_cache
+        from ...infrastructure.cache import get_cache
 
         v = get_cache().get(cache_key)
         if isinstance(v, dict) and v.get("success"):
@@ -152,7 +152,7 @@ class CoderAgent(AgentExecutor):
             return
         if not result.get("success"):
             return
-        from ..cache import get_cache
+        from ...infrastructure.cache import get_cache
 
         get_cache().set(cache_key, result, ttl_hours=24)
 

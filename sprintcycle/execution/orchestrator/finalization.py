@@ -12,8 +12,8 @@ from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
-from ..execution.sprint_types import ExecutionStatus, SprintResult
-from ..release_plan.models import ReleasePlan, SprintBacklogItem, SprintDefinition
+from ..sprint_types import ExecutionStatus, SprintResult
+from ...application.release_plan.models import ReleasePlan, SprintBacklogItem, SprintDefinition
 
 
 @dataclass

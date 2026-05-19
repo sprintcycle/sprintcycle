@@ -7,8 +7,8 @@ from typing import Any, Dict, List
 
 from loguru import logger
 
-from ..quality_spec.registry import QualityRegistry
-from ..quality_spec.plugin_protocols import QualityPlugin
+from ..domain.quality_spec.registry import QualityRegistry
+from ..domain.quality_spec.plugin_protocols import QualityPlugin
 
 
 def merge_argv_via_pluggy(

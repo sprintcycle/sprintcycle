@@ -15,9 +15,9 @@ from loguru import logger
 
 from .protocols import ExecutionContext
 from .project_write import ProjectWritePlan
-from ..hitl.types import CTX_HITL_ABORT_EXECUTION, CTX_HITL_SPRINT_ACTION
-from ..release_plan.models import ReleasePlan, SprintBacklogItem, SprintDefinition
-from ..release_plan.payload_keys import context_plan_id_name
+from ..governance.hitl.types import CTX_HITL_ABORT_EXECUTION, CTX_HITL_SPRINT_ACTION
+from ..application.release_plan.models import ReleasePlan, SprintBacklogItem, SprintDefinition
+from ..application.release_plan.payload_keys import context_plan_id_name
 from .hooks.governance_context import (
     CTX_GOVERNANCE_TASK_AFTER_DETAIL,
     CTX_GOVERNANCE_TASK_AFTER_FAILED,

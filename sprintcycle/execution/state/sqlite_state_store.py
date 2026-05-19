@@ -12,12 +12,12 @@ from loguru import logger
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, sessionmaker
 
-from ...persistence.models import ExecutionRow
-from ...persistence.session import create_engine_for_path, init_db
+from ...infrastructure.persistence.models import ExecutionRow
+from ...infrastructure.persistence.session import create_engine_for_path, init_db
 from ..sprint_types import ExecutionStatus
 from .machine import validate_transition
 from .state_store import ExecutionState
-from ...release_plan.payload_keys import checkpoint_plan_yaml
+from ...application.release_plan.payload_keys import checkpoint_plan_yaml
 
 
 class SqliteExecutionStore:

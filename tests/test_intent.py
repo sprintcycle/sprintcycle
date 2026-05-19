@@ -3,7 +3,7 @@ SprintCycle Intent 模块测试
 """
 
 import pytest
-from sprintcycle.intent import (
+from sprintcycle.domain.intent import (
     ActionType,
     IntentParser,
     IntentResult,
@@ -277,7 +277,7 @@ class TestIntentResultFromRunResult:
     """IntentResult.from_run_result 与 RunnerHandler 弃用提示"""
 
     def test_from_run_result_success(self):
-        from sprintcycle.release_plan.models import (
+        from sprintcycle.application.release_plan.models import (
             ExecutionMode,
             ProductAnchor,
             ReleasePlan,
@@ -310,7 +310,7 @@ class TestIntentResultFromRunResult:
         assert ir.sprint_results == []
 
     def test_from_run_result_pending_knowledge(self):
-        from sprintcycle.release_plan.models import (
+        from sprintcycle.application.release_plan.models import (
             ExecutionMode,
             ProductAnchor,
             ReleasePlan,

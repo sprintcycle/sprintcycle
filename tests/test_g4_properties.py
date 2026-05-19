@@ -9,15 +9,15 @@ from __future__ import annotations
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from sprintcycle.config import flatten_sprintcycle_toml
-from sprintcycle.config.quality import (
+from sprintcycle.infrastructure.config import flatten_sprintcycle_toml
+from sprintcycle.infrastructure.config.quality import (
     QUALITY_LEVELS,
     QUALITY_PROFILES,
     normalize_quality_level,
     normalize_quality_profile,
     resolve_effective_quality_level,
 )
-from sprintcycle.release_plan.parser import ReleasePlanParser
+from sprintcycle.application.release_plan.parser import ReleasePlanParser
 
 
 @settings(max_examples=50)

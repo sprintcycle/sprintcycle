@@ -22,8 +22,8 @@ from .models import (
     VersionArtifact,
 )
 from ...infrastructure.sandbox.manager import SandboxManager
-from ..versioning.manifests import VersionManifest
-from ..versioning.registry import VersionRegistry
+from ...governance.versioning.manifests import VersionManifest
+from ...governance.versioning.registry import VersionRegistry
 
 
 class CodeEvolutionAdapter(ABC):

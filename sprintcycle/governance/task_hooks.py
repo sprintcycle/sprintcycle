@@ -14,14 +14,14 @@ from ..execution.hooks.governance_context import (
 )
 from ..execution.hooks.task_hooks import TaskLifecycleHooks
 from ..execution.sprint_types import ExecutionStatus, TaskResult
-from ..release_plan.models import SprintBacklogItem
+from ..application.release_plan.models import SprintBacklogItem
 from .hitl import HitlGate, HitlService, create_hitl_coordinator, evaluate_hitl_policy
 from .report import GovernanceViolation
 from .yaml_checks import checks_for_gate, filter_argv_items_by_governance_sources, run_argv_item
 from .yaml_merge import load_merged_governance_data
 
 if TYPE_CHECKING:
-    from ..config.runtime_config import RuntimeConfig
+    from ..infrastructure.config.runtime_config import RuntimeConfig
 
 
 class GovernanceTaskLifecycleHooks(TaskLifecycleHooks):

@@ -3,10 +3,10 @@
 import asyncio
 from typing import Any, Dict, List, Optional
 
-from sprintcycle.config import RuntimeConfig
+from sprintcycle.infrastructure.config import RuntimeConfig
 from sprintcycle.execution.sprint_executor import SprintExecutor
 from sprintcycle.execution.hooks.sprint_hooks import ChainedSprintHooks, SprintLifecycleHooks
-from sprintcycle.release_plan.models import ReleasePlan, ProductAnchor, SprintDefinition, SprintBacklogItem, ExecutionMode
+from sprintcycle.application.release_plan.models import ReleasePlan, ProductAnchor, SprintDefinition, SprintBacklogItem, ExecutionMode
 
 
 class CountingHooks(SprintLifecycleHooks):
@@ -109,8 +109,8 @@ def test_orchestrator_uses_execute_sprints_not_per_sprint_loop():
     """Dispatcher Normal 路径应单次调用 execute_sprints（通过 patch 验证）。"""
     from unittest.mock import AsyncMock, patch
 
-    from sprintcycle.orchestration.sprint_orchestrator import SprintOrchestrator
-    from sprintcycle.release_plan.models import ReleasePlan, ProductAnchor, SprintDefinition, SprintBacklogItem, ExecutionMode
+    from sprintcycle.application.orchestration.sprint_orchestrator import SprintOrchestrator
+    from sprintcycle.application.release_plan.models import ReleasePlan, ProductAnchor, SprintDefinition, SprintBacklogItem, ExecutionMode
 
     plan = ReleasePlan(
         project=ProductAnchor(name="x", path="."),

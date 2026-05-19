@@ -12,22 +12,22 @@ import json
 from unittest.mock import Mock, patch, MagicMock
 from typing import Tuple
 
-from sprintcycle.diagnostic.health_report import (
+from sprintcycle.observability.diagnostics.health_report import (
     ProjectHealthReport,
     CodeIssue,
     Severity,
 )
 
-from sprintcycle.diagnostic.provider import (
+from sprintcycle.observability.diagnostics.provider import (
     ProjectDiagnostic
 )
 
-from sprintcycle.diagnostic.release_plan_generator import (
+from sprintcycle.observability.diagnostics.release_plan_generator import (
     DiagnosticReleasePlanGenerator,
     LLMReleasePlanGenerator,
     ReleasePlanRuleEngine,
 )
-from sprintcycle.diagnostic.release_plan_rules import ReleasePlanRulePriority
+from sprintcycle.observability.diagnostics.release_plan_rules import ReleasePlanRulePriority
 
 
 class TestProjectHealthReport:

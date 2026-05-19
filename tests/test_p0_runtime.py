@@ -4,13 +4,13 @@ from pathlib import Path
 
 import pytest
 
-from sprintcycle.config import (
+from sprintcycle.infrastructure.config import (
     RuntimeConfig,
     flatten_sprintcycle_toml,
     resolve_effective_quality_level,
 )
-from sprintcycle.config.dynaconf_app import build_dynaconf
-from sprintcycle.evolution.measurement import MeasurementProvider, MeasurementResult
+from sprintcycle.infrastructure.config.dynaconf_app import build_dynaconf
+from sprintcycle.application.evolution.measurement import MeasurementProvider, MeasurementResult
 
 
 def test_resolve_effective_quality_level_profiles():
@@ -232,7 +232,7 @@ def test_quality_gate_l2_coverage_fail():
 
 def test_sprint_executor_retry_budget():
     from sprintcycle.execution.sprint_executor import SprintExecutor
-    from sprintcycle.release_plan.models import SprintDefinition
+    from sprintcycle.application.release_plan.models import SprintDefinition
 
     ex = SprintExecutor(max_verify_fix_rounds=3)
     sp = SprintDefinition(name="s", goals=[], tasks=[])

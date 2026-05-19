@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from sprintcycle.api import SprintCycle
-from sprintcycle.config import RuntimeConfig
+from sprintcycle.infrastructure.config import RuntimeConfig
 from sprintcycle.persistence.knowledge_repository import KnowledgeCardRepository
 
 

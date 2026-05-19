@@ -28,7 +28,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from ..release_plan.models import SprintDefinition, SprintBacklogItem
+from ..application.release_plan.models import SprintDefinition, SprintBacklogItem
 
 
 class ExecutionStatus(Enum):

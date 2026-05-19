@@ -13,8 +13,8 @@ from .workflows import DefaultCodeEvolutionAdapter, DefaultRequirementEvolutionA
 from ..release_plan.generator import IntentReleasePlanGenerator
 from ..release_plan.validator import ReleasePlanValidator
 from ..sandbox.default_manager import DefaultSandboxManager
-from ..versioning.rollback import DefaultVersionRollbackManager
-from ..versioning.sqlite_registry import SQLiteVersionRegistry
+from ...governance.versioning.rollback import DefaultVersionRollbackManager
+from ...governance.versioning.sqlite_registry import SQLiteVersionRegistry
 
 
 class DefaultEvolutionService(EvolutionFacade):
@@ -35,7 +35,7 @@ def create_evolution_facade(
     )
     governance_runner = None
     try:
-        from ..governance.runner import GovernanceRunner
+        from ...governance.runner import GovernanceRunner
 
         governance_runner = GovernanceRunner(config)
     except Exception:

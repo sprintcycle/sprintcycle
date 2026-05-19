@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from sprintcycle.config import RuntimeConfig
+from sprintcycle.infrastructure.config import RuntimeConfig
 from sprintcycle.execution.knowledge.knowledge_injector import KnowledgeInjector
 from sprintcycle.execution.sprint_types import ExecutionStatus
 from sprintcycle.execution.state.state_store import (
@@ -89,7 +89,7 @@ def test_knowledge_search_and_injection(tmp_path: Path) -> None:
     tagged = repo.search(query="", tags=["security"], limit=10)
     assert len(tagged) == 1
 
-    from sprintcycle.release_plan.models import ReleasePlan, ProductAnchor, SprintDefinition, SprintBacklogItem, ExecutionMode
+    from sprintcycle.application.release_plan.models import ReleasePlan, ProductAnchor, SprintDefinition, SprintBacklogItem, ExecutionMode
 
     sprint = SprintDefinition(name="auth sprint", goals=["harden api"], tasks=[SprintBacklogItem(description="t", agent="coder")])
     plan = ReleasePlan(project=ProductAnchor(name="p", path=str(tmp_path)), mode=ExecutionMode.NORMAL, sprints=[sprint])

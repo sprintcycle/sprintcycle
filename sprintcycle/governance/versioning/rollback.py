@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from loguru import logger
 
-from ..evolution.models import EvolutionTarget, RollbackOutcome
+from ...application.evolution.models import EvolutionTarget, RollbackOutcome
 from .git_backend import GitVersionBackend
 from .registry import VersionRegistry, VersionRollbackManager
 

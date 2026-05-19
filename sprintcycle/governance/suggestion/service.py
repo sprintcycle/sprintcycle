@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional
 
-from ...evolution.models import EvolutionRequest
+from ...application.evolution.models import EvolutionRequest
 from .approval import SuggestionApprovalService
 from .classifier import SuggestionClassifier
 from ..suggestion_analyzer import SuggestionAnalyzer

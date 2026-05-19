@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from ...release_plan.models import ReleasePlan, SprintDefinition
+from ...application.release_plan.models import ReleasePlan, SprintDefinition
 from ..protocols import SkillChecklistItem, SkillTrace
 from ..skill_models import SkillArtifact, SkillExecutionRecord, SkillInjectionState
 from ..skill_store import SkillStore

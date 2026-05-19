@@ -5,7 +5,7 @@ MeasurementProvider 测试
 import pytest
 import time
 from unittest.mock import MagicMock, patch
-from sprintcycle.evolution.measurement import (
+from sprintcycle.application.evolution.measurement import (
     MeasurementProvider,
     MeasurementResult,
 )

@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional
 
 from loguru import logger
 
-from ...release_plan.models import ReleasePlan
+from ...application.release_plan.models import ReleasePlan
 from ..sprint_types import ExecutionStatus, SprintResult
 from .state_store import ExecutionState, StateStore
 

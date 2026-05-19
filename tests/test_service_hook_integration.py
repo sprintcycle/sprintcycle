@@ -5,10 +5,10 @@ from typing import Any, Dict
 
 import pytest
 
-from sprintcycle.hooks import HookContext, HookDefinition, HookPhase, HookPolicy, HookRegistry, HookResult, HookRouter, hook_action, hook_events
-from sprintcycle.services.execution_lifecycle_service import ExecutionLifecycleService
-from sprintcycle.services.suggestion_application_service import SuggestionApplicationService
-from sprintcycle.services.governance_orchestration_service import GovernanceOrchestrationService
+from sprintcycle.hooks import HookContext, HookDefinition, HookPhase, HookPolicy, HookRegistry, HookResult, HookRunner, hook_action, hook_events
+from sprintcycle.application.services.execution_lifecycle_service import ExecutionLifecycleService
+from sprintcycle.application.services.suggestion_application_service import SuggestionApplicationService
+from sprintcycle.application.services.governance_orchestration_service import GovernanceOrchestrationService
 
 
 class _FakeExecution:
@@ -245,7 +245,7 @@ def test_governance_check_before_hook_block_is_returned():
 
 
 def test_hook_router_resolves_action_and_events():
-    router = HookRouter(HookRegistry())
+    router = HookRunner(HookRegistry())
     assert router.action("execution", "start") == ("execution", "start")
     assert router.events("execution", "start") == ("execution.started", "execution.start_failed")
 

@@ -11,10 +11,10 @@ import re
 from pathlib import Path
 from typing import Any, Optional
 
-from ..config.runtime_config import RuntimeConfig
-from ..evolution.context import EvolutionContext
-from ..evolution.decision import EvolutionDecision, EvolutionDecisionType
-from ..intent.parser import ActionType, ParsedIntent
+from ...infrastructure.config.runtime_config import RuntimeConfig
+from ...application.evolution.context import EvolutionContext
+from ...application.evolution.decision import EvolutionDecision, EvolutionDecisionType
+from ...domain.intent.parser import ActionType, ParsedIntent
 from .models import (
     EvolutionParams,
     ExecutionMode,

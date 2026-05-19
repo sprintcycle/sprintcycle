@@ -8,12 +8,12 @@ from pathlib import Path
 import pytest
 import yaml
 
-from sprintcycle.evolution.evolution_plan_source import (
+from sprintcycle.application.evolution.evolution_plan_source import (
     DiagnosticReleasePlanSource,
     EvolutionPlanSourceType,
     ManualReleasePlanSource,
 )
-from sprintcycle.release_plan.builders import release_plan_from_diagnostic_slices
+from sprintcycle.application.release_plan.builders import release_plan_from_diagnostic_slices
 class TestManualReleasePlanSource:
     """ManualReleasePlanSource 测试类"""
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from sprintcycle.config.runtime_config import RuntimeConfig
+from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
 from sprintcycle.execution.hooks.governance_context import (
     CTX_GOVERNANCE_TASK_AFTER_DETAIL,
     CTX_GOVERNANCE_TASK_AFTER_FAILED,
@@ -12,7 +12,7 @@ from sprintcycle.execution.hooks.governance_context import (
 from sprintcycle.execution.hooks.task_hooks import TaskLifecycleHooks
 from sprintcycle.execution.sprint_executor import SprintExecutor
 from sprintcycle.execution.sprint_types import ExecutionStatus
-from sprintcycle.release_plan.models import SprintBacklogItem
+from sprintcycle.application.release_plan.models import SprintBacklogItem
 
 
 class _BlockHook(TaskLifecycleHooks):

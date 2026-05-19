@@ -8,9 +8,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from ..execution.sprint_types import ExecutionStatus, SprintResult
-from ..evolution.measurement import MeasurementResult
-from ..release_plan.models import ReleasePlan, SprintDefinition
+from ..sprint_types import ExecutionStatus, SprintResult
+from ...application.evolution.measurement import MeasurementResult
+from ...application.release_plan.models import ReleasePlan, SprintDefinition
 
 
 @dataclass
@@ -55,7 +55,7 @@ class SprintPersistencePolicy:
         sprint_result: SprintResult,
         measurement: Optional[MeasurementResult],
     ) -> None:
-        from ..execution.knowledge.sprint_knowledge_card import persist_sprint_outcome_card
+        from ..knowledge.sprint_knowledge_card import persist_sprint_outcome_card
 
         persist_sprint_outcome_card(
             project_path=orchestrator._project_root,

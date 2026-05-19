@@ -11,7 +11,7 @@ from typing import Any, Dict, Optional, Sequence
 
 from loguru import logger
 
-from ...release_plan.models import ReleasePlan, SprintDefinition
+from ...application.release_plan.models import ReleasePlan, SprintDefinition
 from ..sprint_types import SprintResult
 
 
