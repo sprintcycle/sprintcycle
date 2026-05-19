@@ -43,8 +43,8 @@ class GrimpAdapter:
             "sprintcycle.api",
             "sprintcycle.governance",
             "sprintcycle.execution",
-            "sprintcycle.orchestration",
-            "sprintcycle.release_plan",
+            "sprintcycle.application.orchestration",
+            "sprintcycle.application.release_plan",
         ]
         suspicious_edges = []
         for pkg in sensitive_packages:

@@ -126,7 +126,13 @@ class ArchProvider:
             ]
 
         findings: List[VerificationFinding] = []
-        sensitive_packages = ["sprintcycle.api", "sprintcycle.governance", "sprintcycle.execution", "sprintcycle.orchestration", "sprintcycle.release_plan"]
+        sensitive_packages = [
+            "sprintcycle.api",
+            "sprintcycle.governance",
+            "sprintcycle.execution",
+            "sprintcycle.application.orchestration",
+            "sprintcycle.application.release_plan",
+        ]
         suspicious_edges = []
         for pkg in sensitive_packages:
             try:
