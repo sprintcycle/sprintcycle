@@ -1,8 +1,5 @@
 {
   "mcpServers": {
-    "speckit": {
-      "command": "npx",
-      "args": ["-y", "speckit-mcp-x@latest"]
-    }
+
   }
 }
