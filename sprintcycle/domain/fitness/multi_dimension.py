@@ -5,19 +5,15 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Protocol, Tuple
-
-from sprintcycle.domain.fitness.thresholds import DEFAULT_FITNESS_THRESHOLDS
+from typing import Any, Dict, List, Mapping, Optional, Protocol, Tuple
 
 
 class DimensionAdapter(Protocol):
-    def run(self, project_root: str) -> Any:
-        ...
+    def run(self, project_root: str) -> Any: ...
 
 
 class AsyncDimensionAdapter(Protocol):
-    async def run(self, project_root: str) -> Any:
-        ...
+    async def run(self, project_root: str) -> Any: ...
 
 
 @dataclass(frozen=True)
@@ -108,7 +104,15 @@ class MultiDimensionFitness:
         for (dimension_name, _), result in zip(self._dimension_sources.items(), results):
             score, details, suggestion = self._normalize_result(dimension_name, result)
             weight = float(self.weights.get(dimension_name, 0.0) if self.weights else 0.0)
-            if score >= self.threshold and dimension_name in {"quality", "security", "architecture", "types", "coverage", "maintainability", "performance"}:
+            if score >= self.threshold and dimension_name in {
+                "quality",
+                "security",
+                "architecture",
+                "types",
+                "coverage",
+                "maintainability",
+                "performance",
+            }:
                 suggestion = None
             dimension_scores.append(DimensionScore(name=dimension_name, score=score, weight=weight, details=details))
             if suggestion:
@@ -142,11 +146,21 @@ class MultiDimensionFitness:
 
     async def _evaluate_dimension(self, name: str, source: Optional[Any], project_root: str) -> Any:
         if source is None:
-            return {"name": name, "score": 0.0, "details": {"status": "missing"}, "suggestion": self._suggestion(name, 0.0)}
+            return {
+                "name": name,
+                "score": 0.0,
+                "details": {"status": "missing"},
+                "suggestion": self._suggestion(name, 0.0),
+            }
 
         runner = getattr(source, "run", None)
         if runner is None:
-            return {"name": name, "score": 0.0, "details": {"status": "invalid-adapter"}, "suggestion": self._suggestion(name, 0.0)}
+            return {
+                "name": name,
+                "score": 0.0,
+                "details": {"status": "invalid-adapter"},
+                "suggestion": self._suggestion(name, 0.0),
+            }
 
         result = runner(project_root)
         if asyncio.iscoroutine(result):
@@ -161,7 +175,9 @@ class MultiDimensionFitness:
             score = self._extract_score(result)
             details = dict(result.get("details") or {})
             if not details:
-                details = {k: v for k, v in result.items() if k not in {"score", "details", "suggestion", "suggestions"}}
+                details = {
+                    k: v for k, v in result.items() if k not in {"score", "details", "suggestion", "suggestions"}
+                }
             suggestion = result.get("suggestion") or self._suggestion(name, score)
             if score >= self.threshold:
                 suggestion = None
@@ -237,22 +253,58 @@ class _NullAdapter:
     name: str
 
     def run(self, project_root: str) -> Dict[str, Any]:
-        return {"score": 0.0, "details": {"project_root": project_root, "status": f"{self.name}-unavailable"}, "suggestion": {"dimension": self.name, "score": 0.0, "priority": "low", "message": f"{self.name} adapter unavailable"}}
+        return {
+            "score": 0.0,
+            "details": {"project_root": project_root, "status": f"{self.name}-unavailable"},
+            "suggestion": {
+                "dimension": self.name,
+                "score": 0.0,
+                "priority": "low",
+                "message": f"{self.name} adapter unavailable",
+            },
+        }
 
 
 @dataclass
 class _CoverageAdapter:
     def run(self, project_root: str) -> Dict[str, Any]:
-        return {"score": 0.0, "details": {"project_root": project_root, "status": "not-implemented"}, "suggestion": {"dimension": "coverage", "score": 0.0, "priority": "low", "message": "coverage adapter not yet implemented"}}
+        return {
+            "score": 0.0,
+            "details": {"project_root": project_root, "status": "not-implemented"},
+            "suggestion": {
+                "dimension": "coverage",
+                "score": 0.0,
+                "priority": "low",
+                "message": "coverage adapter not yet implemented",
+            },
+        }
 
 
 @dataclass
 class _MaintainabilityAdapter:
     def run(self, project_root: str) -> Dict[str, Any]:
-        return {"score": 0.0, "details": {"project_root": project_root, "status": "not-implemented"}, "suggestion": {"dimension": "maintainability", "score": 0.0, "priority": "low", "message": "maintainability adapter not yet implemented"}}
+        return {
+            "score": 0.0,
+            "details": {"project_root": project_root, "status": "not-implemented"},
+            "suggestion": {
+                "dimension": "maintainability",
+                "score": 0.0,
+                "priority": "low",
+                "message": "maintainability adapter not yet implemented",
+            },
+        }
 
 
 @dataclass
 class _PerformanceAdapter:
     def run(self, project_root: str) -> Dict[str, Any]:
-        return {"score": 0.0, "details": {"project_root": project_root, "status": "not-implemented"}, "suggestion": {"dimension": "performance", "score": 0.0, "priority": "low", "message": "performance adapter not yet implemented"}}
+        return {
+            "score": 0.0,
+            "details": {"project_root": project_root, "status": "not-implemented"},
+            "suggestion": {
+                "dimension": "performance",
+                "score": 0.0,
+                "priority": "low",
+                "message": "performance adapter not yet implemented",
+            },
+        }

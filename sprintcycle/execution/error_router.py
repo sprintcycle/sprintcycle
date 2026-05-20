@@ -80,6 +80,7 @@ class ErrorRouter:
     def knowledge_base(self):
         if self._knowledge_base is None:
             from .error_knowledge import get_error_knowledge_base
+
             self._knowledge_base = get_error_knowledge_base()
         return self._knowledge_base
 
@@ -88,6 +89,7 @@ class ErrorRouter:
         if self._static_analyzer is None:
             try:
                 from .static_analyzer import StaticAnalyzer
+
                 self._static_analyzer = StaticAnalyzer(".")
             except ImportError:
                 logger.warning("StaticAnalyzer not available")
@@ -108,19 +110,24 @@ class ErrorRouter:
                 return result
 
         # Level 2: Pattern Matching
-        if context.max_level.value in ['level_2_pattern', 'level_3_llm']:
+        if context.max_level.value in ["level_2_pattern", "level_3_llm"]:
             result = await self._route_level_2(context)
             if result.success:
                 result.duration = time.time() - start_time
                 return result
 
         # Level 3: Deep Analysis
-        if context.max_level.value in ['level_3_llm']:
+        if context.max_level.value in ["level_3_llm"]:
             result = await self._route_level_3(context)
             result.duration = time.time() - start_time
             return result
 
-        return RoutingResult(level=RoutingLevel.UNKNOWN, success=False, explanation="Unable to handle error", duration=time.time() - start_time)
+        return RoutingResult(
+            level=RoutingLevel.UNKNOWN,
+            success=False,
+            explanation="Unable to handle error",
+            duration=time.time() - start_time,
+        )
 
     async def _route_level_1(self, context: RoutingContext) -> RoutingResult:
         logger.debug("Level 1: Static Analysis")
@@ -128,7 +135,9 @@ class ErrorRouter:
         if not self.static_analyzer:
             return RoutingResult(level=RoutingLevel.LEVEL_1_STATIC, success=False, explanation="Analyzer not available")
         try:
-            results = await asyncio.wait_for(self.static_analyzer.analyze_python(context.file_paths or None), timeout=5.0)
+            results = await asyncio.wait_for(
+                self.static_analyzer.analyze_python(context.file_paths or None), timeout=5.0
+            )
             if results:
                 errors = [r for r in results if r.severity == "error"]
                 return RoutingResult(
@@ -167,10 +176,13 @@ class ErrorRouter:
         logger.info("Level 3: Deep LLM Analysis")
         self._stats["level_3_count"] += 1
         if not self._llm_client:
-            return RoutingResult(level=RoutingLevel.LEVEL_3_LLM, success=False, explanation="LLM client not available", confidence=0.0)
+            return RoutingResult(
+                level=RoutingLevel.LEVEL_3_LLM, success=False, explanation="LLM client not available", confidence=0.0
+            )
         try:
             from .agents.analyzer import AnalysisRequest, BugAnalyzerAgent
             from .agents.base import AgentContext
+
             analyzer = BugAnalyzerAgent(llm_client=self._llm_client)
             rid = metadata_plan_id(context.metadata)
             agent_ctx = AgentContext(release_plan_id=rid)

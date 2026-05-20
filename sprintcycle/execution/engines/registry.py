@@ -32,7 +32,9 @@ class EngineRegistry:
         self._engines: Dict[str, Callable[[], CodingEngine]] = {}
         self._aliases: Dict[str, str] = {}
 
-    def register(self, name: str, factory: Callable[[], CodingEngine], aliases: Optional[tuple[str, ...]] = None) -> None:
+    def register(
+        self, name: str, factory: Callable[[], CodingEngine], aliases: Optional[tuple[str, ...]] = None
+    ) -> None:
         self._engines[name] = factory
         for alias in aliases or ():
             self._aliases[alias] = name

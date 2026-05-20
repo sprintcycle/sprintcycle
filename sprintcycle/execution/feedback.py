@@ -44,6 +44,7 @@ from .error_knowledge import ErrorPattern
 
 class FeedbackLevel(Enum):
     """反馈级别"""
+
     SUCCESS = "success"
     WARNING = "warning"
     ERROR = "error"
@@ -52,6 +53,7 @@ class FeedbackLevel(Enum):
 
 class FeedbackCategory(Enum):
     """反馈类别"""
+
     CODE_QUALITY = "code_quality"
     PERFORMANCE = "performance"
     COVERAGE = "coverage"
@@ -59,11 +61,10 @@ class FeedbackCategory(Enum):
     EFFICIENCY = "efficiency"
 
 
-
-
 @dataclass
 class ExecutionFeedback:
     """执行反馈数据类"""
+
     release_plan_id: str = ""
     release_plan_name: str = ""
     iteration: int = 1
@@ -80,38 +81,42 @@ class ExecutionFeedback:
     performance_score: float = 0.0
     created_at: datetime = field(default_factory=datetime.now)
     metadata: Dict[str, Any] = field(default_factory=dict)
-    
+
     @property
     def success_rate(self) -> float:
         if self.total_tasks == 0:
             return 0.0
         return round(self.successful_tasks / self.total_tasks * 100, 1)
-    
+
     @property
     def overall_score(self) -> float:
         weights = {"quality": 0.4, "coverage": 0.3, "performance": 0.3}
         score = (
-            self.code_quality_score * weights["quality"] +
-            self.test_coverage * weights["coverage"] +
-            self.performance_score * weights["performance"]
+            self.code_quality_score * weights["quality"]
+            + self.test_coverage * weights["coverage"]
+            + self.performance_score * weights["performance"]
         )
         return round(score, 1)
-    
+
     def add_feedback(self, feedback: str, level: FeedbackLevel, category: FeedbackCategory) -> None:
-        self.feedbacks.append({
-            "feedback": feedback,
-            "level": level.value,
-            "category": category.value,
-            "timestamp": datetime.now().isoformat(),
-        })
-    
+        self.feedbacks.append(
+            {
+                "feedback": feedback,
+                "level": level.value,
+                "category": category.value,
+                "timestamp": datetime.now().isoformat(),
+            }
+        )
+
     def add_issue(self, issue: str, severity: str = "medium") -> None:
-        self.issues.append({
-            "issue": issue,
-            "severity": severity,
-            "timestamp": datetime.now().isoformat(),
-        })
-    
+        self.issues.append(
+            {
+                "issue": issue,
+                "severity": severity,
+                "timestamp": datetime.now().isoformat(),
+            }
+        )
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "release_plan_id": self.release_plan_id,
@@ -131,7 +136,7 @@ class ExecutionFeedback:
             "issues": self.issues,
             "created_at": self.created_at.isoformat(),
         }
-    
+
     @classmethod
     def from_results(
         cls,
@@ -145,15 +150,16 @@ class ExecutionFeedback:
             release_plan_id=release_plan_id,
             release_plan_name=str(release_plan_name),
             sprint_name=sprint_name,
-            iteration=iteration, total_tasks=len(task_results),
+            iteration=iteration,
+            total_tasks=len(task_results),
         )
-        
+
         successful = 0
         failed = 0
         total_duration = 0.0
         agent_results = []
         feedbacks = []
-        
+
         for result in task_results:
             if hasattr(result, "status"):
                 status_val = getattr(result.status, "value", str(result.status))
@@ -161,16 +167,16 @@ class ExecutionFeedback:
                     successful += 1
                 else:
                     failed += 1
-            
+
             if hasattr(result, "duration"):
                 total_duration += result.duration
-            
+
             if hasattr(result, "feedback") and result.feedback:
                 feedbacks.append(result.feedback)
-            
+
             if hasattr(result, "to_dict"):
                 agent_results.append(result.to_dict())
-        
+
         feedback.successful_tasks = successful
         feedback.failed_tasks = failed
         feedback.total_duration = total_duration
@@ -178,9 +184,9 @@ class ExecutionFeedback:
         feedback.code_quality_score = cls._calculate_quality_score(feedbacks)
         feedback.test_coverage = cls._calculate_coverage(agent_results)
         feedback.performance_score = cls._calculate_performance_score(total_duration, len(task_results))
-        
+
         return feedback
-    
+
     @staticmethod
     def _calculate_quality_score(feedbacks: List[str]) -> float:
         if not feedbacks:
@@ -195,7 +201,7 @@ class ExecutionFeedback:
             elif "改进" in fb or "improve" in fb_lower:
                 score -= 5
         return min(max(score, 0), 100)
-    
+
     @staticmethod
     def _calculate_coverage(agent_results: List[Dict]) -> float:
         if not agent_results:
@@ -207,7 +213,7 @@ class ExecutionFeedback:
         if coverages:
             return round(sum(coverages) / len(coverages), 1)
         return 0.0
-    
+
     @staticmethod
     def _calculate_performance_score(duration: float, task_count: int) -> float:
         if task_count == 0:
@@ -223,10 +229,10 @@ class ExecutionFeedback:
 
 class FeedbackLoop:
     """反馈闭环管理器 - 支持持久化"""
-    
+
     def __init__(self, storage_dir: str = ".sprintcycle/feedback"):
         """初始化反馈循环
-        
+
         Args:
             storage_dir: 反馈持久化存储目录
         """
@@ -235,9 +241,9 @@ class FeedbackLoop:
         self._storage_dir = Path(storage_dir)
         self._storage_dir.mkdir(parents=True, exist_ok=True)
         self._register_default_analyzers()
-    
+
     # ==================== 持久化方法 ====================
-    
+
     def save(self, feedback: ExecutionFeedback) -> None:
         """持久化反馈到文件"""
         filepath = self._storage_dir / f"{feedback.release_plan_id}.json"
@@ -248,7 +254,7 @@ class FeedbackLoop:
         except Exception as e:
             logger.error(f"❌ 保存反馈失败: {e}")
             raise
-    
+
     def load_history(self, release_plan_id: str) -> List[ExecutionFeedback]:
         """加载指定 Release Plan 的历史反馈"""
         filepath = self._storage_dir / f"{release_plan_id}.json"
@@ -265,7 +271,7 @@ class FeedbackLoop:
         except Exception as e:
             logger.error(f"❌ 加载历史反馈失败: {e}")
             return []
-    
+
     def get_all_feedbacks(self) -> List[Dict[str, Any]]:
         """获取所有历史反馈"""
         feedbacks = []
@@ -276,19 +282,19 @@ class FeedbackLoop:
         except Exception as e:
             logger.error(f"❌ 读取历史反馈失败: {e}")
         return feedbacks
-    
+
     @property
     def stats(self) -> Dict[str, Any]:
         """获取反馈统计信息"""
         all_feedbacks = self.get_all_feedbacks()
         if not all_feedbacks:
             return {"total": 0, "message": "暂无历史反馈"}
-        
+
         total = len(all_feedbacks)
         success_rates = [f.get("success_rate", 0) for f in all_feedbacks]
         quality_scores = [f.get("code_quality_score", 0) for f in all_feedbacks]
         coverage_scores = [f.get("test_coverage", 0) for f in all_feedbacks]
-        
+
         return {
             "total": total,
             "avg_success_rate": round(sum(success_rates) / total, 1),
@@ -296,9 +302,9 @@ class FeedbackLoop:
             "avg_coverage": round(sum(coverage_scores) / total, 1),
             "latest": all_feedbacks[-1] if all_feedbacks else None,
         }
-    
+
     # ==================== 分析器 ====================
-    
+
     def _register_default_analyzers(self):
         """注册默认分析器"""
         self._analyzers = [
@@ -307,27 +313,27 @@ class FeedbackLoop:
             self._analyze_performance,
             self._analyze_issues,
         ]
-    
+
     def collect(self, release_plan: Any, results: List[Any]) -> ExecutionFeedback:
         """收集反馈"""
         rp_id = getattr(release_plan, "id", "") or ""
         rp_name = getattr(release_plan, "project", type("obj", (), {"name": ""})) or ""
         if hasattr(rp_name, "name"):
             rp_name = rp_name.name
-        
+
         task_results = []
         for result in results:
             if hasattr(result, "task_results"):
                 task_results.extend(result.task_results)
             else:
                 task_results.append(result)
-        
+
         sprint_name = ""
         if results and hasattr(results[0], "sprint_name"):
             sprint_name = results[0].sprint_name
         elif results and hasattr(results[0], "sprint"):
             sprint_name = results[0].sprint.name
-        
+
         feedback = ExecutionFeedback.from_results(
             release_plan_id=rp_id,
             release_plan_name=str(rp_name),
@@ -335,10 +341,10 @@ class FeedbackLoop:
             iteration=1,
             task_results=task_results,
         )
-        
+
         self._history.append(feedback)
         return feedback
-    
+
     def analyze(self, feedback: ExecutionFeedback) -> List[str]:
         """分析反馈，生成改进建议"""
         suggestions = []
@@ -348,7 +354,7 @@ class FeedbackLoop:
                 suggestions.extend(result)
         suggestions.extend(self._analyze_common_issues(feedback))
         return suggestions
-    
+
     def _analyze_success_rate(self, feedback: ExecutionFeedback) -> List[str]:
         suggestions = []
         rate = feedback.success_rate
@@ -357,7 +363,7 @@ class FeedbackLoop:
         elif rate < 80:
             suggestions.append(f"成功率一般({rate}%)，可以进一步优化")
         return suggestions
-    
+
     def _analyze_quality_trends(self, feedback: ExecutionFeedback) -> List[str]:
         suggestions = []
         quality = feedback.code_quality_score
@@ -366,7 +372,7 @@ class FeedbackLoop:
         elif quality < 80:
             suggestions.append("代码质量有提升空间，可为相关任务增加 coder 重构/优化类约束或启用自进化展开")
         return suggestions
-    
+
     def _analyze_performance(self, feedback: ExecutionFeedback) -> List[str]:
         suggestions = []
         if feedback.total_duration > 0:
@@ -374,7 +380,7 @@ class FeedbackLoop:
             if avg_duration > 60:
                 suggestions.append(f"任务平均执行时间较长({avg_duration:.1f}s)，建议优化执行策略")
         return suggestions
-    
+
     def _analyze_issues(self, feedback: ExecutionFeedback) -> List[str]:
         suggestions = []
         for issue in feedback.issues:
@@ -382,7 +388,7 @@ class FeedbackLoop:
             if severity == "high":
                 suggestions.append(f"严重问题需要关注: {issue['issue']}")
         return suggestions
-    
+
     def _analyze_common_issues(self, feedback: ExecutionFeedback) -> List[str]:
         suggestions = []
         coverage = feedback.test_coverage
@@ -392,7 +398,7 @@ class FeedbackLoop:
         if perf < 70:
             suggestions.append(f"性能评分较低({perf})，建议进行性能优化")
         return suggestions
-    
+
     def apply_to_release_plan(self, release_plan: Any, feedback: ExecutionFeedback) -> Any:
         """将反馈应用到 Release Plan（内存模型）。"""
         import copy
@@ -409,36 +415,47 @@ class FeedbackLoop:
                 updated.config = {}
             updated.config["improvement_suggestions"] = suggestions
         return updated
-    
+
     def get_improvements(self, feedback: ExecutionFeedback) -> List[Dict[str, Any]]:
         """获取改进建议详情"""
         improvements = []
         if feedback.success_rate < 80:
-            improvements.append({
-                "category": "efficiency", "title": "提高执行成功率",
-                "description": f"当前成功率 {feedback.success_rate}%",
-                "action": "优化任务定义或增加重试机制",
-            })
+            improvements.append(
+                {
+                    "category": "efficiency",
+                    "title": "提高执行成功率",
+                    "description": f"当前成功率 {feedback.success_rate}%",
+                    "action": "优化任务定义或增加重试机制",
+                }
+            )
         if feedback.code_quality_score < 80:
-            improvements.append({
-                "category": "code_quality", "title": "提升代码质量",
-                "description": f"当前质量评分 {feedback.code_quality_score}",
-                "action": "使用 coder 任务并附加优化/重构类约束，或采用 mode: evolution 由 targets 展开执行",
-            })
+            improvements.append(
+                {
+                    "category": "code_quality",
+                    "title": "提升代码质量",
+                    "description": f"当前质量评分 {feedback.code_quality_score}",
+                    "action": "使用 coder 任务并附加优化/重构类约束，或采用 mode: evolution 由 targets 展开执行",
+                }
+            )
         if feedback.test_coverage < 70:
-            improvements.append({
-                "category": "coverage", "title": "提升测试覆盖率",
-                "description": f"当前覆盖率 {feedback.test_coverage}%",
-                "action": "增加测试用例或使用 Tester 重新生成测试",
-            })
+            improvements.append(
+                {
+                    "category": "coverage",
+                    "title": "提升测试覆盖率",
+                    "description": f"当前覆盖率 {feedback.test_coverage}%",
+                    "action": "增加测试用例或使用 Tester 重新生成测试",
+                }
+            )
         if feedback.performance_score < 80:
-            improvements.append({
-                "category": "performance", "title": "提升性能",
-                "description": f"当前性能评分 {feedback.performance_score}",
-                "action": "在 goals 中强调 performance 后由自进化展开，或增加 coder 性能优化类任务",
-            })
+            improvements.append(
+                {
+                    "category": "performance",
+                    "title": "提升性能",
+                    "description": f"当前性能评分 {feedback.performance_score}",
+                    "action": "在 goals 中强调 performance 后由自进化展开，或增加 coder 性能优化类任务",
+                }
+            )
         return improvements
-    
 
     def decide(self, feedback: ExecutionFeedback) -> Dict[str, Any]:
         """基于反馈做出决策
@@ -476,27 +493,28 @@ class FeedbackLoop:
             "reason": f"执行良好，成功率{feedback.success_rate}%",
             "suggestions": suggestions,
         }
+
     def track_learning(self, iterations: Optional[int] = None) -> Dict[str, Any]:
         """跟踪学习进度"""
         history = self._history[-iterations:] if iterations else self._history
         if not history:
             return {"iterations": 0, "message": "暂无学习历史"}
-        
+
         success_rates = [f.success_rate for f in history]
         quality_scores = [f.code_quality_score for f in history]
         performance_scores = [f.performance_score for f in history]
-        
+
         avg_success_rate = sum(success_rates) / len(success_rates)
         avg_quality = sum(quality_scores) / len(quality_scores)
         avg_performance = sum(performance_scores) / len(performance_scores)
-        
+
         if len(history) >= 2:
             success_trend = "improving" if success_rates[-1] > success_rates[0] else "declining"
             quality_trend = "improving" if quality_scores[-1] > quality_scores[0] else "declining"
         else:
             success_trend = "stable"
             quality_trend = "stable"
-        
+
         return {
             "iterations": len(history),
             "avg_success_rate": round(avg_success_rate, 1),
@@ -506,17 +524,17 @@ class FeedbackLoop:
             "quality_trend": quality_trend,
             "latest_overall_score": history[-1].overall_score,
         }
-    
+
     def get_history(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
         """获取反馈历史"""
         history = self._history[-limit:] if limit else self._history
         return [f.to_dict() for f in history]
-    
+
     def export_feedback(self, filepath: str) -> None:
         """导出反馈历史到文件"""
         with open(filepath, "w", encoding="utf-8") as f:
             json.dump(self.get_history(), f, ensure_ascii=False, indent=2)
-    
+
     def import_feedback(self, filepath: str) -> None:
         """从文件导入反馈历史"""
         with open(filepath, "r", encoding="utf-8") as f:

@@ -20,22 +20,24 @@ from sprintcycle.exceptions import Severity
 
 class ErrorCategory(str, Enum):
     """错误类型分类"""
-    SYNTAX = "syntax"              # 语法错误
-    IMPORT = "import"              # 导入错误
-    TYPE = "type"                  # 类型错误
-    NAME = "name"                  # 名称错误
-    VALUE = "value"                # 值错误
-    INDEX = "index"                # 索引错误
-    KEY = "key"                    # 键错误
-    ATTRIBUTE = "attribute"        # 属性错误
-    MEMORY = "memory"              # 内存错误
-    RUNTIME = "runtime"            # 运行时错误
-    UNKNOWN = "unknown"            # 未知错误
+
+    SYNTAX = "syntax"  # 语法错误
+    IMPORT = "import"  # 导入错误
+    TYPE = "type"  # 类型错误
+    NAME = "name"  # 名称错误
+    VALUE = "value"  # 值错误
+    INDEX = "index"  # 索引错误
+    KEY = "key"  # 键错误
+    ATTRIBUTE = "attribute"  # 属性错误
+    MEMORY = "memory"  # 内存错误
+    RUNTIME = "runtime"  # 运行时错误
+    UNKNOWN = "unknown"  # 未知错误
 
 
 @dataclass
 class Location:
     """问题位置"""
+
     file_path: Optional[str] = None
     line_number: Optional[int] = None
     column_number: Optional[int] = None
@@ -60,6 +62,7 @@ class Location:
 @dataclass
 class BugReport:
     """Bug 分析报告"""
+
     # 错误基本信息
     error_type: str = ""
     error_message: str = ""
@@ -96,6 +99,7 @@ class BugReport:
 @dataclass
 class FixSuggestion:
     """修复建议"""
+
     file_path: str = ""
     old_code: str = ""
     new_code: str = ""
@@ -124,6 +128,7 @@ class FixSuggestion:
 @dataclass
 class FixResult:
     """修复结果"""
+
     success: bool = False
     file_path: str = ""
 
@@ -149,6 +154,7 @@ class FixResult:
 @dataclass
 class AnalysisRequest:
     """分析请求"""
+
     error_log: str = ""
     code_context: Optional[Dict[str, str]] = None
     file_paths: List[str] = field(default_factory=list)
@@ -164,6 +170,7 @@ class AnalysisRequest:
 @dataclass
 class AnalysisResult:
     """完整分析结果"""
+
     # 原始请求
     request: AnalysisRequest = field(default_factory=AnalysisRequest)
 
@@ -187,6 +194,7 @@ class AnalysisResult:
 @dataclass
 class StackFrame:
     """堆栈帧信息"""
+
     file_path: str = ""
     line_number: int = 0
     function_name: Optional[str] = None
@@ -197,6 +205,7 @@ class StackFrame:
 @dataclass
 class ParsedTraceback:
     """解析后的追踪信息"""
+
     error_type: str = ""
     error_message: str = ""
     full_traceback: str = ""
@@ -208,6 +217,7 @@ class ParsedTraceback:
 @dataclass
 class PatternMatch:
     """模式匹配结果"""
+
     category: ErrorCategory = ErrorCategory.UNKNOWN
     severity: Severity = Severity.MEDIUM
     root_cause: str = ""

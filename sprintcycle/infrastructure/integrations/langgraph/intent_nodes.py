@@ -39,15 +39,16 @@ async def intent_understand(state: IntentState) -> IntentState:
 
 async def plan_generate(state: IntentState) -> IntentState:
     goals = state.get("goals", [state.get("intent", "")])
-    prompt = (
-        "根据以下目标生成Sprint计划：\n"
-        f"目标: {goals}\n"
-        "输出JSON格式的ReleasePlan"
-    )
+    prompt = f"根据以下目标生成Sprint计划：\n目标: {goals}\n输出JSON格式的ReleasePlan"
     try:
         release_plan = await _get_llm_response(prompt)
     except Exception as exc:  # pragma: no cover - defensive graph safety
-        return {**state, "error": f"plan_generate_failed: {exc}", "release_plan": {"sprints": []}, "release_plan_source": "llm_error_fallback"}
+        return {
+            **state,
+            "error": f"plan_generate_failed: {exc}",
+            "release_plan": {"sprints": []},
+            "release_plan_source": "llm_error_fallback",
+        }
     return {
         **state,
         "release_plan": release_plan,
@@ -99,9 +100,19 @@ def intent_evaluate(state: IntentState) -> IntentState:
                 }
             )
     if failed_count > 0 and int(state.get("attempt", 1) or 1) < 3:
-        evaluation = {"action": "retry", "reason": "sprints_failed", "failed_sprint_count": failed_count, "failed_sprints": failed_sprints}
+        evaluation = {
+            "action": "retry",
+            "reason": "sprints_failed",
+            "failed_sprint_count": failed_count,
+            "failed_sprints": failed_sprints,
+        }
     else:
-        evaluation = {"action": "finalize", "reason": "done", "failed_sprint_count": failed_count, "failed_sprints": failed_sprints}
+        evaluation = {
+            "action": "finalize",
+            "reason": "done",
+            "failed_sprint_count": failed_count,
+            "failed_sprints": failed_sprints,
+        }
     return {**state, "evaluation": evaluation}
 
 

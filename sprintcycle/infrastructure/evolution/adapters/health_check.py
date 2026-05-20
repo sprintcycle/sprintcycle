@@ -11,8 +11,7 @@ from sprintcycle.domain.evolution.runtime_state import (
 
 
 class HealthCheckAdapter(Protocol):
-    def check(self) -> EvolutionHealthSnapshot:
-        ...
+    def check(self) -> EvolutionHealthSnapshot: ...
 
 
 @dataclass(slots=True)

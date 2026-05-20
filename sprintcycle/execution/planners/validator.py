@@ -19,12 +19,14 @@ from .models import (
 
 class ValidationError(Exception):
     """验证错误"""
+
     pass
 
 
 @dataclass
 class ValidationResult:
     """验证结果"""
+
     is_valid: bool
     errors: List[str]
     warnings: List[str]
@@ -38,6 +40,7 @@ class ValidationResult:
 
 class YAMLError(ValueError):
     """YAML 解析错误"""
+
     pass
 
 
@@ -119,9 +122,7 @@ class ReleasePlanValidator:
 
         if plan.is_evolution_mode and plan.evolution and plan.evolution.targets:
             if not plan.sprints:
-                warnings.append(
-                    "自进化模式: sprints 为空，执行时将仅按 evolution.targets 展开为标准 Sprint"
-                )
+                warnings.append("自进化模式: sprints 为空，执行时将仅按 evolution.targets 展开为标准 Sprint")
                 return errors, warnings
             warnings.append(
                 "自进化模式: 执行时将按 evolution.targets 重新展开为标准 Sprint，"
@@ -184,7 +185,8 @@ class ReleasePlanValidator:
 
     def validate_file(self, file_path: str) -> ValidationResult:
         """验证执行计划文件。"""
-        from .parser import ReleasePlanParseError, ReleasePlanParser, YAMLError as ParserYAMLError
+        from .parser import ReleasePlanParseError, ReleasePlanParser
+        from .parser import YAMLError as ParserYAMLError
 
         try:
             parser = ReleasePlanParser()

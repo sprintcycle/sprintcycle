@@ -13,7 +13,9 @@ from typing import Any, Dict
 
 @dataclass
 class DeploymentSpecService:
-    def build_spec(self, contract: Dict[str, Any], *, launch_mode: str = "auto", platform: str = "dashboard") -> Dict[str, Any]:
+    def build_spec(
+        self, contract: Dict[str, Any], *, launch_mode: str = "auto", platform: str = "dashboard"
+    ) -> Dict[str, Any]:
         contract = dict(contract or {})
         evaluation = dict(contract.get("evaluation") or contract.get("evaluation_refs") or {})
         score_card = dict(evaluation.get("score_card") or {})
@@ -31,13 +33,17 @@ class DeploymentSpecService:
             "entrypoint": "sprintcycle.platform.launch",
             "args": {
                 "execution_id": str(contract.get("execution_id") or ""),
-                "project_path": str(contract.get("normalized_request", {}).get("project_path") or contract.get("project_path") or ""),
+                "project_path": str(
+                    contract.get("normalized_request", {}).get("project_path") or contract.get("project_path") or ""
+                ),
             },
         }
         spec["launch_ready"] = bool(spec["promotion_ready"] and spec["runtime_ready"] and spec["contract_score"] >= 70)
         return {"success": True, "data": spec}
 
-    def launch_plan(self, contract: Dict[str, Any], *, launch_mode: str = "auto", platform: str = "dashboard") -> Dict[str, Any]:
+    def launch_plan(
+        self, contract: Dict[str, Any], *, launch_mode: str = "auto", platform: str = "dashboard"
+    ) -> Dict[str, Any]:
         spec = self.build_spec(contract, launch_mode=launch_mode, platform=platform).get("data", {})
         plan = {
             "autogpt_responsibility": "deployment_spec_and_platform_launch",

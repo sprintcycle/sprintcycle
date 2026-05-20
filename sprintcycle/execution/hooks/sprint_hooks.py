@@ -17,28 +17,52 @@ from ..sprint_types import SprintResult
 
 class SprintLifecycleHooks(ABC):
     @abstractmethod
-    async def on_before_sprint(self, sprint_index: int, sprint: SprintDefinition, context: Dict[str, Any], release_plan: Optional[ReleasePlan]) -> None:
+    async def on_before_sprint(
+        self, sprint_index: int, sprint: SprintDefinition, context: Dict[str, Any], release_plan: Optional[ReleasePlan]
+    ) -> None:
         pass
 
     @abstractmethod
-    async def on_after_sprint(self, sprint_index: int, sprint: SprintDefinition, result: SprintResult, context: Dict[str, Any], release_plan: Optional[ReleasePlan]) -> None:
+    async def on_after_sprint(
+        self,
+        sprint_index: int,
+        sprint: SprintDefinition,
+        result: SprintResult,
+        context: Dict[str, Any],
+        release_plan: Optional[ReleasePlan],
+    ) -> None:
         pass
 
-    async def after_plan(self, sprint_index: int, sprint: SprintDefinition, context: Dict[str, Any], release_plan: Optional[ReleasePlan]) -> None:
+    async def after_plan(
+        self, sprint_index: int, sprint: SprintDefinition, context: Dict[str, Any], release_plan: Optional[ReleasePlan]
+    ) -> None:
         return None
 
-    async def before_review(self, sprint_index: int, sprint: SprintDefinition, context: Dict[str, Any], release_plan: Optional[ReleasePlan]) -> None:
+    async def before_review(
+        self, sprint_index: int, sprint: SprintDefinition, context: Dict[str, Any], release_plan: Optional[ReleasePlan]
+    ) -> None:
         return None
 
-    async def after_retro(self, sprint_index: int, sprint: SprintDefinition, context: Dict[str, Any], release_plan: Optional[ReleasePlan]) -> None:
+    async def after_retro(
+        self, sprint_index: int, sprint: SprintDefinition, context: Dict[str, Any], release_plan: Optional[ReleasePlan]
+    ) -> None:
         return None
 
 
 class NoOpSprintLifecycleHooks(SprintLifecycleHooks):
-    async def on_before_sprint(self, sprint_index: int, sprint: SprintDefinition, context: Dict[str, Any], release_plan: Optional[ReleasePlan]) -> None:
+    async def on_before_sprint(
+        self, sprint_index: int, sprint: SprintDefinition, context: Dict[str, Any], release_plan: Optional[ReleasePlan]
+    ) -> None:
         return None
 
-    async def on_after_sprint(self, sprint_index: int, sprint: SprintDefinition, result: SprintResult, context: Dict[str, Any], release_plan: Optional[ReleasePlan]) -> None:
+    async def on_after_sprint(
+        self,
+        sprint_index: int,
+        sprint: SprintDefinition,
+        result: SprintResult,
+        context: Dict[str, Any],
+        release_plan: Optional[ReleasePlan],
+    ) -> None:
         return None
 
 
@@ -46,16 +70,97 @@ class ChainedSprintHooks(SprintLifecycleHooks):
     def __init__(self, hooks: Sequence[SprintLifecycleHooks]):
         self._hooks = tuple(hooks)
 
-    async def on_before_sprint(self, sprint_index: int, sprint: SprintDefinition, context: Dict[str, Any], release_plan: Optional[ReleasePlan]) -> None:
+    async def on_before_sprint(
+        self, sprint_index: int, sprint: SprintDefinition, context: Dict[str, Any], release_plan: Optional[ReleasePlan]
+    ) -> None:
         for h in self._hooks:
             try:
                 await h.on_before_sprint(sprint_index, sprint, context, release_plan)
             except Exception as e:
                 logger.warning("ChainedSprintHooks on_before [{}]: {}", type(h).__name__, e)
 
-    async def on_after_sprint(self, sprint_index: int, sprint: SprintDefinition, result: SprintResult, context: Dict[str, Any], release_plan: Optional[ReleasePlan]) -> None:
+    async def on_after_sprint(
+        self,
+        sprint_index: int,
+        sprint: SprintDefinition,
+        result: SprintResult,
+        context: Dict[str, Any],
+        release_plan: Optional[ReleasePlan],
+    ) -> None:
         for h in reversed(self._hooks):
             try:
                 await h.on_after_sprint(sprint_index, sprint, result, context, release_plan)
             except Exception as e:
                 logger.warning("ChainedSprintHooks on_after [{}]: {}", type(h).__name__, e)
+
+
+class _OrchestratorSprintHooks(SprintLifecycleHooks):
+    """编排器级别的 Sprint 钩子：处理事件发射和测量元数据。"""
+
+    def __init__(self, orchestrator: Any, release_plan: ReleasePlan):
+        self._orchestrator = orchestrator
+        self._release_plan = release_plan
+
+    async def on_before_sprint(
+        self,
+        sprint_index: int,
+        sprint: SprintDefinition,
+        context: Dict[str, Any],
+        release_plan: Optional[ReleasePlan],
+    ) -> None:
+        # 发射 sprint 开始事件
+        from ..events import Event, EventType
+
+        event = Event(
+            type=EventType.SPRINT_START,
+            data={
+                "sprint_index": sprint_index,
+                "sprint_name": getattr(sprint, "name", ""),
+                "release_plan_id": getattr(release_plan, "id", ""),
+            },
+        )
+        try:
+            await self._orchestrator._emit(event)
+        except Exception:
+            pass
+
+    async def on_after_sprint(
+        self,
+        sprint_index: int,
+        sprint: SprintDefinition,
+        result: SprintResult,
+        context: Dict[str, Any],
+        release_plan: Optional[ReleasePlan],
+    ) -> None:
+        # 发射 sprint 完成事件
+        from ..events import Event, EventType
+
+        event = Event(
+            type=EventType.SPRINT_COMPLETE if result.status.value == "success" else EventType.SPRINT_FAILED,
+            data={
+                "sprint_index": sprint_index,
+                "sprint_name": getattr(sprint, "name", ""),
+                "status": result.status.value,
+                "release_plan_id": getattr(release_plan, "id", ""),
+            },
+        )
+        try:
+            await self._orchestrator._emit(event)
+        except Exception:
+            pass
+
+
+def _measurement_run_metadata(
+    config: Any,
+    release_plan: Optional[ReleasePlan] = None,
+    sprint_index: int = 0,
+    sprint: Optional[SprintDefinition] = None,
+    sprint_result: Optional[SprintResult] = None,
+) -> Dict[str, Any]:
+    """生成测量运行的元数据。"""
+    return {
+        "sprint_index": sprint_index,
+        "sprint_name": getattr(sprint, "name", "") if sprint else "",
+        "release_plan_id": getattr(release_plan, "id", "") if release_plan else "",
+        "status": sprint_result.status.value if sprint_result else "unknown",
+    }

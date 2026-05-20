@@ -9,10 +9,12 @@ class BanditAdapter:
 
     async def scan(self, context: Dict[str, Any]) -> Report:
         report = Report(gate="review", passed=True, source=self.name)
-        report.add_finding(Finding(
-            rule_id="bandit:stub",
-            severity="info",
-            message="bandit adapter stub",
-        ))
+        report.add_finding(
+            Finding(
+                rule_id="bandit:stub",
+                severity="info",
+                message="bandit adapter stub",
+            )
+        )
         report.recompute_summary()
         return report

@@ -76,5 +76,4 @@ class VerificationReport:
 class VerificationProvider(Protocol):
     name: str
 
-    def run(self, project_root: str, context: Dict[str, Any]) -> List[VerificationFinding]:
-        ...
+    def run(self, project_root: str, context: Dict[str, Any]) -> List[VerificationFinding]: ...

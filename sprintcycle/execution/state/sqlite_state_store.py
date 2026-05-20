@@ -12,12 +12,12 @@ from loguru import logger
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, sessionmaker
 
+from ...application.release_plan.payload_keys import checkpoint_plan_yaml
 from ...infrastructure.persistence.models import ExecutionRow
 from ...infrastructure.persistence.session import create_engine_for_path, init_db
 from ..sprint_types import ExecutionStatus
 from .machine import validate_transition
 from .state_store import ExecutionState
-from ...application.release_plan.payload_keys import checkpoint_plan_yaml
 
 
 class SqliteExecutionStore:
@@ -75,9 +75,7 @@ class SqliteExecutionStore:
         }
         s = self._session()
         try:
-            existing = s.scalars(
-                select(ExecutionRow).where(ExecutionRow.execution_id == state.execution_id)
-            ).first()
+            existing = s.scalars(select(ExecutionRow).where(ExecutionRow.execution_id == state.execution_id)).first()
             if existing:
                 for k, v in payload.items():
                     if k != "execution_id":
@@ -114,9 +112,7 @@ class SqliteExecutionStore:
         finally:
             s.close()
 
-    def list_executions(
-        self, status: Optional[ExecutionStatus] = None, limit: int = 50
-    ) -> List[ExecutionState]:
+    def list_executions(self, status: Optional[ExecutionStatus] = None, limit: int = 50) -> List[ExecutionState]:
         s = self._session()
         try:
             q = select(ExecutionRow)
@@ -164,8 +160,7 @@ class SqliteExecutionStore:
         state = self.load(execution_id)
         return (
             state is not None
-            and state.status
-            in (ExecutionStatus.PAUSED, ExecutionStatus.FAILED, ExecutionStatus.CANCELLED)
+            and state.status in (ExecutionStatus.PAUSED, ExecutionStatus.FAILED, ExecutionStatus.CANCELLED)
             and state.checkpoint is not None
         )
 
@@ -185,7 +180,14 @@ class SqliteExecutionStore:
             }
         return None
 
-    def update_status(self, execution_id: str, status: ExecutionStatus, error: Optional[str] = None, last_stable_state: Optional[Dict[str, Any]] = None, event_cursor: Optional[int] = None) -> bool:
+    def update_status(
+        self,
+        execution_id: str,
+        status: ExecutionStatus,
+        error: Optional[str] = None,
+        last_stable_state: Optional[Dict[str, Any]] = None,
+        event_cursor: Optional[int] = None,
+    ) -> bool:
         state = self.load(execution_id)
         if state is None:
             return False
@@ -202,9 +204,7 @@ class SqliteExecutionStore:
         self.save(state)
         return True
 
-    def increment_progress(
-        self, execution_id: str, completed_tasks: int = 1, completed_sprints: int = 0
-    ) -> bool:
+    def increment_progress(self, execution_id: str, completed_tasks: int = 1, completed_sprints: int = 0) -> bool:
         state = self.load(execution_id)
         if state is None:
             return False

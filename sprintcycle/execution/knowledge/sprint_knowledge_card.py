@@ -7,11 +7,10 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from loguru import logger
 
 if TYPE_CHECKING:
-    from ...infrastructure.config.runtime_config import RuntimeConfig
     from ...application.evolution.measurement import MeasurementResult
     from ...application.release_plan.models import ReleasePlan, SprintDefinition
+    from ...infrastructure.config.runtime_config import RuntimeConfig
     from ..sprint_types import SprintResult
-
 
 
 def persist_sprint_outcome_card(
@@ -45,9 +44,11 @@ def persist_sprint_outcome_card(
         logger.warning("Sprint 知识卡片跳过（无法打开知识库）: {}", e)
         return None
 
-    ok = sprint_result.status.value in ("success", "skipped") if hasattr(
-        sprint_result.status, "value"
-    ) else str(sprint_result.status) in ("success", "skipped")
+    ok = (
+        sprint_result.status.value in ("success", "skipped")
+        if hasattr(sprint_result.status, "value")
+        else str(sprint_result.status) in ("success", "skipped")
+    )
     lessons: Dict[str, Any] = {
         "sprint_index": sprint_index,
         "sprint_status": getattr(sprint_result.status, "value", str(sprint_result.status)),

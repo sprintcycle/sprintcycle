@@ -16,6 +16,7 @@ from .base import AgentContext, AgentExecutor, AgentResult, AgentType
 
 class TestType(Enum):
     """测试类型枚举"""
+
     UNIT = "unit"
     INTEGRATION = "integration"
     E2E = "e2e"
@@ -25,6 +26,7 @@ class TestType(Enum):
 
 class TestResult(Enum):
     """测试结果枚举"""
+
     PASS = "pass"
     FAIL = "fail"
     SKIP = "skip"
@@ -34,6 +36,7 @@ class TestResult(Enum):
 @dataclass
 class TestCase:
     """测试用例"""
+
     name: str
     type: str = "unit"
     input: Dict[str, Any] = field(default_factory=dict)
@@ -72,10 +75,7 @@ class TesterAgent(AgentExecutor):
         code_to_test = context.get_dependency("code") or context.codebase_context.get("code", "")
 
         if not code_to_test:
-            return AgentResult.from_error(
-                "Tester 需要待测试的代码，请通过 context.dependencies 提供",
-                self.agent_type
-            )
+            return AgentResult.from_error("Tester 需要待测试的代码，请通过 context.dependencies 提供", self.agent_type)
 
         # 生成测试用例
         test_cases = self._generate_test_cases(task, code_to_test, context)
@@ -121,36 +121,44 @@ class TesterAgent(AgentExecutor):
         functions = self._extract_functions(code)
 
         for func in functions:
-            test_cases.append(TestCase(
-                name=f"test_{func['name']}_normal",
-                type=self._test_type,
-                input={"params": func.get("params", [])},
-                expected={"result": "valid"},
-                priority=1,
-            ))
-            test_cases.append(TestCase(
-                name=f"test_{func['name']}_boundary",
-                type=self._test_type,
-                input={"params": ["boundary_value"]},
-                expected={"result": "edge_case"},
-                priority=2,
-            ))
-            test_cases.append(TestCase(
-                name=f"test_{func['name']}_error",
-                type=self._test_type,
-                input={"params": ["invalid_input"]},
-                expected={"result": "error"},
-                priority=3,
-            ))
+            test_cases.append(
+                TestCase(
+                    name=f"test_{func['name']}_normal",
+                    type=self._test_type,
+                    input={"params": func.get("params", [])},
+                    expected={"result": "valid"},
+                    priority=1,
+                )
+            )
+            test_cases.append(
+                TestCase(
+                    name=f"test_{func['name']}_boundary",
+                    type=self._test_type,
+                    input={"params": ["boundary_value"]},
+                    expected={"result": "edge_case"},
+                    priority=2,
+                )
+            )
+            test_cases.append(
+                TestCase(
+                    name=f"test_{func['name']}_error",
+                    type=self._test_type,
+                    input={"params": ["invalid_input"]},
+                    expected={"result": "error"},
+                    priority=3,
+                )
+            )
 
         if not test_cases:
-            test_cases.append(TestCase(
-                name="test_basic_functionality",
-                type=self._test_type,
-                input={},
-                expected={"result": "success"},
-                priority=1,
-            ))
+            test_cases.append(
+                TestCase(
+                    name="test_basic_functionality",
+                    type=self._test_type,
+                    input={},
+                    expected={"result": "success"},
+                    priority=1,
+                )
+            )
 
         return test_cases
 
@@ -158,7 +166,7 @@ class TesterAgent(AgentExecutor):
         """提取函数信息"""
         functions = []
 
-        python_funcs = re.findall(r'def\s+(\w+)\s*\(([^)]*)\)', code)
+        python_funcs = re.findall(r"def\s+(\w+)\s*\(([^)]*)\)", code)
         for name, params in python_funcs:
             param_list = [p.strip().split(":")[0] for p in params.split(",") if p.strip()]
             functions.append({"name": name, "language": "python", "params": param_list})
@@ -173,7 +181,7 @@ class TesterAgent(AgentExecutor):
             lines = TESTER_UNITTEST_STUB_PREFIX.split("\n")
             lines.append("")
             for tc in test_cases:
-                lines.append(f'    def {tc.name}(self):')
+                lines.append(f"    def {tc.name}(self):")
                 lines.append(f'        """Test: {tc.name}"""\n        pass')
                 lines.append("")
             lines.extend(["if __name__ == '__main__':", "    unittest.main()"])
@@ -193,7 +201,9 @@ class TesterAgent(AgentExecutor):
             "failed": failed,
             "skipped": 0,
             "pass_rate": round(passed / max(total, 1) * 100, 1),
-            "results": [{"name": tc.name, "status": "pass" if i < passed else "fail"} for i, tc in enumerate(test_cases)],
+            "results": [
+                {"name": tc.name, "status": "pass" if i < passed else "fail"} for i, tc in enumerate(test_cases)
+            ],
         }
 
     def _analyze_coverage(self, code: str, test_cases: List[TestCase]) -> Dict[str, Any]:
@@ -210,7 +220,9 @@ class TesterAgent(AgentExecutor):
             "covered_lines": covered_lines,
         }
 
-    def _generate_report(self, test_results: Dict[str, Any], coverage: Dict[str, Any], context: AgentContext) -> Dict[str, Any]:
+    def _generate_report(
+        self, test_results: Dict[str, Any], coverage: Dict[str, Any], context: AgentContext
+    ) -> Dict[str, Any]:
         """生成报告"""
         recommendations = []
         if test_results.get("pass_rate", 0) < 80:

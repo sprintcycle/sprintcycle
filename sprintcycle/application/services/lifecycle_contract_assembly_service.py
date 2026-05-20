@@ -32,9 +32,7 @@ class LifecycleContractAssemblyService:
         diagnostics = trace_payload.get("diagnostics", {}) if isinstance(trace_payload, dict) else {}
         runtime = self.runtime_lifecycle(str(state.get("execution_id") or execution_id))
         suggestions = self.suggestion_overview_payload()
-        governance = asyncio.run(
-            self.governance_orchestration.summary(execution_id=execution_id, limit=limit)
-        )
+        governance = asyncio.run(self.governance_orchestration.summary(execution_id=execution_id, limit=limit))
         suggestion_data = suggestions.get("data", {}) if isinstance(suggestions, dict) else {}
         promotion_overview = {
             "ready": int(suggestion_data.get("promotion_ready", 0) or 0),
@@ -76,9 +74,7 @@ class LifecycleContractAssemblyService:
             governance=governance_contract,
         )
         delivery_contract = (
-            delivery_bundle.get("data", {}).get("lifecycle_contract", {})
-            if isinstance(delivery_bundle, dict)
-            else {}
+            delivery_bundle.get("data", {}).get("lifecycle_contract", {}) if isinstance(delivery_bundle, dict) else {}
         )
         completion_score = 0.0
         completion_score += 20.0 if state else 0.0
@@ -90,7 +86,9 @@ class LifecycleContractAssemblyService:
         completion_score += 10.0 if repair.get("ready", False) else 0.0
         repair = {
             "ready": bool(diagnostics.get("repair_ready", False)) if isinstance(diagnostics, dict) else False,
-            "candidate_count": int(diagnostics.get("repair_candidate_count", 0) if isinstance(diagnostics, dict) else 0),
+            "candidate_count": int(
+                diagnostics.get("repair_candidate_count", 0) if isinstance(diagnostics, dict) else 0
+            ),
             "root_causes": list(diagnostics.get("root_cause_tags", []) or []) if isinstance(diagnostics, dict) else [],
         }
         runtime_contract = {
@@ -115,9 +113,7 @@ class LifecycleContractAssemblyService:
         ).get("data", {})
         normalized_request = self.web_lifecycle.normalize_lifecycle_request(
             execution_id=str(state.get("execution_id") or execution_id),
-            task_id=str(
-                state.get("metadata", {}).get("task_id") or state.get("execution_id") or execution_id
-            ),
+            task_id=str(state.get("metadata", {}).get("task_id") or state.get("execution_id") or execution_id),
             project_path=self.project_path,
             source=str(state.get("metadata", {}).get("source") or "observability"),
             task_type=str(state.get("metadata", {}).get("task_type") or "project_optimization"),

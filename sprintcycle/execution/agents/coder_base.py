@@ -51,13 +51,19 @@ class CoderAgent(AgentExecutor):
             requirements["language"] = "javascript"
         elif "rust" in task.lower():
             requirements["language"] = "rust"
-        arch_design = context.get_dependency("architecture_design") or context.codebase_context.get("architecture_design")
+        arch_design = context.get_dependency("architecture_design") or context.codebase_context.get(
+            "architecture_design"
+        )
         if arch_design:
             requirements["architecture_design"] = arch_design
         return requirements
 
     def _resolve_write_policy(self, context: AgentContext) -> str:
-        wp = (context.metadata or {}).get("write_policy") or context.codebase_context.get("write_policy") or "incremental"
+        wp = (
+            (context.metadata or {}).get("write_policy")
+            or context.codebase_context.get("write_policy")
+            or "incremental"
+        )
         return str(wp).strip().lower()
 
     def _resolve_project_write_plan(self, context: AgentContext) -> Optional[ProjectWritePlan]:
@@ -82,7 +88,9 @@ class CoderAgent(AgentExecutor):
             references = []
             for ref in plan.references:
                 if ref.exists:
-                    references.append(f"- {ref.path} | entry_points={','.join(ref.entry_points) or 'none'} | languages={','.join(ref.languages) or 'unknown'}")
+                    references.append(
+                        f"- {ref.path} | entry_points={','.join(ref.entry_points) or 'none'} | languages={','.join(ref.languages) or 'unknown'}"
+                    )
             if not references:
                 references = ["- none"]
             diff = plan.diff_summary
@@ -100,16 +108,18 @@ class CoderAgent(AgentExecutor):
                     "change_hints:",
                     *(hint_lines or ["- none"]),
                 ]
-            plan_section = "\n".join([
-                "[PROJECT WRITE PLAN]",
-                f"target={plan.target_path}",
-                f"write_policy={plan.write_policy}",
-                f"target_exists={plan.target_exists}",
-                "references:",
-                *references,
-                "diff_summary:",
-                *diff_lines,
-            ])
+            plan_section = "\n".join(
+                [
+                    "[PROJECT WRITE PLAN]",
+                    f"target={plan.target_path}",
+                    f"write_policy={plan.write_policy}",
+                    f"target_exists={plan.target_exists}",
+                    "references:",
+                    *references,
+                    "diff_summary:",
+                    *diff_lines,
+                ]
+            )
         if wp == "create":
             mode_hint = "你在创建新项目骨架。优先生成清晰、最小、可运行的初始结构。"
         elif wp == "safe":
@@ -125,10 +135,10 @@ class CoderAgent(AgentExecutor):
 
     def _resolve_coding_engine(self, context: AgentContext) -> str:
         return (
-            (context.metadata or {}).get("coding_engine")
-            or context.codebase_context.get("coding_engine")
-            or "cursor"
-        ).strip().lower()
+            ((context.metadata or {}).get("coding_engine") or context.codebase_context.get("coding_engine") or "cursor")
+            .strip()
+            .lower()
+        )
 
     def _project_cwd(self, context: AgentContext) -> str:
         return str(context.codebase_context.get("project_path") or ".")
@@ -221,7 +231,13 @@ class CoderAgent(AgentExecutor):
             }
         except Exception as e:
             logger.error("Code generation failed: {}", e)
-            return {"success": False, "error": str(e), "error_code": "adapter_exception", "request_id": "", "trace_id": ""}
+            return {
+                "success": False,
+                "error": str(e),
+                "error_code": "adapter_exception",
+                "request_id": "",
+                "trace_id": "",
+            }
 
     def _calculate_quality_score(self, code: str, context: AgentContext) -> float:
         score = 0.5

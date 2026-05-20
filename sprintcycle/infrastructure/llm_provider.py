@@ -32,6 +32,7 @@ def resolve_provider(
 ):
     """解析 LLM Provider 配置，返回 LLMConfig 实例。优先级：显式参数 > 环境变量 > Provider默认值"""
     from .config.manager import LLMConfig
+
     provider_name = (provider or os.environ.get("LLM_PROVIDER", "") or "openai").lower()
     defaults = PROVIDER_DEFAULTS.get(provider_name, PROVIDER_DEFAULTS["openai"])
     resolved_key = api_key or os.environ.get("LLM_API_KEY", "") or os.environ.get("OPENAI_API_KEY", "")
@@ -59,11 +60,17 @@ async def call_llm_async(
 ) -> str:
     """统一异步LLM调用，使用 LiteLLM"""
     import litellm
+
     resolved = resolve_provider(api_key=api_key, api_base=api_base, model=model)
     litellm_model = _to_litellm_model(resolved.provider, resolved.model)
     response = await litellm.acompletion(
-        model=litellm_model, messages=messages or [], api_key=resolved.api_key,
-        api_base=resolved.api_base, temperature=temperature, max_tokens=max_tokens, **kwargs,
+        model=litellm_model,
+        messages=messages or [],
+        api_key=resolved.api_key,
+        api_base=resolved.api_base,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        **kwargs,
     )
     return response.choices[0].message.content or ""
 
@@ -79,11 +86,17 @@ def call_llm(
 ) -> str:
     """统一同步LLM调用，使用 LiteLLM"""
     import litellm
+
     resolved = resolve_provider(api_key=api_key, api_base=api_base, model=model)
     litellm_model = _to_litellm_model(resolved.provider, resolved.model)
     response = litellm.completion(
-        model=litellm_model, messages=messages or [], api_key=resolved.api_key,
-        api_base=resolved.api_base, temperature=temperature, max_tokens=max_tokens, **kwargs,
+        model=litellm_model,
+        messages=messages or [],
+        api_key=resolved.api_key,
+        api_base=resolved.api_base,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        **kwargs,
     )
     return response.choices[0].message.content or ""
 

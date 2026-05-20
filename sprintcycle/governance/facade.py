@@ -10,7 +10,7 @@ from typing import Any, Dict, Optional
 
 from .hitl.facade import HitlFacade, create_hitl_facade
 from .runner import GovernanceRunner
-from .suggestion import SuggestionFacade, create_suggestion_facade
+from .suggestion import create_suggestion_facade
 from .suggestion_service import SuggestionService
 
 

@@ -38,6 +38,7 @@ from loguru import logger
 
 class EventType(Enum):
     """事件类型枚举"""
+
     EXECUTION_START = "execution_start"
     EXECUTION_COMPLETE = "execution_complete"
     EXECUTION_FAILED = "execution_failed"
@@ -58,6 +59,7 @@ class EventType(Enum):
 @dataclass
 class Event:
     """事件数据类"""
+
     type: EventType
     data: Dict[str, Any] = field(default_factory=dict)
     timestamp: Optional[datetime] = None
@@ -122,11 +124,11 @@ class EventBus:
     def on(self, event_type: EventType, handler: Callable) -> "EventBus":
         """
         注册事件处理器
-        
+
         Args:
             event_type: 事件类型
             handler: 事件处理函数
-            
+
         Returns:
             EventBus: 支持链式调用
         """
@@ -139,11 +141,11 @@ class EventBus:
     def once(self, event_type: EventType, handler: Callable) -> "EventBus":
         """
         注册一次性事件处理器（触发后自动移除）
-        
+
         Args:
             event_type: 事件类型
             handler: 事件处理函数
-            
+
         Returns:
             EventBus: 支持链式调用
         """
@@ -156,11 +158,11 @@ class EventBus:
     def off(self, event_type: EventType, handler: Optional[Callable] = None) -> "EventBus":
         """
         移除事件处理器
-        
+
         Args:
             event_type: 事件类型
             handler: 特定处理函数，不传则移除该类型所有处理器
-            
+
         Returns:
             EventBus: 支持链式调用
         """
@@ -184,7 +186,7 @@ class EventBus:
     async def emit(self, event: Event) -> None:
         """
         异步触发事件
-        
+
         Args:
             event: 事件对象
         """
@@ -202,7 +204,7 @@ class EventBus:
     def emit_sync(self, event: Event) -> None:
         """
         同步触发事件（用于非异步场景）
-        
+
         Args:
             event: 事件对象
         """
@@ -219,7 +221,7 @@ class EventBus:
         """安全调用异步处理器"""
         try:
             result = handler(event)
-            if hasattr(result, '__await__'):
+            if hasattr(result, "__await__"):
                 await result
         except Exception as e:
             logger.error(f"Event handler error for {event.type.value}: {e}")
@@ -238,10 +240,7 @@ class EventBus:
 
     def has_listeners(self, event_type: EventType) -> bool:
         """检查是否有监听器"""
-        return bool(
-            self._handlers.get(event_type, []) or
-            self._once_handlers.get(event_type, [])
-        )
+        return bool(self._handlers.get(event_type, []) or self._once_handlers.get(event_type, []))
 
 
 # 全局默认事件后端（惰性初始化为 ``SQLiteMQEventBackend``，路径见 ``ensure_default...``）
@@ -325,7 +324,8 @@ def create_event(
 ) -> Event:
     """创建Sprint执行相关的事件"""
     data: Dict[str, Any] = {
-        k: v for k, v in {
+        k: v
+        for k, v in {
             "sprint_number": sprint_number,
             "sprint_name": sprint_name,
             "agent_type": agent_type,
@@ -335,7 +335,8 @@ def create_event(
             "error": error,
             "execution_id": execution_id,
             "duration": duration,
-        }.items() if v is not None
+        }.items()
+        if v is not None
     }
     data.update(extra)
     return Event(type=event_type, data=data)

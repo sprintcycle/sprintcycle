@@ -34,7 +34,13 @@ def build_public_router(service: PublicAPIService, project_path: str) -> APIRout
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/v1/plan", context=ctx)
         result = deps.service.plan(context=ctx, **payload)
-        record_audit_event(request_id=ctx.request_id, actor=ctx.caller, action="public.plan", resource="/api/v1/plan", outcome="success")
+        record_audit_event(
+            request_id=ctx.request_id,
+            actor=ctx.caller,
+            action="public.plan",
+            resource="/api/v1/plan",
+            outcome="success",
+        )
         return result
 
     @router.post("/run")
@@ -42,7 +48,9 @@ def build_public_router(service: PublicAPIService, project_path: str) -> APIRout
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/v1/run", context=ctx)
         result = deps.service.run(context=ctx, **payload)
-        record_audit_event(request_id=ctx.request_id, actor=ctx.caller, action="public.run", resource="/api/v1/run", outcome="success")
+        record_audit_event(
+            request_id=ctx.request_id, actor=ctx.caller, action="public.run", resource="/api/v1/run", outcome="success"
+        )
         return result
 
     @router.get("/diagnose")
@@ -50,7 +58,13 @@ def build_public_router(service: PublicAPIService, project_path: str) -> APIRout
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/v1/diagnose", context=ctx)
         result = deps.service.diagnose(context=ctx)
-        record_audit_event(request_id=ctx.request_id, actor=ctx.caller, action="public.diagnose", resource="/api/v1/diagnose", outcome="success")
+        record_audit_event(
+            request_id=ctx.request_id,
+            actor=ctx.caller,
+            action="public.diagnose",
+            resource="/api/v1/diagnose",
+            outcome="success",
+        )
         return result
 
     @router.post("/status")
@@ -58,7 +72,13 @@ def build_public_router(service: PublicAPIService, project_path: str) -> APIRout
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/v1/status", context=ctx)
         result = deps.service.status(execution_id=payload.get("execution_id"), context=ctx)
-        record_audit_event(request_id=ctx.request_id, actor=ctx.caller, action="public.status", resource="/api/v1/status", outcome="success")
+        record_audit_event(
+            request_id=ctx.request_id,
+            actor=ctx.caller,
+            action="public.status",
+            resource="/api/v1/status",
+            outcome="success",
+        )
         return result
 
     @router.post("/rollback")
@@ -66,7 +86,13 @@ def build_public_router(service: PublicAPIService, project_path: str) -> APIRout
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/v1/rollback", context=ctx)
         result = deps.service.rollback(execution_id=payload["execution_id"], context=ctx)
-        record_audit_event(request_id=ctx.request_id, actor=ctx.caller, action="public.rollback", resource="/api/v1/rollback", outcome="success")
+        record_audit_event(
+            request_id=ctx.request_id,
+            actor=ctx.caller,
+            action="public.rollback",
+            resource="/api/v1/rollback",
+            outcome="success",
+        )
         return result
 
     @router.post("/stop")
@@ -74,7 +100,13 @@ def build_public_router(service: PublicAPIService, project_path: str) -> APIRout
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/v1/stop", context=ctx)
         result = deps.service.stop(execution_id=payload["execution_id"], context=ctx)
-        record_audit_event(request_id=ctx.request_id, actor=ctx.caller, action="public.stop", resource="/api/v1/stop", outcome="success")
+        record_audit_event(
+            request_id=ctx.request_id,
+            actor=ctx.caller,
+            action="public.stop",
+            resource="/api/v1/stop",
+            outcome="success",
+        )
         return result
 
     return router

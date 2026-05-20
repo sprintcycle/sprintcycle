@@ -57,6 +57,9 @@ class SuggestionFacade:
 
 
 def create_suggestion_facade(project_path: str, config: Any, evolution_facade: Any = None) -> SuggestionFacade:
-    store_root = getattr(getattr(config, "governance_suggestion", None), "root_dir", None) or ".sprintcycle/governance/suggestion"
+    store_root = (
+        getattr(getattr(config, "governance_suggestion", None), "root_dir", None)
+        or ".sprintcycle/governance/suggestion"
+    )
     service = SuggestionService(SuggestionStore(store_root), evolution_facade=evolution_facade)
     return SuggestionFacade(service)

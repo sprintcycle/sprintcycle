@@ -24,11 +24,11 @@ class ProjectDiagnostic:
     ):
         # 支持从 RuntimeConfig 构造
         if runtime_config is not None:
-            self.project_path = getattr(runtime_config, 'repo_path', '.')
-            self.test_command = getattr(runtime_config, 'test_command', test_command)
-            self.coverage_command = getattr(runtime_config, 'coverage_command', coverage_command)
-            self.complexity_threshold = getattr(runtime_config, 'complexity_threshold', complexity_threshold)
-            self.timeout = getattr(runtime_config, 'diagnostic_timeout', timeout)
+            self.project_path = getattr(runtime_config, "repo_path", ".")
+            self.test_command = getattr(runtime_config, "test_command", test_command)
+            self.coverage_command = getattr(runtime_config, "coverage_command", coverage_command)
+            self.complexity_threshold = getattr(runtime_config, "complexity_threshold", complexity_threshold)
+            self.timeout = getattr(runtime_config, "diagnostic_timeout", timeout)
         else:
             self.project_path = project_path
             self.test_command = test_command
@@ -40,7 +40,12 @@ class ProjectDiagnostic:
     def _default_runner(self, cmd: str, cwd: str = ".", timeout: int = 300) -> Tuple[int, str, str]:
         try:
             result = subprocess.run(
-                cmd, shell=True, cwd=cwd, capture_output=True, text=True, timeout=timeout,
+                cmd,
+                shell=True,
+                cwd=cwd,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
             )
             return result.returncode, result.stdout, result.stderr
         except subprocess.TimeoutExpired:
@@ -56,23 +61,30 @@ class ProjectDiagnostic:
         errors = 0
 
         if "passed" in stdout:
-            match = re.search(r'(\d+) passed', stdout)
+            match = re.search(r"(\d+) passed", stdout)
             if match:
                 passed = int(match.group(1))
 
         if "failed" in stdout:
-            match = re.search(r'(\d+) failed', stdout)
+            match = re.search(r"(\d+) failed", stdout)
             if match:
                 failed = int(match.group(1))
 
-        return {"returncode": rc, "passed": passed, "failed": failed, "errors": errors, "stdout": stdout, "stderr": stderr}
+        return {
+            "returncode": rc,
+            "passed": passed,
+            "failed": failed,
+            "errors": errors,
+            "stdout": stdout,
+            "stderr": stderr,
+        }
 
     def check_coverage(self) -> Dict[str, Any]:
         rc, stdout, stderr = self._runner(self.coverage_command, cwd=self.project_path, timeout=self.timeout)
 
         coverage = 0.0
         if "TOTAL" in stdout:
-            match = re.search(r'TOTAL\s+\d+\s+\d+\s+(\d+)%', stdout)
+            match = re.search(r"TOTAL\s+\d+\s+\d+\s+(\d+)%", stdout)
             if match:
                 coverage = float(match.group(1))
 
@@ -83,13 +95,21 @@ class ProjectDiagnostic:
         try:
             result = subprocess.run(
                 ["python", "-m", "mypy", self.project_path, "--no-error-summary"],
-                capture_output=True, text=True, timeout=60,
+                capture_output=True,
+                text=True,
+                timeout=60,
             )
             for line in result.stdout.split("\n"):
                 if ":" in line and "error" in line.lower():
                     parts = line.split(":", 2)
                     if len(parts) >= 3:
-                        issues.append({"file": parts[0], "line": parts[1] if len(parts) > 1 else "0", "message": parts[2] if len(parts) > 2 else ""})
+                        issues.append(
+                            {
+                                "file": parts[0],
+                                "line": parts[1] if len(parts) > 1 else "0",
+                                "message": parts[2] if len(parts) > 2 else "",
+                            }
+                        )
         except Exception as e:
             logger.warning(f"Complexity check failed: {e}")
 

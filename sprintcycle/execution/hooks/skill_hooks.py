@@ -95,16 +95,18 @@ class SkillLifecycleHook(SprintLifecycleHooks):
             state.review_notes.append(f"review_status={review_status}")
             state.retro_metrics.update({"review_score": review_score, "review_status": review_status})
             self._store.save_state(execution_id, sprint.name, task_name, state)
-            self._store.append_record(SkillExecutionRecord(
-                execution_id=execution_id,
-                sprint_name=sprint.name,
-                task_name=task_name,
-                scene=state.scene,
-                skill_id=state.skill_id,
-                state=state,
-                market_source=item.get("source", "openclaw"),
-                market_version=item.get("version", "latest"),
-            ))
+            self._store.append_record(
+                SkillExecutionRecord(
+                    execution_id=execution_id,
+                    sprint_name=sprint.name,
+                    task_name=task_name,
+                    scene=state.scene,
+                    skill_id=state.skill_id,
+                    state=state,
+                    market_source=item.get("source", "openclaw"),
+                    market_version=item.get("version", "latest"),
+                )
+            )
         trace = context.get("task_skill_trace")
         if trace:
             trace_obj = SkillTrace(
@@ -114,7 +116,10 @@ class SkillLifecycleHook(SprintLifecycleHooks):
                 scene=trace["scene"],
                 matched_skills=list(trace.get("matched_skills", [])),
                 injected_skills=list(trace.get("injected_skills", [])),
-                review_checklist=[SkillChecklistItem(**item) if isinstance(item, dict) else item for item in trace.get("review_checklist", [])],
+                review_checklist=[
+                    SkillChecklistItem(**item) if isinstance(item, dict) else item
+                    for item in trace.get("review_checklist", [])
+                ],
                 review_status=review_status,
                 review_score=review_score,
                 retro_metrics=dict(trace.get("retro_metrics", {})),
@@ -131,7 +136,9 @@ class SkillLifecycleHook(SprintLifecycleHooks):
         release_plan: Optional[ReleasePlan],
     ) -> None:
         review_checklists = context.setdefault("review_checklists", [])
-        merged: list[SkillChecklistItem] = [item if isinstance(item, SkillChecklistItem) else SkillChecklistItem(**item) for item in review_checklists]
+        merged: list[SkillChecklistItem] = [
+            item if isinstance(item, SkillChecklistItem) else SkillChecklistItem(**item) for item in review_checklists
+        ]
         skill_items = context.get("skill_matches", [])
         for item in skill_items:
             merged.extend([SkillChecklistItem(**c) if isinstance(c, dict) else c for c in item.get("checklist", [])])
@@ -159,22 +166,26 @@ class SkillLifecycleHook(SprintLifecycleHooks):
             state = self._store.load_state(execution_id, sprint.name, task_name, item["skill_id"])
             state = state or SkillInjectionState(skill_id=item["skill_id"], scene=item["scene"])
             state.mark_retro()
-            state.retro_metrics.update({
-                "review_status": context.get("review_status", "unknown"),
-                "review_score": context.get("review_score", 0.0),
-                "skill_reason": item.get("reason", ""),
-            })
+            state.retro_metrics.update(
+                {
+                    "review_status": context.get("review_status", "unknown"),
+                    "review_score": context.get("review_score", 0.0),
+                    "skill_reason": item.get("reason", ""),
+                }
+            )
             self._store.save_state(execution_id, sprint.name, task_name, state)
-            self._store.append_record(SkillExecutionRecord(
-                execution_id=execution_id,
-                sprint_name=sprint.name,
-                task_name=task_name,
-                scene=state.scene,
-                skill_id=state.skill_id,
-                state=state,
-                market_source=item.get("source", "openclaw"),
-                market_version=item.get("version", "latest"),
-            ))
+            self._store.append_record(
+                SkillExecutionRecord(
+                    execution_id=execution_id,
+                    sprint_name=sprint.name,
+                    task_name=task_name,
+                    scene=state.scene,
+                    skill_id=state.skill_id,
+                    state=state,
+                    market_source=item.get("source", "openclaw"),
+                    market_version=item.get("version", "latest"),
+                )
+            )
         self._orchestrator.after_retro(context)
 
 

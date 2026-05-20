@@ -206,11 +206,19 @@ class HookRunner:
                 raw = hook.handler(context)
                 result = self._coerce_result(raw)
             except Exception as exc:
-                result = HookResult(ok=False, blocked=phase == HookPhase.BEFORE and hook.policy == HookPolicy.FAIL_CLOSED, message=str(exc))
+                result = HookResult(
+                    ok=False,
+                    blocked=phase == HookPhase.BEFORE and hook.policy == HookPolicy.FAIL_CLOSED,
+                    message=str(exc),
+                )
             results.append(result)
             if result.mutated_context:
                 self._apply_mutation(context, dict(result.mutated_context))
-            if phase == HookPhase.BEFORE and hook.policy == HookPolicy.FAIL_CLOSED and (not result.ok or result.blocked):
+            if (
+                phase == HookPhase.BEFORE
+                and hook.policy == HookPolicy.FAIL_CLOSED
+                and (not result.ok or result.blocked)
+            ):
                 break
         return results
 

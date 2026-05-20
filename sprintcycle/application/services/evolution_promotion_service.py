@@ -24,9 +24,7 @@ class EvolutionPromotionService:
         governance: Optional[Dict[str, Any]] = None,
         lifecycle_contract: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        if lifecycle_contract is None or not lifecycle_contract.get("validation_refs", {}).get(
-            "final_snapshot"
-        ):
+        if lifecycle_contract is None or not lifecycle_contract.get("validation_refs", {}).get("final_snapshot"):
             return {
                 "success": False,
                 "error": "promotion requires final snapshot contract",
@@ -55,9 +53,7 @@ class EvolutionPromotionService:
             manifest_path=str(contract.get("metadata", {}).get("manifest_path") or "") or None,
             sandbox_id=str(contract.get("correlation", {}).get("runtime_id") or "") or None,
             source_suggestion_id=str(contract.get("correlation", {}).get("suggestion_id") or "") or None,
-            source_evolution_request_id=str(
-                contract.get("correlation", {}).get("version_id") or execution_id
-            ),
+            source_evolution_request_id=str(contract.get("correlation", {}).get("version_id") or execution_id),
             rollback_to=str(contract.get("validation_refs", {}).get("rollback_to") or "") or None,
             promotion_guard={
                 "final_snapshot": True,

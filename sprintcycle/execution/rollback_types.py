@@ -10,6 +10,7 @@ from typing import Any, Dict
 @dataclass
 class BackupRecord:
     """备份记录"""
+
     backup_id: str
     file_path: str
     backup_path: str
@@ -22,9 +23,15 @@ class BackupRecord:
 
     def to_dict(self) -> Dict[str, Any]:
         return {
-            "backup_id": self.backup_id, "file_path": self.file_path, "backup_path": self.backup_path,
-            "timestamp": self.timestamp.isoformat(), "file_hash": self.file_hash, "file_size": self.file_size,
-            "description": self.description, "operation": self.operation, "metadata": self.metadata,
+            "backup_id": self.backup_id,
+            "file_path": self.file_path,
+            "backup_path": self.backup_path,
+            "timestamp": self.timestamp.isoformat(),
+            "file_hash": self.file_hash,
+            "file_size": self.file_size,
+            "description": self.description,
+            "operation": self.operation,
+            "metadata": self.metadata,
         }
 
     @classmethod
@@ -38,6 +45,7 @@ class BackupRecord:
 @dataclass
 class RollbackResult:
     """回滚结果"""
+
     success: bool
     backup_id: str
     restored_file: str
@@ -47,12 +55,14 @@ class RollbackResult:
 
 class RollbackError(Exception):
     """回滚管理异常"""
+
     pass
 
 
 @dataclass
 class VariantBranch:
     """变体分支记录"""
+
     variant_id: str
     branch_name: str
     base_commit: str

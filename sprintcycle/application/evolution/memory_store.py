@@ -69,7 +69,7 @@ class MemoryStore:
     ):
         # 支持从 RuntimeConfig 构造
         if runtime_config is not None:
-            cache_dir = getattr(runtime_config, 'evolution_cache_dir', './evolution_cache')
+            cache_dir = getattr(runtime_config, "evolution_cache_dir", "./evolution_cache")
             self.storage_path = storage_path or f"{cache_dir}/memory"
         else:
             self.storage_path = storage_path or "./evolution_cache/memory"
@@ -183,7 +183,9 @@ class MemoryStore:
         results.sort(key=lambda m: (m.score, m.created_at), reverse=True)
         return results[:limit]
 
-    def get_successful_patterns(self, memory_type: str = "gene", min_score: float = 0.7, limit: int = 20) -> List[EvolutionMemory]:
+    def get_successful_patterns(
+        self, memory_type: str = "gene", min_score: float = 0.7, limit: int = 20
+    ) -> List[EvolutionMemory]:
         return self.search(memory_type=memory_type, success=True, min_score=min_score, limit=limit)
 
     def get_failed_attempts(self, limit: int = 20) -> List[EvolutionMemory]:
@@ -220,7 +222,7 @@ class MemoryStore:
         if len(self._memories) <= self.max_memories:
             return 0
         memories = sorted(self._memories.values(), key=lambda m: (m.access_count, m.created_at))
-        to_delete = memories[:len(memories) - self.max_memories]
+        to_delete = memories[: len(memories) - self.max_memories]
         for memory in to_delete:
             self.delete(memory.id)
         return len(to_delete)
@@ -229,8 +231,17 @@ class MemoryStore:
     def stats(self) -> Dict[str, Any]:
         total = len(self._memories)
         by_type = {mtype: len(mids) for mtype, mids in self._index_by_type.items()}
-        by_success = {"success": sum(1 for m in self._memories.values() if m.success), "failed": sum(1 for m in self._memories.values() if not m.success)}
-        return {"total_memories": total, "by_type": by_type, "by_success": by_success, "unique_tags": len(self._index_by_tag), "storage_path": str(self._storage_path)}
+        by_success = {
+            "success": sum(1 for m in self._memories.values() if m.success),
+            "failed": sum(1 for m in self._memories.values() if not m.success),
+        }
+        return {
+            "total_memories": total,
+            "by_type": by_type,
+            "by_success": by_success,
+            "unique_tags": len(self._index_by_tag),
+            "storage_path": str(self._storage_path),
+        }
 
     def clear(self) -> int:
         count = len(self._memories)

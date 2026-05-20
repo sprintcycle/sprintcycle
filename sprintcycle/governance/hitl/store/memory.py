@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import Dict, Optional
 
+from ..types import HitlCorrection, HitlReplayDirective, HitlRequestRecord
 from .base import HitlStore
-from ..types import HitlCorrection, HitlRequestRecord, HitlReplayDirective
 
 
 class HitlMemoryStore(HitlStore):
@@ -64,4 +64,6 @@ class HitlMemoryStore(HitlStore):
         self._replays[request_id] = replay
         row = self._requests.get(request_id)
         if row is not None:
-            self._requests[request_id] = replace(row, replay_directive=replay, status="retrying", replay_count=row.replay_count + 1)
+            self._requests[request_id] = replace(
+                row, replay_directive=replay, status="retrying", replay_count=row.replay_count + 1
+            )

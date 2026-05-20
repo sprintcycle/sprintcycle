@@ -14,15 +14,14 @@ Sprint 生命周期钩子：治理 Planning（before）与 Review（after）。
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from loguru import logger
 
+from ..application.release_plan.models import ReleasePlan, SprintDefinition
 from ..execution.events import Event, EventType, ExecutionEventBackend
 from ..execution.hooks.sprint_hooks import SprintLifecycleHooks
 from ..execution.sprint_types import SprintResult
-from ..application.release_plan.models import ReleasePlan, SprintDefinition
 from .arch_guard.config import ArchGuardConfig
 from .arch_guard.engine import ArchGuardEngine
 from .arch_guard.reporter import GovernanceReportAdapter
@@ -63,9 +62,14 @@ class GovernanceSprintHooks(SprintLifecycleHooks):
         ctx.setdefault("sprint_name", getattr(sprint, "name", ""))
         if release_plan is not None:
             ctx.setdefault("release_plan_name", getattr(getattr(release_plan, "project", None), "name", ""))
-            ctx.setdefault("release_plan_mode", getattr(getattr(release_plan, "mode", None), "value", str(getattr(release_plan, "mode", ""))))
+            ctx.setdefault(
+                "release_plan_mode",
+                getattr(getattr(release_plan, "mode", None), "value", str(getattr(release_plan, "mode", ""))),
+            )
         if result is not None:
-            ctx.setdefault("sprint_status", getattr(getattr(result, "status", None), "value", str(getattr(result, "status", ""))))
+            ctx.setdefault(
+                "sprint_status", getattr(getattr(result, "status", None), "value", str(getattr(result, "status", "")))
+            )
         return ctx
 
     async def _emit_gate_summary(

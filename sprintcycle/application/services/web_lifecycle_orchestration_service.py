@@ -65,18 +65,14 @@ class WebLifecycleOrchestrationService:
             task_id=str(execution_contract.get("task_id") or execution_contract.get("execution_id") or ""),
             project_path=str(execution_contract.get("project_path") or self.project_path),
             source=str(
-                execution_contract.get("source")
-                or execution_contract.get("metadata", {}).get("source")
-                or "web"
+                execution_contract.get("source") or execution_contract.get("metadata", {}).get("source") or "web"
             ),
             task_type=str(
                 execution_contract.get("task_type")
                 or execution_contract.get("metadata", {}).get("task_type")
                 or "project_optimization"
             ),
-            intent=str(
-                execution_contract.get("intent") or execution_contract.get("metadata", {}).get("intent") or ""
-            ),
+            intent=str(execution_contract.get("intent") or execution_contract.get("metadata", {}).get("intent") or ""),
             metadata=dict(execution_contract.get("metadata") or {}),
             suggestion_id=str(
                 execution_contract.get("suggestion_id")
@@ -401,9 +397,7 @@ class WebLifecycleOrchestrationService:
         *,
         subtasks: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
-        return build_decompose_artifact(
-            self.coerce_execution_contract(contract_payload), subtasks=subtasks
-        )
+        return build_decompose_artifact(self.coerce_execution_contract(contract_payload), subtasks=subtasks)
 
 
 __all__ = ["WebLifecycleOrchestrationService"]

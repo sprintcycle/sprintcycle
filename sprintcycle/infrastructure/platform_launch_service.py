@@ -17,7 +17,9 @@ from sprintcycle.infrastructure.deployment_spec_service import DeploymentSpecSer
 class PlatformLaunchService:
     spec_service: DeploymentSpecService
 
-    def launch(self, contract: Dict[str, Any], *, launch_mode: str = "auto", platform: str = "dashboard") -> Dict[str, Any]:
+    def launch(
+        self, contract: Dict[str, Any], *, launch_mode: str = "auto", platform: str = "dashboard"
+    ) -> Dict[str, Any]:
         spec_result = self.spec_service.build_spec(contract, launch_mode=launch_mode, platform=platform)
         spec = dict(spec_result.get("data") or {})
         launch_ready = bool(spec.get("launch_ready"))

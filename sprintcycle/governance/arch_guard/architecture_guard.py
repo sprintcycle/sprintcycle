@@ -7,10 +7,7 @@ architecture can be checked mechanically later.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Dict, Iterable, List, Sequence
-
-from .architecture_layers import LAYER_NAMES
+from typing import Dict, List
 
 
 @dataclass(frozen=True)

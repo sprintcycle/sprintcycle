@@ -8,9 +8,11 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 if TYPE_CHECKING:
     from .base import AgentContext
 
+
 @dataclass
 class BatchTask:
     """批量任务条目"""
+
     task: str
     context: "AgentContext"
     priority: int = 0
@@ -20,6 +22,7 @@ class BatchTask:
 @dataclass
 class BatchConfig:
     """批量处理配置"""
+
     enabled: bool = True
     max_batch_size: int = 10
     similarity_threshold: float = 0.7
@@ -30,6 +33,7 @@ class BatchConfig:
 @dataclass
 class CodeRequirements:
     """代码需求"""
+
     language: str = "python"
     file_path: Optional[str] = None
     imports: List[str] = field(default_factory=list)
@@ -41,6 +45,7 @@ class CodeRequirements:
 @dataclass
 class CodeResult:
     """代码生成结果"""
+
     success: bool
     code: str = ""
     file_path: Optional[str] = None

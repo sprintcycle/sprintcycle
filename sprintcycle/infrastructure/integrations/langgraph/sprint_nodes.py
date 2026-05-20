@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Literal
+from typing import Literal
 
 from .states import SprintState
 
@@ -38,11 +38,15 @@ async def sprint_execute(state: SprintState) -> SprintState:
             "timeline": list(state.get("timeline", []) or []) + [{"node": "execute", "status": "error"}],
         }
     result = await sprint_executor.execute_sprint(sprint=sprint, context=sprint_context)
-    sprint_result = result.to_dict() if hasattr(result, "to_dict") else {
-        "sprint_name": sprint.get("name", ""),
-        "status": getattr(result, "status", "success"),
-        "task_results": [],
-    }
+    sprint_result = (
+        result.to_dict()
+        if hasattr(result, "to_dict")
+        else {
+            "sprint_name": sprint.get("name", ""),
+            "status": getattr(result, "status", "success"),
+            "task_results": [],
+        }
+    )
     return {
         **state,
         "sprint_result": sprint_result,

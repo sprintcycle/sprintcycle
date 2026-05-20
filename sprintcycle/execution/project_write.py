@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -80,7 +80,9 @@ class ProjectWritePlan:
 
 
 class ProjectWriteStrategy:
-    def __init__(self, target_path: str, references: Optional[List[str]] = None, write_policy: str = "incremental") -> None:
+    def __init__(
+        self, target_path: str, references: Optional[List[str]] = None, write_policy: str = "incremental"
+    ) -> None:
         self.target_path = Path(target_path)
         self.references = [Path(p) for p in (references or [])]
         self.write_policy = (write_policy or "incremental").strip().lower()
@@ -98,11 +100,15 @@ class ProjectWriteStrategy:
         notes = "reference_ready"
         if entry_points:
             notes = "reference_ready_with_entry_points"
-        return ReferenceProjectSummary(path=str(path), exists=True, files=files, entry_points=entry_points, languages=languages[:10], notes=notes)
+        return ReferenceProjectSummary(
+            path=str(path), exists=True, files=files, entry_points=entry_points, languages=languages[:10], notes=notes
+        )
 
     def _run_git(self, *args: str) -> str:
         try:
-            proc = subprocess.run(["git", *args], cwd=str(self.target_path), capture_output=True, text=True, check=False)
+            proc = subprocess.run(
+                ["git", *args], cwd=str(self.target_path), capture_output=True, text=True, check=False
+            )
             if proc.returncode != 0:
                 return ""
             return proc.stdout.strip()
@@ -126,11 +132,20 @@ class ProjectWriteStrategy:
         backup_path = self._backup_root / rel
         backup_path.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(file_path, backup_path)
-        plan.backups.append(BackupRecord(path=str(file_path), backup_path=str(backup_path), created_at=datetime.now().isoformat()))
+        plan.backups.append(
+            BackupRecord(path=str(file_path), backup_path=str(backup_path), created_at=datetime.now().isoformat())
+        )
 
     def build_plan(self, intent: str) -> ProjectWritePlan:
         refs = [self.summarize_reference(p) for p in self.references]
-        return ProjectWritePlan(target_path=str(self.target_path), write_policy=self.write_policy, intent=intent, references=refs, target_exists=self.target_path.exists(), git=self._detect_git())
+        return ProjectWritePlan(
+            target_path=str(self.target_path),
+            write_policy=self.write_policy,
+            intent=intent,
+            references=refs,
+            target_exists=self.target_path.exists(),
+            git=self._detect_git(),
+        )
 
     def ensure_target(self) -> None:
         self.target_path.mkdir(parents=True, exist_ok=True)
@@ -165,16 +180,51 @@ class ProjectWriteStrategy:
         hints: List[ChangeHint] = []
         if self.write_policy == "create":
             hints.append(ChangeHint(path="README.md", action="new", reason="bootstrap project skeleton", mode="create"))
-            hints.append(ChangeHint(path=".sprintcycle/project.json", action="new", reason="persist project intent and references", mode="create"))
+            hints.append(
+                ChangeHint(
+                    path=".sprintcycle/project.json",
+                    action="new",
+                    reason="persist project intent and references",
+                    mode="create",
+                )
+            )
             return hints
         if self.write_policy == "safe":
-            hints.append(ChangeHint(path=".sprintcycle/write-plan.json", action="append", reason="record safe plan without overwriting existing files", mode="safe"))
+            hints.append(
+                ChangeHint(
+                    path=".sprintcycle/write-plan.json",
+                    action="append",
+                    reason="record safe plan without overwriting existing files",
+                    mode="safe",
+                )
+            )
             return hints
-        hints.append(ChangeHint(path="README.md", action="modify", reason="refresh project summary with reference context", mode="incremental"))
-        hints.append(ChangeHint(path=".sprintcycle/write-plan.json", action="new", reason="record incremental plan and rollback metadata", mode="incremental"))
+        hints.append(
+            ChangeHint(
+                path="README.md",
+                action="modify",
+                reason="refresh project summary with reference context",
+                mode="incremental",
+            )
+        )
+        hints.append(
+            ChangeHint(
+                path=".sprintcycle/write-plan.json",
+                action="new",
+                reason="record incremental plan and rollback metadata",
+                mode="incremental",
+            )
+        )
         for ref in plan.references:
             if ref.exists and ref.entry_points:
-                hints.append(ChangeHint(path=ref.entry_points[0], action="inspect-only", reason="reference entry point for style and structure", mode="incremental"))
+                hints.append(
+                    ChangeHint(
+                        path=ref.entry_points[0],
+                        action="inspect-only",
+                        reason="reference entry point for style and structure",
+                        mode="incremental",
+                    )
+                )
         return hints
 
     def _diff_summary(self, plan: ProjectWritePlan) -> IncrementalDiffSummary:
@@ -193,19 +243,31 @@ class ProjectWriteStrategy:
         refs = self._reference_note(plan)
         return {
             "README.md": f"# {self.target_path.name}\n\n{intent}\n\n## References\n{refs}\n",
-            ".sprintcycle/project.json": json.dumps({"intent": intent, "write_policy": self.write_policy, "references": [r.path for r in plan.references]}, ensure_ascii=False, indent=2),
+            ".sprintcycle/project.json": json.dumps(
+                {"intent": intent, "write_policy": self.write_policy, "references": [r.path for r in plan.references]},
+                ensure_ascii=False,
+                indent=2,
+            ),
         }
 
     def _template_for_incremental(self, intent: str, plan: ProjectWritePlan) -> Dict[str, str]:
         refs = self._reference_note(plan)
         return {
-            ".sprintcycle/write-plan.json": json.dumps({"intent": intent, "write_policy": self.write_policy, "references": [r.path for r in plan.references]}, ensure_ascii=False, indent=2),
+            ".sprintcycle/write-plan.json": json.dumps(
+                {"intent": intent, "write_policy": self.write_policy, "references": [r.path for r in plan.references]},
+                ensure_ascii=False,
+                indent=2,
+            ),
             "README.md": f"# {self.target_path.name}\n\n{intent}\n\n## References\n{refs}\n",
         }
 
     def _template_for_safe(self, intent: str, plan: ProjectWritePlan) -> Dict[str, str]:
         return {
-            ".sprintcycle/write-plan.json": json.dumps({"intent": intent, "write_policy": self.write_policy, "references": [r.path for r in plan.references]}, ensure_ascii=False, indent=2),
+            ".sprintcycle/write-plan.json": json.dumps(
+                {"intent": intent, "write_policy": self.write_policy, "references": [r.path for r in plan.references]},
+                ensure_ascii=False,
+                indent=2,
+            ),
         }
 
     def apply_template(self, plan: ProjectWritePlan, template: Optional[Dict[str, str]] = None) -> ProjectWritePlan:
@@ -243,4 +305,12 @@ class ProjectWriteStrategy:
         return summary_path
 
 
-__all__ = ["ProjectWriteStrategy", "ProjectWritePlan", "ReferenceProjectSummary", "BackupRecord", "GitRecord", "ChangeHint", "IncrementalDiffSummary"]
+__all__ = [
+    "ProjectWriteStrategy",
+    "ProjectWritePlan",
+    "ReferenceProjectSummary",
+    "BackupRecord",
+    "GitRecord",
+    "ChangeHint",
+    "IncrementalDiffSummary",
+]

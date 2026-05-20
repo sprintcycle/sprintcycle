@@ -137,7 +137,6 @@ class BugAnalyzerAgent(AgentExecutor):
             patterns_matched=pattern_match.matched_patterns,
         )
 
-
     def _match_pattern(self, error_type: str, error_message: str) -> PatternMatch:
         # 第一轮：精确匹配 error_type 与 pattern key
         for pattern_type, pattern_info in ROOT_CAUSE_PATTERNS.items():
@@ -233,11 +232,13 @@ class BugAnalyzerAgent(AgentExecutor):
 
                 for i, line in enumerate(lines, 1):
                     if self._line_matches(line, search_keywords):
-                        locations.append(Location(
-                            file_path=str(path),
-                            line_number=i,
-                            code_snippet=line.strip(),
-                        ))
+                        locations.append(
+                            Location(
+                                file_path=str(path),
+                                line_number=i,
+                                code_snippet=line.strip(),
+                            )
+                        )
 
             except Exception as e:
                 logger.warning(f"定位文件 {file_path} 失败: {e}")
@@ -293,13 +294,15 @@ class BugAnalyzerAgent(AgentExecutor):
         # 添加来自报告的建议
         for report_suggestion in report.suggestions[:2]:
             if not any(s.explanation == report_suggestion for s in suggestions):
-                suggestions.append(FixSuggestion(
-                    file_path=file_path,
-                    old_code="",
-                    new_code="",
-                    explanation=report_suggestion,
-                    confidence=0.6,
-                ))
+                suggestions.append(
+                    FixSuggestion(
+                        file_path=file_path,
+                        old_code="",
+                        new_code="",
+                        explanation=report_suggestion,
+                        confidence=0.6,
+                    )
+                )
 
         return suggestions
 
@@ -391,7 +394,6 @@ class BugAnalyzerAgent(AgentExecutor):
             confidence=0.8,
         )
 
-
     async def apply_fix(self, suggestion: FixSuggestion) -> FixResult:
         file_path = Path(suggestion.file_path)
 
@@ -450,15 +452,17 @@ class BugAnalyzerAgent(AgentExecutor):
 
 def dataclass_to_dict(obj: Any) -> Dict[str, Any]:
     """将 dataclass 对象转换为字典"""
-    if hasattr(obj, '__dataclass_fields__'):
+    if hasattr(obj, "__dataclass_fields__"):
         result: Dict[str, Any] = {}
         for name in obj.__dataclass_fields__:
             value = getattr(obj, name)
             if isinstance(value, (list, tuple)):
-                result[name] = [dataclass_to_dict(v) if hasattr(v, '__dataclass_fields__') else v for v in value]
+                result[name] = [dataclass_to_dict(v) if hasattr(v, "__dataclass_fields__") else v for v in value]
             elif isinstance(value, dict):
-                result[name] = {k: dataclass_to_dict(v) if hasattr(v, '__dataclass_fields__') else v for k, v in value.items()}
-            elif hasattr(value, '__dataclass_fields__'):
+                result[name] = {
+                    k: dataclass_to_dict(v) if hasattr(v, "__dataclass_fields__") else v for k, v in value.items()
+                }
+            elif hasattr(value, "__dataclass_fields__"):
                 result[name] = dataclass_to_dict(value)
             elif value is not None:
                 result[name] = value

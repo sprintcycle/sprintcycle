@@ -16,6 +16,7 @@ from loguru import logger
 @dataclass
 class AnalysisResult:
     """分析结果数据类"""
+
     tool: str
     file_path: str
     line: int
@@ -89,6 +90,7 @@ class AnalysisConfig:
 
     推荐直接使用 RuntimeConfig 的相关字段。
     """
+
     ruff_enabled: bool = True
     ruff_rules: List[str] = field(default_factory=lambda: ["E", "F", "W", "I", "UP", "B", "C4"])
     ruff_ignore: List[str] = field(default_factory=list)
@@ -195,11 +197,11 @@ class StaticAnalyzer:
                     results = []
                     for item in data:
                         if "message" in item:
-                            results.append(AnalysisResult.from_mypy(
-                                item.get("file", ""),
-                                item.get("line", 0),
-                                item.get("message", "")
-                            ))
+                            results.append(
+                                AnalysisResult.from_mypy(
+                                    item.get("file", ""), item.get("line", 0), item.get("message", "")
+                                )
+                            )
                     return results
                 except json.JSONDecodeError:
                     logger.warning("Failed to parse mypy output")
@@ -217,7 +219,10 @@ class StaticAnalyzer:
         if result.tool == "ruff" and self.config.ruff_fix:
             try:
                 proc = await asyncio.create_subprocess_exec(
-                    "ruff", "check", "--fix", result.file_path,
+                    "ruff",
+                    "check",
+                    "--fix",
+                    result.file_path,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
                 )

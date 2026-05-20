@@ -102,12 +102,8 @@ REGRESSION_REPORT_HEADER = "# 回归测试报告\n\n"
 def compute_prompt_sources_fingerprint() -> Dict[str, Any]:
     """各来源模板全文 SHA-256 + 聚合摘要（全量 64 字符 hex）。"""
     items = stable_prompt_registry()
-    per: Dict[str, str] = {
-        sid: hashlib.sha256(body.encode("utf-8")).hexdigest() for sid, body in items
-    }
-    aggregate = hashlib.sha256(
-        json.dumps(per, sort_keys=True, ensure_ascii=False).encode("utf-8")
-    ).hexdigest()
+    per: Dict[str, str] = {sid: hashlib.sha256(body.encode("utf-8")).hexdigest() for sid, body in items}
+    aggregate = hashlib.sha256(json.dumps(per, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
     return {
         "prompt_source_digests": per,
         "prompt_sources_aggregate_sha256": aggregate,

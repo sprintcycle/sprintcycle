@@ -9,11 +9,9 @@ from typing import Any, Dict, Optional, Protocol
 
 
 class CheckpointStore(Protocol):
-    def load(self, key: str) -> Optional[Dict[str, Any]]:
-        ...
+    def load(self, key: str) -> Optional[Dict[str, Any]]: ...
 
-    def save(self, key: str, state: Dict[str, Any]) -> None:
-        ...
+    def save(self, key: str, state: Dict[str, Any]) -> None: ...
 
 
 @dataclass

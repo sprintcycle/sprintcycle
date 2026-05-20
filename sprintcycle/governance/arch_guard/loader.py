@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
-from typing import Callable, Iterable, List, Optional
+from typing import Iterable, List
 
 from .model import GuardRule
 

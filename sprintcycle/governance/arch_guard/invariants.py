@@ -3,8 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from .model import GuardFinding
 from ...execution.planners.models import ReleasePlan
+from .model import GuardFinding
 
 
 def check_release_plan(release_plan: ReleasePlan) -> List[GuardFinding]:
@@ -37,7 +37,7 @@ def check_release_plan(release_plan: ReleasePlan) -> List[GuardFinding]:
 
     if len(set(sprint_names)) != len(sprint_names):
         out.append(
-            GovernanceViolation(
+            GuardFinding(
                 rule_id="planning:sprint_name_duplicate",
                 severity="error",
                 message="ReleasePlan 中存在重复的 Sprint 名称",
@@ -59,7 +59,7 @@ def check_spec_refs(root: Path, release_plan: ReleasePlan) -> List[GuardFinding]
             p = Path(str(ref).strip())
             if p.is_absolute():
                 out.append(
-                    GovernanceViolation(
+                    GuardFinding(
                         rule_id="planning:spec_ref_absolute",
                         severity="warning",
                         message=f"Sprint「{sprint.name}」任务 #{ti + 1} 的 spec_ref 应为相对路径: {ref}",
@@ -71,7 +71,7 @@ def check_spec_refs(root: Path, release_plan: ReleasePlan) -> List[GuardFinding]
             full = (root / p).resolve()
             if not full.exists():
                 out.append(
-                    GovernanceViolation(
+                    GuardFinding(
                         rule_id="planning:spec_ref_missing",
                         severity="warning",
                         message=f"Sprint「{sprint.name}」任务 #{ti + 1} 的 spec_ref 文件不存在: {ref}",
@@ -97,7 +97,7 @@ def check_governance_marker(root: Path, glob_pat: str, marker: str) -> List[Guar
 
         if marker not in text:
             out.append(
-                GovernanceViolation(
+                GuardFinding(
                     rule_id="planning:marker_missing",
                     severity="warning",
                     message=f"文件缺少约定标记 {marker!r}: {path.relative_to(root)}",
@@ -114,7 +114,7 @@ def check_hook_context_usage(context: Optional[Dict[str, Any]]) -> List[GuardFin
         return out
     if not isinstance(context, dict):
         out.append(
-            GovernanceViolation(
+            GuardFinding(
                 rule_id="review:hook_context_invalid",
                 severity="warning",
                 message="治理 context 应为 dict",
@@ -124,7 +124,7 @@ def check_hook_context_usage(context: Optional[Dict[str, Any]]) -> List[GuardFin
         return out
     if "project_path" not in context:
         out.append(
-            GovernanceViolation(
+            GuardFinding(
                 rule_id="review:hook_context_project_path_missing",
                 severity="info",
                 message="context 中未显式携带 project_path，治理将回退到默认项目根",
@@ -140,7 +140,7 @@ def check_report_shape(report_data: Any) -> List[GuardFinding]:
         return out
     if not isinstance(report_data, dict):
         out.append(
-            GovernanceViolation(
+            GuardFinding(
                 rule_id="review:report_shape_invalid",
                 severity="warning",
                 message="治理报告数据应为 dict",
@@ -150,7 +150,7 @@ def check_report_shape(report_data: Any) -> List[GuardFinding]:
         return out
     if "violations" not in report_data:
         out.append(
-            GovernanceViolation(
+            GuardFinding(
                 rule_id="review:report_violations_missing",
                 severity="warning",
                 message="治理报告缺少 violations 字段",
@@ -166,7 +166,7 @@ def check_event_shape(event_data: Any) -> List[GuardFinding]:
         return out
     if not isinstance(event_data, dict):
         out.append(
-            GovernanceViolation(
+            GuardFinding(
                 rule_id="review:event_shape_invalid",
                 severity="warning",
                 message="事件数据应为 dict",
@@ -176,7 +176,7 @@ def check_event_shape(event_data: Any) -> List[GuardFinding]:
         return out
     if "type" not in event_data:
         out.append(
-            GovernanceViolation(
+            GuardFinding(
                 rule_id="review:event_type_missing",
                 severity="warning",
                 message="事件缺少 type 字段",
@@ -192,7 +192,7 @@ def check_extension_point_usage(context: Optional[Dict[str, Any]]) -> List[Guard
         return out
     if context.get("governance_extension_bypass"):
         out.append(
-            GovernanceViolation(
+            GuardFinding(
                 rule_id="review:extension_point_bypass",
                 severity="error",
                 message="检测到治理扩展点旁路标记，禁止绕过 ArchGuardModule 直接接入内部实现",
@@ -208,7 +208,7 @@ def check_evolution_mainline(context: Optional[Dict[str, Any]]) -> List[GuardFin
         return out
     if not context.get("evolution_mainline"):
         out.append(
-            GovernanceViolation(
+            GuardFinding(
                 rule_id="review:evolution_mainline_missing",
                 severity="info",
                 message="未显式声明本次变更的演进主线",
@@ -224,7 +224,7 @@ def check_compatibility_flags(context: Optional[Dict[str, Any]]) -> List[GuardFi
         return out
     if context.get("breaking_change") and not context.get("compatibility_plan"):
         out.append(
-            GovernanceViolation(
+            GuardFinding(
                 rule_id="review:compatibility_plan_missing",
                 severity="warning",
                 message="检测到破坏性变更，但未提供兼容性方案",

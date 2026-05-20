@@ -59,7 +59,14 @@ class DockerSandboxBackend(ABC):
         """启动容器并返回 container id。"""
 
     @abstractmethod
-    async def exec(self, sandbox_id: str, command: list[str], cwd: Optional[str] = None, env: Optional[dict[str, str]] = None, timeout_seconds: int = 300) -> int:
+    async def exec(
+        self,
+        sandbox_id: str,
+        command: list[str],
+        cwd: Optional[str] = None,
+        env: Optional[dict[str, str]] = None,
+        timeout_seconds: int = 300,
+    ) -> int:
         """在容器中执行命令并返回退出码。"""
 
     @abstractmethod

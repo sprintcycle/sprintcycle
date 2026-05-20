@@ -10,6 +10,7 @@ import asyncio
 from typing import Any, Dict, List, Optional
 
 from sprintcycle.api import SprintCycle
+
 from .request_context import RequestContext
 
 
@@ -88,11 +89,10 @@ class PublicAPIService:
         return result.to_dict()
 
     def governance_check(self, gate: str = "review", context: Optional[RequestContext] = None) -> Dict[str, Any]:
-        from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
         from sprintcycle.governance.runner import run_governance_check_and_persist
+        from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
 
         cfg = RuntimeConfig.from_project(self.sc.project_path)
-        import asyncio
 
         planning_report, review_report, fail = asyncio.run(
             asyncio.to_thread(run_governance_check_and_persist, self.sc.project_path, cfg, gate)

@@ -130,16 +130,18 @@ class HitlRequestRecord:
     superseded_by: Optional[str] = None
     replay_count: int = 0
     applied_context: Dict[str, Any] = field(default_factory=dict)
-    available_actions: List[str] = field(default_factory=lambda: [
-        HitlDecision.APPROVE.value,
-        HitlDecision.SKIP_SPRINT.value,
-        HitlDecision.ABORT_EXECUTION.value,
-        HitlDecision.REJECT.value,
-        HitlDecision.REQUEST_CHANGES.value,
-        HitlDecision.MODIFY.value,
-        HitlDecision.RETRY.value,
-        HitlDecision.RESUME.value,
-    ])
+    available_actions: List[str] = field(
+        default_factory=lambda: [
+            HitlDecision.APPROVE.value,
+            HitlDecision.SKIP_SPRINT.value,
+            HitlDecision.ABORT_EXECUTION.value,
+            HitlDecision.REJECT.value,
+            HitlDecision.REQUEST_CHANGES.value,
+            HitlDecision.MODIFY.value,
+            HitlDecision.RETRY.value,
+            HitlDecision.RESUME.value,
+        ]
+    )
 
     def to_dict(self) -> Dict[str, Any]:
         return {

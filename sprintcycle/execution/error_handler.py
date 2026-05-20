@@ -42,18 +42,34 @@ class FixResult:
 
     def to_dict(self) -> Dict[str, Any]:
         return {
-            "success": self.success, "error_log": self.error_log[:200], "fix_suggestion": self.fix_suggestion,
-            "explanation": self.explanation, "level": self.level, "confidence": self.confidence,
-            "duration": self.duration, "backup_id": self.backup_id, "rollback_performed": self.rollback_performed,
-            "events_emitted": self.events_emitted, "metadata": self.metadata,
+            "success": self.success,
+            "error_log": self.error_log[:200],
+            "fix_suggestion": self.fix_suggestion,
+            "explanation": self.explanation,
+            "level": self.level,
+            "confidence": self.confidence,
+            "duration": self.duration,
+            "backup_id": self.backup_id,
+            "rollback_performed": self.rollback_performed,
+            "events_emitted": self.events_emitted,
+            "metadata": self.metadata,
         }
 
 
 class ErrorHandler:
     """统一错误处理器"""
 
-    def __init__(self, knowledge_base=None, router=None, event_bus=None, rollback_manager=None,
-                 cache=None, llm_client=None, enable_rollback=True, enable_cache=True):
+    def __init__(
+        self,
+        knowledge_base=None,
+        router=None,
+        event_bus=None,
+        rollback_manager=None,
+        cache=None,
+        llm_client=None,
+        enable_rollback=True,
+        enable_cache=True,
+    ):
         self._knowledge_base = knowledge_base
         self._router = router
         self._event_bus = event_bus
@@ -62,13 +78,22 @@ class ErrorHandler:
         self._llm_client = llm_client
         self.enable_rollback = enable_rollback
         self.enable_cache = enable_cache
-        self._stats = {"total_handled": 0, "successful": 0, "failed": 0, "total_duration": 0.0,
-                       "level_1_count": 0, "level_2_count": 0, "level_3_count": 0, "rollback_count": 0}
+        self._stats = {
+            "total_handled": 0,
+            "successful": 0,
+            "failed": 0,
+            "total_duration": 0.0,
+            "level_1_count": 0,
+            "level_2_count": 0,
+            "level_3_count": 0,
+            "rollback_count": 0,
+        }
 
     @property
     def knowledge_base(self):
         if self._knowledge_base is None:
             from .error_knowledge import get_error_knowledge_base
+
             self._knowledge_base = get_error_knowledge_base()
         return self._knowledge_base
 
@@ -76,6 +101,7 @@ class ErrorHandler:
     def router(self):
         if self._router is None:
             from .error_router import get_error_router
+
             self._router = get_error_router()
             self._router._knowledge_base = self.knowledge_base
             if self._llm_client:
@@ -94,6 +120,7 @@ class ErrorHandler:
     def rollback_manager(self):
         if self._rollback_manager is None:
             from .rollback import get_rollback_manager
+
             self._rollback_manager = get_rollback_manager()
         return self._rollback_manager
 
@@ -120,18 +147,26 @@ class ErrorHandler:
             routing_result = await self._route_error(context)
 
             # Emit analysis complete
-            await self._emit_event("ERROR_ANALYSIS_COMPLETE", {
-                "success": routing_result.success, "level": routing_result.level.value if hasattr(routing_result.level, 'value') else str(routing_result.level),
-                "confidence": routing_result.confidence,
-            })
+            await self._emit_event(
+                "ERROR_ANALYSIS_COMPLETE",
+                {
+                    "success": routing_result.success,
+                    "level": routing_result.level.value
+                    if hasattr(routing_result.level, "value")
+                    else str(routing_result.level),
+                    "confidence": routing_result.confidence,
+                },
+            )
             events_emitted.append("ERROR_ANALYSIS_COMPLETE")
 
             # Record to knowledge base
             if routing_result.success and routing_result.pattern_match:
                 pattern = routing_result.pattern_match.pattern
                 self.knowledge_base.record_fix(
-                    error_log=context.error_log, pattern_id=pattern.pattern_id,
-                    fix_applied=routing_result.fix_suggestion or "", success=routing_result.success,
+                    error_log=context.error_log,
+                    pattern_id=pattern.pattern_id,
+                    fix_applied=routing_result.fix_suggestion or "",
+                    success=routing_result.success,
                     duration=time.time() - start_time,
                     metadata={"level": routing_result.level.value, "confidence": routing_result.confidence},
                 )
@@ -149,18 +184,32 @@ class ErrorHandler:
                 self._stats["failed"] += 1
 
             return FixResult(
-                success=routing_result.success, error_log=context.error_log,
-                fix_suggestion=routing_result.fix_suggestion, explanation=routing_result.explanation,
-                level=routing_result.level.value if hasattr(routing_result.level, 'value') else str(routing_result.level),
-                confidence=routing_result.confidence, duration=duration, backup_id=backup_id,
-                rollback_performed=False, events_emitted=events_emitted,
+                success=routing_result.success,
+                error_log=context.error_log,
+                fix_suggestion=routing_result.fix_suggestion,
+                explanation=routing_result.explanation,
+                level=routing_result.level.value
+                if hasattr(routing_result.level, "value")
+                else str(routing_result.level),
+                confidence=routing_result.confidence,
+                duration=duration,
+                backup_id=backup_id,
+                rollback_performed=False,
+                events_emitted=events_emitted,
                 metadata={"routing_metadata": routing_result.metadata, "context_metadata": context.metadata},
             )
         except Exception as e:
             logger.error(f"ErrorHandler failed: {e}")
             self._stats["failed"] += 1
-            return FixResult(success=False, error_log=context.error_log, explanation=f"Processing exception: {e}",
-                            duration=time.time() - start_time, backup_id=backup_id, rollback_performed=False, events_emitted=events_emitted)
+            return FixResult(
+                success=False,
+                error_log=context.error_log,
+                explanation=f"Processing exception: {e}",
+                duration=time.time() - start_time,
+                backup_id=backup_id,
+                rollback_performed=False,
+                events_emitted=events_emitted,
+            )
 
     async def handle_batch(self, contexts: List[ErrorContext]) -> List[FixResult]:
         return [await self.handle(ctx) for ctx in contexts]
@@ -177,11 +226,20 @@ class ErrorHandler:
 
     async def _route_error(self, context: ErrorContext):
         from .error_router import RoutingContext, RoutingLevel
-        level_map = {"level_1": RoutingLevel.LEVEL_1_STATIC, "level_2": RoutingLevel.LEVEL_2_PATTERN, "level_3": RoutingLevel.LEVEL_3_LLM}
+
+        level_map = {
+            "level_1": RoutingLevel.LEVEL_1_STATIC,
+            "level_2": RoutingLevel.LEVEL_2_PATTERN,
+            "level_3": RoutingLevel.LEVEL_3_LLM,
+        }
         max_level = level_map.get(context.max_level, RoutingLevel.LEVEL_3_LLM)
         routing_context = RoutingContext(
-            error_log=context.error_log, file_paths=context.file_paths, project_path=context.project_path,
-            language=context.language, use_cache=self.enable_cache, max_level=max_level,
+            error_log=context.error_log,
+            file_paths=context.file_paths,
+            project_path=context.project_path,
+            language=context.language,
+            use_cache=self.enable_cache,
+            max_level=max_level,
             metadata={
                 "release_plan_id": context.release_plan_id,
                 "sprint_name": context.sprint_name,
@@ -195,7 +253,8 @@ class ErrorHandler:
             first_backup_id = None
             for file_path in file_paths:
                 record = await self.rollback_manager.backup(
-                    file_path=file_path, description=f"ErrorHandler backup: {context.error_log[:50]}",
+                    file_path=file_path,
+                    description=f"ErrorHandler backup: {context.error_log[:50]}",
                     operation="pre_fix",
                     release_plan_id=context.release_plan_id,
                     sprint_name=context.sprint_name,
@@ -213,6 +272,7 @@ class ErrorHandler:
     async def _emit_event(self, event_type_name: str, data: Dict[str, Any]) -> None:
         try:
             from .events import Event, EventType
+
             event_type = EventType[event_type_name]
             await self.event_bus.emit(Event(type=event_type, data=data))
         except Exception as e:
@@ -230,14 +290,27 @@ class ErrorHandler:
     @property
     def stats(self) -> Dict[str, Any]:
         return {
-            **self._stats, "knowledge_base_size": len(self.knowledge_base.patterns),
-            "success_rate": self._stats["successful"] / self._stats["total_handled"] if self._stats["total_handled"] > 0 else 0,
-            "avg_duration": self._stats["total_duration"] / self._stats["total_handled"] if self._stats["total_handled"] > 0 else 0,
+            **self._stats,
+            "knowledge_base_size": len(self.knowledge_base.patterns),
+            "success_rate": self._stats["successful"] / self._stats["total_handled"]
+            if self._stats["total_handled"] > 0
+            else 0,
+            "avg_duration": self._stats["total_duration"] / self._stats["total_handled"]
+            if self._stats["total_handled"] > 0
+            else 0,
         }
 
     def reset_statistics(self) -> None:
-        self._stats = {"total_handled": 0, "successful": 0, "failed": 0, "total_duration": 0.0,
-                       "level_1_count": 0, "level_2_count": 0, "level_3_count": 0, "rollback_count": 0}
+        self._stats = {
+            "total_handled": 0,
+            "successful": 0,
+            "failed": 0,
+            "total_duration": 0.0,
+            "level_1_count": 0,
+            "level_2_count": 0,
+            "level_3_count": 0,
+            "rollback_count": 0,
+        }
 
 
 _default_handler: Optional[ErrorHandler] = None

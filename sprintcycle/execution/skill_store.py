@@ -62,10 +62,19 @@ class SkillStore:
     def upsert_artifact(self, artifact: SkillArtifact) -> None:
         self.save_artifact(artifact)
 
-    def refresh_artifact_state(self, skill_id: str, version: str, *, status: str, path: Optional[str] = None, source: str = "openclaw") -> None:
+    def refresh_artifact_state(
+        self, skill_id: str, version: str, *, status: str, path: Optional[str] = None, source: str = "openclaw"
+    ) -> None:
         artifact = self.get_latest_artifact(skill_id)
         if artifact is None or artifact.version != version:
-            artifact = SkillArtifact(skill_id=skill_id, version=version, path=path or "", source=source, status=status, installed_at=datetime.now().isoformat())
+            artifact = SkillArtifact(
+                skill_id=skill_id,
+                version=version,
+                path=path or "",
+                source=source,
+                status=status,
+                installed_at=datetime.now().isoformat(),
+            )
         else:
             artifact.status = status
             if path is not None:
@@ -78,7 +87,9 @@ class SkillStore:
             json.dumps(state.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8"
         )
 
-    def load_state(self, execution_id: str, sprint_name: str, task_name: str, skill_id: str) -> Optional[SkillInjectionState]:
+    def load_state(
+        self, execution_id: str, sprint_name: str, task_name: str, skill_id: str
+    ) -> Optional[SkillInjectionState]:
         path = self._state_path(execution_id, sprint_name, task_name, skill_id)
         if not path.exists():
             return None

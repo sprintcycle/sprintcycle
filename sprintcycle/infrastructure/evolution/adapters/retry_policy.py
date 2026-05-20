@@ -7,8 +7,7 @@ from sprintcycle.domain.evolution.runtime_state import ActivationReasonCode, Ret
 
 
 class RetryPolicyAdapter(Protocol):
-    def decide(self, attempt: int, config: RetryPolicyConfig) -> RetryDecision:
-        ...
+    def decide(self, attempt: int, config: RetryPolicyConfig) -> RetryDecision: ...
 
 
 @dataclass(slots=True)
@@ -25,7 +24,9 @@ class DefaultRetryPolicyAdapter:
         return RetryDecision(
             should_retry=should_retry,
             attempt=attempt,
-            reason=ActivationReasonCode.RETRYING_TRANSIENT_FAILURE if should_retry else ActivationReasonCode.RETRY_EXHAUSTED,
+            reason=ActivationReasonCode.RETRYING_TRANSIENT_FAILURE
+            if should_retry
+            else ActivationReasonCode.RETRY_EXHAUSTED,
             delay_seconds=delay if should_retry else 0.0,
             details={"max_attempts": policy.max_attempts},
         )

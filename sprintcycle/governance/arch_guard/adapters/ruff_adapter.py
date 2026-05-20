@@ -66,8 +66,12 @@ class RuffAdapter:
                         message=item.get("message", "ruff issue"),
                         location={
                             "file": item.get("filename") or item.get("file") or "",
-                            "line": item.get("location", {}).get("row") if isinstance(item.get("location"), dict) else item.get("line"),
-                            "column": item.get("location", {}).get("column") if isinstance(item.get("location"), dict) else item.get("column"),
+                            "line": item.get("location", {}).get("row")
+                            if isinstance(item.get("location"), dict)
+                            else item.get("line"),
+                            "column": item.get("location", {}).get("column")
+                            if isinstance(item.get("location"), dict)
+                            else item.get("column"),
                             "fixable": item.get("fix") is not None,
                         },
                     )

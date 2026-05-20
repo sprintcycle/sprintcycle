@@ -7,21 +7,18 @@ import shutil
 import subprocess
 import time
 from pathlib import Path
-
-import yaml
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
+import yaml
 from loguru import logger
 
-from ..infrastructure.config.quality import runs_architecture_guard, runs_pytest, runs_static_gate
-from ..execution.static_analyzer import AnalysisConfig, StaticAnalyzer
 from ..domain.quality_spec.context import build_quality_context
-from ..domain.quality_spec.reports.finding import Finding as QualityFinding
-from ..domain.quality_spec.reports.report import Report as QualityReport
-from ..domain.quality_spec.spec.task_spec import TaskSpec
 from ..domain.quality_spec.rules.planning_rules import default_planning_rules
-from ..domain.quality_spec.rules.review_rules import default_review_rules
+from ..domain.quality_spec.spec.task_spec import TaskSpec
+from ..execution.static_analyzer import AnalysisConfig, StaticAnalyzer
+from ..infrastructure.config.quality import runs_architecture_guard, runs_pytest, runs_static_gate
 from .arch_guard.adr_check import check_adr_readme_index, check_adr_readme_strict_glob
+from .arch_guard.argv_extensions import extend_argv_items_with_plugins
 from .arch_guard.compose_hint import check_compose_hints, check_compose_supply_chain_hints
 from .arch_guard.model import GuardFinding, GuardReport, GuardSeverity
 from .arch_guard.sdd_checks import (
@@ -30,15 +27,16 @@ from .arch_guard.sdd_checks import (
     violations_from_release_plan_validator,
     violations_spec_marker_in_files,
 )
-from .arch_guard.argv_extensions import extend_argv_items_with_plugins
 from .arch_guard.yaml_checks import checks_for_gate, run_argv_checks
-from .hitl import HitlDecision, HitlGate, HitlPolicyResult
+from .hitl import HitlDecision, HitlGate, HitlPolicyResult, evaluate_hitl_policy
 from .hitl.facade import HitlFacade, create_hitl_facade
 
 
 def create_observability_facade(project_path: str, cfg: "RuntimeConfig") -> HitlFacade:
     """Compatibility alias: governance runner HITL path uses the hitl facade."""
     return create_hitl_facade(project_path, cfg)
+
+
 from .yaml_merge import load_merged_governance_data
 
 if TYPE_CHECKING:
@@ -100,7 +98,9 @@ class GovernanceRunner:
         context: Dict[str, Any],
         risk_level: str = "medium",
     ) -> Optional[HitlPolicyResult]:
-        policy = evaluate_hitl_policy(gate=gate, context={**context, "summary": summary, "risk_level": risk_level}, config=self._cfg)
+        policy = evaluate_hitl_policy(
+            gate=gate, context={**context, "summary": summary, "risk_level": risk_level}, config=self._cfg
+        )
         if not policy.should_trigger:
             return policy
         observability = self._observability_facade(project_path)
@@ -132,7 +132,9 @@ class GovernanceRunner:
             "checks_planned": [],
         }
         level = self._cfg.effective_quality_level()
-        meta["checks_planned"].append(f"quality_level={level} (static={runs_static_gate(level)}, pytest={runs_pytest(level)}, arch={runs_architecture_guard(level)})")
+        meta["checks_planned"].append(
+            f"quality_level={level} (static={runs_static_gate(level)}, pytest={runs_pytest(level)}, arch={runs_architecture_guard(level)})"
+        )
 
         spec_glob = (getattr(self._cfg, "governance_spec_glob", None) or "").strip()
         if spec_glob:
@@ -203,7 +205,12 @@ class GovernanceRunner:
             meta["context_keys"] = sorted(str(k) for k in extra_context.keys())
 
         if getattr(self._cfg, "hitl_enabled", False):
-            hitl_ctx = {"project_path": str(root), **(extra_context or {}), "violation_count": len(violations), "gate": "planning"}
+            hitl_ctx = {
+                "project_path": str(root),
+                **(extra_context or {}),
+                "violation_count": len(violations),
+                "gate": "planning",
+            }
             policy = await self._maybe_trigger_hitl(
                 project_path=str(root),
                 gate=HitlGate.BEFORE_SPRINT.value,
@@ -320,9 +327,7 @@ class GovernanceRunner:
                             GuardFinding(
                                 rule_id="import_linter:contracts",
                                 severity="error",
-                                message=_truncate(
-                                    (proc.stderr or "").strip() + "\n" + (proc.stdout or "").strip()
-                                )
+                                message=_truncate((proc.stderr or "").strip() + "\n" + (proc.stdout or "").strip())
                                 or "import-linter 未通过",
                                 location={"exit_code": proc.returncode},
                             )
@@ -403,9 +408,9 @@ class GovernanceRunner:
                 meta["hitl_policy_risk_level"] = policy.risk_level
 
         try:
-            from ..domain.quality_spec.adapters.deal_adapter import DealAdapter
-            from ..domain.quality_spec.adapters.bandit_adapter import BanditAdapter
             from ..domain.quality_spec.adapters.arch_adapter import ArchAdapter
+            from ..domain.quality_spec.adapters.bandit_adapter import BanditAdapter
+            from ..domain.quality_spec.adapters.deal_adapter import DealAdapter
             from ..domain.quality_spec.context import build_quality_context
             from ..domain.quality_spec.reports.report import Report as QualityReport
         except Exception:

@@ -7,7 +7,6 @@ from typing import Any, Dict, List, Optional
 
 from .types import HitlDecision, HitlSessionStatus
 
-
 _ALLOWED_TRANSITIONS = {
     HitlSessionStatus.CREATED.value: {HitlSessionStatus.PENDING.value},
     HitlSessionStatus.PENDING.value: {

@@ -45,9 +45,7 @@ class EvolutionVersionService:
             metadata=dict(payload.get("metadata", {}) or {}),
         )
 
-    async def list_versions(
-        self, target: Optional[str] = None, limit: int = 20
-    ) -> EvolutionVersionListResult:
+    async def list_versions(self, target: Optional[str] = None, limit: int = 20) -> EvolutionVersionListResult:
         versions = await self.registry.list_versions(target=target, limit=limit)
         return EvolutionVersionListResult(
             success=True,

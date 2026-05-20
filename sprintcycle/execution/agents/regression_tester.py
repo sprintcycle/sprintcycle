@@ -85,14 +85,8 @@ class RegressionTestAgent(AgentExecutor):
         """比对基准与当前测试结果，识别回归"""
         diff: List[Dict[str, Any]] = []
 
-        baseline_tests = {
-            t.get("name", f"test_{i}"): t
-            for i, t in enumerate(baseline.get("tests", []))
-        }
-        current_tests = {
-            t.get("name", f"test_{i}"): t
-            for i, t in enumerate(current.get("tests", []))
-        }
+        baseline_tests = {t.get("name", f"test_{i}"): t for i, t in enumerate(baseline.get("tests", []))}
+        current_tests = {t.get("name", f"test_{i}"): t for i, t in enumerate(current.get("tests", []))}
 
         # 检查已有测试是否从 pass 变 fail
         for name, baseline_test in baseline_tests.items():
@@ -102,35 +96,43 @@ class RegressionTestAgent(AgentExecutor):
                 now_pass = current_test.get("status") == "pass"
 
                 if was_pass and not now_pass:
-                    diff.append({
-                        "name": name,
-                        "status": "REGRESSION",
-                        "detail": f"测试 '{name}' 从 pass 变为 {current_test.get('status', 'unknown')}",
-                    })
+                    diff.append(
+                        {
+                            "name": name,
+                            "status": "REGRESSION",
+                            "detail": f"测试 '{name}' 从 pass 变为 {current_test.get('status', 'unknown')}",
+                        }
+                    )
                 elif not was_pass and now_pass:
-                    diff.append({
-                        "name": name,
-                        "status": "FIXED",
-                        "detail": f"测试 '{name}' 从 fail 变为 pass",
-                    })
+                    diff.append(
+                        {
+                            "name": name,
+                            "status": "FIXED",
+                            "detail": f"测试 '{name}' 从 fail 变为 pass",
+                        }
+                    )
 
         # 检查是否有测试被删除
         for name in baseline_tests:
             if name not in current_tests:
-                diff.append({
-                    "name": name,
-                    "status": "REMOVED",
-                    "detail": f"测试 '{name}' 在当前版本中缺失",
-                })
+                diff.append(
+                    {
+                        "name": name,
+                        "status": "REMOVED",
+                        "detail": f"测试 '{name}' 在当前版本中缺失",
+                    }
+                )
 
         # 检查新增测试
         for name in current_tests:
             if name not in baseline_tests:
-                diff.append({
-                    "name": name,
-                    "status": "NEW",
-                    "detail": f"新增测试 '{name}'",
-                })
+                diff.append(
+                    {
+                        "name": name,
+                        "status": "NEW",
+                        "detail": f"新增测试 '{name}'",
+                    }
+                )
 
         return diff
 

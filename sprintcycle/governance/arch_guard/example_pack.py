@@ -11,7 +11,6 @@ from __future__ import annotations
 
 from .model import GuardRule
 
-
 GUARD_RULES = [
     GuardRule(
         rule_id="review:example_pack_rule",

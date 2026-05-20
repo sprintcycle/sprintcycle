@@ -5,7 +5,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from ..types import HitlCorrection, HitlRequestRecord, HitlReplayDirective
+from ..types import HitlCorrection, HitlReplayDirective, HitlRequestRecord
 
 
 class HitlStore(ABC):

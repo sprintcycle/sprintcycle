@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional
 @dataclass
 class ResultBase:
     """所有 Result 的基类"""
+
     success: bool
     error: Optional[str] = None
     duration: float = 0.0
@@ -40,6 +41,7 @@ class EvolutionSummary:
 @dataclass
 class PlanResult(ResultBase):
     """plan() 返回 — 意图 → Release Plan（执行计划 YAML，不执行）"""
+
     release_plan_yaml: str = ""
     sprints: List[Dict[str, Any]] = field(default_factory=list)
     mode: str = ""
@@ -50,6 +52,7 @@ class PlanResult(ResultBase):
 @dataclass
 class RunResult(ResultBase):
     """run() 返回 — 执行结果"""
+
     execution_id: str = ""
     release_plan_name: str = ""
     completed_sprints: int = 0
@@ -74,6 +77,7 @@ class RunResult(ResultBase):
 @dataclass
 class DiagnoseResult(ResultBase):
     """diagnose() 返回 — 项目体检"""
+
     health_score: float = 0.0
     issues: List[Dict[str, Any]] = field(default_factory=list)
     coverage: float = 0.0
@@ -83,6 +87,7 @@ class DiagnoseResult(ResultBase):
 @dataclass
 class StatusResult(ResultBase):
     """status() 返回 — 执行状态/历史"""
+
     execution_id: str = ""
     status: str = ""
     current_sprint: int = 0
@@ -99,6 +104,7 @@ class StatusResult(ResultBase):
 @dataclass
 class RollbackResult(ResultBase):
     """rollback() 返回 — 回滚结果"""
+
     execution_id: str = ""
     rollback_point: str = ""
     files_restored: List[str] = field(default_factory=list)
@@ -107,6 +113,7 @@ class RollbackResult(ResultBase):
 @dataclass
 class StopResult(ResultBase):
     """stop() 返回 — 停止结果"""
+
     execution_id: str = ""
     cancelled: bool = False
     current_sprint: int = 0
@@ -192,7 +199,9 @@ class FinalSnapshotVersionSummary:
         return {
             "target": self.target,
             "version_id": self.version_id,
-            "final_snapshot": self.final_snapshot.to_dict() if hasattr(self.final_snapshot, "to_dict") else dict(self.final_snapshot),
+            "final_snapshot": self.final_snapshot.to_dict()
+            if hasattr(self.final_snapshot, "to_dict")
+            else dict(self.final_snapshot),
             "promotion_guard": dict(self.promotion_guard),
         }
 
@@ -211,7 +220,9 @@ class EvolutionOverviewResult(ResultBase):
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
         data["recent_candidates"] = [v.to_dict() if hasattr(v, "to_dict") else v for v in self.recent_candidates]
-        data["final_snapshot_versions"] = [v.to_dict() if hasattr(v, "to_dict") else v for v in self.final_snapshot_versions]
+        data["final_snapshot_versions"] = [
+            v.to_dict() if hasattr(v, "to_dict") else v for v in self.final_snapshot_versions
+        ]
         return data
 
     def to_dashboard_payload(self) -> Dict[str, Any]:
@@ -251,7 +262,9 @@ class EvolutionOverviewResult(ResultBase):
         lines.append(f"  versions: {self.totals.get('versions', 0)}")
         lines.append(f"  code_active: {self.totals.get('code_active', 0)}")
         lines.append(f"  requirement_active: {self.totals.get('requirement_active', 0)}")
-        lines.append(f"  sandbox: {self.sandbox_status.get('backend', 'unknown')} @ {self.sandbox_status.get('root_dir', '')}")
+        lines.append(
+            f"  sandbox: {self.sandbox_status.get('backend', 'unknown')} @ {self.sandbox_status.get('root_dir', '')}"
+        )
         for target in sorted(self.active_versions.keys()):
             info = self.active_versions[target]
             lines.append(

@@ -200,7 +200,6 @@ def fetch_execution_events_for_replay(
     """
     import json
     import sqlite3
-
     from pathlib import Path
 
     path = Path(sqlite_path).expanduser().resolve()

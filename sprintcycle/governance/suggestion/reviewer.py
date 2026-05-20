@@ -5,7 +5,7 @@ Builds context for human approval.
 
 from __future__ import annotations
 
-from .models import Suggestion, SuggestionReviewContext
+from .models import SuggestionReviewContext
 from .store import SuggestionStore
 
 

@@ -29,8 +29,14 @@ class CheckpointMixin:
         if self._execution_id is None:
             self._execution_id: str = f"exec_{uuid.uuid4().hex[:8]}"
 
-        total_sprints = len(release_plan.sprints) if release_plan else (len(self._release_plan.sprints) if self._release_plan else 0)
-        total_tasks = release_plan.total_tasks if release_plan else (self._release_plan.total_tasks if self._release_plan else 0)
+        total_sprints = (
+            len(release_plan.sprints)
+            if release_plan
+            else (len(self._release_plan.sprints) if self._release_plan else 0)
+        )
+        total_tasks = (
+            release_plan.total_tasks if release_plan else (self._release_plan.total_tasks if self._release_plan else 0)
+        )
 
         state = ExecutionState(
             execution_id=self._execution_id,
@@ -47,12 +53,7 @@ class CheckpointMixin:
         logger.info(f"执行状态已初始化: {self._execution_id}")
         return self._execution_id
 
-    def _save_checkpoint(
-        self,
-        sprint_idx: int,
-        sprint_name: str,
-        sprint_result: SprintResult
-    ) -> None:
+    def _save_checkpoint(self, sprint_idx: int, sprint_name: str, sprint_result: SprintResult) -> None:
         if not self._execution_id:
             return
 

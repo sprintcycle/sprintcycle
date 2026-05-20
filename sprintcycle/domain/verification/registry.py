@@ -27,7 +27,9 @@ class VerificationRegistry:
     def enabled_rules_for_gate(self, gate: str) -> List[VerificationRule]:
         return [r for r in self._rules.values() if r.enabled and (r.gate == gate or r.gate == "all")]
 
-    def run_gate(self, gate: str, project_root: str, context: Optional[Dict[str, Any]] = None) -> List[VerificationFinding]:
+    def run_gate(
+        self, gate: str, project_root: str, context: Optional[Dict[str, Any]] = None
+    ) -> List[VerificationFinding]:
         ctx = VerificationContext(gate=gate, project_root=project_root, context=context or {})
         findings: List[VerificationFinding] = []
         for rule in self.enabled_rules_for_gate(gate):

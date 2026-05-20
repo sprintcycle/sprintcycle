@@ -16,9 +16,10 @@ from ...exceptions import Severity
 class CodeIssue:
     """
     代码问题
-    
+
     表示一个具体的代码问题
     """
+
     file: str
     line: int
     severity: Severity
@@ -41,9 +42,10 @@ class CodeIssue:
 class ProjectHealthReport:
     """
     项目健康报告
-    
+
     多维度项目体检结果
     """
+
     # 项目标识
     target: str = ""
 
@@ -76,9 +78,9 @@ class ProjectHealthReport:
     def compute_health_score(self) -> float:
         """
         计算综合健康评分
-        
+
         综合多个维度计算0-100的健康评分
-        
+
         Returns:
             健康评分 (0-100)
         """
@@ -135,10 +137,7 @@ class ProjectHealthReport:
     @property
     def priority_issues(self) -> List[CodeIssue]:
         """高优先级问题"""
-        return [
-            issue for issue in self.code_issues
-            if issue.severity in (Severity.CRITICAL, Severity.HIGH)
-        ]
+        return [issue for issue in self.code_issues if issue.severity in (Severity.CRITICAL, Severity.HIGH)]
 
     def to_dict(self) -> Dict[str, Any]:
         return {

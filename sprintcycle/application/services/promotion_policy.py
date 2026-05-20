@@ -10,7 +10,14 @@ from typing import Any, Dict, Optional
 class PromotionPolicy:
     min_score: int = 70
 
-    def evaluate(self, contract: Dict[str, Any], *, runtime: Optional[Dict[str, Any]] = None, governance: Optional[Dict[str, Any]] = None, evidence: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def evaluate(
+        self,
+        contract: Dict[str, Any],
+        *,
+        runtime: Optional[Dict[str, Any]] = None,
+        governance: Optional[Dict[str, Any]] = None,
+        evidence: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         score = 0
         evaluation = dict(contract.get("evaluation_refs") or {})
         score_card = dict(evaluation.get("score_card") or {})

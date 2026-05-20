@@ -21,6 +21,7 @@ from ..release_plan.parser import ReleasePlanParseError, ReleasePlanParser
 
 class EvolutionPlanSourceType(Enum):
     """计划来源类型（manual / diagnostic）。"""
+
     MANUAL = "manual"
     DIAGNOSTIC = "diagnostic"
 

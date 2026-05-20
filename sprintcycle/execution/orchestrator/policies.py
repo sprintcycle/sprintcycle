@@ -8,9 +8,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from ..sprint_types import ExecutionStatus, SprintResult
 from ...application.evolution.measurement import MeasurementResult
 from ...application.release_plan.models import ReleasePlan, SprintDefinition
+from ..sprint_types import ExecutionStatus, SprintResult
 
 
 @dataclass
@@ -24,7 +24,9 @@ class SprintEvaluationResult:
 class SprintEvaluator:
     def evaluate(self, result: SprintResult) -> SprintEvaluationResult:
         if result.status == ExecutionStatus.FAILED:
-            return SprintEvaluationResult(success=False, should_continue=True, should_retry=True, reason="sprint_failed")
+            return SprintEvaluationResult(
+                success=False, should_continue=True, should_retry=True, reason="sprint_failed"
+            )
         return SprintEvaluationResult(success=True, should_continue=True, should_retry=False, reason="ok")
 
 

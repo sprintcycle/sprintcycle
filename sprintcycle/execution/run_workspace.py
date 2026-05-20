@@ -10,7 +10,6 @@ write_policy:
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
@@ -23,12 +22,8 @@ SAFE_CONSTRAINT = (
     "write_policy:safe — 仅允许新增文件与目录；不得修改、重命名或删除仓库内已有文件。"
     "若需变更行为，请通过新增模块/适配层实现。"
 )
-CREATE_CONSTRAINT = (
-    "write_policy:create — 优先搭建清晰的项目骨架与约定；避免无必要地大规模重写或删除已有代码。"
-)
-INCREMENTAL_CONSTRAINT = (
-    "write_policy:incremental — 在现有代码基础上增量实现；保留可复用实现，避免整库替换。"
-)
+CREATE_CONSTRAINT = "write_policy:create — 优先搭建清晰的项目骨架与约定；避免无必要地大规模重写或删除已有代码。"
+INCREMENTAL_CONSTRAINT = "write_policy:incremental — 在现有代码基础上增量实现；保留可复用实现，避免整库替换。"
 
 
 def _strip_list(raw: Optional[Sequence[str]]) -> List[str]:
@@ -60,9 +55,7 @@ def normalize_reference_paths(paths: Optional[Sequence[str]]) -> List[str]:
 def normalize_write_policy(raw: Optional[str]) -> str:
     v = (raw or "auto").strip().lower()
     if v not in WRITE_POLICIES:
-        raise ValueError(
-            f"write_policy 须为 auto|create|incremental|safe，当前为 {raw!r}"
-        )
+        raise ValueError(f"write_policy 须为 auto|create|incremental|safe，当前为 {raw!r}")
     return v
 
 
@@ -129,9 +122,7 @@ def build_workspace_prompt_section(
         parts.append(pol)
     if reference_paths:
         lines = "\n".join(f"- {p}" for p in reference_paths)
-        parts.append(
-            "参考项目（只读，用于风格/结构借鉴；所有写入必须在目标工作区完成）：\n" + lines
-        )
+        parts.append("参考项目（只读，用于风格/结构借鉴；所有写入必须在目标工作区完成）：\n" + lines)
     if not parts:
         return ""
     return "\n\n工作区与策略：\n" + "\n\n".join(parts) + "\n"

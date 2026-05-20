@@ -8,7 +8,7 @@ They support both:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Literal, Optional
 
 EvolutionTarget = Literal["code", "requirement"]

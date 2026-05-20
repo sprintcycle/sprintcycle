@@ -91,9 +91,17 @@ class FitnessEvaluator:
                         min(
                             100,
                             50
-                            + sum(1 for r in runtimes if str(r.get("status") or "") in {"deployed", "running", "succeeded"})
+                            + sum(
+                                1
+                                for r in runtimes
+                                if str(r.get("status") or "") in {"deployed", "running", "succeeded"}
+                            )
                             * 4
-                            + sum(1 for ex in executions if str(ex.get("status") or "") in {"succeeded", "deployed", "running"})
+                            + sum(
+                                1
+                                for ex in executions
+                                if str(ex.get("status") or "") in {"succeeded", "deployed", "running"}
+                            )
                             * 5,
                         ),
                     ),
@@ -103,10 +111,14 @@ class FitnessEvaluator:
                         "core": {
                             "source": "payload.runtime_and_executions",
                             "healthy_runtimes": sum(
-                                1 for r in runtimes if str(r.get("status") or "") in {"deployed", "running", "succeeded"}
+                                1
+                                for r in runtimes
+                                if str(r.get("status") or "") in {"deployed", "running", "succeeded"}
                             ),
                             "healthy_executions": sum(
-                                1 for ex in executions if str(ex.get("status") or "") in {"succeeded", "deployed", "running"}
+                                1
+                                for ex in executions
+                                if str(ex.get("status") or "") in {"succeeded", "deployed", "running"}
                             ),
                         },
                         "extra": {"runtimes": runtimes, "executions": executions},
@@ -127,7 +139,8 @@ class FitnessEvaluator:
 
         contract = dict(payload.get("contract") or {})
         agent_result = self._agent.evaluate(
-            contract or {
+            contract
+            or {
                 "execution_id": str(payload.get("execution_id") or ""),
                 "task_id": str(payload.get("task_id") or ""),
                 "project_path": str(payload.get("project_path") or ""),

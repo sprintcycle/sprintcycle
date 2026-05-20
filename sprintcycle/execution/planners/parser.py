@@ -26,11 +26,13 @@ from .validator import ReleasePlanValidator
 
 class YAMLError(ValueError):
     """YAML 解析错误"""
+
     pass
 
 
 class ReleasePlanParseError(ValueError):
     """执行计划 YAML 解析错误"""
+
     pass
 
 
@@ -191,15 +193,12 @@ class ReleasePlanParser:
         task_content = data.get("description")
         if task_content is None or (isinstance(task_content, str) and not str(task_content).strip()):
             raise ReleasePlanParseError(
-                f"Sprint '{sprint_name}' Sprint Backlog Item #{index + 1}: "
-                "缺少非空字段 ``description``"
+                f"Sprint '{sprint_name}' Sprint Backlog Item #{index + 1}: 缺少非空字段 ``description``"
             )
 
         agent = data.get("agent", "coder")
         if agent not in self.VALID_AGENTS:
-            logger.warning(
-                f"Sprint '{sprint_name}' Task #{index + 1}: 未知的 agent 类型 '{agent}'，使用 'coder'"
-            )
+            logger.warning(f"Sprint '{sprint_name}' Task #{index + 1}: 未知的 agent 类型 '{agent}'，使用 'coder'")
             agent = "coder"
 
         target = data.get("target")

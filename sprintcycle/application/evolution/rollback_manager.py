@@ -87,29 +87,20 @@ class EvolutionRollbackManager(GitRollbackMixin):
         self._git_runner = git_runner or _run_git
 
         # 检查 git 模式是否可用
-        self._git_available = (
-            config.git_branch_mode
-            and _is_git_repo(config.repo_path)
-        )
+        self._git_available = config.git_branch_mode and _is_git_repo(config.repo_path)
         if config.git_branch_mode and not self._git_available:
-            logger.warning(
-                "Git Branch 模式不可用（不是 git 仓库或 git 不可用），"
-                "将使用文件备份模式"
-            )
+            logger.warning("Git Branch 模式不可用（不是 git 仓库或 git 不可用），将使用文件备份模式")
         if not config.git_branch_mode:
             self._git_available = False
 
         # 初始化 fallback RollbackManager
         if not self._git_available:
             from sprintcycle.execution.rollback import RollbackManager
-            self._rollback_manager = self._rollback_manager or RollbackManager(
-                backup_dir=config.backup_dir
-            )
+
+            self._rollback_manager = self._rollback_manager or RollbackManager(backup_dir=config.backup_dir)
 
         logger.info(
-            f"EvolutionRollbackManager 初始化: "
-            f"git_mode={self._git_available}, "
-            f"backup_mode={not self._git_available}"
+            f"EvolutionRollbackManager 初始化: git_mode={self._git_available}, backup_mode={not self._git_available}"
         )
 
     @property
@@ -124,6 +115,7 @@ class EvolutionRollbackManager(GitRollbackMixin):
         """生成变体分支名"""
         safe_id = variant_id.replace("/", "-").replace("_", "-")[:20]
         from datetime import datetime
+
         timestamp = datetime.now().strftime("%m%d%H%M")
         return f"{self.config.branch_prefix}{safe_id}-{timestamp}"
 
@@ -140,8 +132,7 @@ class EvolutionRollbackManager(GitRollbackMixin):
             return 0
 
         rc, stdout, _ = self._git_runner(
-            ["branch", "--format=%(refname:short) %(creatordate:iso)"],
-            cwd=self.config.repo_path
+            ["branch", "--format=%(refname:short) %(creatordate:iso)"], cwd=self.config.repo_path
         )
         if rc != 0:
             return 0
@@ -158,10 +149,7 @@ class EvolutionRollbackManager(GitRollbackMixin):
 
         for branch in all_branches:
             if branch not in active and cleanup_count < 5:
-                rc, _, _ = self._git_runner(
-                    ["branch", "-D", branch],
-                    cwd=self.config.repo_path
-                )
+                rc, _, _ = self._git_runner(["branch", "-D", branch], cwd=self.config.repo_path)
                 if rc == 0:
                     cleanup_count += 1
 
@@ -205,10 +193,7 @@ class EvolutionRollbackManager(GitRollbackMixin):
         branch_name = self._create_branch_name(variant_id)
         base_commit = self._get_current_commit()
 
-        rc, _, stderr = self._git_runner(
-            ["checkout", "-b", branch_name],
-            cwd=self.config.repo_path
-        )
+        rc, _, stderr = self._git_runner(["checkout", "-b", branch_name], cwd=self.config.repo_path)
         if rc != 0:
             raise RollbackError(f"Failed to create branch {branch_name}: {stderr}")
 
@@ -232,6 +217,7 @@ class EvolutionRollbackManager(GitRollbackMixin):
             try:
                 import hashlib
                 from datetime import datetime
+
                 ts = datetime.now().strftime("%Y%m%d_%H%M%S")
                 backup_id = f"evo_{variant_id}_{ts}_{hashlib.md5(str(py_file).encode()).hexdigest()[:6]}"
                 backup_path = Path(self.config.backup_dir) / f"{backup_id}.py"
@@ -263,8 +249,7 @@ class EvolutionRollbackManager(GitRollbackMixin):
             return True
 
         rc, _, stderr = self._git_runner(
-            ["commit", "-am", f"Evolution variant: {variant_id}"],
-            cwd=self.config.repo_path
+            ["commit", "-am", f"Evolution variant: {variant_id}"], cwd=self.config.repo_path
         )
         if rc != 0 and "nothing to commit" not in stderr.lower():
             logger.warning(f"Commit failed for {variant_id}: {stderr}")
@@ -296,24 +281,15 @@ class EvolutionRollbackManager(GitRollbackMixin):
             logger.warning(f"Variant {variant_id} already merged, cannot rollback")
             return False
 
-        rc, _, stderr = self._git_runner(
-            ["branch", "-D", record.branch_name],
-            cwd=self.config.repo_path
-        )
+        rc, _, stderr = self._git_runner(["branch", "-D", record.branch_name], cwd=self.config.repo_path)
         if rc != 0:
             logger.warning(f"Failed to delete branch {record.branch_name}: {stderr}")
 
         if record.base_commit:
-            rc, _, _ = self._git_runner(
-                ["checkout", record.base_commit],
-                cwd=self.config.repo_path
-            )
+            rc, _, _ = self._git_runner(["checkout", record.base_commit], cwd=self.config.repo_path)
         else:
             for main_branch in ["main", "master", "HEAD"]:
-                rc, _, _ = self._git_runner(
-                    ["checkout", main_branch],
-                    cwd=self.config.repo_path
-                )
+                rc, _, _ = self._git_runner(["checkout", main_branch], cwd=self.config.repo_path)
                 if rc == 0:
                     break
 
@@ -357,8 +333,7 @@ class EvolutionRollbackManager(GitRollbackMixin):
             return False
 
         rc, _, stderr = self._git_runner(
-            ["merge", record.branch_name, "--no-ff", "-m", f"Merge variant: {variant_id}"],
-            cwd=self.config.repo_path
+            ["merge", record.branch_name, "--no-ff", "-m", f"Merge variant: {variant_id}"], cwd=self.config.repo_path
         )
         if rc != 0:
             logger.warning(f"Merge failed: {stderr}")

@@ -6,7 +6,6 @@ It is suitable as the default isolation backend for SprintCycle evolution.
 
 from __future__ import annotations
 
-import asyncio
 import subprocess
 from pathlib import Path
 from typing import List, Tuple

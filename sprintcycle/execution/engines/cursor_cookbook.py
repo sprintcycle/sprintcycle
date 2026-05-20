@@ -1,11 +1,11 @@
 """
 Cursor Cookbook 适配：生成本地「食谱」Markdown + 可选 Cursor Agent CLI。
 
-1. **Cookbook（无 CLI 也可用）**  
+1. **Cookbook（无 CLI 也可用）**
    将任务说明、上下文摘要写入 ``<project>/.sprintcycle/cursor-cookbook/``，便于在 Cursor 中打开后复制到 Chat / Agent。
 
-2. **Cursor Agent CLI（可选）**  
-   若已安装官方 CLI（默认命令名为 ``agent``），可设置 ``SPRINTCYCLE_CURSOR_USE_CLI=1`` 并在项目目录执行 ``agent -p ...``。  
+2. **Cursor Agent CLI（可选）**
+   若已安装官方 CLI（默认命令名为 ``agent``），可设置 ``SPRINTCYCLE_CURSOR_USE_CLI=1`` 并在项目目录执行 ``agent -p ...``。
    文档: https://cursor.com/docs/cli/overview
 """
 
@@ -91,9 +91,7 @@ def build_cookbook_body(
     if architecture_hint.strip():
         parts.extend(["## 架构上下文", "", architecture_hint.strip(), ""])
     if release_plan_overlay_hint.strip():
-        parts.extend(
-            ["## 发布计划 / 经验覆盖（摘录）", "", release_plan_overlay_hint.strip(), ""]
-        )
+        parts.extend(["## 发布计划 / 经验覆盖（摘录）", "", release_plan_overlay_hint.strip(), ""])
     parts.extend(
         [
             "## 在 Cursor 中的建议用法",

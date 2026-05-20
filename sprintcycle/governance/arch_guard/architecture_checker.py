@@ -9,7 +9,7 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Sequence
+from typing import Any, Dict, List
 
 from .architecture_guard import DEPENDENCY_RULES, dependency_rules_payload
 from .architecture_layers import LAYER_NAMES

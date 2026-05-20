@@ -9,13 +9,20 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 
 from sprintcycle.execution.state.state_store import get_state_store
-from sprintcycle.observability.facade import ObservabilityFacade
-from sprintcycle.infrastructure.runtime_registry import RuntimeRegistry
 from sprintcycle.hooks import HookRegistry
+from sprintcycle.infrastructure.runtime_registry import RuntimeRegistry
+from sprintcycle.observability.facade import ObservabilityFacade
 
 
 class ExecutionLifecycleService:
-    def __init__(self, project_path: str, config: Any, observability: ObservabilityFacade, runtime_registry: RuntimeRegistry, hooks: Optional[HookRegistry] = None):
+    def __init__(
+        self,
+        project_path: str,
+        config: Any,
+        observability: ObservabilityFacade,
+        runtime_registry: RuntimeRegistry,
+        hooks: Optional[HookRegistry] = None,
+    ):
         self.project_path = project_path
         self.config = config
         self.observability = observability
@@ -42,13 +49,15 @@ class ExecutionLifecycleService:
             state_store.update_execution_status(runtime_id, "running")
         except Exception:
             pass
-        self.observability.record_event({
-            "type": "execution_start",
-            "execution_id": runtime_id,
-            "task_id": task_id,
-            "status": "running",
-            "metadata": dict(kwargs.get("metadata") or {}),
-        })
+        self.observability.record_event(
+            {
+                "type": "execution_start",
+                "execution_id": runtime_id,
+                "task_id": task_id,
+                "status": "running",
+                "metadata": dict(kwargs.get("metadata") or {}),
+            }
+        )
         return {"success": True, "data": {"execution_id": runtime_id, "runtime": runtime_payload, "status": "running"}}
 
     def runtime_latest(self) -> Dict[str, Any]:
@@ -64,11 +73,18 @@ class ExecutionLifecycleService:
         state_store = get_state_store()
         state = state_store.get_execution(execution_id)
         trace = self.observability.trace(execution_id)
-        return {"success": True, "data": {"state": state.to_dict() if hasattr(state, "to_dict") else state, "trace": trace, "limit": limit}}
+        return {
+            "success": True,
+            "data": {"state": state.to_dict() if hasattr(state, "to_dict") else state, "trace": trace, "limit": limit},
+        }
 
     def execution_events(self, execution_id: str, limit: int = 200) -> Dict[str, Any]:
         return self.observability.trace(execution_id)
 
     def replay_execution(self, execution_id: str, limit: int = 500) -> Dict[str, Any]:
         trace = self.observability.replay(execution_id)
-        return {"success": True, "data": trace.get("data", trace), "timeline": trace.get("data", {}).get("events", [])[:limit] if isinstance(trace, dict) else []}
+        return {
+            "success": True,
+            "data": trace.get("data", trace),
+            "timeline": trace.get("data", {}).get("events", [])[:limit] if isinstance(trace, dict) else [],
+        }

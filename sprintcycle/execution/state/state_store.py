@@ -3,6 +3,7 @@
 This store keeps only durable execution state. Checkpoint / replay / resume
 metadata has moved to the V2 execution graph layer.
 """
+
 from __future__ import annotations
 
 import json
@@ -14,11 +15,10 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 from loguru import logger
 
 from ..sprint_types import ExecutionStatus
-from .machine import ExecutionStateMachine, validate_transition
+from .machine import ExecutionStateMachine
 
 if TYPE_CHECKING:
     from ...infrastructure.config.runtime_config import RuntimeConfig
-
 
 
 def resolve_sqlite_database_path(project_path: str, config: "RuntimeConfig") -> str:
@@ -34,6 +34,7 @@ def resolve_sqlite_database_path(project_path: str, config: "RuntimeConfig") -> 
 @dataclass
 class TaskCheckpoint:
     """任务断点数据"""
+
     task_id: str
     task_name: str
     agent: str
@@ -46,6 +47,7 @@ class TaskCheckpoint:
 @dataclass
 class SprintCheckpoint:
     """Sprint 断点数据"""
+
     sprint_idx: int
     sprint_name: str
     tasks: List[TaskCheckpoint] = field(default_factory=list)
@@ -58,6 +60,7 @@ class ExecutionState:
 
     记录完整的执行上下文，支持断点续传与回放。
     """
+
     execution_id: str
     release_plan_name: str
     mode: str
@@ -104,7 +107,7 @@ class ExecutionState:
 class StateStore:
     """
     状态存储
-    
+
     提供执行状态的持久化和查询功能。
     使用 JSON 文件存储，每个 execution_id 对应一个文件。
     """
@@ -112,7 +115,7 @@ class StateStore:
     def __init__(self, store_dir: Optional[str] = None):
         """
         初始化状态存储
-        
+
         Args:
             store_dir: 存储目录路径，默认使用 .sprintcycle/state
         """
@@ -129,7 +132,7 @@ class StateStore:
     def save(self, state: ExecutionState) -> None:
         """
         保存执行状态
-        
+
         Args:
             state: 执行状态对象
         """
@@ -137,7 +140,7 @@ class StateStore:
         path = self._get_state_path(state.execution_id)
 
         try:
-            with open(path, 'w', encoding='utf-8') as f:
+            with open(path, "w", encoding="utf-8") as f:
                 json.dump(state.to_dict(), f, indent=2, ensure_ascii=False, default=str)
             logger.debug(f"State saved: {state.execution_id}")
         except Exception as e:
@@ -147,10 +150,10 @@ class StateStore:
     def load(self, execution_id: str) -> Optional[ExecutionState]:
         """
         加载执行状态
-        
+
         Args:
             execution_id: 执行 ID
-            
+
         Returns:
             ExecutionState 或 None（如果不存在）
         """
@@ -159,7 +162,7 @@ class StateStore:
             return None
 
         try:
-            with open(path, encoding='utf-8') as f:
+            with open(path, encoding="utf-8") as f:
                 data = json.load(f)
             return ExecutionState.from_dict(data)
         except Exception as e:
@@ -169,10 +172,10 @@ class StateStore:
     def delete(self, execution_id: str) -> bool:
         """
         删除执行状态
-        
+
         Args:
             execution_id: 执行 ID
-            
+
         Returns:
             是否成功删除
         """
@@ -186,18 +189,14 @@ class StateStore:
                 logger.error(f"Failed to delete state {execution_id}: {e}")
         return False
 
-    def list_executions(
-        self,
-        status: Optional[ExecutionStatus] = None,
-        limit: int = 50
-    ) -> List[ExecutionState]:
+    def list_executions(self, status: Optional[ExecutionStatus] = None, limit: int = 50) -> List[ExecutionState]:
         """
         列出所有执行记录
-        
+
         Args:
             status: 可选的状态过滤
             limit: 最大返回数量
-            
+
         Returns:
             按时间倒序排列的执行状态列表
         """
@@ -216,7 +215,11 @@ class StateStore:
 
     def can_resume(self, execution_id: str) -> bool:
         state = self.load(execution_id)
-        return state is not None and state.status in (ExecutionStatus.PAUSED, ExecutionStatus.FAILED, ExecutionStatus.CANCELLED)
+        return state is not None and state.status in (
+            ExecutionStatus.PAUSED,
+            ExecutionStatus.FAILED,
+            ExecutionStatus.CANCELLED,
+        )
 
     def get_resume_point(self, execution_id: str) -> Optional[Dict[str, Any]]:
         state = self.load(execution_id)
@@ -240,12 +243,12 @@ class StateStore:
     ) -> bool:
         """
         更新执行状态
-        
+
         Args:
             execution_id: 执行 ID
             status: 新状态
             error: 可选的错误信息
-            
+
         Returns:
             是否成功更新
         """
@@ -262,20 +265,15 @@ class StateStore:
         self.save(state)
         return True
 
-    def increment_progress(
-        self,
-        execution_id: str,
-        completed_tasks: int = 1,
-        completed_sprints: int = 0
-    ) -> bool:
+    def increment_progress(self, execution_id: str, completed_tasks: int = 1, completed_sprints: int = 0) -> bool:
         """
         更新执行进度
-        
+
         Args:
             execution_id: 执行 ID
             completed_tasks: 完成的任务数
             completed_sprints: 完成的 Sprint 数
-            
+
         Returns:
             是否成功更新
         """

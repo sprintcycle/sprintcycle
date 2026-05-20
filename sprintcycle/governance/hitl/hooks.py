@@ -6,10 +6,10 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from loguru import logger
 
+from ...application.release_plan.models import ReleasePlan, SprintBacklogItem, SprintDefinition
 from ...execution.hooks.sprint_hooks import SprintLifecycleHooks
 from ...execution.hooks.task_hooks import TaskLifecycleHooks
 from ...execution.sprint_types import ExecutionStatus, SprintResult, TaskResult
-from ...application.release_plan.models import ReleasePlan, SprintBacklogItem, SprintDefinition
 from ...observability import ObservabilityFacade
 from .types import (
     CTX_HITL_ABORT_EXECUTION,

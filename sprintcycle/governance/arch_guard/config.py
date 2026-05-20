@@ -48,7 +48,9 @@ class ArchGuardConfig:
             use_ruff=bool(getattr(runtime_config, "governance_use_ruff", True)),
             use_typecheck=bool(getattr(runtime_config, "governance_use_typecheck", False)),
             block_on=str(getattr(runtime_config, "governance_block_on", "review_only") or "review_only"),
-            report_dir=str(getattr(runtime_config, "governance_report_dir", ".sprintcycle/governance") or ".sprintcycle/governance"),
+            report_dir=str(
+                getattr(runtime_config, "governance_report_dir", ".sprintcycle/governance") or ".sprintcycle/governance"
+            ),
             pack_paths=[str(p).strip() for p in pack_paths if str(p).strip()],
             metadata=metadata,
         )

@@ -12,7 +12,7 @@ from typing import Any, Dict, List
 
 from loguru import logger
 
-from .spi import MQHandler, MQMessage, MessageQueue
+from .spi import MessageQueue, MQHandler, MQMessage
 
 
 class SQLiteMQ(MessageQueue):

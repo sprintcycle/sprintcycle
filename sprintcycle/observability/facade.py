@@ -22,7 +22,9 @@ class ObservabilityFacade:
         self._phoenix = PhoenixTraceRuntime()
 
     def record(self, event: Dict[str, Any] | ObservabilityEvent) -> Dict[str, Any]:
-        payload = event.to_dict() if isinstance(event, ObservabilityEvent) else ObservabilityEvent.from_dict(event).to_dict()
+        payload = (
+            event.to_dict() if isinstance(event, ObservabilityEvent) else ObservabilityEvent.from_dict(event).to_dict()
+        )
         self.events.append(payload)
         return {"success": True, "data": payload}
 

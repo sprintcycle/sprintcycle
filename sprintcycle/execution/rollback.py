@@ -46,9 +46,11 @@ def _is_git_repo(path: str) -> bool:
 # RollbackConfig - 内联配置（无单独类）
 # =============================================================================
 
+
 @dataclass
 class RollbackConfigInline:
     """进化回滚配置（内联版本，替代 RollbackConfig 类）"""
+
     git_branch_mode: bool = True
     repo_path: str = "."
     branch_prefix: str = "evo/variant-"
@@ -64,6 +66,7 @@ RollbackConfig = RollbackConfigInline
 # =============================================================================
 # GitRollbackMixin - Git Branch based variant management
 # =============================================================================
+
 
 class GitRollbackMixin:
     """
@@ -144,10 +147,7 @@ class GitRollbackMixin:
         base_commit = self._get_current_commit()
 
         # 创建并切换到新分支
-        rc, _, stderr = self._git_runner(
-            ["checkout", "-b", branch_name],
-            cwd=self.config.repo_path
-        )
+        rc, _, stderr = self._git_runner(["checkout", "-b", branch_name], cwd=self.config.repo_path)
         if rc != 0:
             raise RollbackError(f"Failed to create branch {branch_name}: {stderr}")
 
@@ -205,26 +205,17 @@ class GitRollbackMixin:
             return False
 
         # 删除分支
-        rc, _, stderr = self._git_runner(
-            ["branch", "-D", record.branch_name],
-            cwd=repo
-        )
+        rc, _, stderr = self._git_runner(["branch", "-D", record.branch_name], cwd=repo)
         if rc != 0:
             logger.warning(f"Failed to delete branch {record.branch_name}: {stderr}")
 
         # 切换回主分支（如果有 base_commit，checkout 到它）
         if record.base_commit:
-            rc, _, _ = self._git_runner(
-                ["checkout", record.base_commit],
-                cwd=repo
-            )
+            rc, _, _ = self._git_runner(["checkout", record.base_commit], cwd=repo)
         else:
             # 尝试切换到 main 或 master
             for main_branch in ["main", "master", "HEAD"]:
-                rc, _, _ = self._git_runner(
-                    ["checkout", main_branch],
-                    cwd=repo
-                )
+                rc, _, _ = self._git_runner(["checkout", main_branch], cwd=repo)
                 if rc == 0:
                     break
 
@@ -248,10 +239,7 @@ class GitRollbackMixin:
         for vid, record in list(self._branches.items()):
             if vid not in keep_ids and not record.merged:
                 try:
-                    rc, _, _ = self._git_runner(
-                        ["branch", "-D", record.branch_name],
-                        cwd=repo
-                    )
+                    rc, _, _ = self._git_runner(["branch", "-D", record.branch_name], cwd=repo)
                     if rc == 0:
                         del self._branches[vid]
                         cleaned += 1
@@ -266,8 +254,7 @@ class GitRollbackMixin:
 
         # 获取所有 evo/variant-* 分支
         rc, stdout, _ = self._git_runner(
-            ["branch", "--format=%(refname:short) %(creatordate:iso)"],
-            cwd=self.config.repo_path
+            ["branch", "--format=%(refname:short) %(creatordate:iso)"], cwd=self.config.repo_path
         )
         if rc != 0:
             return 0
@@ -285,10 +272,7 @@ class GitRollbackMixin:
 
         for branch in all_branches:
             if branch not in active and cleanup_count < 5:
-                rc, _, _ = self._git_runner(
-                    ["branch", "-D", branch],
-                    cwd=self.config.repo_path
-                )
+                rc, _, _ = self._git_runner(["branch", "-D", branch], cwd=self.config.repo_path)
                 if rc == 0:
                     cleanup_count += 1
 
@@ -307,10 +291,13 @@ class GitRollbackMixin:
 # RollbackManager
 # =============================================================================
 
+
 class RollbackManager:
     """回滚管理器"""
 
-    def __init__(self, backup_dir: str = ".sprintcycle/backups", max_backups_per_file: int = 10, enable_compression: bool = False):
+    def __init__(
+        self, backup_dir: str = ".sprintcycle/backups", max_backups_per_file: int = 10, enable_compression: bool = False
+    ):
         self.backup_dir = Path(backup_dir)
         self.max_backups_per_file = max_backups_per_file
         self.enable_compression = enable_compression
@@ -344,7 +331,9 @@ class RollbackManager:
                 hasher.update(chunk)
         return hasher.hexdigest()
 
-    async def backup(self, file_path: str, description: str = "", operation: str = "modify", **metadata) -> Optional[BackupRecord]:
+    async def backup(
+        self, file_path: str, description: str = "", operation: str = "modify", **metadata
+    ) -> Optional[BackupRecord]:
         async with self._lock:
             try:
                 file_path_obj = Path(file_path)
@@ -360,9 +349,15 @@ class RollbackManager:
                 shutil.copy2(file_path_obj, backup_path)
 
                 record = BackupRecord(
-                    backup_id=backup_id, file_path=str(file_path), backup_path=str(backup_path),
-                    timestamp=datetime.now(), file_hash=self._compute_file_hash(file_path_obj),
-                    file_size=file_path_obj.stat().st_size, description=description, operation=operation, metadata=metadata,
+                    backup_id=backup_id,
+                    file_path=str(file_path),
+                    backup_path=str(backup_path),
+                    timestamp=datetime.now(),
+                    file_hash=self._compute_file_hash(file_path_obj),
+                    file_size=file_path_obj.stat().st_size,
+                    description=description,
+                    operation=operation,
+                    metadata=metadata,
                 )
 
                 self._backups[backup_id] = record
@@ -381,21 +376,31 @@ class RollbackManager:
 
     async def rollback(self, backup_id: str) -> RollbackResult:
         import time
+
         start_time = time.time()
         async with self._lock:
             try:
                 record = self._backups.get(backup_id)
                 if not record:
-                    return RollbackResult(success=False, backup_id=backup_id, restored_file="", message=f"Backup not found: {backup_id}")
+                    return RollbackResult(
+                        success=False, backup_id=backup_id, restored_file="", message=f"Backup not found: {backup_id}"
+                    )
 
                 backup_path = Path(record.backup_path)
                 if not backup_path.exists():
-                    return RollbackResult(success=False, backup_id=backup_id, restored_file=record.file_path, message="Backup file missing")
+                    return RollbackResult(
+                        success=False,
+                        backup_id=backup_id,
+                        restored_file=record.file_path,
+                        message="Backup file missing",
+                    )
 
                 current_path = Path(record.file_path)
                 if current_path.exists():
                     current_backup_id = self._generate_backup_id(record.file_path)
-                    shutil.copy2(current_path, self.backup_dir / f"{current_backup_id}_pre_rollback{current_path.suffix}")
+                    shutil.copy2(
+                        current_path, self.backup_dir / f"{current_backup_id}_pre_rollback{current_path.suffix}"
+                    )
 
                 shutil.copy2(backup_path, current_path)
 
@@ -407,11 +412,18 @@ class RollbackManager:
 
                 await self._save_index()
                 logger.info(f"Rollback successful: {backup_id} -> {record.file_path}")
-                return RollbackResult(success=True, backup_id=backup_id, restored_file=record.file_path,
-                                      message=f"Rolled back to {record.timestamp.isoformat()}", duration=time.time() - start_time)
+                return RollbackResult(
+                    success=True,
+                    backup_id=backup_id,
+                    restored_file=record.file_path,
+                    message=f"Rolled back to {record.timestamp.isoformat()}",
+                    duration=time.time() - start_time,
+                )
             except Exception as e:
                 logger.error(f"Rollback failed: {backup_id}, {e}")
-                return RollbackResult(success=False, backup_id=backup_id, restored_file="", message=f"Rollback failed: {e}")
+                return RollbackResult(
+                    success=False, backup_id=backup_id, restored_file="", message=f"Rollback failed: {e}"
+                )
 
     async def restore_batch(self, backup_ids: List[str]) -> List[RollbackResult]:
         return [await self.rollback(bid) for bid in backup_ids]
@@ -461,9 +473,18 @@ class RollbackManager:
     async def _save_index(self) -> None:
         try:
             with open(self.backup_dir / "index.json", "w", encoding="utf-8") as f:
-                json.dump({"backups": {bid: r.to_dict() for bid, r in self._backups.items()}, "file_backups": self._file_backups}, f, ensure_ascii=False, indent=2)
+                json.dump(
+                    {
+                        "backups": {bid: r.to_dict() for bid, r in self._backups.items()},
+                        "file_backups": self._file_backups,
+                    },
+                    f,
+                    ensure_ascii=False,
+                    indent=2,
+                )
         except Exception as e:
             logger.error(f"Save index failed: {e}")
+
 
 _default_manager: Optional[RollbackManager] = None
 

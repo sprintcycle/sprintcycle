@@ -1,4 +1,5 @@
 from typing import Any, Dict, List
+
 from ..reports.finding import Finding
 from ..reports.report import Report
 
@@ -10,11 +11,13 @@ class HypothesisProvider:
         report = Report(gate="verification", passed=True, source=self.name)
         targets = self.discover_test_targets(context)
         if not targets:
-            report.add_finding(Finding(
-                rule_id="hypothesis:no-targets",
-                severity="info",
-                message="no property test targets discovered",
-            ))
+            report.add_finding(
+                Finding(
+                    rule_id="hypothesis:no-targets",
+                    severity="info",
+                    message="no property test targets discovered",
+                )
+            )
         else:
             for test_file in targets:
                 sub = await self.run_test_file(test_file, context)
@@ -27,12 +30,14 @@ class HypothesisProvider:
 
     async def run_test_file(self, test_file: str, context: Dict[str, Any]) -> Report:
         report = Report(gate="verification", passed=True, source=self.name)
-        report.add_finding(Finding(
-            rule_id="hypothesis:stub",
-            severity="info",
-            message=f"property test stub for {test_file}",
-            location={"file": test_file},
-        ))
+        report.add_finding(
+            Finding(
+                rule_id="hypothesis:stub",
+                severity="info",
+                message=f"property test stub for {test_file}",
+                location={"file": test_file},
+            )
+        )
         report.recompute_summary()
         return report
 

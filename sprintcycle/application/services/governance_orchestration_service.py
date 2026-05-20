@@ -15,7 +15,14 @@ from typing import Any, Dict, Optional
 from loguru import logger
 
 from ...governance.facade import GovernanceFacade
-from ...hooks import GOVERNANCE_CHECK, GOVERNANCE_CHECKED_EVENT, GOVERNANCE_CHECK_FAILED_EVENT, HookContext, HookRegistry, HookRunner
+from ...hooks import (
+    GOVERNANCE_CHECK,
+    GOVERNANCE_CHECK_FAILED_EVENT,
+    GOVERNANCE_CHECKED_EVENT,
+    HookContext,
+    HookRegistry,
+    HookRunner,
+)
 
 
 @dataclass
@@ -43,7 +50,11 @@ class GovernanceOrchestrationService:
         before = runner.before(GOVERNANCE_CHECK[0], GOVERNANCE_CHECK[1], hook_ctx)
         if any(r.blocked or not r.ok for r in before):
             result = next((r for r in before if r.blocked or not r.ok), None)
-            return {"success": False, "error": result.message if result and result.message else "blocked by before_governance_check", "hook": [r.to_dict() for r in before]}
+            return {
+                "success": False,
+                "error": result.message if result and result.message else "blocked by before_governance_check",
+                "hook": [r.to_dict() for r in before],
+            }
         try:
             cfg = ArchGuardConfig.from_runtime_config(self.config, self.project_path)
             engine = ArchGuardEngine(cfg)
@@ -52,18 +63,30 @@ class GovernanceOrchestrationService:
                 release_plan = kwargs.get("release_plan")
                 if release_plan is None:
                     return {"success": False, "error": "planning gate requires release_plan"}
-                report = asyncio.run(engine.run_planning_gate(self.project_path, release_plan=release_plan, context=context))
+                report = asyncio.run(
+                    engine.run_planning_gate(self.project_path, release_plan=release_plan, context=context)
+                )
             else:
                 report = asyncio.run(engine.run_review_gate(self.project_path, context=context))
             gov = GovernanceReportAdapter.to_governance_report(report)
             payload = {"success": True, "gate": gate, "data": gov.to_dict(), "duration": time.time() - start}
             runner.after(GOVERNANCE_CHECK[0], GOVERNANCE_CHECK[1], hook_ctx)
-            runner.event("governance", "check", GOVERNANCE_CHECKED_EVENT, {"gate": gate, "report": payload["data"], "project_path": self.project_path})
+            runner.event(
+                "governance",
+                "check",
+                GOVERNANCE_CHECKED_EVENT,
+                {"gate": gate, "report": payload["data"], "project_path": self.project_path},
+            )
             return payload
         except Exception as e:
             logger.exception("governance_check failed")
             runner.failed(GOVERNANCE_CHECK[0], GOVERNANCE_CHECK[1], hook_ctx)
-            runner.event("governance", "check", GOVERNANCE_CHECK_FAILED_EVENT, {"gate": gate, "project_path": self.project_path, "error": str(e)})
+            runner.event(
+                "governance",
+                "check",
+                GOVERNANCE_CHECK_FAILED_EVENT,
+                {"gate": gate, "project_path": self.project_path, "error": str(e)},
+            )
             return {"success": False, "error": str(e), "duration": time.time() - start}
 
     async def pending(self, execution_id: Optional[str] = None) -> Dict[str, Any]:

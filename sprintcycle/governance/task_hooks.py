@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from loguru import logger
 
+from ..application.release_plan.models import SprintBacklogItem
 from ..execution.events import EventType, ExecutionEventBackend, create_event, get_execution_event_backend
 from ..execution.hooks.governance_context import (
     CTX_GOVERNANCE_TASK_AFTER_DETAIL,
@@ -14,7 +15,6 @@ from ..execution.hooks.governance_context import (
 )
 from ..execution.hooks.task_hooks import TaskLifecycleHooks
 from ..execution.sprint_types import ExecutionStatus, TaskResult
-from ..application.release_plan.models import SprintBacklogItem
 from .hitl import HitlGate, HitlService, create_hitl_coordinator, evaluate_hitl_policy
 from .report import GovernanceViolation
 from .yaml_checks import checks_for_gate, filter_argv_items_by_governance_sources, run_argv_item

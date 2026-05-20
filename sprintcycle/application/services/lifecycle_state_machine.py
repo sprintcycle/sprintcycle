@@ -12,9 +12,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 from uuid import uuid4
-
 
 LIFECYCLE_STAGES: tuple[str, ...] = (
     "new",
@@ -83,7 +82,14 @@ REPAIR_ROUTE_BY_STAGE: Dict[str, str] = {
     "failed": "repairing",
 }
 
-CORRELATION_KEY_FIELDS: tuple[str, ...] = ("request_id", "execution_id", "task_id", "suggestion_id", "runtime_id", "version_id")
+CORRELATION_KEY_FIELDS: tuple[str, ...] = (
+    "request_id",
+    "execution_id",
+    "task_id",
+    "suggestion_id",
+    "runtime_id",
+    "version_id",
+)
 
 
 @dataclass(slots=True)
@@ -151,7 +157,15 @@ class LifecycleStateMachine:
     def is_terminal(self, stage: object) -> bool:
         return self.normalize_stage(stage) in TERMINAL_STAGES or self.normalize_stage(stage) in FAILURE_STAGES
 
-    def transition(self, contract: Dict[str, Any], to_stage: str, *, status: Optional[str] = None, reason: str = "", metadata: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def transition(
+        self,
+        contract: Dict[str, Any],
+        to_stage: str,
+        *,
+        status: Optional[str] = None,
+        reason: str = "",
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         contract = dict(contract or {})
         current = self.normalize_stage(contract.get("stage") or contract.get("current_stage") or "new")
         target = self.normalize_stage(to_stage)
@@ -169,7 +183,12 @@ class LifecycleStateMachine:
         contract["status"] = status or contract.get("status") or "pending"
         contract["stage_history"] = history
         contract["stage_index"] = self.stage_index(target)
-        contract["is_terminal"] = self.is_terminal(target) or str(contract.get("status") or "").lower() in {"success", "failed", "cancelled", "promoted"}
+        contract["is_terminal"] = self.is_terminal(target) or str(contract.get("status") or "").lower() in {
+            "success",
+            "failed",
+            "cancelled",
+            "promoted",
+        }
         contract.setdefault("metadata", {})
         if metadata:
             contract["metadata"].update(metadata)
@@ -202,10 +221,21 @@ class LifecycleStateMachine:
         contract = dict(contract or {})
         contract["correlation"] = correlation.to_dict()
         contract.setdefault("metadata", {})
-        contract["metadata"].update({k: v for k, v in correlation.to_dict().items() if k in CORRELATION_KEY_FIELDS and v})
+        contract["metadata"].update(
+            {k: v for k, v in correlation.to_dict().items() if k in CORRELATION_KEY_FIELDS and v}
+        )
         return contract
 
-    def build_event(self, *, kind: str, stage: str, status: str = "success", payload: Optional[Dict[str, Any]] = None, correlation: Optional[CorrelationContext] = None, source: str = "web") -> Dict[str, Any]:
+    def build_event(
+        self,
+        *,
+        kind: str,
+        stage: str,
+        status: str = "success",
+        payload: Optional[Dict[str, Any]] = None,
+        correlation: Optional[CorrelationContext] = None,
+        source: str = "web",
+    ) -> Dict[str, Any]:
         corr = correlation or CorrelationContext(source=source)
         return {
             "event_id": str(uuid4()),

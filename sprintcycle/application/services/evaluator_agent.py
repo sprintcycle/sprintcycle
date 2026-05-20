@@ -21,12 +21,14 @@ class SprintScoreCard:
     passed: bool = False
     reason: str = ""
     missing_evidence: List[str] = field(default_factory=list)
-    weights: Dict[str, int] = field(default_factory=lambda: {
-        "functionality": 30,
-        "structure": 20,
-        "evidence": 30,
-        "delivery": 20,
-    })
+    weights: Dict[str, int] = field(
+        default_factory=lambda: {
+            "functionality": 30,
+            "structure": 20,
+            "evidence": 30,
+            "delivery": 20,
+        }
+    )
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -116,12 +118,14 @@ class EvaluatorAgent:
         evidence_score, missing = self._score_evidence(merged_evidence)
         delivery = self._score_delivery(merged_evidence)
 
-        weighted_total = round(
-            functionality * 0.30 + structure * 0.20 + evidence_score * 0.30 + delivery * 0.20
-        )
+        weighted_total = round(functionality * 0.30 + structure * 0.20 + evidence_score * 0.30 + delivery * 0.20)
         passed = weighted_total >= 70 and not missing
         verdict = "passed" if passed else ("needs_repair" if missing else "blocked")
-        reason = "all gates satisfied" if passed else ("missing evidence: " + ", ".join(missing) if missing else "score below threshold")
+        reason = (
+            "all gates satisfied"
+            if passed
+            else ("missing evidence: " + ", ".join(missing) if missing else "score below threshold")
+        )
 
         score_card = SprintScoreCard(
             functionality=min(functionality, 100),

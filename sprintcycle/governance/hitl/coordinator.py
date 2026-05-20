@@ -15,7 +15,7 @@ from .context import build_replay_context, merge_correction_into_context, summar
 from .decision_normalize import normalize_hitl_decision_with_intent, validate_hitl_decision_for_submit
 from .events import HitlEventType
 from .store import HitlSqliteStore, default_hitl_db_path
-from .types import HitlCorrection, HitlDecision, HitlGate, HitlRequestRecord, HitlReplayDirective, HitlRiskLevel
+from .types import HitlCorrection, HitlDecision, HitlGate, HitlReplayDirective, HitlRequestRecord, HitlRiskLevel
 
 if TYPE_CHECKING:
     from ...infrastructure.config.runtime_config import RuntimeConfig
@@ -170,10 +170,22 @@ class HitlCoordinator:
             status=status,
         )
         rec = await self._store.get(request_id) or rec
-        await self._emit(HitlEventType.REQUEST_RESOLVED, {"request_id": request_id, "execution_id": rec.execution_id, "decision": canon, "note": (note or "").strip() or None, "decision_kind": intent, "status": status})
+        await self._emit(
+            HitlEventType.REQUEST_RESOLVED,
+            {
+                "request_id": request_id,
+                "execution_id": rec.execution_id,
+                "decision": canon,
+                "note": (note or "").strip() or None,
+                "decision_kind": intent,
+                "status": status,
+            },
+        )
         return rec
 
-    async def submit_correction(self, request_id: str, correction: HitlCorrection, *, emit_decision: bool = True) -> Optional[HitlRequestRecord]:
+    async def submit_correction(
+        self, request_id: str, correction: HitlCorrection, *, emit_decision: bool = True
+    ) -> Optional[HitlRequestRecord]:
         rec = await self._store.get(request_id)
         if rec is None:
             return None
@@ -186,12 +198,27 @@ class HitlCoordinator:
         updated.correction = correction
         updated.status = "modified"
         await self._store.insert_open(updated)
-        await self._emit(HitlEventType.REQUEST_MODIFIED, {"request_id": request_id, "execution_id": updated.execution_id, "correction": correction.to_dict()})
-        await self._emit(HitlEventType.PATCH_APPLIED, {"request_id": request_id, "execution_id": updated.execution_id, "diff": summarize_context_diff(before, patched)})
-        await self._emit(HitlEventType.CONTEXT_REFLOWED, {"request_id": request_id, "execution_id": updated.execution_id, "context_keys": sorted(patched.keys())})
+        await self._emit(
+            HitlEventType.REQUEST_MODIFIED,
+            {"request_id": request_id, "execution_id": updated.execution_id, "correction": correction.to_dict()},
+        )
+        await self._emit(
+            HitlEventType.PATCH_APPLIED,
+            {
+                "request_id": request_id,
+                "execution_id": updated.execution_id,
+                "diff": summarize_context_diff(before, patched),
+            },
+        )
+        await self._emit(
+            HitlEventType.CONTEXT_REFLOWED,
+            {"request_id": request_id, "execution_id": updated.execution_id, "context_keys": sorted(patched.keys())},
+        )
         return updated
 
-    async def request_retry(self, request_id: str, replay: HitlReplayDirective, *, emit_decision: bool = True) -> Optional[HitlRequestRecord]:
+    async def request_retry(
+        self, request_id: str, replay: HitlReplayDirective, *, emit_decision: bool = True
+    ) -> Optional[HitlRequestRecord]:
         rec = await self._store.get(request_id)
         if rec is None:
             return None
@@ -202,7 +229,10 @@ class HitlCoordinator:
         base_context = updated.applied_context or updated.context
         updated.applied_context = build_replay_context(base_context, replay)
         await self._store.insert_open(updated)
-        await self._emit(HitlEventType.REPLAY_TRIGGERED, {"request_id": request_id, "execution_id": updated.execution_id, "replay": replay.to_dict()})
+        await self._emit(
+            HitlEventType.REPLAY_TRIGGERED,
+            {"request_id": request_id, "execution_id": updated.execution_id, "replay": replay.to_dict()},
+        )
         return updated
 
     async def list_pending(self, execution_id: Optional[str] = None) -> list[Dict[str, Any]]:
@@ -228,7 +258,12 @@ class HitlCoordinator:
                 HitlEventType.REPLAY_TRIGGERED: EventType.HITL_REQUEST_OPEN,
                 HitlEventType.REQUEST_RESOLVED: EventType.HITL_REQUEST_RESOLVED,
             }
-            await self._event_bus.emit(Event(type=mapping.get(event_type, EventType.HITL_REQUEST_OPEN), data={**data, "hitl_event_type": event_type.value}))
+            await self._event_bus.emit(
+                Event(
+                    type=mapping.get(event_type, EventType.HITL_REQUEST_OPEN),
+                    data={**data, "hitl_event_type": event_type.value},
+                )
+            )
         except Exception as e:
             logger.warning("HITL emit failed: {}", e)
 
@@ -241,10 +276,6 @@ def create_hitl_coordinator(
     if not getattr(config, "hitl_enabled", False):
         return None
     raw = getattr(config, "hitl_db_path", None)
-    db_path = (
-        str(raw).strip()
-        if isinstance(raw, str) and str(raw).strip()
-        else default_hitl_db_path(project_root)
-    )
+    db_path = str(raw).strip() if isinstance(raw, str) and str(raw).strip() else default_hitl_db_path(project_root)
     store = HitlSqliteStore(db_path)
     return HitlCoordinator(project_root=project_root, config=config, event_bus=event_bus, store=store)

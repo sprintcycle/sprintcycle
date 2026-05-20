@@ -37,7 +37,12 @@ class SkillMatch:
 
 
 class SkillOrchestrator:
-    def __init__(self, skills_root: str = "skills", skill_store: Optional[SkillStore] = None, marketplace: Optional[OpenClawMarketplaceClient] = None) -> None:
+    def __init__(
+        self,
+        skills_root: str = "skills",
+        skill_store: Optional[SkillStore] = None,
+        marketplace: Optional[OpenClawMarketplaceClient] = None,
+    ) -> None:
         self.skills_root = Path(skills_root)
         self._skill_store = skill_store or SkillStore()
         self._marketplace = marketplace or OpenClawMarketplaceClient(skill_store=self._skill_store)
@@ -53,11 +58,22 @@ class SkillOrchestrator:
     def match_skills(self, scene: str) -> list[SkillMatch]:
         if scene == "payment":
             return [
-                SkillMatch(skill_id="wechat-pay", scene=scene, path=str(self.skills_root / "wechat-pay" / "SKILL.md"), reason="支付接入"),
-                SkillMatch(skill_id="payment-security", scene=scene, path=str(self.skills_root / "payment-security" / "SKILL.md"), reason="支付安全审查", checklist=[
-                    {"category": "security", "title": "支付签名校验", "required": True},
-                    {"category": "security", "title": "回调幂等性", "required": True},
-                ]),
+                SkillMatch(
+                    skill_id="wechat-pay",
+                    scene=scene,
+                    path=str(self.skills_root / "wechat-pay" / "SKILL.md"),
+                    reason="支付接入",
+                ),
+                SkillMatch(
+                    skill_id="payment-security",
+                    scene=scene,
+                    path=str(self.skills_root / "payment-security" / "SKILL.md"),
+                    reason="支付安全审查",
+                    checklist=[
+                        {"category": "security", "title": "支付签名校验", "required": True},
+                        {"category": "security", "title": "回调幂等性", "required": True},
+                    ],
+                ),
             ]
         return []
 
@@ -75,7 +91,16 @@ class SkillOrchestrator:
             path = Path(match.path)
             if path.exists():
                 content = path.read_text(encoding="utf-8")
-                injected.append({"skill_id": match.skill_id, "content": content, "hooks": match.hooks, "version": match.version, "checksum": match.checksum, "market_source": match.market_source})
+                injected.append(
+                    {
+                        "skill_id": match.skill_id,
+                        "content": content,
+                        "hooks": match.hooks,
+                        "version": match.version,
+                        "checksum": match.checksum,
+                        "market_source": match.market_source,
+                    }
+                )
                 match.status = "injected"
         self._injected = list(self._pending)
         context["injected_skills"] = injected
@@ -87,7 +112,9 @@ class SkillOrchestrator:
             if match.checklist:
                 review_checklists.extend(match.checklist)
             if match.skill_id == "payment-security":
-                review_checklists.append({"category": "skill", "title": "支付安全合规检查清单", "required": True, "source": "skill"})
+                review_checklists.append(
+                    {"category": "skill", "title": "支付安全合规检查清单", "required": True, "source": "skill"}
+                )
         return context
 
     def after_retro(self, context: Dict[str, Any]) -> None:

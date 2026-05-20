@@ -7,7 +7,6 @@ from typing import Callable, List
 
 from .context import ExecutionContext
 
-
 Hook = Callable[[ExecutionContext], None]
 
 

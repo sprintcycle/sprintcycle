@@ -12,7 +12,6 @@ from typing import Any, Dict, List, Optional
 
 from .lifecycle_state_machine import LIFECYCLE_STAGES, LifecycleStateMachine, build_default_correlation
 
-
 STAGE_EVIDENCE_SCHEMA: Dict[str, tuple[str, ...]] = {
     "normalized": ("normalized",),
     "plan": ("objective", "present"),
@@ -259,11 +258,20 @@ class LifecycleContract:
             **dict(payload.get("validation_refs") or {}),
             "schema_valid": not validation_errors,
             "normalized": payload.get("stage") == "normalized",
-            "trace_present": bool(payload.get("trace") or payload.get("evidence", {}).get("stages", {}).get("execute", {}).get("trace") or payload.get("evidence", {}).get("stages", {}).get("observe", {}).get("trace")),
-            "versioned_evolution": bool(payload.get("evidence", {}).get("evolution", {}).get("versioned") or payload.get("evolution_refs", {}).get("versioned")),
+            "trace_present": bool(
+                payload.get("trace")
+                or payload.get("evidence", {}).get("stages", {}).get("execute", {}).get("trace")
+                or payload.get("evidence", {}).get("stages", {}).get("observe", {}).get("trace")
+            ),
+            "versioned_evolution": bool(
+                payload.get("evidence", {}).get("evolution", {}).get("versioned")
+                or payload.get("evolution_refs", {}).get("versioned")
+            ),
         }
         if not payload.get("correlation"):
-            payload["correlation"] = build_default_correlation({"execution_id": self.execution_id, "task_id": self.task_id, "metadata": self.metadata}).to_dict()
+            payload["correlation"] = build_default_correlation(
+                {"execution_id": self.execution_id, "task_id": self.task_id, "metadata": self.metadata}
+            ).to_dict()
         return payload
 
 
@@ -417,5 +425,7 @@ def build_lifecycle_contract(
         failure_code=failure_code,
     )
     if not contract.correlation:
-        contract.correlation = build_default_correlation({"execution_id": execution_id, "task_id": task_id, "metadata": meta}).to_dict()
+        contract.correlation = build_default_correlation(
+            {"execution_id": execution_id, "task_id": task_id, "metadata": meta}
+        ).to_dict()
     return contract

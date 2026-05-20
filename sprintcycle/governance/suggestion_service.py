@@ -11,7 +11,6 @@ from .suggestion.models import (
     Suggestion,
     SuggestionApprovalRecord,
     SuggestionOverviewResult,
-    SuggestionReviewContext,
     SuggestionReviewRecord,
     SuggestionStatus,
 )
@@ -54,7 +53,14 @@ class SuggestionService:
         self.analyze_events(execution_id, events)
         return self.overview(execution_id)
 
-    def mark_reviewing(self, execution_id: str, suggestion_id: str, reviewer: str = "", notes: str = "", metadata: Optional[Dict[str, Any]] = None) -> SuggestionReviewRecord:
+    def mark_reviewing(
+        self,
+        execution_id: str,
+        suggestion_id: str,
+        reviewer: str = "",
+        notes: str = "",
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> SuggestionReviewRecord:
         record = SuggestionReviewRecord(
             suggestion_id=suggestion_id,
             reviewer=reviewer,
@@ -64,7 +70,14 @@ class SuggestionService:
         )
         return self.review(record)
 
-    def mark_approved(self, execution_id: str, suggestion_id: str, approved_by: str = "", note: str = "", metadata: Optional[Dict[str, Any]] = None) -> SuggestionApprovalRecord:
+    def mark_approved(
+        self,
+        execution_id: str,
+        suggestion_id: str,
+        approved_by: str = "",
+        note: str = "",
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> SuggestionApprovalRecord:
         record = SuggestionApprovalRecord(
             suggestion_id=suggestion_id,
             approved_by=approved_by,
@@ -73,7 +86,14 @@ class SuggestionService:
         )
         return self.approve(record)
 
-    def reject(self, execution_id: str, suggestion_id: str, rejected_by: str = "", note: str = "", metadata: Optional[Dict[str, Any]] = None) -> SuggestionReviewRecord:
+    def reject(
+        self,
+        execution_id: str,
+        suggestion_id: str,
+        rejected_by: str = "",
+        note: str = "",
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> SuggestionReviewRecord:
         record = SuggestionReviewRecord(
             suggestion_id=suggestion_id,
             reviewer=rejected_by,
@@ -83,7 +103,9 @@ class SuggestionService:
         )
         return self.review(record)
 
-    def archive(self, execution_id: str, suggestion_id: str, note: str = "", metadata: Optional[Dict[str, Any]] = None) -> Optional[Suggestion]:
+    def archive(
+        self, execution_id: str, suggestion_id: str, note: str = "", metadata: Optional[Dict[str, Any]] = None
+    ) -> Optional[Suggestion]:
         suggestion = self.get(suggestion_id)
         if suggestion is None:
             return None
@@ -91,7 +113,9 @@ class SuggestionService:
         suggestion.metadata.update({**(metadata or {}), "execution_id": execution_id, "archive_note": note})
         return self.create(suggestion)
 
-    def apply(self, execution_id: str, suggestion_id: str, note: str = "", metadata: Optional[Dict[str, Any]] = None) -> Optional[Suggestion]:
+    def apply(
+        self, execution_id: str, suggestion_id: str, note: str = "", metadata: Optional[Dict[str, Any]] = None
+    ) -> Optional[Suggestion]:
         suggestion = self.get(suggestion_id)
         if suggestion is None:
             return None
@@ -99,7 +123,14 @@ class SuggestionService:
         suggestion.metadata.update({**(metadata or {}), "execution_id": execution_id, "apply_note": note})
         return self.create(suggestion)
 
-    def mark_reviewed(self, execution_id: str, suggestion_id: str, reviewer: str = "", notes: str = "", metadata: Optional[Dict[str, Any]] = None) -> SuggestionReviewRecord:
+    def mark_reviewed(
+        self,
+        execution_id: str,
+        suggestion_id: str,
+        reviewer: str = "",
+        notes: str = "",
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> SuggestionReviewRecord:
         record = SuggestionReviewRecord(
             suggestion_id=suggestion_id,
             reviewer=reviewer,
@@ -109,10 +140,20 @@ class SuggestionService:
         )
         return self.review(record)
 
-    async def promote_to_hitl(self, suggestion_id: str, *, gate: str = "review", title: str = "", summary: str = "", context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    async def promote_to_hitl(
+        self,
+        suggestion_id: str,
+        *,
+        gate: str = "review",
+        title: str = "",
+        summary: str = "",
+        context: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         if self.bridge is None:
             self.bridge = SuggestionBridge(self)
-        return await self.bridge.promote_to_hitl(suggestion_id, gate=gate, title=title, summary=summary, context=context)
+        return await self.bridge.promote_to_hitl(
+            suggestion_id, gate=gate, title=title, summary=summary, context=context
+        )
 
     async def attach_replay_directive(self, suggestion_id: str, replay: Dict[str, Any]) -> Dict[str, Any]:
         if self.bridge is None:

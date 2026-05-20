@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
@@ -194,7 +194,15 @@ class SuggestionBridge:
             created.append(suggestion.to_dict())
         return {"success": True, "data": {"execution_id": execution_id, "created": created, "total": len(created)}}
 
-    async def promote_to_hitl(self, suggestion_id: str, *, gate: str = "review", title: str = "", summary: str = "", context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    async def promote_to_hitl(
+        self,
+        suggestion_id: str,
+        *,
+        gate: str = "review",
+        title: str = "",
+        summary: str = "",
+        context: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         suggestion = self._service.get(suggestion_id)
         if suggestion is None:
             return {"success": False, "error": "suggestion not found"}
@@ -218,7 +226,10 @@ class SuggestionBridge:
         if suggestion is None:
             return {"success": False, "error": "suggestion not found"}
         suggestion.replay_directive = dict(replay or {})
-        return {"success": True, "data": {"suggestion_id": suggestion_id, "replay_directive": suggestion.replay_directive}}
+        return {
+            "success": True,
+            "data": {"suggestion_id": suggestion_id, "replay_directive": suggestion.replay_directive},
+        }
 
 
 def create_suggestion_facade() -> SuggestionFacade:

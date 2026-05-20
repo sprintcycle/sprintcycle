@@ -3,6 +3,7 @@
 The legacy checkpoint bridge has been removed. This module now owns execution
 normalization and delegates runtime flow to the execution engine.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -35,7 +36,10 @@ class ExecutionRunResult:
 
     @property
     def success(self) -> bool:
-        return all(getattr(result, "status", None) and getattr(result.status, "value", str(result.status)) == "success" for result in self.sprint_results)
+        return all(
+            getattr(result, "status", None) and getattr(result.status, "value", str(result.status)) == "success"
+            for result in self.sprint_results
+        )
 
 
 class ExecutionOrchestrator:
@@ -71,7 +75,9 @@ class ExecutionOrchestrator:
             release_plan=req.release_plan,
             sprint_index_offset=req.sprint_index_offset,
         )
-        return ExecutionRunResult(execution_id=str(execution_id or getattr(self._executor, "_execution_id", "")), sprint_results=results)
+        return ExecutionRunResult(
+            execution_id=str(execution_id or getattr(self._executor, "_execution_id", "")), sprint_results=results
+        )
 
 
 __all__ = ["ExecutionOrchestrator", "ExecutionRunRequest", "ExecutionRunResult"]

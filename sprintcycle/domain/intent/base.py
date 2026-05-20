@@ -2,6 +2,7 @@
 Intent 基类
 定义所有意图处理器的通用接口
 """
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
@@ -16,6 +17,7 @@ if TYPE_CHECKING:
 @dataclass
 class IntentResult:
     """意图执行结果（``release_plan`` 与根包 ``ReleasePlan`` 为同一类型）。"""
+
     success: bool
     release_plan: "ReleasePlan"
     completed_sprints: int = 0
@@ -105,9 +107,7 @@ class IntentHandler(ABC):
         from ...application.orchestration.sprint_orchestrator import ExecutionStatus
 
         completed_sprints = sum(
-            1
-            for r in sprint_results
-            if r.status in (ExecutionStatus.SUCCESS, ExecutionStatus.SKIPPED)
+            1 for r in sprint_results if r.status in (ExecutionStatus.SUCCESS, ExecutionStatus.SKIPPED)
         )
         completed_tasks = sum(r.success_count for r in sprint_results)
 

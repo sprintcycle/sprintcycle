@@ -17,6 +17,7 @@ from .health_report import ProjectHealthReport
 
 class ReleasePlanRulePriority(Enum):
     """执行计划规则优先级（诊断规则引擎）。"""
+
     P0_CRITICAL = 0  # 必须修复
     P1_HIGH = 1  # 强烈建议
     P2_MEDIUM = 2  # 建议
@@ -28,6 +29,7 @@ class ReleasePlanRule:
     """
     单条诊断规则：匹配条件 + 生成 ``ReleasePlan`` 的工厂。
     """
+
     name: str
     priority: ReleasePlanRulePriority
     check: Any  # 检查函数
@@ -98,9 +100,7 @@ class ReleasePlanRuleEngine:
 
         return plans
 
-    def _gen_fix_tests_plan(
-        self, report: ProjectHealthReport, project_path: str
-    ) -> ReleasePlan:
+    def _gen_fix_tests_plan(self, report: ProjectHealthReport, project_path: str) -> ReleasePlan:
         return release_plan_from_diagnostic_slices(
             plan_name="修复测试失败",
             project_path=project_path,
@@ -129,9 +129,7 @@ class ReleasePlanRuleEngine:
             extra_metadata={"failures": report.test_failures},
         )
 
-    def _gen_fix_types_plan(
-        self, report: ProjectHealthReport, project_path: str
-    ) -> ReleasePlan:
+    def _gen_fix_types_plan(self, report: ProjectHealthReport, project_path: str) -> ReleasePlan:
         return release_plan_from_diagnostic_slices(
             plan_name="修复类型错误",
             project_path=project_path,
@@ -160,15 +158,10 @@ class ReleasePlanRuleEngine:
             extra_metadata={"errors": report.mypy_errors},
         )
 
-    def _gen_coverage_plan(
-        self, report: ProjectHealthReport, project_path: str
-    ) -> ReleasePlan:
+    def _gen_coverage_plan(self, report: ProjectHealthReport, project_path: str) -> ReleasePlan:
         target_coverage = max(report.coverage_total + 15, 80)
 
-        low_modules = [
-            (m, c) for m, c in report.coverage_modules.items()
-            if c < 50
-        ]
+        low_modules = [(m, c) for m, c in report.coverage_modules.items() if c < 50]
         low_modules.sort(key=lambda x: x[1])
 
         tasks: List[dict] = [
@@ -180,11 +173,13 @@ class ReleasePlanRuleEngine:
         ]
 
         if low_modules:
-            tasks.append({
-                "description": f"优先提升 {low_modules[0][0]} 模块覆盖率（当前: {low_modules[0][1]:.1f}%）",
-                "agent": "tester",
-                "constraints": ["从核心功能开始"],
-            })
+            tasks.append(
+                {
+                    "description": f"优先提升 {low_modules[0][0]} 模块覆盖率（当前: {low_modules[0][1]:.1f}%）",
+                    "agent": "tester",
+                    "constraints": ["从核心功能开始"],
+                }
+            )
 
         return release_plan_from_diagnostic_slices(
             plan_name="提升测试覆盖率",
@@ -206,9 +201,7 @@ class ReleasePlanRuleEngine:
             },
         )
 
-    def _gen_refactor_plan(
-        self, report: ProjectHealthReport, project_path: str
-    ) -> ReleasePlan:
+    def _gen_refactor_plan(self, report: ProjectHealthReport, project_path: str) -> ReleasePlan:
         return release_plan_from_diagnostic_slices(
             plan_name="重构高复杂度函数",
             project_path=project_path,
@@ -237,9 +230,7 @@ class ReleasePlanRuleEngine:
             extra_metadata={"count": report.complexity_high},
         )
 
-    def _gen_fix_circular_plan(
-        self, report: ProjectHealthReport, project_path: str
-    ) -> ReleasePlan:
+    def _gen_fix_circular_plan(self, report: ProjectHealthReport, project_path: str) -> ReleasePlan:
         return release_plan_from_diagnostic_slices(
             plan_name="消除循环依赖",
             project_path=project_path,

@@ -20,11 +20,18 @@ def verification() -> None:
 
 @verification.command("check")
 @click.option("-p", "--project", required=True, type=click.Path(path_type=Path), help="目标项目路径")
-@click.option("--gate", type=click.Choice(["test", "verify", "arch", "security", "all"], case_sensitive=False), default="all", show_default=True)
+@click.option(
+    "--gate",
+    type=click.Choice(["test", "verify", "arch", "security", "all"], case_sensitive=False),
+    default="all",
+    show_default=True,
+)
 @click.option("--json-output", is_flag=True, help="以 JSON 输出结果")
 @click.option("--pytest-command", default=None, help="覆盖 pytest 命令")
 @click.option("--cli-command", default=None, help="覆盖 CLI 验证命令")
-def verification_check(project: Path, gate: str, json_output: bool, pytest_command: Optional[str], cli_command: Optional[str]) -> None:
+def verification_check(
+    project: Path, gate: str, json_output: bool, pytest_command: Optional[str], cli_command: Optional[str]
+) -> None:
     runtime_config = RuntimeConfig.from_project(str(project))
     cfg = VerificationConfig.from_runtime_config(runtime_config, str(project))
     engine = VerificationEngine(cfg)

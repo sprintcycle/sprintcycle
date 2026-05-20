@@ -69,7 +69,9 @@ class OpenClawMarketplaceClient:
                 shutil.rmtree(dst)
         dst.symlink_to(src, target_is_directory=True)
 
-    def _persist_artifact(self, skill_id: str, version: str, path: str, checksum: str, source: str = "openclaw", status: str = "installed") -> None:
+    def _persist_artifact(
+        self, skill_id: str, version: str, path: str, checksum: str, source: str = "openclaw", status: str = "installed"
+    ) -> None:
         self._skill_store.upsert_artifact(
             SkillArtifact(
                 skill_id=skill_id,
@@ -89,12 +91,23 @@ class OpenClawMarketplaceClient:
         raw = json.loads(index.read_text(encoding="utf-8"))
         items: List[SkillMarketItem] = []
         for item in raw.get("items", []):
-            if query.lower() not in f"{item.get('skill_id','')} {item.get('name','')} {item.get('description','')}".lower():
+            if (
+                query.lower()
+                not in f"{item.get('skill_id', '')} {item.get('name', '')} {item.get('description', '')}".lower()
+            ):
                 continue
             if tags and not set(tags).issubset(set(item.get("tags", []))):
                 continue
             versions = [SkillMarketVersion(**v) for v in item.get("versions", [])]
-            items.append(SkillMarketItem(skill_id=item["skill_id"], name=item["name"], description=item.get("description", ""), tags=item.get("tags", []), versions=versions))
+            items.append(
+                SkillMarketItem(
+                    skill_id=item["skill_id"],
+                    name=item["name"],
+                    description=item.get("description", ""),
+                    tags=item.get("tags", []),
+                    versions=versions,
+                )
+            )
         return items
 
     async def install(self, skill_id: str, version: str = "latest") -> Dict[str, Any]:
@@ -127,7 +140,9 @@ class OpenClawMarketplaceClient:
         }
         with self._install_log.open("a", encoding="utf-8") as f:
             f.write(json.dumps(payload, ensure_ascii=False) + "\n")
-        self._persist_artifact(skill_id, selected.version, str(target), selected.checksum, source="openclaw", status="installed")
+        self._persist_artifact(
+            skill_id, selected.version, str(target), selected.checksum, source="openclaw", status="installed"
+        )
         return payload
 
     async def rollback(self, skill_id: str, version: str) -> Dict[str, Any]:
@@ -136,7 +151,14 @@ class OpenClawMarketplaceClient:
             raise FileNotFoundError(f"rollback target not found: {skill_id}@{version}")
         current_target = self._current_dir / skill_id
         self._safe_link(target, current_target)
-        self._persist_artifact(skill_id, version, str(target), self._artifact_checksum(skill_id, version), source="openclaw", status="rolled_back")
+        self._persist_artifact(
+            skill_id,
+            version,
+            str(target),
+            self._artifact_checksum(skill_id, version),
+            source="openclaw",
+            status="rolled_back",
+        )
         payload = {"skill_id": skill_id, "version": version, "rolled_back": True}
         with self._install_log.open("a", encoding="utf-8") as f:
             f.write(json.dumps(payload, ensure_ascii=False) + "\n")
@@ -162,7 +184,13 @@ class OpenClawMarketplaceClient:
         return payload
 
     def refresh_skill_state(self, skill_id: str, version: str, *, status: str, path: Optional[str] = None) -> None:
-        self._persist_artifact(skill_id, version, path or str(self._installed_skill_dir(skill_id, version)), self._artifact_checksum(skill_id, version), status=status)
+        self._persist_artifact(
+            skill_id,
+            version,
+            path or str(self._installed_skill_dir(skill_id, version)),
+            self._artifact_checksum(skill_id, version),
+            status=status,
+        )
 
     def _artifact_checksum(self, skill_id: str, version: str) -> str:
         path = self._installed_skill_dir(skill_id, version)
@@ -175,7 +203,9 @@ class OpenClawMarketplaceClient:
     def seed_index(self, items: List[SkillMarketItem]) -> None:
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         index = self._index_path()
-        index.write_text(json.dumps({"items": [asdict(i) for i in items]}, ensure_ascii=False, indent=2), encoding="utf-8")
+        index.write_text(
+            json.dumps({"items": [asdict(i) for i in items]}, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
 
 
 __all__ = ["OpenClawMarketplaceClient", "SkillMarketItem", "SkillMarketVersion", "InstalledSkillRecord"]

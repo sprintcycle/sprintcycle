@@ -7,7 +7,7 @@ explainable aggregate result.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Optional
+from typing import Any, Dict, Iterable, List, Mapping
 
 from sprintcycle.domain.fitness.thresholds import DEFAULT_FITNESS_THRESHOLDS
 

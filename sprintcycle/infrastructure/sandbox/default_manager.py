@@ -23,9 +23,11 @@ class DefaultSandboxManager(SandboxManager):
         self._config = config
         self._backend = GitWorktreeSandboxBackend()
         self._sandboxes: Dict[str, SandboxSpec] = {}
-        self._root_dir = Path(
-            getattr(getattr(config, "evolution_sandbox", None), "root_dir", None) or ".sprintcycle/evolution"
-        ).expanduser().resolve()
+        self._root_dir = (
+            Path(getattr(getattr(config, "evolution_sandbox", None), "root_dir", None) or ".sprintcycle/evolution")
+            .expanduser()
+            .resolve()
+        )
         self._root_dir.mkdir(parents=True, exist_ok=True)
         self._lock = asyncio.Lock()
 

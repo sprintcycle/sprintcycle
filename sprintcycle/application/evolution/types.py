@@ -13,6 +13,7 @@ from typing import Any, Dict, List
 @dataclass
 class SprintContext:
     """Sprint 执行上下文"""
+
     sprint_id: str
     sprint_number: int
     goal: str

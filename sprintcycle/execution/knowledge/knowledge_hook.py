@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 from loguru import logger
 
-from ...infrastructure.config import RuntimeConfig
 from ...application.release_plan.models import ReleasePlan, SprintDefinition
+from ...infrastructure.config import RuntimeConfig
 from ..hooks.sprint_hooks import SprintLifecycleHooks
 from ..sprint_types import SprintResult
 from .knowledge_injector import KnowledgeInjector

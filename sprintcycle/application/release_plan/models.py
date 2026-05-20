@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional
 
 class ExecutionMode(Enum):
     """计划级执行模式（Scrum：默认即标准 Sprint 交付链）。"""
+
     NORMAL = "normal"  # 标准 Sprint Backlog 顺序交付（实现/测试等）
     EVOLUTION = "evolution"  # 持续改进/实验环（非 Scrum 标准事件；序列化值保持 evolution）
 
@@ -23,6 +24,7 @@ class ExecutionMode(Enum):
 @dataclass
 class ProductAnchor:
     """产品侧锚点：名称、路径、版本。"""
+
     name: str
     path: str
     version: str = "v1.0.0"
@@ -38,6 +40,7 @@ class ProductAnchor:
 @dataclass
 class EvolutionParams:
     """进化配置（自进化模式专用）"""
+
     targets: List[str] = field(default_factory=list)
     goals: List[str] = field(default_factory=list)
     constraints: List[str] = field(default_factory=list)
@@ -57,6 +60,7 @@ class EvolutionParams:
 @dataclass
 class SprintBacklogItem:
     """Sprint 内工作项（Scrum：Sprint Backlog Item）；主字段 ``description``。"""
+
     description: str
     agent: str = "coder"  # Agent 类型
     target: Optional[str] = None  # 目标文件/目录
@@ -78,6 +82,7 @@ class SprintBacklogItem:
 @dataclass
 class SprintDefinition:
     """单次 Sprint：Sprint Goal（``goals``）+ Sprint Backlog（``tasks``）。"""
+
     name: str
     goals: List[str] = field(default_factory=list)
     tasks: List[SprintBacklogItem] = field(default_factory=list)
@@ -93,6 +98,7 @@ class SprintDefinition:
 @dataclass
 class ReleasePlan:
     """可执行交付计划（多 Sprint）。"""
+
     project: ProductAnchor
     mode: ExecutionMode = ExecutionMode.NORMAL
     evolution: Optional[EvolutionParams] = None
@@ -158,7 +164,7 @@ class ReleasePlan:
     @classmethod
     def sample_release_plan_yaml(cls) -> str:
         """生成示例执行计划 YAML 字符串"""
-        return '''# SprintCycle 执行计划示例
+        return """# SprintCycle 执行计划示例
 
 project:
   name: "my-project"
@@ -176,4 +182,4 @@ sprints:
           创建主页面
         agent: coder
         target: src/pages/main.vue
-'''
+"""

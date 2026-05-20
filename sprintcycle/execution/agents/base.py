@@ -4,6 +4,7 @@ Agent 执行器基类 - 定义 Agent 执行器抽象架构
 
 v0.9.2: 使用 tenacity 进行重试
 """
+
 import asyncio
 import logging
 import os
@@ -39,6 +40,7 @@ class AgentType(Enum):
 
 class _AgentRetryableError(Exception):
     """Agent 执行可重试错误（由 tenacity 处理重试）"""
+
     pass
 
 
@@ -136,7 +138,12 @@ class AgentExecutor(ABC):
         self._name = self.__class__.__name__
         self._config = config or AgentConfig()
         self._logger = logger.bind(component=self._name)
-        self._hooks: Dict[str, List[Callable]] = {"pre_execute": [], "post_execute": [], "on_error": [], "on_retry": [],}
+        self._hooks: Dict[str, List[Callable]] = {
+            "pre_execute": [],
+            "post_execute": [],
+            "on_error": [],
+            "on_retry": [],
+        }
         self._project_write_plan: Optional[ProjectWritePlan] = None
 
     @property

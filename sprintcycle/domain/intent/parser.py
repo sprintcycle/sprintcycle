@@ -7,17 +7,18 @@ Intent 意图解析器
 import re
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 
 class ActionType(Enum):
     """动作类型"""
-    EVOLVE = "evolution"   # 进化、优化
-    BUILD = "normal"       # 构建、开发、添加
-    FIX = "fix"            # 修复、解决
-    TEST = "test"          # 测试
-    RUN = "run"            # 执行 ReleasePlan 文件
-    UNKNOWN = "normal"     # 未知，默认普通模式
+
+    EVOLVE = "evolution"  # 进化、优化
+    BUILD = "normal"  # 构建、开发、添加
+    FIX = "fix"  # 修复、解决
+    TEST = "test"  # 测试
+    RUN = "run"  # 执行 ReleasePlan 文件
+    UNKNOWN = "normal"  # 未知，默认普通模式
 
 
 class IntentEvolutionStage(Enum):
@@ -32,6 +33,7 @@ class IntentEvolutionStage(Enum):
 @dataclass
 class ParsedIntent:
     """解析后的意图"""
+
     action: ActionType
     description: str
     target: Optional[str] = None
@@ -41,7 +43,7 @@ class ParsedIntent:
     constraints: List[str] = field(default_factory=list)
     mode: str = "auto"
     release_plan_file: Optional[str] = None  # 执行计划 YAML 路径（run 命令）
-    intent: str = ""                 # 原始意图文本（用于 Fix 模式获取错误日志）
+    intent: str = ""  # 原始意图文本（用于 Fix 模式获取错误日志）
     evolution_stage: IntentEvolutionStage = IntentEvolutionStage.INITIAL
     evolution_signals: List[str] = field(default_factory=list)
     evolution_context: Dict[str, str] = field(default_factory=dict)
@@ -50,29 +52,16 @@ class ParsedIntent:
 class IntentParser:
     """
     意图解析器
-    
+
     将用户意图（自然语言或结构化参数）解析为标准的 ParsedIntent
     """
 
     # 关键词映射
-    EVOLVE_KEYWORDS = [
-        "优化", "进化", "optimize", "evolve", "improve",
-        "增强", "提升", "重构", "refactor", "性能"
-    ]
-    BUILD_KEYWORDS = [
-        "添加", "开发", "构建", "add", "build", "create",
-        "实现", "新增", "写", "编写"
-    ]
-    FIX_KEYWORDS = [
-        "修复", "解决", "fix", "solve", "bug", "错误",
-        "问题", "修复", "排查"
-    ]
-    TEST_KEYWORDS = [
-        "测试", "test", "验证", "验收", "检查"
-    ]
-    RUN_KEYWORDS = [
-        "执行", "run", "运行"
-    ]
+    EVOLVE_KEYWORDS = ["优化", "进化", "optimize", "evolve", "improve", "增强", "提升", "重构", "refactor", "性能"]
+    BUILD_KEYWORDS = ["添加", "开发", "构建", "add", "build", "create", "实现", "新增", "写", "编写"]
+    FIX_KEYWORDS = ["修复", "解决", "fix", "solve", "bug", "错误", "问题", "修复", "排查"]
+    TEST_KEYWORDS = ["测试", "test", "验证", "验收", "检查"]
+    RUN_KEYWORDS = ["执行", "run", "运行"]
 
     def parse(
         self,
@@ -202,8 +191,8 @@ class IntentParser:
     def _extract_target(self, text: str) -> Optional[str]:
         """从文本中提取目标文件路径"""
         patterns = [
-            r'([\w./\\-]+\.(?:py|vue|ts|tsx|js|jsx|go|rs|java|cpp|c|h|css|scss|less|html|md|txt))',
-            r'`([^`]+)`',
+            r"([\w./\\-]+\.(?:py|vue|ts|tsx|js|jsx|go|rs|java|cpp|c|h|css|scss|less|html|md|txt))",
+            r"`([^`]+)`",
             r'"([^"]+\.(?:yaml|yml|json))"',
         ]
 
@@ -216,7 +205,7 @@ class IntentParser:
 
     def _extract_release_plan_path(self, text: str) -> Optional[str]:
         """检查是否是执行计划 YAML 文件路径"""
-        match = re.search(r'([\w./\\-]+\.(?:yaml|yml))', text)
+        match = re.search(r"([\w./\\-]+\.(?:yaml|yml))", text)
         return match.group(1) if match else None
 
     def _extract_product_slug(self, text: str) -> Optional[str]:
@@ -241,10 +230,10 @@ class IntentParser:
         """从文本中提取约束条件"""
         constraints = []
         constraint_patterns = [
-            r'[（(]保持([^）)]+)[）)]',
-            r'[（(]不([^）)]+)[）)]',
-            r'必须([^\s，,。]+)',
-            r'要求([^\s，,。]+)',
+            r"[（(]保持([^）)]+)[）)]",
+            r"[（(]不([^）)]+)[）)]",
+            r"必须([^\s，,。]+)",
+            r"要求([^\s，,。]+)",
         ]
 
         for pattern in constraint_patterns:

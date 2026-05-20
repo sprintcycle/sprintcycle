@@ -7,15 +7,14 @@ from typing import TYPE_CHECKING, Any
 from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
 
 if TYPE_CHECKING:
-    from sprintcycle.governance.versioning.sqlite_registry import SQLiteVersionRegistry
+    pass
 
 
 def create_evolution_registry(config: RuntimeConfig) -> Any:
     from sprintcycle.governance.versioning.sqlite_registry import SQLiteVersionRegistry
 
     root_dir = str(
-        getattr(getattr(config, "evolution_versioning", None), "root_dir", None)
-        or ".sprintcycle/versioning"
+        getattr(getattr(config, "evolution_versioning", None), "root_dir", None) or ".sprintcycle/versioning"
     )
     return SQLiteVersionRegistry(root_dir=root_dir)
 

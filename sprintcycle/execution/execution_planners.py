@@ -7,11 +7,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from .context import SprintExecutionContext, TaskExecutionContext
-from .policies import SprintFeedbackPolicy, SprintRetryPolicy, TaskRetryPolicy
 from .planners.models import ReleasePlan, SprintBacklogItem, SprintDefinition
+from .policies import SprintFeedbackPolicy, SprintRetryPolicy
 
 
 class TaskContextBuilder:
@@ -51,9 +51,7 @@ class TaskContextBuilder:
                 codebase_context["task_guidance"] = (prev + extra).strip() if prev else extra.strip()
         if raw_context.get("release_plan_overlay_yaml"):
             codebase_context["release_plan_overlay"] = raw_context["release_plan_overlay_yaml"]
-        locked_engine = str(
-            raw_context.get("_sprint_coding_engine") or raw_context.get("coding_engine", "aider")
-        )
+        locked_engine = str(raw_context.get("_sprint_coding_engine") or raw_context.get("coding_engine", "aider"))
         return TaskExecutionContext(
             project_path=str(raw_context.get("project_path", ".")),
             sprint_name=str(raw_context.get("sprint_name", sprint_name)),

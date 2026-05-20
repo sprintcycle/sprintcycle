@@ -7,6 +7,7 @@ from loguru import logger
 from sprintcycle.execution.events import Event, EventType, ExecutionEventBackend
 from sprintcycle.execution.hooks.sprint_hooks import SprintLifecycleHooks
 from sprintcycle.execution.sprint_types import SprintResult
+
 from ...application.release_plan.models import ReleasePlan, SprintDefinition
 from .config import VerificationConfig
 from .engine import VerificationEngine
@@ -38,7 +39,9 @@ class VerificationSprintHooks(SprintLifecycleHooks):
         if release_plan is not None:
             ctx.setdefault("release_plan_name", getattr(getattr(release_plan, "project", None), "name", ""))
         if result is not None:
-            ctx.setdefault("sprint_status", getattr(getattr(result, "status", None), "value", str(getattr(result, "status", ""))))
+            ctx.setdefault(
+                "sprint_status", getattr(getattr(result, "status", None), "value", str(getattr(result, "status", "")))
+            )
         return ctx
 
     async def _emit_gate_summary(self, gate: str, sprint: SprintDefinition, report) -> None:
@@ -58,20 +61,29 @@ class VerificationSprintHooks(SprintLifecycleHooks):
             )
         )
 
-    async def on_before_sprint(self, sprint_index: int, sprint: SprintDefinition, context: Dict[str, Any], release_plan: Optional[ReleasePlan]) -> None:
+    async def on_before_sprint(
+        self, sprint_index: int, sprint: SprintDefinition, context: Dict[str, Any], release_plan: Optional[ReleasePlan]
+    ) -> None:
         if not self._enabled():
             return
         try:
             raw = (context or {}).get("project_path") or self._project_path
             cfg = VerificationConfig.from_runtime_config(self._config, str(raw))
             engine = VerificationEngine(cfg)
-            ctx = self._build_context(sprint_index=sprint_index, sprint=sprint, context=context, release_plan=release_plan)
+            ctx = self._build_context(
+                sprint_index=sprint_index, sprint=sprint, context=context, release_plan=release_plan
+            )
             gate = str(ctx.get("verification_gate", "all"))
             report = await engine.run(gate, str(raw), context=ctx)
             gov = VerificationReportAdapter.to_governance_report(report)
             context["verification_planning_report"] = gov.to_dict()
             context["verification_context"] = ctx
-            logger.info("验证 Planning gate: sprint={} violations error={} warning={}", sprint.name, sum(1 for v in gov.violations if v.severity == "error"), sum(1 for v in gov.violations if v.severity == "warning"))
+            logger.info(
+                "验证 Planning gate: sprint={} violations error={} warning={}",
+                sprint.name,
+                sum(1 for v in gov.violations if v.severity == "error"),
+                sum(1 for v in gov.violations if v.severity == "warning"),
+            )
             for v in gov.violations[:20]:
                 log = logger.warning if v.severity != "error" else logger.error
                 log("  [{}] {}", v.rule_id, v.message)
@@ -79,20 +91,35 @@ class VerificationSprintHooks(SprintLifecycleHooks):
         except Exception as e:
             logger.warning("Verification planning gate skipped: {}", e)
 
-    async def on_after_sprint(self, sprint_index: int, sprint: SprintDefinition, result: SprintResult, context: Dict[str, Any], release_plan: Optional[ReleasePlan]) -> None:
+    async def on_after_sprint(
+        self,
+        sprint_index: int,
+        sprint: SprintDefinition,
+        result: SprintResult,
+        context: Dict[str, Any],
+        release_plan: Optional[ReleasePlan],
+    ) -> None:
         if not self._enabled():
             return
         try:
             raw = (context or {}).get("project_path") or self._project_path
             cfg = VerificationConfig.from_runtime_config(self._config, str(raw))
             engine = VerificationEngine(cfg)
-            ctx = self._build_context(sprint_index=sprint_index, sprint=sprint, context=context, release_plan=release_plan, result=result)
+            ctx = self._build_context(
+                sprint_index=sprint_index, sprint=sprint, context=context, release_plan=release_plan, result=result
+            )
             gate = str(ctx.get("verification_gate", "all"))
             report = await engine.run(gate, str(raw), context=ctx)
             gov = VerificationReportAdapter.to_governance_report(report)
             context["verification_review_report"] = gov.to_dict()
             context["verification_context"] = ctx
-            logger.info("验证 Review gate: sprint={} status={} violations error={} warning={}", sprint.name, getattr(result.status, "value", result.status), sum(1 for v in gov.violations if v.severity == "error"), sum(1 for v in gov.violations if v.severity == "warning"))
+            logger.info(
+                "验证 Review gate: sprint={} status={} violations error={} warning={}",
+                sprint.name,
+                getattr(result.status, "value", result.status),
+                sum(1 for v in gov.violations if v.severity == "error"),
+                sum(1 for v in gov.violations if v.severity == "warning"),
+            )
             for v in gov.violations[:30]:
                 log = logger.warning if v.severity != "error" else logger.error
                 log("  [{}] {}", v.rule_id, v.message)

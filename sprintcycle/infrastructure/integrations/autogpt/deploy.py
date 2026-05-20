@@ -15,10 +15,12 @@ class AutoGPTDeploymentSpec:
     """Declarative deployment spec for a platform-style runtime."""
 
     project_name: str = "sprintcycle"
-    services: Dict[str, Any] = field(default_factory=lambda: {
-        "api": {"port": 8000, "healthcheck": "/health"},
-        "dashboard": {"port": 3000},
-    })
+    services: Dict[str, Any] = field(
+        default_factory=lambda: {
+            "api": {"port": 8000, "healthcheck": "/health"},
+            "dashboard": {"port": 3000},
+        }
+    )
     environment: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:

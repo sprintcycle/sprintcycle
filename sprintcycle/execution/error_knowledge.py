@@ -24,6 +24,7 @@ from loguru import logger
 @dataclass
 class ErrorPattern:
     """错误模式数据类"""
+
     pattern: str
     error_type: str
     root_cause: str
@@ -55,6 +56,7 @@ class ErrorPattern:
     @property
     def pattern_id(self) -> str:
         import hashlib
+
         hash_input = f"{self.error_type}:{self.pattern[:50]}"
         return hashlib.md5(hash_input.encode()).hexdigest()[:12]
 
@@ -108,9 +110,17 @@ class ErrorPattern:
     def from_dict(cls, data: Dict[str, Any]) -> "ErrorPattern":
         # 过滤掉非字段参数（计算属性、额外字段）
         valid_fields = {
-            'pattern', 'error_type', 'root_cause', 'suggested_fix',
-            'severity', 'success_count', 'failure_count',
-            'last_seen', 'first_seen', 'tags', 'metadata'
+            "pattern",
+            "error_type",
+            "root_cause",
+            "suggested_fix",
+            "severity",
+            "success_count",
+            "failure_count",
+            "last_seen",
+            "first_seen",
+            "tags",
+            "metadata",
         }
         data = {k: v for k, v in data.items() if k in valid_fields}
         if "last_seen" in data and isinstance(data["last_seen"], str):
@@ -118,8 +128,6 @@ class ErrorPattern:
         if "first_seen" in data and isinstance(data["first_seen"], str):
             data["first_seen"] = datetime.fromisoformat(data["first_seen"])
         return cls(**data)
-
-
 
     @classmethod
     def from_error_log(
@@ -158,9 +166,11 @@ class ErrorPattern:
             suggested_fix=suggested_fix,
         )
 
+
 @dataclass
 class PatternMatch:
     """模式匹配结果"""
+
     pattern: ErrorPattern
     matched_text: str
     confidence: float
@@ -182,6 +192,7 @@ class PatternMatch:
 @dataclass
 class FixRecord:
     """修复记录"""
+
     error_log: str
     pattern_id: str
     fix_applied: str
@@ -195,54 +206,134 @@ class ErrorKnowledgeBase:
     """统一错误知识库"""
 
     DEFAULT_PATTERNS: List[Dict[str, Any]] = [
-        {"pattern": r"name '(.+)' is not defined", "error_type": "NameError",
-         "root_cause": "变量未定义或拼写错误", "suggested_fix": "确保变量在使用前已定义",
-         "severity": "medium", "tags": ["variable", "undefined"]},
-        {"pattern": r"unsupported operand type\(s\) for (.+): '(.+)' and '(.+)'", "error_type": "TypeError",
-         "root_cause": "类型不匹配的操作", "suggested_fix": "添加类型检查或类型转换",
-         "severity": "medium", "tags": ["type", "operation"]},
-        {"pattern": r"'NoneType' object (has no attribute|is not iterable)", "error_type": "TypeError",
-         "root_cause": "空值未检查", "suggested_fix": "使用 if value is not None 检查",
-         "severity": "medium", "tags": ["NoneType", "null-check"]},
-        {"pattern": r"No module named '(.+)'", "error_type": "ImportError",
-         "root_cause": "依赖包未安装", "suggested_fix": "pip install \\1",
-         "severity": "high", "tags": ["import", "dependency"]},
-        {"pattern": r"cannot import name '(.+)' from '(.+)'", "error_type": "ImportError",
-         "root_cause": "模块路径错误或版本不兼容", "suggested_fix": "检查 import 路径或版本",
-         "severity": "high", "tags": ["import", "compatibility"]},
-        {"pattern": r"'(.+)' object has no attribute '(.+)'", "error_type": "AttributeError",
-         "root_cause": "对象没有该属性", "suggested_fix": "检查对象类型和属性名",
-         "severity": "medium", "tags": ["attribute", "typo"]},
-        {"pattern": r"list index out of range", "error_type": "IndexError",
-         "root_cause": "索引超出列表长度", "suggested_fix": "检查索引范围",
-         "severity": "medium", "tags": ["index", "list"]},
-        {"pattern": r"KeyError: '?(.+?)'?\s*$", "error_type": "KeyError",
-         "root_cause": "字典键不存在", "suggested_fix": "使用 dict.get(key, default)",
-         "severity": "low", "tags": ["dictionary", "key"]},
-        {"pattern": r"\[Errno 2\] No such file or directory: '(.+)'", "error_type": "FileNotFoundError",
-         "root_cause": "文件路径错误", "suggested_fix": "检查文件路径",
-         "severity": "high", "tags": ["file", "path"]},
-        {"pattern": r"SyntaxError: (.+)", "error_type": "SyntaxError",
-         "root_cause": "语法错误", "suggested_fix": "检查语法",
-         "severity": "critical", "tags": ["syntax"]},
-        {"pattern": r"IndentationError: (.+)", "error_type": "IndentationError",
-         "root_cause": "缩进不一致", "suggested_fix": "统一使用空格缩进",
-         "severity": "critical", "tags": ["indentation"]},
-        {"pattern": r"invalid literal for int\(\) with base 10: '(.+)'", "error_type": "ValueError",
-         "root_cause": "字符串转数字失败", "suggested_fix": "验证字符串格式",
-         "severity": "medium", "tags": ["conversion", "validation"]},
-        {"pattern": r"(division|float division) by zero", "error_type": "ZeroDivisionError",
-         "root_cause": "除数为零", "suggested_fix": "检查除数是否为零",
-         "severity": "medium", "tags": ["arithmetic"]},
-        {"pattern": r"Permission denied: '(.+)'", "error_type": "PermissionError",
-         "root_cause": "权限不足", "suggested_fix": "检查文件权限或使用 sudo",
-         "severity": "high", "tags": ["permission"]},
-        {"pattern": r"(out of memory|MemoryError)", "error_type": "MemoryError",
-         "root_cause": "内存不足", "suggested_fix": "优化内存使用",
-         "severity": "critical", "tags": ["memory"]},
-        {"pattern": r"maximum recursion depth exceeded", "error_type": "RecursionError",
-         "root_cause": "递归无终止条件", "suggested_fix": "检查递归终止条件",
-         "severity": "high", "tags": ["recursion"]},
+        {
+            "pattern": r"name '(.+)' is not defined",
+            "error_type": "NameError",
+            "root_cause": "变量未定义或拼写错误",
+            "suggested_fix": "确保变量在使用前已定义",
+            "severity": "medium",
+            "tags": ["variable", "undefined"],
+        },
+        {
+            "pattern": r"unsupported operand type\(s\) for (.+): '(.+)' and '(.+)'",
+            "error_type": "TypeError",
+            "root_cause": "类型不匹配的操作",
+            "suggested_fix": "添加类型检查或类型转换",
+            "severity": "medium",
+            "tags": ["type", "operation"],
+        },
+        {
+            "pattern": r"'NoneType' object (has no attribute|is not iterable)",
+            "error_type": "TypeError",
+            "root_cause": "空值未检查",
+            "suggested_fix": "使用 if value is not None 检查",
+            "severity": "medium",
+            "tags": ["NoneType", "null-check"],
+        },
+        {
+            "pattern": r"No module named '(.+)'",
+            "error_type": "ImportError",
+            "root_cause": "依赖包未安装",
+            "suggested_fix": "pip install \\1",
+            "severity": "high",
+            "tags": ["import", "dependency"],
+        },
+        {
+            "pattern": r"cannot import name '(.+)' from '(.+)'",
+            "error_type": "ImportError",
+            "root_cause": "模块路径错误或版本不兼容",
+            "suggested_fix": "检查 import 路径或版本",
+            "severity": "high",
+            "tags": ["import", "compatibility"],
+        },
+        {
+            "pattern": r"'(.+)' object has no attribute '(.+)'",
+            "error_type": "AttributeError",
+            "root_cause": "对象没有该属性",
+            "suggested_fix": "检查对象类型和属性名",
+            "severity": "medium",
+            "tags": ["attribute", "typo"],
+        },
+        {
+            "pattern": r"list index out of range",
+            "error_type": "IndexError",
+            "root_cause": "索引超出列表长度",
+            "suggested_fix": "检查索引范围",
+            "severity": "medium",
+            "tags": ["index", "list"],
+        },
+        {
+            "pattern": r"KeyError: '?(.+?)'?\s*$",
+            "error_type": "KeyError",
+            "root_cause": "字典键不存在",
+            "suggested_fix": "使用 dict.get(key, default)",
+            "severity": "low",
+            "tags": ["dictionary", "key"],
+        },
+        {
+            "pattern": r"\[Errno 2\] No such file or directory: '(.+)'",
+            "error_type": "FileNotFoundError",
+            "root_cause": "文件路径错误",
+            "suggested_fix": "检查文件路径",
+            "severity": "high",
+            "tags": ["file", "path"],
+        },
+        {
+            "pattern": r"SyntaxError: (.+)",
+            "error_type": "SyntaxError",
+            "root_cause": "语法错误",
+            "suggested_fix": "检查语法",
+            "severity": "critical",
+            "tags": ["syntax"],
+        },
+        {
+            "pattern": r"IndentationError: (.+)",
+            "error_type": "IndentationError",
+            "root_cause": "缩进不一致",
+            "suggested_fix": "统一使用空格缩进",
+            "severity": "critical",
+            "tags": ["indentation"],
+        },
+        {
+            "pattern": r"invalid literal for int\(\) with base 10: '(.+)'",
+            "error_type": "ValueError",
+            "root_cause": "字符串转数字失败",
+            "suggested_fix": "验证字符串格式",
+            "severity": "medium",
+            "tags": ["conversion", "validation"],
+        },
+        {
+            "pattern": r"(division|float division) by zero",
+            "error_type": "ZeroDivisionError",
+            "root_cause": "除数为零",
+            "suggested_fix": "检查除数是否为零",
+            "severity": "medium",
+            "tags": ["arithmetic"],
+        },
+        {
+            "pattern": r"Permission denied: '(.+)'",
+            "error_type": "PermissionError",
+            "root_cause": "权限不足",
+            "suggested_fix": "检查文件权限或使用 sudo",
+            "severity": "high",
+            "tags": ["permission"],
+        },
+        {
+            "pattern": r"(out of memory|MemoryError)",
+            "error_type": "MemoryError",
+            "root_cause": "内存不足",
+            "suggested_fix": "优化内存使用",
+            "severity": "critical",
+            "tags": ["memory"],
+        },
+        {
+            "pattern": r"maximum recursion depth exceeded",
+            "error_type": "RecursionError",
+            "root_cause": "递归无终止条件",
+            "suggested_fix": "检查递归终止条件",
+            "severity": "high",
+            "tags": ["recursion"],
+        },
     ]
 
     def __init__(self, storage_path: str = ".sprintcycle/error_knowledge", auto_save: bool = True):
@@ -312,17 +403,20 @@ class ErrorKnowledgeBase:
                 confidence = pattern.confidence
                 if pattern.error_type.lower() in error_log.lower():
                     confidence = min(confidence + 0.2, 1.0)
-                matches.append(PatternMatch(
-                    pattern=pattern,
-                    matched_text=error_log[:200],
-                    confidence=confidence,
-                    extracted_values=pattern.extract_values(error_log),
-                ))
+                matches.append(
+                    PatternMatch(
+                        pattern=pattern,
+                        matched_text=error_log[:200],
+                        confidence=confidence,
+                        extracted_values=pattern.extract_values(error_log),
+                    )
+                )
         matches.sort(key=lambda m: m.confidence, reverse=True)
         return matches
 
-    def record_fix(self, error_log: str, pattern_id: str, fix_applied: str,
-                   success: bool, duration: float = 0.0, **metadata) -> None:
+    def record_fix(
+        self, error_log: str, pattern_id: str, fix_applied: str, success: bool, duration: float = 0.0, **metadata
+    ) -> None:
         pattern = self._patterns.get(pattern_id)
         if pattern:
             if success:
@@ -399,9 +493,11 @@ def reset_error_knowledge_base() -> ErrorKnowledgeBase:
 # ErrorParser: 错误信息解析器
 # ============================================================================
 
+
 @dataclass
 class ParsedError:
     """解析后的错误信息"""
+
     error_type: Optional[str] = None
     error_message: Optional[str] = None
     file_path: Optional[str] = None
@@ -417,7 +513,7 @@ class ParsedError:
 class ErrorParser:
     """
     错误信息解析器
-    
+
     从错误日志中提取结构化信息：
     - 错误类型 (NameError, TypeError, etc.)
     - 文件路径
@@ -427,23 +523,29 @@ class ErrorParser:
 
     # 常见错误类型
     ERROR_TYPES = [
-        "NameError", "TypeError", "ValueError", "KeyError",
-        "AttributeError", "ImportError", "ModuleNotFoundError",
-        "SyntaxError", "IndentationError", "IndexError",
-        "FileNotFoundError", "PermissionError", "RuntimeError",
-        "ZeroDivisionError", "StopIteration", "AssertionError",
+        "NameError",
+        "TypeError",
+        "ValueError",
+        "KeyError",
+        "AttributeError",
+        "ImportError",
+        "ModuleNotFoundError",
+        "SyntaxError",
+        "IndentationError",
+        "IndexError",
+        "FileNotFoundError",
+        "PermissionError",
+        "RuntimeError",
+        "ZeroDivisionError",
+        "StopIteration",
+        "AssertionError",
     ]
 
     # traceback 行正则
-    TRACEBACK_FILE_PATTERN = re.compile(
-        r'File ["\']([^"\']+)["\'], line (\d+)(?:, column (\d+))?(?:,\s*in\s+(\w+))?'
-    )
+    TRACEBACK_FILE_PATTERN = re.compile(r'File ["\']([^"\']+)["\'], line (\d+)(?:, column (\d+))?(?:,\s*in\s+(\w+))?')
 
     # 错误类型正则
-    ERROR_TYPE_PATTERN = re.compile(
-        r'^(' + '|'.join(ERROR_TYPES) + r'): (.+)$',
-        re.MULTILINE
-    )
+    ERROR_TYPE_PATTERN = re.compile(r"^(" + "|".join(ERROR_TYPES) + r"): (.+)$", re.MULTILINE)
 
     # 变量名提取
     VARIABLE_PATTERN = re.compile(
@@ -481,9 +583,7 @@ class ErrorParser:
         # 提取变量名
         var_match = self.VARIABLE_PATTERN.search(error_log)
         if var_match:
-            result.variable_name = next(
-                (g for g in var_match.groups() if g), None
-            )
+            result.variable_name = next((g for g in var_match.groups() if g), None)
 
         return result
 

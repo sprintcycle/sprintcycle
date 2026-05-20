@@ -31,7 +31,9 @@ class ExecutionEngine:
         await self.event_bus.emit(event)
         return event.to_dict()
 
-    def _set_status(self, context: ExecutionContext, status: str, stage: Optional[str] = None, step: Optional[str] = None) -> None:
+    def _set_status(
+        self, context: ExecutionContext, status: str, stage: Optional[str] = None, step: Optional[str] = None
+    ) -> None:
         context.status = status
         if stage is not None:
             context.stage = stage

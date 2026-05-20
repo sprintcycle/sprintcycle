@@ -1,7 +1,8 @@
 from typing import Any, Dict
-from .contract_common import ContractAdapterBase
+
 from ..reports.finding import Finding
 from ..reports.report import Report
+from .contract_common import ContractAdapterBase
 
 
 class DealAdapter(ContractAdapterBase):
@@ -12,11 +13,13 @@ class DealAdapter(ContractAdapterBase):
 
     async def run_lint(self, context: Dict[str, Any]) -> Report:
         report = Report(gate="review", passed=True, source=self.name)
-        report.add_finding(Finding(
-            rule_id="deal:stub",
-            severity="info",
-            message="deal adapter stub",
-        ))
+        report.add_finding(
+            Finding(
+                rule_id="deal:stub",
+                severity="info",
+                message="deal adapter stub",
+            )
+        )
         report.recompute_summary()
         return report
 

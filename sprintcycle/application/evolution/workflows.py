@@ -70,7 +70,13 @@ class DefaultCodeEvolutionAdapter(CodeEvolutionAdapter):
         checks: list[str] = ["sandbox_exists"]
         if not exists:
             errors.append(f"sandbox not found: {sandbox.worktree_path}")
-            return ValidationResult(success=False, checks=checks, errors=errors, warnings=warnings, metadata={"sandbox": sandbox.to_dict(), "plan": plan.to_dict()})
+            return ValidationResult(
+                success=False,
+                checks=checks,
+                errors=errors,
+                warnings=warnings,
+                metadata={"sandbox": sandbox.to_dict(), "plan": plan.to_dict()},
+            )
 
         marker = Path(sandbox.worktree_path) / ".sprintcycle" / "evolution_apply.json"
         if marker.exists():
@@ -177,7 +183,13 @@ class DefaultRequirementEvolutionAdapter(RequirementEvolutionAdapter):
         checks: list[str] = ["sandbox_exists"]
         if not exists:
             errors.append(f"sandbox not found: {sandbox.worktree_path}")
-            return ValidationResult(success=False, checks=checks, errors=errors, warnings=warnings, metadata={"sandbox": sandbox.to_dict(), "plan": plan.to_dict()})
+            return ValidationResult(
+                success=False,
+                checks=checks,
+                errors=errors,
+                warnings=warnings,
+                metadata={"sandbox": sandbox.to_dict(), "plan": plan.to_dict()},
+            )
 
         request_ctx = dict(plan.metadata.get("request", {}).get("context", {}) or {})
         release_plan = self._extract_release_plan(request_ctx)
@@ -211,5 +223,9 @@ class DefaultRequirementEvolutionAdapter(RequirementEvolutionAdapter):
             checks=checks,
             errors=errors,
             warnings=warnings,
-            metadata={"sandbox": sandbox.to_dict(), "plan": plan.to_dict(), "has_release_plan": release_plan is not None},
+            metadata={
+                "sandbox": sandbox.to_dict(),
+                "plan": plan.to_dict(),
+                "has_release_plan": release_plan is not None,
+            },
         )

@@ -7,7 +7,7 @@
 
 import json
 import re
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 from loguru import logger
 
@@ -20,8 +20,15 @@ from .release_plan_rules import ReleasePlanRuleEngine
 class LLMReleasePlanGenerator:
     """调用 LLM 生成复杂场景下的 ``ReleasePlan`` 草案。"""
 
-    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None, api_base: Optional[str] = None, provider: Optional[str] = None):
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        model: Optional[str] = None,
+        api_base: Optional[str] = None,
+        provider: Optional[str] = None,
+    ):
         from sprintcycle.infrastructure.llm_provider import resolve_provider
+
         cfg = resolve_provider(provider=provider, api_key=api_key, api_base=api_base, model=model)
         self._api_key = cfg.api_key
         self._model = cfg.model
@@ -29,6 +36,7 @@ class LLMReleasePlanGenerator:
 
     def generate(self, report: ProjectHealthReport, project_path: str) -> List[ReleasePlan]:
         from sprintcycle.infrastructure.llm_provider import call_llm
+
         if not self._api_key:
             logger.warning("LLM_API_KEY未设置，跳过LLM生成")
             return []
@@ -39,7 +47,10 @@ class LLMReleasePlanGenerator:
                     {"role": "system", "content": "你是一个专业的代码重构专家。"},
                     {"role": "user", "content": self._build_prompt(report, project_path)},
                 ],
-                api_key=self._api_key, api_base=self._api_base, temperature=0.3, max_tokens=2048,
+                api_key=self._api_key,
+                api_base=self._api_base,
+                temperature=0.3,
+                max_tokens=2048,
             )
             return self._parse_llm_response(content, project_path)
         except Exception as e:
@@ -59,8 +70,8 @@ class LLMReleasePlanGenerator:
 - 高复杂度函数: {report.complexity_high}
 - 循环依赖: {len(report.circular_deps)}
 
-有效改动模式: {', '.join(report.effective_patterns)}
-失败改动模式: {', '.join(report.failed_patterns)}
+有效改动模式: {", ".join(report.effective_patterns)}
+失败改动模式: {", ".join(report.failed_patterns)}
 
 请生成结构化 JSON，包含:
 1. 具体的改进目标
@@ -107,7 +118,11 @@ class LLMReleasePlanGenerator:
 class DiagnosticReleasePlanGenerator:
     """组合 ``ReleasePlanRuleEngine`` 与可选 ``LLMReleasePlanGenerator`` 的计划生成器。"""
 
-    def __init__(self, rule_engine: Optional[ReleasePlanRuleEngine] = None, llm_generator: Optional[LLMReleasePlanGenerator] = None):
+    def __init__(
+        self,
+        rule_engine: Optional[ReleasePlanRuleEngine] = None,
+        llm_generator: Optional[LLMReleasePlanGenerator] = None,
+    ):
         self._rule_engine = rule_engine or ReleasePlanRuleEngine()
         self._llm_generator = llm_generator
 
@@ -127,9 +142,7 @@ class DiagnosticReleasePlanGenerator:
             key=lambda p: int(p.metadata.get("diagnostic_priority", 0)),
             reverse=True,
         )
-        logger.info(
-            f"生成执行计划: 规则{len(rule_plans)}个, LLM{len(llm_plans)}个, 去重后{len(unique_plans)}个"
-        )
+        logger.info(f"生成执行计划: 规则{len(rule_plans)}个, LLM{len(llm_plans)}个, 去重后{len(unique_plans)}个")
         return unique_plans
 
 

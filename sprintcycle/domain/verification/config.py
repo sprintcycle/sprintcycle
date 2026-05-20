@@ -52,6 +52,10 @@ class VerificationConfig:
             use_ruff=bool(getattr(runtime_config, "verification_use_ruff", True)),
             use_typecheck=bool(getattr(runtime_config, "verification_use_typecheck", False)),
             use_secret_scan=bool(getattr(runtime_config, "verification_use_secret_scan", True)),
-            pack_paths=[str(p).strip() for p in list(getattr(runtime_config, "verification_pack_paths", None) or []) if str(p).strip()],
+            pack_paths=[
+                str(p).strip()
+                for p in list(getattr(runtime_config, "verification_pack_paths", None) or [])
+                if str(p).strip()
+            ],
             metadata=dict(getattr(runtime_config, "verification_metadata", None) or {}),
         )

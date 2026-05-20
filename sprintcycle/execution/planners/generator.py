@@ -11,10 +11,9 @@ import re
 from pathlib import Path
 from typing import Any, Optional
 
-from ...infrastructure.config.runtime_config import RuntimeConfig
 from ...application.evolution.context import EvolutionContext
-from ...application.evolution.decision import EvolutionDecision, EvolutionDecisionType
 from ...domain.intent.parser import ActionType, ParsedIntent
+from ...infrastructure.config.runtime_config import RuntimeConfig
 from .models import (
     EvolutionParams,
     ExecutionMode,
@@ -30,8 +29,16 @@ class IntentReleasePlanGenerator:
 
     EVOLUTION_PROJECT_KEYWORDS = ["sprintcycle", "sprint cycle", "self", "自身", "自己"]
     EVOLUTION_ACTION_KEYWORDS = [
-        "进化", "evolve", "优化", "optimize", "improve",
-        "增强", "enhance", "重构", "refactor", "self-evolution",
+        "进化",
+        "evolve",
+        "优化",
+        "optimize",
+        "improve",
+        "增强",
+        "enhance",
+        "重构",
+        "refactor",
+        "self-evolution",
     ]
 
     @staticmethod
@@ -75,7 +82,10 @@ class IntentReleasePlanGenerator:
 
     @staticmethod
     def _is_self_evolution_intent(description: Optional[str]) -> bool:
-        return bool(description) and IntentReleasePlanGenerator._infer_mode_from_intent(description) == ExecutionMode.EVOLUTION
+        return (
+            bool(description)
+            and IntentReleasePlanGenerator._infer_mode_from_intent(description) == ExecutionMode.EVOLUTION
+        )
 
     @staticmethod
     def _sanitize_product_slug(raw: str) -> str:
@@ -177,7 +187,11 @@ class IntentReleasePlanGenerator:
         sprint = SprintDefinition(
             name="Feature Development",
             goals=[parsed.description],
-            tasks=[SprintBacklogItem(description=parsed.description, agent="coder", target=parsed.target, constraints=parsed.constraints)],
+            tasks=[
+                SprintBacklogItem(
+                    description=parsed.description, agent="coder", target=parsed.target, constraints=parsed.constraints
+                )
+            ],
         )
         return ReleasePlan(project=project, mode=ExecutionMode.NORMAL, sprints=[sprint])
 
@@ -192,7 +206,13 @@ class IntentReleasePlanGenerator:
         fix_goal = f"修复错误: {parsed.description}"
         if error_info.get("error_type"):
             fix_goal = f"修复 {error_info['error_type']}: {error_info.get('error_msg', parsed.description)}"
-        evolution = EvolutionParams(targets=[target_file] if target_file else [], goals=[fix_goal], constraints=parsed.constraints, max_variations=5, iterations=3)
+        evolution = EvolutionParams(
+            targets=[target_file] if target_file else [],
+            goals=[fix_goal],
+            constraints=parsed.constraints,
+            max_variations=5,
+            iterations=3,
+        )
         return ReleasePlan(project=project, mode=ExecutionMode.EVOLUTION, evolution=evolution, sprints=[])
 
     @staticmethod
@@ -202,16 +222,16 @@ class IntentReleasePlanGenerator:
             return info
         patterns = {
             "file": r'File "([^"]+)"',
-            "line": r', line (\d+)',
-            "error_type": r'^(\w+Error|\w+Exception):',
-            "error_msg": r': (.+)$',
+            "line": r", line (\d+)",
+            "error_type": r"^(\w+Error|\w+Exception):",
+            "error_msg": r": (.+)$",
         }
         for key, pattern in patterns.items():
             match = re.search(pattern, error_text, re.MULTILINE)
             if match:
                 info[key] = match.group(1)
         if not info.get("error_type"):
-            simple_match = re.match(r'(\w+Error|\w+Exception):?\s*(.*)', error_text)
+            simple_match = re.match(r"(\w+Error|\w+Exception):?\s*(.*)", error_text)
             if simple_match:
                 info["error_type"] = simple_match.group(1)
                 if simple_match.group(2):

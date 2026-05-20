@@ -12,8 +12,8 @@ from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
-from ..sprint_types import ExecutionStatus, SprintResult
 from ...application.release_plan.models import ReleasePlan, SprintBacklogItem, SprintDefinition
+from ..sprint_types import ExecutionStatus, SprintResult
 
 
 @dataclass
@@ -56,7 +56,9 @@ class ReleaseFinalizationPolicy:
     def should_retest(self, result: ReleaseFinalizationResult) -> bool:
         return not result.ready_to_release
 
-    def build_fix_sprint(self, release_plan: ReleasePlan, result: ReleaseFinalizationResult) -> Optional[SprintDefinition]:
+    def build_fix_sprint(
+        self, release_plan: ReleasePlan, result: ReleaseFinalizationResult
+    ) -> Optional[SprintDefinition]:
         if not result.fix_tasks:
             return None
         return SprintDefinition(
@@ -73,8 +75,7 @@ class ReleaseFinalizationHooks(ABC):
         release_plan: ReleasePlan,
         sprint_results: List[SprintResult],
         context: Dict[str, Any],
-    ) -> None:
-        ...
+    ) -> None: ...
 
     @abstractmethod
     async def on_after_finalize(
@@ -83,8 +84,7 @@ class ReleaseFinalizationHooks(ABC):
         sprint_results: List[SprintResult],
         result: ReleaseFinalizationResult,
         context: Dict[str, Any],
-    ) -> None:
-        ...
+    ) -> None: ...
 
 
 class NoOpReleaseFinalizationHooks(ReleaseFinalizationHooks):

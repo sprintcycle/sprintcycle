@@ -28,12 +28,13 @@ from typing import Any, Dict, List
 @dataclass
 class IntentWorkItem:
     """从意图文本拆出的一条工作项草案（非运行时 ``SprintBacklogItem``）。"""
-    title: str                           # 任务标题
-    description: str                     # 任务描述
-    priority: str = "medium"             # 优先级
-    estimated_time: str = "1-2h"         # 预估时间
+
+    title: str  # 任务标题
+    description: str  # 任务描述
+    priority: str = "medium"  # 优先级
+    estimated_time: str = "1-2h"  # 预估时间
     dependencies: List[str] = field(default_factory=list)  # 依赖任务
-    tags: List[str] = field(default_factory=list)         # 标签
+    tags: List[str] = field(default_factory=list)  # 标签
 
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""
@@ -54,7 +55,7 @@ class IntentWorkItem:
 class WorkItemSplitter:
     """
     意图 → 工作项草案拆分器
-    
+
     将较长自然语言描述拆为可管理的子条目。
     支持多种拆分策略：
     - 按功能模块拆分
@@ -96,7 +97,7 @@ class WorkItemSplitter:
     def __init__(self, max_tasks: int = 20, min_tasks: int = 3):
         """
         初始化任务拆分器
-        
+
         Args:
             max_tasks: 最大任务数
             min_tasks: 最小任务数
@@ -107,10 +108,10 @@ class WorkItemSplitter:
     def split(self, source_text: str) -> List[Dict[str, Any]]:
         """
         将 ReleasePlan 拆分为任务列表
-        
+
         Args:
             source_text: 意图或需求说明的自由文本（非结构化 YAML）
-            
+
         Returns:
             List[Dict]: 任务列表
         """
@@ -163,9 +164,9 @@ class WorkItemSplitter:
 
         # 匹配模式: 1. xxx, 1) xxx, - xxx, * xxx
         patterns = [
-            (r"^\s*(\d+)[.、)]\s*(.+)$", True),   # 带编号的列表，True表示需要处理编号前缀
-            (r"^\s*[-*]\s*(.+)$", False),           # 无编号的列表
-            (r"^\s*\[[ x]\]\s*(.+)$", False),     # checkbox 列表
+            (r"^\s*(\d+)[.、)]\s*(.+)$", True),  # 带编号的列表，True表示需要处理编号前缀
+            (r"^\s*[-*]\s*(.+)$", False),  # 无编号的列表
+            (r"^\s*\[[ x]\]\s*(.+)$", False),  # checkbox 列表
         ]
 
         for pattern, has_number in patterns:
@@ -370,10 +371,10 @@ class WorkItemSplitter:
     def analyze_dependencies(self, tasks: List[Dict[str, Any]]) -> Dict[str, List[str]]:
         """
         分析任务依赖关系
-        
+
         Args:
             tasks: 任务列表
-            
+
         Returns:
             Dict[str, List[str]]: 任务ID -> 依赖任务ID列表
         """

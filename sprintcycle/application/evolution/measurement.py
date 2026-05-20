@@ -70,12 +70,8 @@ class MeasurementProvider:
             self.quality_gate_enabled = getattr(runtime_config, "quality_gate_enabled", quality_gate_enabled)
             self.measurement_timeout = getattr(runtime_config, "diagnostic_timeout", measurement_timeout)
             self.coverage_threshold = coverage_threshold
-            self._quality_level = normalize_quality_level(
-                runtime_config.effective_quality_level()
-            )
-            self._min_coverage_percent = float(
-                getattr(runtime_config, "min_coverage_percent", 80.0)
-            )
+            self._quality_level = normalize_quality_level(runtime_config.effective_quality_level())
+            self._min_coverage_percent = float(getattr(runtime_config, "min_coverage_percent", 80.0))
         else:
             self.test_command = test_command
             self.quality_gate_enabled = quality_gate_enabled
@@ -88,7 +84,12 @@ class MeasurementProvider:
     def _default_runner(self, cmd: str, cwd: str = ".", timeout: int = 300) -> Tuple[int, str, str]:
         try:
             result = subprocess.run(
-                cmd, shell=True, cwd=cwd, capture_output=True, text=True, timeout=timeout,
+                cmd,
+                shell=True,
+                cwd=cwd,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
             )
             return result.returncode, result.stdout, result.stderr
         except subprocess.TimeoutExpired:
@@ -146,10 +147,11 @@ class MeasurementProvider:
             )
             if "passed" in stdout.lower() or "passed" in stderr.lower():
                 import re
-                match = re.search(r'(\d+) passed', stdout + stderr)
+
+                match = re.search(r"(\d+) passed", stdout + stderr)
                 if match:
                     passed = int(match.group(1))
-                    total_match = re.search(r'(\d+) failed|(\d+) error', stdout + stderr)
+                    total_match = re.search(r"(\d+) failed|(\d+) error", stdout + stderr)
                     if total_match:
                         total = passed + int(total_match.group(1) or total_match.group(2))
                     else:

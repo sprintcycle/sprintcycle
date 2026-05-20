@@ -15,7 +15,6 @@ from sprintcycle.domain.evolution.runtime_state import (
 from sprintcycle.infrastructure.evolution.adapters.health_check import DefaultHealthCheckAdapter, HealthCheckAdapter
 from sprintcycle.infrastructure.evolution.adapters.retry_policy import DefaultRetryPolicyAdapter, RetryPolicyAdapter
 
-
 LoopStarter = Callable[[str], None]
 GuardEvaluator = Callable[[], ActivationGuardResult]
 
@@ -123,7 +122,11 @@ class EvolutionActivator:
         )
 
     def _has_active_worker(self, session_id: str) -> bool:
-        return self.health_state.active_session_id is not None and self.health_state.active_session_id == session_id and self.health_state.state == ActivationState.ACTIVE
+        return (
+            self.health_state.active_session_id is not None
+            and self.health_state.active_session_id == session_id
+            and self.health_state.state == ActivationState.ACTIVE
+        )
 
     def _degrade(self, snapshot: EvolutionHealthSnapshot, attempts: int) -> ActivationDecision:
         self.health_state.state = ActivationState.DEGRADED

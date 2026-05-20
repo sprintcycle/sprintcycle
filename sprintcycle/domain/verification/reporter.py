@@ -2,9 +2,8 @@ from __future__ import annotations
 
 from typing import List
 
-from .model import VerificationFinding, VerificationReport
-
 from ...governance.report import GovernanceReport, GovernanceViolation
+from .model import VerificationReport
 
 
 class VerificationReportAdapter:

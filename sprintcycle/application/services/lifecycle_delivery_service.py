@@ -184,9 +184,7 @@ class LifecycleDeliveryService:
     ) -> Dict[str, Any]:
         trace = self.observability_trace(execution_id)
         trace_payload = trace.get("data", {}).get("trace", {}) if isinstance(trace, dict) else {}
-        recovery = self.repair_orchestration.recover(
-            execution_id, trace_payload=trace_payload, repair_plan=repair_plan
-        )
+        recovery = self.repair_orchestration.recover(execution_id, trace_payload=trace_payload, repair_plan=repair_plan)
         lifecycle_contract = {}
         if isinstance(recovery, dict):
             lifecycle_contract = (

@@ -12,6 +12,9 @@ from typing import Optional
 
 from loguru import logger
 
+from ...governance.versioning.manifests import VersionManifest
+from ...governance.versioning.registry import VersionRegistry
+from ...infrastructure.sandbox.manager import SandboxManager
 from .models import (
     EvolutionPlan,
     EvolutionRequest,
@@ -21,9 +24,6 @@ from .models import (
     ValidationResult,
     VersionArtifact,
 )
-from ...infrastructure.sandbox.manager import SandboxManager
-from ...governance.versioning.manifests import VersionManifest
-from ...governance.versioning.registry import VersionRegistry
 
 
 class CodeEvolutionAdapter(ABC):

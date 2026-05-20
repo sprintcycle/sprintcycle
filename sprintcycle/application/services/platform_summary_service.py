@@ -7,14 +7,14 @@ logic in the underlying facades and query services.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
-from ...presentation.view_service import DashboardViewService
-from ...presentation.workbench import DashboardWorkbenchService
-from ...execution.state import summarize_state_machine
-from ...execution.state.state_store import get_state_store
 from ...domain.platform.overview import build_platform_overview_view
 from ...domain.platform.spec import build_platform_spec
+from ...execution.state import summarize_state_machine
+from ...execution.state.state_store import get_state_store
+from ...presentation.view_service import DashboardViewService
+from ...presentation.workbench import DashboardWorkbenchService
 
 
 @dataclass
@@ -120,13 +120,58 @@ class PlatformSummaryService:
             "stage": "observing" if total else "normalized",
             "status": "success" if success_count or not total else "failed",
         }
-        health = {"has_running": bool(running), "recent_event_count": len(recent_events), "execution_coverage": total, "closure_score": closure_score, "delivery_ready": delivery_ready, "runtime_ready": runtime_ready, "evolution_ready": evolution_ready}
-        return {"success": True, "data": {"executions": executions, "running_executions": running, "primary_execution": latest, "recent_events": recent_events, "platform": build_platform_spec(self.project_path).to_dict(), "state_machine": summarize_state_machine(), "lifecycle": lifecycle, "health": health, "closure_score": closure_score, "delivery": {"ready": delivery_ready, "artifact_count": success_count, "next_action": "review" if delivery_ready else "execute"}, "runtime": {"linked": runtime_ready, "deploy_ready": runtime_ready, "runtime_id": latest.get("execution_id") if isinstance(latest, dict) else ""}, "evolution": {"ready": evolution_ready, "versioned": evolution_ready, "latest_version": ""}}}
+        health = {
+            "has_running": bool(running),
+            "recent_event_count": len(recent_events),
+            "execution_coverage": total,
+            "closure_score": closure_score,
+            "delivery_ready": delivery_ready,
+            "runtime_ready": runtime_ready,
+            "evolution_ready": evolution_ready,
+        }
+        return {
+            "success": True,
+            "data": {
+                "executions": executions,
+                "running_executions": running,
+                "primary_execution": latest,
+                "recent_events": recent_events,
+                "platform": build_platform_spec(self.project_path).to_dict(),
+                "state_machine": summarize_state_machine(),
+                "lifecycle": lifecycle,
+                "health": health,
+                "closure_score": closure_score,
+                "delivery": {
+                    "ready": delivery_ready,
+                    "artifact_count": success_count,
+                    "next_action": "review" if delivery_ready else "execute",
+                },
+                "runtime": {
+                    "linked": runtime_ready,
+                    "deploy_ready": runtime_ready,
+                    "runtime_id": latest.get("execution_id") if isinstance(latest, dict) else "",
+                },
+                "evolution": {"ready": evolution_ready, "versioned": evolution_ready, "latest_version": ""},
+            },
+        }
 
-    def execution_detail(self, execution_id: str, state: Any, trace: Dict[str, Any], limit: int = 200) -> Dict[str, Any]:
+    def execution_detail(
+        self, execution_id: str, state: Any, trace: Dict[str, Any], limit: int = 200
+    ) -> Dict[str, Any]:
         lifecycle = trace.get("data", {}).get("lifecycle", {}) if isinstance(trace, dict) else {}
         diagnostics = trace.get("data", {}).get("diagnostics", {}) if isinstance(trace, dict) else {}
-        return {"success": True, "data": {"state": state.to_dict(), "trace": trace, "platform": self.platform_overview().get("data", {}), "state_machine": summarize_state_machine(), "lifecycle": lifecycle, "diagnostics": diagnostics, "limit": limit}}
+        return {
+            "success": True,
+            "data": {
+                "state": state.to_dict(),
+                "trace": trace,
+                "platform": self.platform_overview().get("data", {}),
+                "state_machine": summarize_state_machine(),
+                "lifecycle": lifecycle,
+                "diagnostics": diagnostics,
+                "limit": limit,
+            },
+        }
 
 
 __all__ = ["PlatformSummaryService"]

@@ -42,7 +42,9 @@ class VerificationStrategySpec:
     def default_for_task_type(cls, task_type: str) -> "VerificationStrategySpec":
         task_type = (task_type or "").lower()
         if task_type in {"bugfix", "refactor"}:
-            return cls(static=True, contract=True, property=False, integration=False, acceptance=True, architecture=True)
+            return cls(
+                static=True, contract=True, property=False, integration=False, acceptance=True, architecture=True
+            )
         if task_type in {"feature"}:
             return cls(static=True, contract=True, property=True, integration=True, acceptance=True, architecture=True)
         return cls()

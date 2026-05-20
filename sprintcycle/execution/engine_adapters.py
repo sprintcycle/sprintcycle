@@ -57,7 +57,9 @@ class BaseEngineAdapter:
     def _mk_ids(self) -> tuple[str, str]:
         return str(uuid.uuid4()), str(uuid.uuid4())
 
-    def _http_post_json(self, url: str, payload: Dict[str, Any], headers: Dict[str, str], timeout_seconds: int) -> tuple[int, str, str]:
+    def _http_post_json(
+        self, url: str, payload: Dict[str, Any], headers: Dict[str, str], timeout_seconds: int
+    ) -> tuple[int, str, str]:
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         req = request.Request(url, data=body, headers=headers, method="POST")
         try:
@@ -88,11 +90,31 @@ class BaseEngineAdapter:
                 return status, out, err, attempt
             await asyncio.sleep(self.config.retry_backoff_seconds * (2 ** (attempt - 1)) + random.random() * 0.1)
 
-    def _success(self, *, output: str, metadata: Dict[str, Any], request_id: str, trace_id: str) -> EngineExecutionResult:
-        return EngineExecutionResult(success=True, output=output[: self.config.max_output_chars], error="", error_code="ok", metadata=metadata, request_id=request_id, trace_id=trace_id)
+    def _success(
+        self, *, output: str, metadata: Dict[str, Any], request_id: str, trace_id: str
+    ) -> EngineExecutionResult:
+        return EngineExecutionResult(
+            success=True,
+            output=output[: self.config.max_output_chars],
+            error="",
+            error_code="ok",
+            metadata=metadata,
+            request_id=request_id,
+            trace_id=trace_id,
+        )
 
-    def _failure(self, *, error_message: str, error_code: str, metadata: Dict[str, Any], request_id: str, trace_id: str) -> EngineExecutionResult:
-        return EngineExecutionResult(success=False, output="", error=error_message[: self.config.max_output_chars], error_code=error_code, metadata=metadata, request_id=request_id, trace_id=trace_id)
+    def _failure(
+        self, *, error_message: str, error_code: str, metadata: Dict[str, Any], request_id: str, trace_id: str
+    ) -> EngineExecutionResult:
+        return EngineExecutionResult(
+            success=False,
+            output="",
+            error=error_message[: self.config.max_output_chars],
+            error_code=error_code,
+            metadata=metadata,
+            request_id=request_id,
+            trace_id=trace_id,
+        )
 
 
 class CursorEngineAdapter(BaseEngineAdapter):
@@ -116,10 +138,18 @@ class CursorEngineAdapter(BaseEngineAdapter):
         request_id, trace_id = self._mk_ids()
         api_base = os.environ.get("CURSOR_API_BASE", "").rstrip("/")
         api_key = os.environ.get("CURSOR_API_KEY", "")
-        metadata = {**self._base_metadata(prompt, context), "adapter": "cursor", "transport": "api", "api_base": api_base, "request_id": request_id, "trace_id": trace_id}
+        metadata = {
+            **self._base_metadata(prompt, context),
+            "adapter": "cursor",
+            "transport": "api",
+            "api_base": api_base,
+            "request_id": request_id,
+            "trace_id": trace_id,
+        }
         client = self._sdk_client()
         if client is not None:
             try:
+
                 def _call() -> str:
                     resp = client.execute(prompt=prompt, context=context)
                     return getattr(resp, "text", str(resp))
@@ -129,19 +159,50 @@ class CursorEngineAdapter(BaseEngineAdapter):
                 metadata["sdk"] = "cursor"
                 return self._success(output=text, metadata=metadata, request_id=request_id, trace_id=trace_id)
             except asyncio.TimeoutError:
-                return self._failure(error_message="cursor sdk timeout", error_code="timeout", metadata=metadata, request_id=request_id, trace_id=trace_id)
+                return self._failure(
+                    error_message="cursor sdk timeout",
+                    error_code="timeout",
+                    metadata=metadata,
+                    request_id=request_id,
+                    trace_id=trace_id,
+                )
             except Exception as e:
                 metadata["sdk_fallback_reason"] = str(e)
 
         if not api_base or not api_key:
-            return self._failure(error_message="cursor api configuration missing", error_code="config_missing", metadata={**metadata, "api_key_present": bool(api_key)}, request_id=request_id, trace_id=trace_id)
+            return self._failure(
+                error_message="cursor api configuration missing",
+                error_code="config_missing",
+                metadata={**metadata, "api_key_present": bool(api_key)},
+                request_id=request_id,
+                trace_id=trace_id,
+            )
         payload = {"prompt": prompt, "context": context, "request_id": request_id, "trace_id": trace_id}
-        status, out, err, attempts = await self._post_with_retry(f"{api_base}/v1/execute", payload, {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}, self.config.timeout_seconds)
+        status, out, err, attempts = await self._post_with_retry(
+            f"{api_base}/v1/execute",
+            payload,
+            {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            self.config.timeout_seconds,
+        )
         metadata["attempts"] = attempts
         if 200 <= status < 300:
             return self._success(output=out, metadata=metadata, request_id=request_id, trace_id=trace_id)
-        code = "auth_failed" if status in (401, 403) else "timeout" if status == 408 else "rate_limited" if status == 429 else "api_error"
-        return self._failure(error_message=err or out or f"cursor api error {status}", error_code=code, metadata=metadata, request_id=request_id, trace_id=trace_id)
+        code = (
+            "auth_failed"
+            if status in (401, 403)
+            else "timeout"
+            if status == 408
+            else "rate_limited"
+            if status == 429
+            else "api_error"
+        )
+        return self._failure(
+            error_message=err or out or f"cursor api error {status}",
+            error_code=code,
+            metadata=metadata,
+            request_id=request_id,
+            trace_id=trace_id,
+        )
 
 
 class ClaudeEngineAdapter(BaseEngineAdapter):
@@ -164,11 +225,23 @@ class ClaudeEngineAdapter(BaseEngineAdapter):
     async def execute(self, prompt: str, context: Dict[str, Any]) -> EngineExecutionResult:
         request_id, trace_id = self._mk_ids()
         api_key = os.environ.get("ANTHROPIC_API_KEY", "") or os.environ.get("CLAUDE_API_KEY", "")
-        api_base = (os.environ.get("ANTHROPIC_BASE_URL", "") or os.environ.get("CLAUDE_API_BASE", "") or "https://api.anthropic.com").rstrip("/")
-        metadata = {**self._base_metadata(prompt, context), "adapter": "claude", "transport": "api", "api_base": api_base, "request_id": request_id, "trace_id": trace_id}
+        api_base = (
+            os.environ.get("ANTHROPIC_BASE_URL", "")
+            or os.environ.get("CLAUDE_API_BASE", "")
+            or "https://api.anthropic.com"
+        ).rstrip("/")
+        metadata = {
+            **self._base_metadata(prompt, context),
+            "adapter": "claude",
+            "transport": "api",
+            "api_base": api_base,
+            "request_id": request_id,
+            "trace_id": trace_id,
+        }
         client = self._sdk_client()
         if client is not None:
             try:
+
                 def _call() -> str:
                     msg = client.messages.create(
                         model=os.environ.get("CLAUDE_MODEL", "claude-3-5-sonnet-latest"),
@@ -183,14 +256,39 @@ class ClaudeEngineAdapter(BaseEngineAdapter):
                 metadata["sdk"] = "anthropic"
                 return self._success(output=text, metadata=metadata, request_id=request_id, trace_id=trace_id)
             except asyncio.TimeoutError:
-                return self._failure(error_message="claude sdk timeout", error_code="timeout", metadata=metadata, request_id=request_id, trace_id=trace_id)
+                return self._failure(
+                    error_message="claude sdk timeout",
+                    error_code="timeout",
+                    metadata=metadata,
+                    request_id=request_id,
+                    trace_id=trace_id,
+                )
             except Exception as e:
                 metadata["sdk_fallback_reason"] = str(e)
 
         if not api_key:
-            return self._failure(error_message="claude api key missing", error_code="config_missing", metadata={**metadata, "api_key_present": False}, request_id=request_id, trace_id=trace_id)
-        payload = {"model": os.environ.get("CLAUDE_MODEL", "claude-3-5-sonnet-latest"), "max_tokens": int(os.environ.get("CLAUDE_MAX_TOKENS", "4096")), "messages": [{"role": "user", "content": prompt}]}
-        status, out, err, attempts = await self._post_with_retry(f"{api_base}/v1/messages", payload, {"x-api-key": api_key, "anthropic-version": os.environ.get("ANTHROPIC_VERSION", "2023-06-01"), "content-type": "application/json"}, self.config.timeout_seconds)
+            return self._failure(
+                error_message="claude api key missing",
+                error_code="config_missing",
+                metadata={**metadata, "api_key_present": False},
+                request_id=request_id,
+                trace_id=trace_id,
+            )
+        payload = {
+            "model": os.environ.get("CLAUDE_MODEL", "claude-3-5-sonnet-latest"),
+            "max_tokens": int(os.environ.get("CLAUDE_MAX_TOKENS", "4096")),
+            "messages": [{"role": "user", "content": prompt}],
+        }
+        status, out, err, attempts = await self._post_with_retry(
+            f"{api_base}/v1/messages",
+            payload,
+            {
+                "x-api-key": api_key,
+                "anthropic-version": os.environ.get("ANTHROPIC_VERSION", "2023-06-01"),
+                "content-type": "application/json",
+            },
+            self.config.timeout_seconds,
+        )
         metadata["attempts"] = attempts
         if 200 <= status < 300:
             try:
@@ -200,8 +298,22 @@ class ClaudeEngineAdapter(BaseEngineAdapter):
             except Exception:
                 text = out
             return self._success(output=text, metadata=metadata, request_id=request_id, trace_id=trace_id)
-        code = "auth_failed" if status in (401, 403) else "timeout" if status == 408 else "rate_limited" if status == 429 else "api_error"
-        return self._failure(error_message=err or out or f"claude api error {status}", error_code=code, metadata=metadata, request_id=request_id, trace_id=trace_id)
+        code = (
+            "auth_failed"
+            if status in (401, 403)
+            else "timeout"
+            if status == 408
+            else "rate_limited"
+            if status == 429
+            else "api_error"
+        )
+        return self._failure(
+            error_message=err or out or f"claude api error {status}",
+            error_code=code,
+            metadata=metadata,
+            request_id=request_id,
+            trace_id=trace_id,
+        )
 
 
 class TraeEngineAdapter(BaseEngineAdapter):
@@ -225,10 +337,18 @@ class TraeEngineAdapter(BaseEngineAdapter):
         request_id, trace_id = self._mk_ids()
         api_base = os.environ.get("TRAE_API_BASE", "").rstrip("/")
         api_key = os.environ.get("TRAE_API_KEY", "")
-        metadata = {**self._base_metadata(prompt, context), "adapter": "trae", "transport": "api", "api_base": api_base, "request_id": request_id, "trace_id": trace_id}
+        metadata = {
+            **self._base_metadata(prompt, context),
+            "adapter": "trae",
+            "transport": "api",
+            "api_base": api_base,
+            "request_id": request_id,
+            "trace_id": trace_id,
+        }
         client = self._sdk_client()
         if client is not None:
             try:
+
                 def _call() -> str:
                     resp = client.generate(prompt=prompt, context=context)
                     return getattr(resp, "text", str(resp))
@@ -238,19 +358,50 @@ class TraeEngineAdapter(BaseEngineAdapter):
                 metadata["sdk"] = "trae"
                 return self._success(output=text, metadata=metadata, request_id=request_id, trace_id=trace_id)
             except asyncio.TimeoutError:
-                return self._failure(error_message="trae sdk timeout", error_code="timeout", metadata=metadata, request_id=request_id, trace_id=trace_id)
+                return self._failure(
+                    error_message="trae sdk timeout",
+                    error_code="timeout",
+                    metadata=metadata,
+                    request_id=request_id,
+                    trace_id=trace_id,
+                )
             except Exception as e:
                 metadata["sdk_fallback_reason"] = str(e)
 
         if not api_base or not api_key:
-            return self._failure(error_message="trae api configuration missing", error_code="config_missing", metadata={**metadata, "api_key_present": bool(api_key)}, request_id=request_id, trace_id=trace_id)
+            return self._failure(
+                error_message="trae api configuration missing",
+                error_code="config_missing",
+                metadata={**metadata, "api_key_present": bool(api_key)},
+                request_id=request_id,
+                trace_id=trace_id,
+            )
         payload = {"prompt": prompt, "context": context, "request_id": request_id, "trace_id": trace_id}
-        status, out, err, attempts = await self._post_with_retry(f"{api_base}/v1/generate", payload, {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}, self.config.timeout_seconds)
+        status, out, err, attempts = await self._post_with_retry(
+            f"{api_base}/v1/generate",
+            payload,
+            {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            self.config.timeout_seconds,
+        )
         metadata["attempts"] = attempts
         if 200 <= status < 300:
             return self._success(output=out, metadata=metadata, request_id=request_id, trace_id=trace_id)
-        code = "auth_failed" if status in (401, 403) else "timeout" if status == 408 else "rate_limited" if status == 429 else "api_error"
-        return self._failure(error_message=err or out or f"trae api error {status}", error_code=code, metadata=metadata, request_id=request_id, trace_id=trace_id)
+        code = (
+            "auth_failed"
+            if status in (401, 403)
+            else "timeout"
+            if status == 408
+            else "rate_limited"
+            if status == 429
+            else "api_error"
+        )
+        return self._failure(
+            error_message=err or out or f"trae api error {status}",
+            error_code=code,
+            metadata=metadata,
+            request_id=request_id,
+            trace_id=trace_id,
+        )
 
 
 def resolve_engine_adapter(name: str, config: Optional[EngineAdapterConfig] = None) -> BaseEngineAdapter:
@@ -262,4 +413,12 @@ def resolve_engine_adapter(name: str, config: Optional[EngineAdapterConfig] = No
     return CursorEngineAdapter(config)
 
 
-__all__ = ["BaseEngineAdapter", "CursorEngineAdapter", "ClaudeEngineAdapter", "TraeEngineAdapter", "resolve_engine_adapter", "EngineExecutionResult", "EngineAdapterConfig"]
+__all__ = [
+    "BaseEngineAdapter",
+    "CursorEngineAdapter",
+    "ClaudeEngineAdapter",
+    "TraeEngineAdapter",
+    "resolve_engine_adapter",
+    "EngineExecutionResult",
+    "EngineAdapterConfig",
+]

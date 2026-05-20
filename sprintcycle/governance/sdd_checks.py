@@ -7,7 +7,6 @@ from typing import Any, Dict, List
 
 from loguru import logger
 
-from ..domain.quality_spec.reports.finding import Finding as QualityFinding
 from ..domain.quality_spec.spec.task_spec import TaskSpec
 
 

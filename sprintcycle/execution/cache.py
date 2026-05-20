@@ -23,7 +23,7 @@ from sprintcycle.infrastructure.cache.disk import DiskCacheBackend
 if TYPE_CHECKING:
     from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 @dataclass
@@ -135,13 +135,7 @@ class ExecutionCache:
         """生成任务哈希"""
         return hashlib.sha256(task_key.encode()).hexdigest()[:32]
 
-    def _make_task_key(
-        self,
-        agent_type: str,
-        task: str,
-        context_hash: Optional[str] = None,
-        **kwargs
-    ) -> str:
+    def _make_task_key(self, agent_type: str, task: str, context_hash: Optional[str] = None, **kwargs) -> str:
         """
         生成任务缓存键
 
@@ -190,12 +184,7 @@ class ExecutionCache:
         async with self._lock:
             return self.get(task_hash)
 
-    def set(
-        self,
-        task_hash: str,
-        value: Any,
-        ttl_hours: Optional[int] = None
-    ) -> None:
+    def set(self, task_hash: str, value: Any, ttl_hours: Optional[int] = None) -> None:
         """
         设置缓存
 
@@ -211,12 +200,7 @@ class ExecutionCache:
         self._stats["sets"] += 1
         logger.debug(f"Cache set: {task_hash[:8]} (TTL={ttl}h)")
 
-    async def set_async(
-        self,
-        task_hash: str,
-        value: Any,
-        ttl_hours: Optional[int] = None
-    ) -> None:
+    async def set_async(self, task_hash: str, value: Any, ttl_hours: Optional[int] = None) -> None:
         """异步设置缓存"""
         async with self._lock:
             self.set(task_hash, value, ttl_hours)
@@ -258,10 +242,7 @@ class ExecutionCache:
             Dict[str, Any]: 统计信息
         """
         total_requests = self._stats["hits"] + self._stats["misses"]
-        hit_rate = (
-            self._stats["hits"] / total_requests * 100
-            if total_requests > 0 else 0
-        )
+        hit_rate = self._stats["hits"] / total_requests * 100 if total_requests > 0 else 0
         hit_rate_percentage = round(hit_rate, 2)
 
         cache_size = len(self._backend)
@@ -306,6 +287,7 @@ class ExecutionCache:
         Args:
             interval_hours: 清理间隔（小时）
         """
+
         async def cleanup_loop():
             while True:
                 await asyncio.sleep(interval_hours * 3600)

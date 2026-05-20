@@ -19,6 +19,7 @@ from .sprint_executor import ExecutionStatus, SprintExecutor, SprintResult
 @dataclass
 class ExecutionResult:
     """执行结果"""
+
     success: bool
     release_plan: ReleasePlan
     sprint_results: List[SprintResult] = field(default_factory=list)

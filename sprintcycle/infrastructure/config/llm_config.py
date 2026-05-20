@@ -17,6 +17,7 @@ class LLMConfig(BaseModel):
 
     v0.9.2: 使用 pydantic BaseModel 提供类型安全
     """
+
     provider: str = "openai"
     model: str = "gpt-4"
     api_base: Optional[str] = None

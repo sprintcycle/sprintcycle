@@ -54,9 +54,7 @@ class ArchitectureAgent(AgentExecutor):
             agent_type=self.agent_type,
         )
 
-    def _analyze_requirements(
-        self, task: str, context: AgentContext
-    ) -> Dict[str, Any]:
+    def _analyze_requirements(self, task: str, context: AgentContext) -> Dict[str, Any]:
         """分析需求和约束"""
         requirements: Dict[str, Any] = {
             "description": task,
@@ -76,9 +74,7 @@ class ArchitectureAgent(AgentExecutor):
 
         return requirements
 
-    def _evaluate_current_architecture(
-        self, context: AgentContext
-    ) -> Dict[str, Any]:
+    def _evaluate_current_architecture(self, context: AgentContext) -> Dict[str, Any]:
         """评估现有架构状态"""
         current_state: Dict[str, Any] = {
             "existing_code": context.codebase_context.get("code", ""),
@@ -127,9 +123,7 @@ class ArchitectureAgent(AgentExecutor):
         # 考虑已有问题
         known_issues = current_state.get("known_issues", [])
         if known_issues:
-            design["decisions"].append(
-                f"注意已有 {len(known_issues)} 个已知问题需规避"
-            )
+            design["decisions"].append(f"注意已有 {len(known_issues)} 个已知问题需规避")
 
         return design
 

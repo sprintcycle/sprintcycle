@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import json
-import shutil
 import subprocess
-import sys
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -15,7 +13,11 @@ class VisualProvider:
 
     def run(self, project_root: str, context: Dict[str, Any]) -> List[VerificationFinding]:
         root = Path(project_root).expanduser().resolve()
-        cmd = context.get("visual_command") or context.get("playwright_visual_command") or context.get("verify_visual_command")
+        cmd = (
+            context.get("visual_command")
+            or context.get("playwright_visual_command")
+            or context.get("verify_visual_command")
+        )
         if not cmd:
             return [
                 VerificationFinding(

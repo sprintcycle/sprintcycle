@@ -8,10 +8,11 @@ from __future__ import annotations
 
 import asyncio
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from .application.evolution.intent_evolution_loop import UserIntentEvolutionLoop
 from .application.evolution.memory_store import MemoryStore
+from .application.orchestration.sprint_orchestrator import SprintOrchestrator
 from .application.services.evaluator_agent import EvaluatorAgent
 from .application.services.evolution_promotion_service import EvolutionPromotionService
 from .application.services.evolution_version_service import EvolutionVersionService
@@ -28,12 +29,12 @@ from .application.services.repair_orchestration_service import RepairOrchestrati
 from .application.services.suggestion_application_service import SuggestionApplicationService
 from .application.services.web_lifecycle_orchestration_service import WebLifecycleOrchestrationService
 from .execution.cache import configure_execution_cache_from_runtime
+from .execution.core.engine import create_execution_engine
 from .execution.events import (
     ensure_default_execution_event_backend_for_project,
     get_execution_event_backend,
 )
 from .execution.state.state_store import configure_default_store, get_state_store
-from .execution.core.engine import create_execution_engine
 from .fitness import FitnessEvaluator
 from .governance.facade import GovernanceFacade, create_governance_facade
 from .governance.suggestion import SuggestionFacade, create_suggestion_facade
@@ -44,7 +45,6 @@ from .infrastructure.evolution_registry_access import create_evolution_registry
 from .infrastructure.platform_launch_service import PlatformLaunchService
 from .infrastructure.runtime_registry import RuntimeRegistry
 from .observability.facade import ObservabilityFacade
-from .application.orchestration.sprint_orchestrator import SprintOrchestrator
 from .persistence.knowledge_repository import KnowledgeCardRepository
 from .presentation.view_service import DashboardViewService
 from .presentation.workbench import DashboardWorkbenchService
@@ -357,14 +357,10 @@ class SprintCycle:
             },
         }
 
-    async def observability_history(
-        self, execution_id: Optional[str] = None, limit: int = 50
-    ) -> Dict[str, Any]:
+    async def observability_history(self, execution_id: Optional[str] = None, limit: int = 50) -> Dict[str, Any]:
         return await self._governance_orchestration.history(execution_id=execution_id, limit=limit)
 
-    async def observability_summary(
-        self, execution_id: Optional[str] = None, limit: int = 50
-    ) -> Dict[str, Any]:
+    async def observability_summary(self, execution_id: Optional[str] = None, limit: int = 50) -> Dict[str, Any]:
         return await self._governance_orchestration.summary(execution_id=execution_id, limit=limit)
 
     async def observability_show(self, request_id: str) -> Dict[str, Any]:
@@ -397,7 +393,9 @@ class SprintCycle:
     def diagnose_execution(self, execution_id: str) -> Dict[str, Any]:
         return self._repair_orchestration.diagnose(execution_id)
 
-    def diagnose_repair_observe(self, execution_id: str, *, repair_plan: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def diagnose_repair_observe(
+        self, execution_id: str, *, repair_plan: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         return self._lifecycle_delivery.diagnose_repair_observe(
             execution_id,
             repair_plan=repair_plan,
@@ -471,7 +469,9 @@ class SprintCycle:
         return self._lifecycle_assembly.assemble(execution_id, limit=limit)
 
     def fitness_view(self) -> Dict[str, Any]:
-        payload = self._fitness.evaluate(self._platform_summary.fitness_payload(self._observability, self._runtime_registry, self._suggestion))
+        payload = self._fitness.evaluate(
+            self._platform_summary.fitness_payload(self._observability, self._runtime_registry, self._suggestion)
+        )
         view = self._platform_summary.fitness_view(payload)
         data = view.get("data", {}) if isinstance(view, dict) else {}
         data["closure_score"] = payload.get("lifecycle_health", {}).get("observability_ready", False) and 100.0 or 0.0
@@ -493,7 +493,9 @@ class SprintCycle:
     def runtime_update(self, runtime_id: str, **changes: Any) -> Dict[str, Any]:
         return self._execution_service.runtime_update(runtime_id, **changes)
 
-    def launch_platform(self, contract: Dict[str, Any], *, launch_mode: str = "auto", platform: str = "dashboard") -> Dict[str, Any]:
+    def launch_platform(
+        self, contract: Dict[str, Any], *, launch_mode: str = "auto", platform: str = "dashboard"
+    ) -> Dict[str, Any]:
         return self._platform_launch.launch(contract, launch_mode=launch_mode, platform=platform)
 
     def governance_view(self) -> Dict[str, Any]:
@@ -506,8 +508,8 @@ class SprintCycle:
         return self._platform_summary.fix_view(self._management.suggestion_list_payload(limit=20))
 
     def architecture_check(self) -> Dict[str, Any]:
-        from .governance.arch_guard.architecture_checker import check_architecture
         from .dashboard.views.architecture_view import ArchitectureView
+        from .governance.arch_guard.architecture_checker import check_architecture
 
         result = check_architecture(self.project_path)
         return ArchitectureView(payload=result.to_dict()).to_payload()

@@ -3,25 +3,25 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from .config import ArchGuardConfig
-from .loader import GuardPackLoader
-from .model import GuardFinding, GuardReport
-from .registry import GuardRegistry
-from .adapters.import_linter import ImportLinterAdapter
-from .adapters.grimp_adapter import GrimpAdapter
 from .adapters.archon_adapter import ArchonAdapter
+from .adapters.grimp_adapter import GrimpAdapter
+from .adapters.import_linter import ImportLinterAdapter
 from .adapters.ruff_adapter import RuffAdapter
 from .adapters.typecheck_adapter import TypeCheckAdapter
+from .config import ArchGuardConfig
 from .invariants import (
     check_compatibility_flags,
-    check_evolution_mainline,
     check_event_shape,
+    check_evolution_mainline,
     check_extension_point_usage,
     check_hook_context_usage,
     check_release_plan,
     check_report_shape,
     check_spec_refs,
 )
+from .loader import GuardPackLoader
+from .model import GuardFinding, GuardReport
+from .registry import GuardRegistry
 
 
 class ArchGuardEngine:
@@ -40,14 +40,42 @@ class ArchGuardEngine:
         from .model import GuardRule
 
         builtin = [
-            GuardRule(rule_id="planning:release_plan", title="ReleasePlan 合法性", severity="error", action="block", gate="planning"),
-            GuardRule(rule_id="planning:spec_refs", title="Spec 引用检查", severity="warning", action="warn", gate="planning"),
-            GuardRule(rule_id="review:hook_context", title="Hook 上下文合法性", severity="info", action="info", gate="review"),
-            GuardRule(rule_id="review:report_shape", title="报告结构合法性", severity="warning", action="warn", gate="review"),
-            GuardRule(rule_id="review:event_shape", title="事件结构合法性", severity="warning", action="warn", gate="review"),
-            GuardRule(rule_id="review:extension_point_usage", title="扩展点接入方式", severity="error", action="block", gate="review"),
-            GuardRule(rule_id="review:evolution_mainline", title="演进主线声明", severity="info", action="info", gate="review"),
-            GuardRule(rule_id="review:compatibility_flags", title="兼容性标识", severity="warning", action="warn", gate="review"),
+            GuardRule(
+                rule_id="planning:release_plan",
+                title="ReleasePlan 合法性",
+                severity="error",
+                action="block",
+                gate="planning",
+            ),
+            GuardRule(
+                rule_id="planning:spec_refs", title="Spec 引用检查", severity="warning", action="warn", gate="planning"
+            ),
+            GuardRule(
+                rule_id="review:hook_context", title="Hook 上下文合法性", severity="info", action="info", gate="review"
+            ),
+            GuardRule(
+                rule_id="review:report_shape", title="报告结构合法性", severity="warning", action="warn", gate="review"
+            ),
+            GuardRule(
+                rule_id="review:event_shape", title="事件结构合法性", severity="warning", action="warn", gate="review"
+            ),
+            GuardRule(
+                rule_id="review:extension_point_usage",
+                title="扩展点接入方式",
+                severity="error",
+                action="block",
+                gate="review",
+            ),
+            GuardRule(
+                rule_id="review:evolution_mainline", title="演进主线声明", severity="info", action="info", gate="review"
+            ),
+            GuardRule(
+                rule_id="review:compatibility_flags",
+                title="兼容性标识",
+                severity="warning",
+                action="warn",
+                gate="review",
+            ),
         ]
         for rule in builtin:
             self.registry.register_rule(rule)
@@ -72,7 +100,9 @@ class ArchGuardEngine:
         release_plan = ctx.context.get("release_plan")
         if release_plan is None:
             return []
-        return self._to_findings(check_release_plan(release_plan)) + self._to_findings(check_spec_refs(root, release_plan))
+        return self._to_findings(check_release_plan(release_plan)) + self._to_findings(
+            check_spec_refs(root, release_plan)
+        )
 
     def _check_planning_spec_refs(self, ctx) -> List[GuardFinding]:
         return []
@@ -81,7 +111,9 @@ class ArchGuardEngine:
         return self._to_findings(check_hook_context_usage(ctx.context))
 
     def _check_review_report_shape(self, ctx) -> List[GuardFinding]:
-        return self._to_findings(check_report_shape(ctx.context.get("governance_review_report") if isinstance(ctx.context, dict) else None))
+        return self._to_findings(
+            check_report_shape(ctx.context.get("governance_review_report") if isinstance(ctx.context, dict) else None)
+        )
 
     def _check_review_event_shape(self, ctx) -> List[GuardFinding]:
         return self._to_findings(check_event_shape(ctx.context.get("event") if isinstance(ctx.context, dict) else None))
@@ -108,7 +140,9 @@ class ArchGuardEngine:
         findings.extend(self._to_findings(check_release_plan(release_plan)))
         findings.extend(self._to_findings(check_spec_refs(root, release_plan)))
         findings.extend(self._to_findings(check_hook_context_usage(context)))
-        findings.extend(self.registry.run_gate("planning", project_root, {"context": context or {}, "release_plan": release_plan}))
+        findings.extend(
+            self.registry.run_gate("planning", project_root, {"context": context or {}, "release_plan": release_plan})
+        )
 
         if self.config.use_grimp:
             findings.extend(self._grimp.run(project_root))
@@ -147,8 +181,14 @@ class ArchGuardEngine:
             findings.extend(self._typecheck.run(project_root))
 
         findings.extend(self._to_findings(check_hook_context_usage(context)))
-        findings.extend(self._to_findings(check_report_shape(context.get("governance_review_report") if isinstance(context, dict) else None)))
-        findings.extend(self._to_findings(check_event_shape(context.get("event") if isinstance(context, dict) else None)))
+        findings.extend(
+            self._to_findings(
+                check_report_shape(context.get("governance_review_report") if isinstance(context, dict) else None)
+            )
+        )
+        findings.extend(
+            self._to_findings(check_event_shape(context.get("event") if isinstance(context, dict) else None))
+        )
         findings.extend(self._to_findings(check_extension_point_usage(context)))
         findings.extend(self._to_findings(check_evolution_mainline(context)))
         findings.extend(self._to_findings(check_compatibility_flags(context)))

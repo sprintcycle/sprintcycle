@@ -7,8 +7,8 @@ import sqlite3
 from pathlib import Path
 from typing import Optional
 
+from ..types import HitlCorrection, HitlReplayDirective, HitlRequestRecord
 from .base import HitlStore
-from ..types import HitlCorrection, HitlRequestRecord, HitlReplayDirective
 
 
 def default_hitl_db_path(project_root: str) -> str:
@@ -57,7 +57,9 @@ class HitlSqliteStore(HitlStore):
                 )
                 """
             )
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_hitl_requests_execution_status ON hitl_requests(execution_id, status, created_at DESC)")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_hitl_requests_execution_status ON hitl_requests(execution_id, status, created_at DESC)"
+            )
             conn.commit()
 
     async def insert_open(self, row: HitlRequestRecord) -> None:
@@ -116,7 +118,7 @@ class HitlSqliteStore(HitlStore):
                 SET status = ?, decided_at = ?, decision = ?, decision_note = ?, decision_kind = ?
                 WHERE request_id = ? AND status IN ('open', 'modified', 'retrying')
                 """,
-                (status or 'resolved', decided_at, decision, note, decision_kind, request_id),
+                (status or "resolved", decided_at, decision, note, decision_kind, request_id),
             )
             conn.commit()
             return cur.rowcount > 0

@@ -7,14 +7,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from .controller import DefaultEvolutionController, EvolutionController
-from .facade import EvolutionFacade
-from .workflows import DefaultCodeEvolutionAdapter, DefaultRequirementEvolutionAdapter
+from ...governance.versioning.rollback import DefaultVersionRollbackManager
+from ...governance.versioning.sqlite_registry import SQLiteVersionRegistry
 from ..release_plan.generator import IntentReleasePlanGenerator
 from ..release_plan.validator import ReleasePlanValidator
 from ..sandbox.default_manager import DefaultSandboxManager
-from ...governance.versioning.rollback import DefaultVersionRollbackManager
-from ...governance.versioning.sqlite_registry import SQLiteVersionRegistry
+from .controller import DefaultEvolutionController, EvolutionController
+from .facade import EvolutionFacade
+from .workflows import DefaultCodeEvolutionAdapter, DefaultRequirementEvolutionAdapter
 
 
 class DefaultEvolutionService(EvolutionFacade):
@@ -31,7 +31,9 @@ def create_evolution_facade(
     config: Any,
 ) -> DefaultEvolutionService:
     registry = SQLiteVersionRegistry(
-        root_dir=str(getattr(getattr(config, "evolution_versioning", None), "root_dir", None) or ".sprintcycle/versioning")
+        root_dir=str(
+            getattr(getattr(config, "evolution_versioning", None), "root_dir", None) or ".sprintcycle/versioning"
+        )
     )
     governance_runner = None
     try:

@@ -3,19 +3,17 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from ..quality_spec.context import build_quality_context
+from ..quality_spec.providers.property_provider import HypothesisProvider
 from .config import VerificationConfig
-from .model import VerificationFinding, VerificationPolicy, VerificationReport, VerificationRule
-from .registry import VerificationRegistry
+from .model import VerificationFinding, VerificationReport, VerificationRule
 from .providers.arch_provider import ArchProvider
 from .providers.cli_provider import CliProvider
 from .providers.playwright_provider import PlaywrightProvider
 from .providers.pytest_provider import PytestProvider
 from .providers.security_provider import SecurityProvider
 from .providers.visual_provider import VisualProvider
-from ..quality_spec.context import build_quality_context
-from ..quality_spec.providers.property_provider import HypothesisProvider
-from ..quality_spec.reports.finding import Finding as QualityFinding
-from ..quality_spec.reports.report import Report as QualityReport
+from .registry import VerificationRegistry
 
 
 class VerificationEngine:
@@ -35,15 +33,27 @@ class VerificationEngine:
 
     def _register_builtin_rules(self) -> None:
         rules = [
-            VerificationRule(rule_id="test:pytest", title="pytest 结果", gate="test", severity="warning", action="warn"),
-            VerificationRule(rule_id="verify:playwright", title="Playwright 端到端", gate="verify", severity="warning", action="warn"),
+            VerificationRule(
+                rule_id="test:pytest", title="pytest 结果", gate="test", severity="warning", action="warn"
+            ),
+            VerificationRule(
+                rule_id="verify:playwright", title="Playwright 端到端", gate="verify", severity="warning", action="warn"
+            ),
             VerificationRule(rule_id="verify:cli", title="CLI 验证", gate="verify", severity="warning", action="warn"),
-            VerificationRule(rule_id="verify:visual", title="视觉验证", gate="verify", severity="warning", action="warn"),
-            VerificationRule(rule_id="arch:import_linter", title="import-linter", gate="arch", severity="error", action="block"),
+            VerificationRule(
+                rule_id="verify:visual", title="视觉验证", gate="verify", severity="warning", action="warn"
+            ),
+            VerificationRule(
+                rule_id="arch:import_linter", title="import-linter", gate="arch", severity="error", action="block"
+            ),
             VerificationRule(rule_id="arch:grimp", title="grimp", gate="arch", severity="warning", action="warn"),
             VerificationRule(rule_id="arch:ruff", title="ruff", gate="arch", severity="warning", action="warn"),
-            VerificationRule(rule_id="security:secrets", title="敏感信息扫描", gate="security", severity="error", action="block"),
-            VerificationRule(rule_id="verify:hypothesis", title="属性测试", gate="verify", severity="warning", action="warn"),
+            VerificationRule(
+                rule_id="security:secrets", title="敏感信息扫描", gate="security", severity="error", action="block"
+            ),
+            VerificationRule(
+                rule_id="verify:hypothesis", title="属性测试", gate="verify", severity="warning", action="warn"
+            ),
         ]
         for rule in rules:
             self.registry.register_rule(rule)

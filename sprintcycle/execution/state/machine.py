@@ -11,7 +11,6 @@ from typing import Dict, List, Optional, Tuple
 
 from ..sprint_types import ExecutionStatus
 
-
 EXECUTION_TRANSITIONS: Dict[str, Tuple[str, ...]] = {
     ExecutionStatus.PENDING.value: (ExecutionStatus.RUNNING.value, ExecutionStatus.CANCELLED.value),
     ExecutionStatus.RUNNING.value: (
@@ -34,7 +33,11 @@ EXECUTION_TRANSITIONS: Dict[str, Tuple[str, ...]] = {
 }
 
 TASK_TRANSITIONS: Dict[str, Tuple[str, ...]] = {
-    ExecutionStatus.PENDING.value: (ExecutionStatus.RUNNING.value, ExecutionStatus.SKIPPED.value, ExecutionStatus.CANCELLED.value),
+    ExecutionStatus.PENDING.value: (
+        ExecutionStatus.RUNNING.value,
+        ExecutionStatus.SKIPPED.value,
+        ExecutionStatus.CANCELLED.value,
+    ),
     ExecutionStatus.RUNNING.value: (
         ExecutionStatus.SUCCESS.value,
         ExecutionStatus.FAILED.value,

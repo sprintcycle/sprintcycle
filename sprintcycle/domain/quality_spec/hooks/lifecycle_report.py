@@ -28,6 +28,7 @@ class LifecycleReport:
 
     def to_report(self) -> Any:
         from ..reports.report import Report
+
         return Report(
             gate=self.stage,
             passed=self.passed,

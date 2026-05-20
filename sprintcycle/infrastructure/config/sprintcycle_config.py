@@ -12,6 +12,7 @@ from .llm_config import LLMConfig
 @dataclass
 class CodingConfig:
     """编码引擎配置"""
+
     engine: str = "aider"
     llm: Optional[LLMConfig] = None
     claude: Optional[LLMConfig] = None
@@ -20,6 +21,7 @@ class CodingConfig:
 @dataclass
 class EvolutionRunConfig:
     """进化运行配置"""
+
     enabled: bool = True
     max_iterations: int = 10
     max_variations: int = 5
@@ -37,6 +39,7 @@ class EvolutionRunConfig:
 @dataclass
 class SprintCycleConfig:
     """SprintCycle 应用配置"""
+
     max_sprints: int = 10
     max_tasks_per_sprint: int = 5
     parallel_tasks: int = 3

@@ -17,9 +17,9 @@ from ...application.release_plan.parser import ReleasePlanParser
 from .base import IntentHandler, IntentResult
 
 if TYPE_CHECKING:
-    from ..api import SprintCycle
-    from ...infrastructure.config import RuntimeConfig
     from ...application.release_plan.models import ReleasePlan
+    from ...infrastructure.config import RuntimeConfig
+    from ..api import SprintCycle
 
 
 def parse_release_plan_file(file_path: str) -> "ReleasePlan":
