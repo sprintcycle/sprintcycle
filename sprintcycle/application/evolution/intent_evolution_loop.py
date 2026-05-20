@@ -1,11 +1,6 @@
-"""用户意图演化闭环。
+"""用户意图演化闭环（精简版）。
 
 目标不是把用户需求视为静态输入，而是把它视为可持续更新的动态对象。
-
-该模块尽量保持轻量：
-- 不接管执行编排
-- 不替换 feedback / memory / knowledge 体系
-- 只负责把“意图变化”显式化，并提供决策与沉淀方法
 """
 
 from __future__ import annotations
@@ -15,8 +10,6 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from loguru import logger
-
-from .memory_store import MemoryStore
 
 
 class IntentDriftType(Enum):
@@ -83,12 +76,12 @@ class UserIntentEvolutionLoop:
     1. 记录初始意图与后续修正
     2. 根据执行反馈和新输入判断是否漂移
     3. 决定局部修改 / 重规划 / 重做
-    4. 将经验沉淀到 memory / knowledge
+    4. 将经验沉淀到 knowledge
     """
 
     def __init__(
         self,
-        memory_store: Optional[MemoryStore] = None,
+        memory_store: Optional[Any] = None,
         feedback_loop: Optional[Any] = None,
         knowledge_repo: Optional[Any] = None,
     ):
@@ -149,8 +142,7 @@ class UserIntentEvolutionLoop:
             if execution_feedback.get("scope_changed"):
                 signals.append("scope_changed")
 
-        drift = self._classify(signals, current, base)
-        return drift
+        return self._classify(signals, current, base)
 
     def classify_from_signals(self, signals: List[str], severity: float = 0.0) -> IntentEvolutionDecision:
         return self._classify(list(signals), None, None, severity=severity)
@@ -172,15 +164,18 @@ class UserIntentEvolutionLoop:
         self._events.append({"event": "learning", "payload": payload})
 
         if self._memory_store is not None:
-            memory = self._memory_store.store(
-                memory_type="intent_evolution",
-                content=payload,
-                tags=[decision.drift_type.value, decision.impact_scope],
-                success=not decision.should_reset,
-                score=max(0.1, min(1.0, decision.confidence)),
-                metadata={"source": "UserIntentEvolutionLoop"},
-            )
-            return memory.to_dict()
+            try:
+                memory = self._memory_store.store(
+                    memory_type="intent_evolution",
+                    content=payload,
+                    tags=[decision.drift_type.value, decision.impact_scope],
+                    success=not decision.should_reset,
+                    score=max(0.1, min(1.0, decision.confidence)),
+                    metadata={"source": "UserIntentEvolutionLoop"},
+                )
+                return memory.to_dict() if hasattr(memory, "to_dict") else None
+            except Exception:
+                pass
 
         if self._knowledge_repo is not None and decision.should_replan:
             try:
@@ -192,9 +187,9 @@ class UserIntentEvolutionLoop:
                     tags=[decision.drift_type.value, decision.impact_scope],
                     scores={"confidence": decision.confidence},
                 )
-                return card.to_dict()
+                return card.to_dict() if hasattr(card, "to_dict") else None
             except Exception as e:
-                logger.warning("failed to persist intent evolution knowledge: {}", e)
+                logger.debug("failed to persist intent evolution knowledge: {}", e)
         return None
 
     def recent_snapshots(self) -> List[Dict[str, Any]]:

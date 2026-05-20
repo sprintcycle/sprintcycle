@@ -126,7 +126,7 @@ class TestAPIRun:
         with patch('sprintcycle.api.IntentParser') as mock_parser, \
              patch('sprintcycle.api.IntentReleasePlanGenerator') as mock_generator, \
              patch('sprintcycle.api.get_state_store') as mock_get_store, \
-             patch('sprintcycle.application.orchestration.sprint_orchestrator.SprintOrchestrator') as mock_dispatcher_cls:
+             patch('sprintcycle.application.sprint_orchestrator.SprintOrchestrator') as mock_dispatcher_cls:
 
             # Setup mock state store
             mock_store = MagicMock(spec=StateStore)
@@ -200,7 +200,7 @@ sprints:
 
         with patch('sprintcycle.api.ReleasePlanParser') as mock_parser, \
              patch('sprintcycle.api.get_state_store') as mock_get_store, \
-             patch('sprintcycle.application.orchestration.sprint_orchestrator.SprintOrchestrator') as mock_dispatcher_cls:
+             patch('sprintcycle.application.sprint_orchestrator.SprintOrchestrator') as mock_dispatcher_cls:
 
             mock_store = MagicMock(spec=StateStore)
             mock_get_store.return_value = mock_store
@@ -618,7 +618,7 @@ class TestAPIResume:
 
         with patch('sprintcycle.api.get_state_store') as mock_get_store, \
              patch('sprintcycle.api.ReleasePlanParser') as mock_parser, \
-             patch('sprintcycle.application.orchestration.sprint_orchestrator.SprintOrchestrator') as mock_dispatcher_cls:
+             patch('sprintcycle.application.sprint_orchestrator.SprintOrchestrator') as mock_dispatcher_cls:
 
             mock_store = MagicMock(spec=StateStore)
             mock_get_store.return_value = mock_store

@@ -12,7 +12,7 @@ from typing import Any, Dict, Optional
 
 from .application.evolution.intent_evolution_loop import UserIntentEvolutionLoop
 from .application.evolution.memory_store import MemoryStore
-from .application.orchestration.sprint_orchestrator import SprintOrchestrator
+from .application.sprint_orchestrator import SprintOrchestrator
 from .application.services.evaluator_agent import EvaluatorAgent
 from .application.services.evolution_promotion_service import EvolutionPromotionService
 from .application.services.evolution_version_service import EvolutionVersionService

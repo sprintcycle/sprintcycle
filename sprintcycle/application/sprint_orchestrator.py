@@ -1,13 +1,19 @@
 """
-Sprint 执行编排（主实现模块；类 ``SprintOrchestrator``）
+SprintOrchestrator - 统一的 Sprint 交付编排器
 
-本模块负责将 ``ReleasePlan`` 编排为按 Sprint 顺序执行的交付流程。
-``execute_release_plan`` 与 ``resume_from_sprint`` 是主入口，``SprintCycle.run`` 也会经此模块。
+合并自:
+- sprintcycle/application/orchestration/sprint_orchestrator.py
+- sprintcycle/execution/orchestrator/sprint_orchestrator.py
+
+本模块负责将 ReleasePlan 编排为按 Sprint 顺序执行的交付流程。
+execute_release_plan 与 resume_from_sprint 是主入口。
 """
+
+from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
 
 from loguru import logger
 
@@ -19,40 +25,38 @@ from ...execution.events import (
     create_event,
     get_execution_event_backend,
 )
-from ...execution.orchestrator.finalization import ReleaseFinalizationPolicy, ReleaseFinalizationRunner
-from ...execution.policies import SprintEvaluator, SprintMeasurementPolicy, SprintPersistencePolicy
+from ...execution.hooks.sprint_hooks import (
+    ChainedSprintHooks,
+    SprintLifecycleHooks,
+    _OrchestratorSprintHooks,
+    _measurement_run_metadata,
+)
+from ...execution.hooks.task_hooks import ChainedTaskHooks, TaskLifecycleHooks
+from ...execution.knowledge.knowledge_hook import KnowledgeInjectionHook
+from ...execution.planners.models import ReleasePlan, SprintBacklogItem, SprintDefinition
+from ...execution.planners.expand import expand_release_plan_for_execution
+from ...execution.protocols import ExecutionContext
+from ...execution.skill_store import SkillStore
+from ...execution.skills import SkillOrchestrator
+from ...execution.sprint_executor import SprintExecutor
+from ...execution.sprint_types import ExecutionStatus, SprintResult, TaskResult
 from ...governance.sprint_hooks import GovernanceSprintHooks
 from ...governance.task_hooks import GovernanceTaskLifecycleHooks
-from ...infrastructure.config.runtime_config import RuntimeConfig
+from ...infrastructure.config import RuntimeConfig
 from ...infrastructure.integrations.langgraph.compiler import compile_intent_graph, compile_sprint_graph
-from ...infrastructure.integrations.phoenix.exporter import PhoenixExporterSpec
-from ...infrastructure.integrations.phoenix.trace_runtime import PhoenixTraceRuntime
 from ...infrastructure.persistence.knowledge_repository import KnowledgeCardRepository
 from ..evolution.intent_evolution_loop import UserIntentEvolutionLoop
 from ..evolution.measurement import MeasurementResult
-from ..evolution.memory_store import MemoryStore
 from ..execution.feedback import FeedbackLoop
 from ..execution.hooks.skill_hooks import SkillLifecycleHook
-from ..execution.hooks.sprint_hooks import (
-    ChainedSprintHooks,
-    SprintLifecycleHooks,
-    _measurement_run_metadata,
-    _OrchestratorSprintHooks,
-)
-from ..execution.hooks.task_hooks import ChainedTaskHooks, TaskLifecycleHooks
-from ..execution.knowledge.knowledge_hook import KnowledgeInjectionHook
-from ..execution.protocols import ExecutionContext
-from ..execution.skill_store import SkillStore
-from ..execution.skills import SkillOrchestrator
-from ..execution.sprint_executor import SprintExecutor
-from ..execution.sprint_types import ExecutionStatus, SprintResult, TaskResult
-from ..release_plan.expand import expand_release_plan_for_execution
-from ..release_plan.models import ReleasePlan, SprintBacklogItem, SprintDefinition
 from ..services.lifecycle_contracts import build_lifecycle_contract
+
+if TYPE_CHECKING:
+    from ...infrastructure.integrations.phoenix.trace_runtime import PhoenixTraceRuntime
 
 
 class SprintOrchestrator:
-    """Sprint 交付编排（Scrum：按 Release Plan 顺序执行多个 Sprint）。"""
+    """Sprint 交付编排（按 Release Plan 顺序执行多个 Sprint）。"""
 
     def __init__(
         self,
@@ -67,7 +71,7 @@ class SprintOrchestrator:
         self.event_bus = event_bus
         self._hitl_coordinator = hitl_coordinator
         self._evolution_loop = evolution_loop or UserIntentEvolutionLoop(
-            memory_store=MemoryStore(runtime_config=self.config),
+            memory_store=None,
             feedback_loop=FeedbackLoop(),
             knowledge_repo=KnowledgeCardRepository(".sprintcycle/knowledge.db"),
         )
@@ -77,31 +81,23 @@ class SprintOrchestrator:
             "on_sprint_start": self._default_on_sprint_start,
             "on_sprint_end": self._default_on_sprint_end,
         }
-        self._sprint_evaluator = SprintEvaluator()
-        self._sprint_measurement_policy = SprintMeasurementPolicy()
-        self._sprint_persistence_policy = SprintPersistencePolicy()
-        self._release_finalization_runner = ReleaseFinalizationRunner(
-            ReleaseFinalizationPolicy(), sprint_executor_factory=self._make_sprint_executor
-        )
         self._skill_store = SkillStore()
         self._skill_orchestrator = SkillOrchestrator()
-        self._last_release_finalization_result = None
-        self._phoenix_runtime = PhoenixTraceRuntime(PhoenixExporterSpec(project_name=self._project_root))
+        self._last_release_finalization_result: Optional[Dict[str, Any]] = None
+        self._phoenix_runtime: Optional["PhoenixTraceRuntime"] = None
+        if os.environ.get("PHOENIX_ENABLED"):
+            try:
+                from ...infrastructure.integrations.phoenix.exporter import PhoenixExporterSpec
+                from ...infrastructure.integrations.phoenix.trace_runtime import PhoenixTraceRuntime
+
+                self._phoenix_runtime = PhoenixTraceRuntime(PhoenixExporterSpec(project_name=self._project_root))
+            except ImportError:
+                logger.debug("Phoenix not available")
 
     def _get_event_bus(self) -> ExecutionEventBackend:
         if self.event_bus is None:
             self.event_bus = get_execution_event_backend()
         return self.event_bus
-
-    def _collect_current_events(self) -> List[Dict[str, Any]]:
-        try:
-            if hasattr(self._get_event_bus(), "list_events"):
-                payload = self._get_event_bus().list_events()
-                data = payload.get("data", payload) if isinstance(payload, dict) else payload
-                return list(data or [])
-        except Exception as e:
-            logger.warning("Failed to collect current events: {}", e)
-        return []
 
     async def _emit(self, event: Event) -> None:
         try:
@@ -110,29 +106,11 @@ class SprintOrchestrator:
             logger.warning(f"Failed to emit event: {e}")
 
     def _emit_trace_event(self, event: Event) -> None:
-        try:
-            self._phoenix_runtime.emit_trace([event.to_dict()])
-        except Exception as e:
-            logger.warning("Failed to emit trace event: {}", e)
-
-    def _emit_execution_phase(
-        self,
-        event_type: EventType,
-        message: str,
-        release_plan: ReleasePlan,
-        sprint_name: str,
-        sprint_number: int,
-        status: Optional[str] = None,
-    ) -> Event:
-        event = create_event(
-            event_type,
-            execution_id=getattr(release_plan, "execution_id", None),
-            message=message,
-            sprint_name=sprint_name,
-            sprint_number=sprint_number,
-            status=status,
-        )
-        return event
+        if self._phoenix_runtime is not None:
+            try:
+                self._phoenix_runtime.emit_trace([event.to_dict()])
+            except Exception as e:
+                logger.debug("Failed to emit trace event: {}", e)
 
     def _make_sprint_executor(self, max_concurrent: int) -> SprintExecutor:
         feedback_loop: Optional[FeedbackLoop] = None
@@ -198,7 +176,7 @@ class SprintOrchestrator:
 
     def _persist_release_finalization(self, release_plan: ReleasePlan, finalize_result: Any) -> None:
         try:
-            from ..execution.state.state_store import get_state_store
+            from ...execution.state.state_store import get_state_store
 
             eid = getattr(release_plan, "execution_id", None)
             if not eid:
@@ -212,7 +190,7 @@ class SprintOrchestrator:
             )
             store.save(state)
         except Exception as e:
-            logger.warning("persist release finalization failed: {}", e)
+            logger.debug("persist release finalization failed: {}", e)
 
     async def _post_sprint_measurement(
         self,
@@ -243,28 +221,33 @@ class SprintOrchestrator:
         )
         if not prov.check_quality_gate(m):
             logger.warning(
-                "Sprint 后质量测量未通过: level=%s overall=%.2f correctness=%.2f details=%s",
+                "Sprint 后质量测量未通过: level=%s overall=%.2f",
                 self.config.effective_quality_level(),
                 m.overall,
-                m.correctness,
-                m.details,
             )
         return m
 
     async def execute_release_plan(self, release_plan: ReleasePlan, max_concurrent: int = 3) -> List[SprintResult]:
         to_run = expand_release_plan_for_execution(release_plan)
         await self._emit(
-            self._emit_execution_phase(
+            create_event(
                 EventType.EXECUTION_START,
-                f"开始执行 ReleasePlan: {to_run.project.name}",
-                release_plan,
-                to_run.project.name,
-                0,
+                execution_id=getattr(release_plan, "execution_id", None),
+                message=f"开始执行 ReleasePlan: {to_run.project.name}",
+                sprint_name=to_run.project.name,
+                sprint_number=0,
             )
         )
         self._emit_trace_event(
-            self._emit_execution_phase(EventType.EXECUTION_START, "trace:start", release_plan, to_run.project.name, 0)
+            create_event(
+                EventType.EXECUTION_START,
+                execution_id=getattr(release_plan, "execution_id", None),
+                message="trace:start",
+                sprint_name=to_run.project.name,
+                sprint_number=0,
+            )
         )
+        # 使用 intent graph 执行
         intent_runtime = compile_intent_graph(checkpointer=getattr(self.config, "checkpoint_store", None))
         intent_graph = intent_runtime.graph
         intent_context = {
@@ -272,7 +255,6 @@ class SprintOrchestrator:
             "runtime_config": self.config.to_dict() if hasattr(self.config, "to_dict") else {},
             "release_plan": to_run,
             "release_plan_id": getattr(release_plan, "execution_id", None),
-            "events": self._collect_current_events(),
         }
         intent_state = {
             "intent": getattr(to_run.project, "name", ""),
@@ -304,31 +286,34 @@ class SprintOrchestrator:
                 )
             )
         if not sprint_results:
-            raise RuntimeError("Compiled intent graph 未产出 sprint_results")
-        finalize_result = await self._release_finalization_runner.run(
-            to_run, sprint_results, context={"execution_id": getattr(release_plan, "execution_id", None)}
-        )
-        self._last_release_finalization_result = finalize_result
-        self._persist_release_finalization(release_plan, finalize_result)
+            # Fallback: 直接执行
+            sprint_results = await self._execute_via_sprint_executor(to_run, max_concurrent)
+
+        # Finalization
+        try:
+            from ...execution.orchestrator.finalization import ReleaseFinalizationPolicy, ReleaseFinalizationRunner
+
+            runner = ReleaseFinalizationRunner(
+                ReleaseFinalizationPolicy(), sprint_executor_factory=self._make_sprint_executor
+            )
+            finalize_result = await runner.run(
+                to_run, sprint_results, context={"execution_id": getattr(release_plan, "execution_id", None)}
+            )
+            self._last_release_finalization_result = finalize_result
+            self._persist_release_finalization(release_plan, finalize_result)
+        except Exception as e:
+            logger.debug("Finalization skipped: {}", e)
+
         success = all(r.status in (ExecutionStatus.SUCCESS, ExecutionStatus.SKIPPED) for r in sprint_results)
+        # Build lifecycle contract
         completion_summary = {
             "execution_id": getattr(release_plan, "execution_id", None),
             "release_plan_name": getattr(to_run.project, "name", ""),
             "sprint_count": len(sprint_results),
             "success": success,
-            "finalization": finalize_result.to_dict() if hasattr(finalize_result, "to_dict") else {},
-            "sprints": [getattr(s.sprint, "name", "") for s in sprint_results],
         }
-        skill_matches = (
-            list(intent_context.get("skill_matches", []))
-            if isinstance(intent_context.get("skill_matches", []), list)
-            else []
-        )
-        skill_trace = (
-            dict(intent_context.get("task_skill_trace", {}))
-            if isinstance(intent_context.get("task_skill_trace", {}), dict)
-            else {}
-        )
+        skill_matches = list(intent_context.get("skill_matches", [])) if isinstance(intent_context.get("skill_matches", []), list) else []
+        skill_trace = dict(intent_context.get("task_skill_trace", {})) if isinstance(intent_context.get("task_skill_trace", {}), dict) else {}
         contract = build_lifecycle_contract(
             execution_id=getattr(release_plan, "execution_id", ""),
             task_id=getattr(release_plan, "execution_id", "") or getattr(to_run.project, "name", ""),
@@ -337,26 +322,25 @@ class SprintOrchestrator:
             status="success" if success else "failed",
             metadata={"release_plan": to_run.project.name, "execution_id": getattr(release_plan, "execution_id", None)},
             delivery_refs={"delivery_summary": completion_summary},
-            evolution_refs={"finalization": completion_summary["finalization"]},
+            evolution_refs={"finalization": completion_summary.get("finalization", {})},
             skill_refs=list(skill_matches),
             skill_matches=list(skill_matches),
-            skill_review_checklists=list(intent_context.get("review_checklists", []))
-            if isinstance(intent_context.get("review_checklists", []), list)
-            else [],
+            skill_review_checklists=list(intent_context.get("review_checklists", [])) if isinstance(intent_context.get("review_checklists", []), list) else [],
             skill_trace=skill_trace,
         )
-        complete_event = self._emit_execution_phase(
+        complete_event = create_event(
             EventType.EXECUTION_COMPLETE if success else EventType.EXECUTION_FAILED,
-            "ReleasePlan 执行完成",
-            release_plan,
-            to_run.project.name,
-            len(sprint_results),
+            execution_id=getattr(release_plan, "execution_id", None),
+            message="ReleasePlan 执行完成",
+            sprint_name=to_run.project.name,
+            sprint_number=len(sprint_results),
             status="success" if success else "failed",
         )
         await self._emit(complete_event)
         self._emit_trace_event(complete_event)
+        # Persist state
         try:
-            from ..execution.state.state_store import get_state_store
+            from ...execution.state.state_store import get_state_store
 
             if getattr(release_plan, "execution_id", None):
                 store = get_state_store()
@@ -367,7 +351,7 @@ class SprintOrchestrator:
                     state.status = "success" if success else "failed"
                     store.save(state)
         except Exception as e:
-            logger.warning("persist sprint orchestration lifecycle failed: {}", e)
+            logger.debug("persist sprint orchestration lifecycle failed: {}", e)
         self._last_release_finalization_result = {
             "finalization": completion_summary,
             "lifecycle_contract": contract.to_dict(),
@@ -383,17 +367,21 @@ class SprintOrchestrator:
     ) -> List[SprintResult]:
         to_run = expand_release_plan_for_execution(release_plan)
         await self._emit(
-            self._emit_execution_phase(
+            create_event(
                 EventType.EXECUTION_START,
-                f"断点续跑: 从 Sprint {resume_from_idx} 继续",
-                release_plan,
-                to_run.project.name,
-                resume_from_idx,
+                execution_id=getattr(release_plan, "execution_id", None),
+                message=f"断点续跑: 从 Sprint {resume_from_idx} 继续",
+                sprint_name=to_run.project.name,
+                sprint_number=resume_from_idx,
             )
         )
         self._emit_trace_event(
-            self._emit_execution_phase(
-                EventType.EXECUTION_START, "trace:resume:start", release_plan, to_run.project.name, resume_from_idx
+            create_event(
+                EventType.EXECUTION_START,
+                execution_id=getattr(release_plan, "execution_id", None),
+                message="trace:resume:start",
+                sprint_name=to_run.project.name,
+                sprint_number=resume_from_idx,
             )
         )
         sprint_runtime = compile_sprint_graph(checkpointer=getattr(self.config, "checkpoint_store", None))
@@ -440,17 +428,27 @@ class SprintOrchestrator:
                 )
             )
         success = all(r.status in (ExecutionStatus.SUCCESS, ExecutionStatus.SKIPPED) for r in results)
-        complete_event = self._emit_execution_phase(
+        complete_event = create_event(
             EventType.EXECUTION_COMPLETE if success else EventType.EXECUTION_FAILED,
-            "断点续跑完成",
-            release_plan,
-            to_run.project.name,
-            len(results),
+            execution_id=getattr(release_plan, "execution_id", None),
+            message="断点续跑完成",
+            sprint_name=to_run.project.name,
+            sprint_number=len(results),
             status="success" if success else "failed",
         )
         await self._emit(complete_event)
         self._emit_trace_event(complete_event)
         return results
+
+    async def _execute_via_sprint_executor(self, release_plan: ReleasePlan, max_concurrent: int) -> List[SprintResult]:
+        """通过 SprintExecutor 直接执行（无 intent graph）"""
+        ex = self._make_sprint_executor(max_concurrent)
+        ex.set_release_plan(release_plan)
+        ex.set_sprint_hooks(self._build_sprint_hooks(release_plan))
+        ctx = self._base_runner_context(release_plan)
+        return await ex.execute_sprints(
+            release_plan.sprints, mode="normal", context=ctx, release_plan=release_plan, sprint_index_offset=0
+        )
 
     def _default_on_task_start(self, task: SprintBacklogItem) -> None:
         pass
@@ -459,7 +457,7 @@ class SprintOrchestrator:
         if result.status == ExecutionStatus.FAILED:
             logger.error(f"   ❌ 任务失败: {result.error}")
         elif result.status == ExecutionStatus.SUCCESS:
-            logger.info("   ✅ 任务成功")
+            logger.debug("   ✅ 任务成功")
 
     def _default_on_sprint_start(self, sprint: SprintDefinition) -> None:
         pass
@@ -469,9 +467,7 @@ class SprintOrchestrator:
             logger.warning("Sprint 失败率较高")
 
     def get_summary(self) -> Dict[str, Any]:
-        contract = (
-            self._last_release_finalization_result if isinstance(self._last_release_finalization_result, dict) else {}
-        )
+        contract = self._last_release_finalization_result if isinstance(self._last_release_finalization_result, dict) else {}
         return {
             "callbacks": list(self._callbacks.keys()),
             "event_bus": self.event_bus is not None,

@@ -1,7 +1,6 @@
-"""Execution orchestration layer for SprintCycle V2.
+"""Execution orchestration thin facade for backward compatibility.
 
-The legacy checkpoint bridge has been removed. This module now owns execution
-normalization and delegates runtime flow to the execution engine.
+This module provides a thin wrapper over SprintExecutor for legacy code paths.
 """
 
 from __future__ import annotations
@@ -9,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from ..application.release_plan.models import ReleasePlan, SprintDefinition
+from ...application.release_plan.models import ReleasePlan, SprintDefinition
 from .protocols import ExecutionContext
 from .sprint_executor import SprintExecutor
 from .sprint_types import SprintResult
@@ -43,10 +42,7 @@ class ExecutionRunResult:
 
 
 class ExecutionOrchestrator:
-    """Thin orchestration facade over SprintExecutor.
-
-    V2 removes legacy checkpoint coordination from this layer.
-    """
+    """Thin orchestration facade over SprintExecutor."""
 
     def __init__(self, executor: SprintExecutor) -> None:
         self._executor = executor

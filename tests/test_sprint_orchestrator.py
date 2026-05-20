@@ -10,7 +10,7 @@ import pytest
 from sprintcycle.infrastructure.config import RuntimeConfig
 from sprintcycle.application.evolution.measurement import MeasurementResult
 from sprintcycle.execution.sprint_types import ExecutionStatus, SprintResult, TaskResult
-from sprintcycle.application.orchestration.sprint_orchestrator import SprintOrchestrator, _measurement_run_metadata
+from sprintcycle.application.sprint_orchestrator import SprintOrchestrator, _measurement_run_metadata
 from sprintcycle.application.release_plan.models import (
     ExecutionMode,
     ProductAnchor,

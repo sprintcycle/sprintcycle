@@ -109,7 +109,7 @@ def test_orchestrator_uses_execute_sprints_not_per_sprint_loop():
     """Dispatcher Normal 路径应单次调用 execute_sprints（通过 patch 验证）。"""
     from unittest.mock import AsyncMock, patch
 
-    from sprintcycle.application.orchestration.sprint_orchestrator import SprintOrchestrator
+    from sprintcycle.application.sprint_orchestrator import SprintOrchestrator
     from sprintcycle.application.release_plan.models import ReleasePlan, ProductAnchor, SprintDefinition, SprintBacklogItem, ExecutionMode
 
     plan = ReleasePlan(

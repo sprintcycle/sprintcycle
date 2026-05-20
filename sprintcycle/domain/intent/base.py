@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 # 使用 TYPE_CHECKING 避免循环导入
 if TYPE_CHECKING:
-    from ...application.orchestration.sprint_orchestrator import SprintResult
+    from ...application.sprint_orchestrator import SprintResult
     from ...application.release_plan.models import ReleasePlan
     from ..results import RunResult
 
@@ -104,7 +104,7 @@ class IntentHandler(ABC):
         sprint_results: List["SprintResult"],
         error: Optional[str] = None,
     ) -> IntentResult:
-        from ...application.orchestration.sprint_orchestrator import ExecutionStatus
+        from ...execution.sprint_types import ExecutionStatus
 
         completed_sprints = sum(
             1 for r in sprint_results if r.status in (ExecutionStatus.SUCCESS, ExecutionStatus.SKIPPED)
