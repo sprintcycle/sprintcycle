@@ -1,0 +1,25 @@
+---
+description: Documentation content must use English first with Chinese in parentheses
+alwaysApply: true
+---
+
+# Documentation Bilingual Format Rule
+
+For all documentation-related content, use English first, followed by Chinese in parentheses.
+
+## Required format
+- Write the English phrase/sentence first.
+- Put the Chinese translation immediately after it in parentheses.
+- Keep terminology, headings, comments, and explanations consistent with this pattern.
+- Do not write Chinese-only documentation content.
+- Do not write mixed-order text such as Chinese first and English second.
+
+## Examples
+- Good: `System overview (系统概览)`
+- Good: `Release plan (发布计划)`
+- Good: `Use the thin API layer (使用薄 API 层)`
+- Bad: `系统概览 (System overview)`
+- Bad: `System overview` for documentation text that should be bilingual
+
+## Scope
+This applies to docs, READMEs, Markdown notes, inline documentation, and other written explanatory content in the repository.

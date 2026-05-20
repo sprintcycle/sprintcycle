@@ -13,8 +13,7 @@ SprintCycle 是一个面向 Web Dashboard / REST API / SDK 的契约驱动生命
 ## Document hierarchy / 文档层级
 
 - `AGENTS.md` — repository-level baseline / 仓库级底线
-- `docs/AI_GOVERNANCE.md` — project-level governance charter / 治理总纲
-- `docs/CURSOR_TEAM_PLAYBOOK.md` — execution manual / 执行手册
+- `docs/` — project documentation and workflow references / 项目文档与工作流参考
 - `.cursor/rules/` — routing and priority rules / 路由和优先级
 - `.cursor/commands/` — command entry points / 命令入口
 
@@ -92,8 +91,8 @@ SprintCycle 是一个面向 Web Dashboard / REST API / SDK 的契约驱动生命
 - 只有在改动影响用户可见行为、架构、安装或工作流时，才更新 `README.md`、`README_EN.md` 或其他文档。
 - Keep terminology consistent with the existing contract-driven lifecycle language.
 - 保持术语与现有的 contract-driven lifecycle 语言一致。
-- `docs/AI_GOVERNANCE.md` is the project-level governance source of truth for AI collaboration.
-- `docs/CURSOR_TEAM_PLAYBOOK.md` is the execution-layer companion that explains roles, routing, and workflow order.
+- Keep repository guidance aligned with the active `.cursor/rules/` and `.cursor/commands/` files.
+- Prefer the current governing documents and rules over stale doc references.
 - `AGENTS.md` provides the repository-level baseline and should remain aligned with the governance document, but it does not duplicate its full policy.
 
 ## When in doubt / 不确定时

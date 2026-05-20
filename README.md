@@ -2,7 +2,7 @@
 
 [English](README_EN.md)
 
-**SprintCycle** 是一个面向 Web Dashboard / REST API / SDK 的统一生命周期编排平台：从自然语言意图进入，经过标准化、计划、准备、拆解、执行、观测、诊断、修复、交付、运行时联动、治理与版本化演化，最终沉淀为可追溯、可回放、可晋升的 `final snapshot` 与 `versioned evolution`。
+**SprintCycle** 是一个面向 Dashboard / REST API / Python SDK 的契约驱动生命周期编排平台（a contract-driven lifecycle orchestration platform for Dashboard / REST API / Python SDK）。它以单一 `LifecycleContract` 串联意图归一化、计划、准备、拆解、执行、观测、诊断、修复、交付、运行时联动、治理和版本化演化，最终形成可追溯、可回放、可晋升的 `final snapshot` 与 `versioned evolution`（final snapshot and versioned evolution）。
 
 当前版本：**0.9.2**（与 `sprintcycle.__version__` 一致）
 
@@ -10,7 +10,9 @@
 
 ## 核心定位
 
-SprintCycle 不是单一任务执行器，而是一个 **contract-driven lifecycle platform**。系统围绕同一份 `LifecycleContract` 组织全流程，并用统一状态机与恢复/晋升门禁保证 Web 发起任务可以稳定闭环。
+SprintCycle 不是单一任务执行器，而是一个 **contract-driven lifecycle platform**。系统围绕同一份 `LifecycleContract` 组织全流程，并用统一状态机与恢复/晋升门禁保证 Dashboard / REST API / Python SDK 发起任务可以稳定闭环。
+
+它的当前代码结构更接近“薄入口 + 应用编排 + 执行层 + 治理/观测/基础设施”的组合。`SprintCycle` 仍然是统一入口，但主要负责协调、路由和聚合。
 
 ### 端到端链路
 
@@ -37,12 +39,15 @@ Web Request → Normalize → Plan → Prepare → Decompose → Execute → Obs
 - 生成 Release Plan（YAML / 结构化计划）
 - 支持 Sprint 编排、断点续跑与恢复
 - 支持标准化生命周期状态迁移
+- 入口以 Dashboard、REST API 和 Python SDK 为主，CLI / MCP 不再是主路径
+- 计划与执行现在主要通过 `application/release_plan/`、`application/orchestration/`、`execution/` 和 `application/services/` 协同完成
 
 ### 2. 标准生命周期契约
 - `LifecycleStateMachine` 负责阶段迁移规则
 - `LifecycleContract` 负责跨服务状态事实载体
 - 统一 correlation model 串联 `execution_id`、`task_id`、`suggestion_id`、`runtime_id`、`version_id`、`trace_id`
 - `final_snapshot` 聚合执行、观测、治理、修复、交付、运行时与 promotion 证据
+- 契约构建与汇总主要由 `application/services/lifecycle_contracts.py`、`application/services/lifecycle_contract_assembly_service.py` 等服务完成
 
 ### 3. 修复与交付闭环
 - 显式支持 `diagnosed → repairing → verifying → observing` 恢复闭环
@@ -61,23 +66,29 @@ Web Request → Normalize → Plan → Prepare → Decompose → Execute → Obs
 - Observability trace 会写入审计信息（audit payload）
 - 运行时注册表与部署联动
 - `lifecycle_contract(...)` 与 `evolution_overview(...)` 可以直接查询 final snapshot / active version / promotion guard
+- 观测与运行时读取主要由 `application/services/observability_service.py`、`observability/` 和 `infrastructure/integrations/phoenix/` 协同提供
 
 ### 6. 版本化演化
 - promotion 成功后写入 SQLite version registry
 - active version 与 final snapshot 互链
 - `EvolutionOverviewResult` 同时展示 recent versions、active versions 和 final snapshot versions
 - 版本产物持有 final snapshot contract 证据，便于审计与回滚
+- 版本与演化能力主要由 `application/services/lifecycle_evolution_service.py`、`application/services/evolution_version_service.py` 和 `governance/versioning/` 提供
 
 ### 7. Dashboard 与集成
 - Vue 3 + Element Plus Web Dashboard
 - FastAPI 后端
-- Python API 与 Web Dashboard 共享同一套核心入口
+- Dashboard、REST API 与 Python SDK 共享同一套核心契约入口
 - 结合独立 Evaluator Agent 与 Sprint Contract，将质量判断、评分与交付证据显式化
+- HTTP 入口由 `interfaces/http/` 负责适配 public / internal 路由
+- Dashboard 基于 `interfaces/http/` 和前端工程实现
 
 ### 8. Skills 子系统
 - 场景识别、skill 匹配、skill 注入、review checklist 增强、复盘清理
 - 通过 `SprintOrchestrator` 的 sprint hooks 接入主流程
 - skill artifacts 与执行 trace 可持久化
+- 这部分逻辑主要分布在 `execution/skills.py`、`execution/hooks/skill_hooks.py`、`execution/skill_store.py` 和 `execution/orchestrator/sprint_orchestrator.py`
+
 
 ---
 
@@ -429,14 +440,13 @@ result = await api.run("重构认证模块")
 ```
 sprintcycle/
 ├── api.py                    # 统一 API 入口
-├── interfaces/               # HTTP 接口层（public / internal）
-├── presentation/             # Dashboard 容器、视图与投影
 ├── application/              # 用例编排与服务层
 ├── execution/                # 执行引擎与状态机
 ├── governance/               # 治理、审计、版本与建议
 ├── observability/            # 观测、回放与诊断
 ├── domain/                   # 领域模型、规则与协议
-└── infrastructure/           # 适配器、存储、缓存、外部集成
+├── infrastructure/           # 适配器、存储、缓存、外部集成
+└── interfaces/               # HTTP 接口层（public / internal）
 ```
 
 ---

@@ -2,7 +2,7 @@
 
 [中文](README.md)
 
-**SprintCycle** is a contract-driven lifecycle orchestration platform for Web Dashboard / REST API / SDK. A natural-language intent enters through a unified entrypoint, gets normalized, planned, prepared, decomposed, executed, observed, diagnosed, repaired, delivered, linked to runtime, reviewed by governance, and finally promoted into versioned evolution through a structured lifecycle contract.
+**SprintCycle** is a contract-driven lifecycle orchestration platform for Dashboard / REST API / Python SDK（一个面向 Dashboard / REST API / Python SDK 的契约驱动生命周期编排平台）. It uses a single `LifecycleContract` to connect intent normalization, planning, preparation, decomposition, execution, observation, diagnosis, repair, delivery, runtime linkage, governance, and versioned evolution, producing a traceable, replayable, and promotable `final snapshot` and `versioned evolution`（它通过单一 `LifecycleContract` 串联意图归一化、计划、准备、拆解、执行、观测、诊断、修复、交付、运行时联动、治理和版本化演化，最终产出可追溯、可回放、可晋升的 `final snapshot` 与 `versioned evolution`）.
 
 Current Version: **0.9.2** (matches `sprintcycle.__version__`)
 
@@ -10,7 +10,9 @@ Current Version: **0.9.2** (matches `sprintcycle.__version__`)
 
 ## Core Positioning
 
-SprintCycle is not a single-purpose task runner. It is an end-to-end **contract-driven lifecycle platform** that keeps one authoritative lifecycle contract across the entire flow and uses a unified state machine, recovery path, promotion gate, and version registry to make Web-initiated work stable and auditable.
+SprintCycle is not a single-purpose task runner. It is an end-to-end **contract-driven lifecycle platform** that keeps one authoritative `LifecycleContract` across the entire flow and uses a unified state machine, recovery path, promotion gate, and version registry to make Dashboard / REST API / Python SDK-initiated work stable and auditable.
+
+Its current code structure is closer to a thin-entry + application-orchestration + execution + governance/observability/infrastructure composition than to a single large facade or a multi-entry parallel surface. `SprintCycle` remains the unified entry, but it primarily coordinates, routes, and aggregates.
 
 ### End-to-end lifecycle
 
@@ -37,12 +39,15 @@ Web Request → Normalize → Plan → Prepare → Decompose → Execute → Obs
 - Generate Release Plans (YAML / structured plans)
 - Support sprint orchestration, checkpoint resume, and recovery
 - Support normalized lifecycle stage transitions
+- Primary entry surfaces are Dashboard, REST API, and Python SDK; CLI / MCP are no longer primary paths
+- Planning and execution are now primarily coordinated through `application/release_plan/`, `application/orchestration/`, `execution/`, and `application/services/`
 
 ### 2. Standard lifecycle contract
 - `LifecycleStateMachine` owns the canonical stage transition rules
 - `LifecycleContract` carries cross-service state facts
 - A unified correlation model links `execution_id`, `task_id`, `suggestion_id`, `runtime_id`, `version_id`, and `trace_id`
 - `final_snapshot` aggregates execution, observation, governance, repair, delivery, runtime, and promotion evidence
+- Contract assembly and aggregation are primarily handled by services such as `application/services/lifecycle_contracts.py` and `application/services/lifecycle_contract_assembly_service.py`
 
 ### 3. Repair and delivery loop
 - Explicitly supports `diagnosed → repairing → verifying → observing`
@@ -61,23 +66,29 @@ Web Request → Normalize → Plan → Prepare → Decompose → Execute → Obs
 - Observability traces write audit payloads into the lifecycle contract
 - Runtime registry and deployment linkage
 - `lifecycle_contract(...)` and `evolution_overview(...)` can query final snapshots, active versions, and promotion guards directly
+- Observability and runtime reads are primarily provided by `application/services/observability_service.py`, `observability/`, and `infrastructure/integrations/phoenix/`
 
 ### 6. Versioned evolution
 - Successful promotion writes to the SQLite version registry
 - Active version pointers are linked to final snapshots
 - `EvolutionOverviewResult` shows recent versions, active versions, and final snapshot versions together
 - Version artifacts keep a final-snapshot contract reference for auditability and rollback
+- Versioning and evolution are primarily provided by `application/services/lifecycle_evolution_service.py`, `application/services/evolution_version_service.py`, and `governance/versioning/`
 
 ### 7. Dashboard and integrations
 - Vue 3 + Element Plus web dashboard
 - FastAPI backend
-- Python API and Web Dashboard share the same core entrypoint
-- Quality decisions are being made explicit through an independent Evaluator Agent and a Sprint Contract
+- Dashboard, REST API, and Python SDK share the same core contract entry
+- Quality decisions are made explicit through an independent Evaluator Agent and a Sprint Contract
+- HTTP entry adaptation is handled by `interfaces/http/` for public / internal routes
+- The Dashboard is implemented on top of `interfaces/http/` plus the frontend app
 
 ### 8. Skills subsystem
 - Scene recognition, skill matching, skill injection, review checklist enrichment, and retro cleanup
 - Hooked into the main flow through `SprintOrchestrator`
 - Skill artifacts and execution traces are persistable and auditable
+- This logic is mainly spread across `execution/skills.py`, `execution/hooks/skill_hooks.py`, `execution/skill_store.py`, and `execution/orchestrator/sprint_orchestrator.py`
+
 
 ---
 
@@ -232,14 +243,13 @@ Common exports include:
 ```
 sprintcycle/
 ├── api.py                    # Unified API entrypoint
-├── interfaces/               # HTTP interface layer (public / internal)
-├── presentation/             # Dashboard container, views, and projections
 ├── application/              # Use cases and service orchestration
 ├── execution/                # Execution engine and state machine
 ├── governance/               # Governance, audit, versioning, and suggestions
 ├── observability/            # Observability, replay, and diagnostics
 ├── domain/                   # Domain models, rules, and protocols
-└── infrastructure/           # Adapters, storage, cache, and external integrations
+├── infrastructure/           # Adapters, storage, cache, and external integrations
+└── interfaces/               # HTTP interface layer (public / internal)
 ```
 
 ---
