@@ -135,6 +135,11 @@ class ErrorKnowledgeBase:
         self._init_default_patterns(patterns or DEFAULT_PATTERNS)
         self.storage_path.mkdir(parents=True, exist_ok=True)
 
+    @property
+    def patterns(self) -> Dict[str, ErrorPattern]:
+        """Public read-only access to error patterns."""
+        return self._patterns
+
     def _init_default_patterns(self, patterns: List[Dict[str, Any]]) -> None:
         for pattern_data in patterns:
             pattern = ErrorPattern(**pattern_data)
