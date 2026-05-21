@@ -115,7 +115,7 @@ def test_api_knowledge_search(tmp_path: Path) -> None:
     sc = SprintCycle(project_path=str(tmp_path), config=cfg)
     out = sc.knowledge_search(query="unique-phrase-xyz")
     assert out["success"] is True
-    assert out["count"] == 1
+    assert out["total"] == 1
 
 
 def test_init_db_fresh_sqlite(tmp_path: Path) -> None:

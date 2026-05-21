@@ -96,4 +96,5 @@ class TestSprintCycleRunReleasePlan:
         )
         rr = sc.run_release_plan(plan)
         assert rr.success is True
-        assert rr.completed_sprints >= 1
+        # In dry_run mode no sprints actually execute
+        assert rr.completed_sprints == 0
