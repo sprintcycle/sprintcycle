@@ -36,6 +36,10 @@ class _FakeObservation:
         self.events.append(event)
         return event
 
+    def record_event(self, event: Dict[str, Any]) -> Dict[str, Any]:
+        self.events.append(event)
+        return event
+
     def to_trace_payload(self, execution_id: str):
         return {"events": []}
 
@@ -174,7 +178,7 @@ async def test_suggestion_approve_respects_before_hook_block():
         HookDefinition(
             name="block",
             domain="suggestion",
-            action="approve",
+            action="approve_suggestion",
             phase=HookPhase.BEFORE,
             policy=HookPolicy.FAIL_CLOSED,
             handler=lambda ctx: HookResult(ok=False, blocked=True, message="blocked"),
@@ -203,8 +207,8 @@ async def test_suggestion_approve_emits_events_on_success():
         after_seen.append(ctx.to_dict())
         return HookResult(ok=True)
 
-    registry.register(HookDefinition(name="before", domain="suggestion", action="approve", phase=HookPhase.BEFORE, policy=HookPolicy.FAIL_OPEN, handler=before))
-    registry.register(HookDefinition(name="after", domain="suggestion", action="approve", phase=HookPhase.AFTER, policy=HookPolicy.FAIL_OPEN, handler=after))
+    registry.register(HookDefinition(name="before", domain="suggestion", action="approve_suggestion", phase=HookPhase.BEFORE, policy=HookPolicy.FAIL_OPEN, handler=before))
+    registry.register(HookDefinition(name="after", domain="suggestion", action="approve_suggestion", phase=HookPhase.AFTER, policy=HookPolicy.FAIL_OPEN, handler=after))
     registry.register_event_handler("suggestion.approval_completed", lambda payload: events.append(payload))
 
     service = SuggestionApplicationService(suggestion=_FakeSuggestionFacade(), governance=_FakeGovernanceFacade(), hooks=registry)

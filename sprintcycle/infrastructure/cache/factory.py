@@ -34,7 +34,8 @@ def build_cache_backend(runtime: "RuntimeConfig", project_path: str) -> CacheBac
         return NullCacheBackend()
 
     kind = (runtime.cache_backend or "diskcache").strip().lower()
-    max_entries = max(1, int(runtime.cache_max_entries))
+    raw_max = runtime.cache_max_entries
+    max_entries = max(1, int(raw_max)) if raw_max is not None else 1000
 
     if kind == "redis":
         url = (runtime.cache_redis_url or os.getenv("REDIS_URL") or "").strip()

@@ -7,7 +7,7 @@ Sprint 生命周期钩子 — 编排内核（execute_sprints）与横切能力�
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence
 
 from loguru import logger
 
@@ -158,9 +158,66 @@ def _measurement_run_metadata(
     sprint_result: Optional[SprintResult] = None,
 ) -> Dict[str, Any]:
     """生成测量运行的元数据。"""
+    import hashlib
+    import os
+
+
+    # Task outcome digest
+    task_outcomes: List[str] = []
+    if sprint_result and sprint_result.task_results:
+        task_outcomes = [tr.status.value for tr in sprint_result.task_results]
+    outcome_key = ":".join(task_outcomes)
+    task_outcome_digest = hashlib.sha256(outcome_key.encode()).hexdigest()[:16] if outcome_key else ""
+
+    # Context hash
+    ctx_parts = [
+        str(sprint_index),
+        getattr(sprint, "name", "") if sprint else "",
+        getattr(release_plan, "id", "") if release_plan else "",
+        outcome_key,
+    ]
+    ctx_hash = hashlib.sha256("|".join(ctx_parts).encode()).hexdigest()[:16] if any(ctx_parts) else ""
+
+    # CI matrix tags
+    ci_tags_str = getattr(config, "governance_ci_matrix_tags", "") or ""
+    ci_matrix_tags = sorted(t.strip() for t in ci_tags_str.split(",") if t.strip()) if ci_tags_str else []
+
+    # Config fingerprint
+    config_fingerprint = hashlib.sha256(
+        "|".join([
+            str(getattr(config, "llm_provider", "")),
+            str(getattr(config, "llm_model", "")),
+            str(getattr(config, "coding_engine", "")),
+            str(getattr(config, "quality_level", "")),
+        ]).encode()
+    ).hexdigest()[:16]
+
+    # Prompt sources fingerprint
+    from sprintcycle.domain.support_legacy.prompt_sources import compute_prompt_sources_fingerprint
+
+    prompt_fp = compute_prompt_sources_fingerprint()
+
     return {
         "sprint_index": sprint_index,
         "sprint_name": getattr(sprint, "name", "") if sprint else "",
         "release_plan_id": getattr(release_plan, "id", "") if release_plan else "",
         "status": sprint_result.status.value if sprint_result else "unknown",
+        "task_outcome_digest": task_outcome_digest,
+        "measurement_context_hash": ctx_hash,
+        "test_command_incremental": getattr(config, "test_command_incremental", ""),
+        "ci_matrix_tags": ci_matrix_tags,
+        "evolution_llm_model_env": os.environ.get("EVOLUTION_LLM_MODEL", ""),
+        "evolution_llm_provider_env": os.environ.get("EVOLUTION_LLM_PROVIDER", ""),
+        # Config-derived fields
+        "llm_provider": getattr(config, "llm_provider", ""),
+        "llm_model": getattr(config, "llm_model", ""),
+        "coding_engine": getattr(config, "coding_engine", ""),
+        "quality_level": getattr(config, "quality_level", ""),
+        "dry_run": bool(getattr(config, "dry_run", False)),
+        "project_path": getattr(config, "project_path", ""),
+        "config_fingerprint": config_fingerprint,
+        "release_plan_name": getattr(release_plan.project, "name", "") if release_plan else "",
+        "prompt_sources_schema": prompt_fp["prompt_sources_schema"],
+        "prompt_sources_aggregate_sha256": prompt_fp["prompt_sources_aggregate_sha256"],
+        "prompt_source_digests": prompt_fp["prompt_source_digests"],
     }

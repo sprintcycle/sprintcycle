@@ -25,7 +25,31 @@ async def sprint_execute(state: SprintState) -> SprintState:
     sprint_executor = (state.get("context", {}) or {}).get("sprint_executor")
     sprint = dict(state.get("sprint", {}) or {})
     sprint_context = dict(state.get("sprint_context", {}) or {})
+    context = dict(state.get("context", {}) or {})
+    tasks = list(sprint.get("tasks", []) or [])
+    # dry_run: produce synthetic successful task results
     if sprint_executor is None or not hasattr(sprint_executor, "execute_sprint"):
+        runtime_config = context.get("runtime_config", {}) or {}
+        if runtime_config.get("dry_run"):
+            task_results = [
+                {
+                    "work_item": t,
+                    "sprint_name": sprint.get("name", ""),
+                    "status": "success",
+                    "output": "(dry-run)",
+                    "duration": 0.0,
+                }
+                for t in tasks
+            ]
+            return {
+                **state,
+                "sprint_result": {
+                    "sprint_name": sprint.get("name", ""),
+                    "status": "success",
+                    "task_results": task_results,
+                },
+                "timeline": list(state.get("timeline", []) or []) + [{"node": "execute", "status": "ok"}],
+            }
         return {
             **state,
             "error": "sprint_executor_unavailable",

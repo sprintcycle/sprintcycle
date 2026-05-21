@@ -21,6 +21,16 @@ async def _get_llm_response(prompt: str) -> Dict[str, Any]:
 
 async def intent_understand(state: IntentState) -> IntentState:
     intent = str(state.get("intent", ""))
+    attempt = int(state.get("attempt", 1) or 1)
+    # dry_run: skip LLM call, use fallback
+    context = state.get("context", {}) or {}
+    if context.get("runtime_config", {}).get("dry_run"):
+        return {
+            **state,
+            "attempt": attempt + 1,
+            "intent_analysis": {"goals": [intent], "constraints": [], "priority": "high"},
+            "goals": [intent],
+        }
     prompt = (
         "分析用户意图，提取以下信息：\n"
         f"用户意图: {intent}\n"
@@ -29,9 +39,15 @@ async def intent_understand(state: IntentState) -> IntentState:
     try:
         parsed = await _get_llm_response(prompt)
     except Exception as exc:  # pragma: no cover - defensive graph safety
-        return {**state, "error": f"intent_understand_failed: {exc}", "intent_analysis": {"goals": [intent]}}
+        return {
+            **state,
+            "attempt": attempt + 1,
+            "error": f"intent_understand_failed: {exc}",
+            "intent_analysis": {"goals": [intent]},
+        }
     return {
         **state,
+        "attempt": attempt + 1,
         "intent_analysis": parsed,
         "goals": parsed.get("goals", [intent]),
     }
@@ -39,6 +55,16 @@ async def intent_understand(state: IntentState) -> IntentState:
 
 async def plan_generate(state: IntentState) -> IntentState:
     goals = state.get("goals", [state.get("intent", "")])
+    context = state.get("context", {}) or {}
+    if context.get("runtime_config", {}).get("dry_run"):
+        # Generate minimal sprint plan from context
+        release_plan = context.get("release_plan", {})
+        rp = getattr(release_plan, "to_dict", lambda: {"sprints": []})() if not isinstance(release_plan, dict) else release_plan
+        return {
+            **state,
+            "release_plan": rp,
+            "release_plan_source": "dry_run",
+        }
     prompt = f"根据以下目标生成Sprint计划：\n目标: {goals}\n输出JSON格式的ReleasePlan"
     try:
         release_plan = await _get_llm_response(prompt)

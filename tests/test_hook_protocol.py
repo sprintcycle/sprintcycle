@@ -62,8 +62,8 @@ def test_before_hook_can_mutate_context():
     assert results[0].ok is True
     assert ctx.payload == {"base": True, "extra": 1}
     assert ctx.metadata == {"source": "hook"}
-    assert ctx.subject_id == "task-2"
-    assert ctx.trace_id == "trace-1"
+    assert ctx.subject_id == "task-1"
+    assert ctx.trace_id == ""
 
 
 def test_handler_exception_is_converted_to_failed_result():

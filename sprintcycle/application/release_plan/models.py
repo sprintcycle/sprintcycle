@@ -67,6 +67,7 @@ class SprintBacklogItem:
     constraints: List[str] = field(default_factory=list)  # 任务约束
     expected_output: Optional[str] = None  # 期望输出
     timeout: int = 600  # 超时时间（秒）
+    spec_ref: Optional[str] = None  # 规范/需求文档引用路径
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -76,6 +77,7 @@ class SprintBacklogItem:
             "constraints": self.constraints,
             "expected_output": self.expected_output,
             "timeout": self.timeout,
+            "spec_ref": self.spec_ref,
         }
 
 

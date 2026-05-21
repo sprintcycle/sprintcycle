@@ -42,11 +42,17 @@ class HitlSqliteStore:
                     decided_at TEXT,
                     decision TEXT,
                     decision_note TEXT,
+                    decision_kind TEXT DEFAULT 'manual',
                     timeout_seconds INTEGER NOT NULL,
                     risk_level TEXT NOT NULL
                 )
                 """
             )
+            # Migrate existing tables if column is missing
+            try:
+                conn.execute("ALTER TABLE hitl_requests ADD COLUMN decision_kind TEXT DEFAULT 'manual'")
+            except Exception:
+                pass
             conn.execute(
                 """
                 CREATE INDEX IF NOT EXISTS idx_hitl_requests_execution_status
@@ -134,6 +140,27 @@ class HitlSqliteStore:
         with self._connect() as conn:
             cur = conn.execute(sql, params)
             return [self._row_to_record(r) for r in cur.fetchall()]
+
+    async def update_decision(
+        self,
+        request_id: str,
+        decision: str,
+        note: Optional[str] = None,
+        decision_kind: str = "manual",
+        status: str = "resolved",
+    ) -> bool:
+        decided_at = self._now_iso()
+        with self._connect() as conn:
+            cur = conn.execute(
+                """
+                UPDATE hitl_requests
+                SET status = ?, decided_at = ?, decision = ?, decision_note = ?, decision_kind = ?
+                WHERE request_id = ? AND status = 'open'
+                """,
+                (status, decided_at, decision, note, decision_kind, request_id),
+            )
+            conn.commit()
+            return cur.rowcount > 0
 
     async def append_event(self, *args, **kwargs) -> None:
         return None

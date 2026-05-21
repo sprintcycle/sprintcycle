@@ -45,7 +45,17 @@ def create_app(project_path: str = ".") -> FastAPI:
     def _load_config() -> Dict[str, Any]:
         try:
             cfg = RuntimeConfig.from_project(project_path)
-            return cfg.to_dict()
+            raw = cfg.to_dict()
+            # Flatten dynaconf-nested structure and lowercase keys
+            if isinstance(raw, dict) and "PROJECT" in raw and isinstance(raw["PROJECT"], dict):
+                flat = {k.lower(): v for k, v in raw["PROJECT"].items()}
+                for k, v in raw.items():
+                    if k != "PROJECT":
+                        flat[k.lower()] = v
+                return flat
+            if isinstance(raw, dict):
+                return {k.lower(): v for k, v in raw.items()}
+            return raw
         except Exception:
             return {}
 

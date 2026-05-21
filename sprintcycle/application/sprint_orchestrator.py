@@ -168,7 +168,7 @@ class SprintOrchestrator:
             project_path=proj,
             release_plan_id=str(meta.get("id", "")),
             coding_engine=getattr(self.config, "coding_engine", "cursor"),
-            quality_level=self.config.effective_quality_level(),
+            quality_level=quality_level,
             project_goals=getattr(release_plan.project, "goals", "") if hasattr(release_plan.project, "goals") else "",
             metadata={"release_plan_name": release_plan.project.name, "release_plan": release_plan},
             codebase_context={},
@@ -200,10 +200,14 @@ class SprintOrchestrator:
         sprint: Optional[SprintDefinition] = None,
         sprint_result: Optional[SprintResult] = None,
     ) -> Optional[MeasurementResult]:
-        from ...infrastructure.config.quality import runs_pytest
-        from ..evolution.measurement import MeasurementProvider
+        from ..infrastructure.config.quality import resolve_effective_quality_level, runs_pytest
+        from .evolution.measurement import MeasurementProvider
 
-        if not runs_pytest(self.config.effective_quality_level()):
+        quality_level = resolve_effective_quality_level(
+            getattr(self.config, "quality_profile", ""),
+            getattr(self.config, "quality_level", "") or "L2",
+        )
+        if not runs_pytest(quality_level):
             return None
         raw_root = release_plan.project.path or self._project_root
         try:
@@ -222,7 +226,7 @@ class SprintOrchestrator:
         if not prov.check_quality_gate(m):
             logger.warning(
                 "Sprint 后质量测量未通过: level=%s overall=%.2f",
-                self.config.effective_quality_level(),
+                quality_level,
                 m.overall,
             )
         return m
@@ -275,13 +279,34 @@ class SprintOrchestrator:
             )
             sprint_name = sprint_payload.get("sprint_name", sprint_state.get("sprint", {}).get("name", ""))
             sprint_status = sprint_payload.get("status", "success")
+            raw_task_results = sprint_payload.get("task_results", []) or []
+            task_results = []
+            for tr in raw_task_results:
+                if isinstance(tr, dict):
+                    work_item_raw = tr.get("work_item", {})
+                    if isinstance(work_item_raw, dict):
+                        work_item = SprintBacklogItem(
+                            description=work_item_raw.get("description", ""),
+                            agent=work_item_raw.get("agent", ""),
+                        )
+                    else:
+                        work_item = work_item_raw
+                    task_results.append(
+                        TaskResult(
+                            work_item=work_item,
+                            sprint_name=tr.get("sprint_name", sprint_name),
+                            status=ExecutionStatus(tr.get("status", "success")),
+                            output=tr.get("output", ""),
+                            duration=float(tr.get("duration", 0.0)),
+                        )
+                    )
             sprint_results.append(
                 SprintResult(
                     sprint=type("SprintStub", (), {"name": sprint_name, "goals": []})(),
                     status=ExecutionStatus.SUCCESS
                     if sprint_status in ("success", "skipped")
                     else ExecutionStatus.FAILED,
-                    task_results=[],
+                    task_results=task_results,
                     duration=float(sprint_payload.get("duration", 0.0)),
                 )
             )
