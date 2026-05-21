@@ -55,6 +55,8 @@ class RunResult(ResultBase):
 
     execution_id: str = ""
     release_plan_name: str = ""
+    mode: str = ""
+    duration: float = 0.0
     completed_sprints: int = 0
     completed_tasks: int = 0
     total_sprints: int = 0

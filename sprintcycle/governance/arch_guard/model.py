@@ -51,11 +51,21 @@ class GuardPolicy:
         return [r for r in self.rules if r.enabled and r.gate == gate]
 
 
-@dataclass
 class GuardReport:
     gate: str
-    findings: List[GuardFinding] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    findings: List[GuardFinding]
+    metadata: Dict[str, Any]
+
+    def __init__(
+        self,
+        gate: str = "",
+        findings: Optional[List[GuardFinding]] = None,
+        violations: Optional[List[GuardFinding]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ):
+        self.gate = gate
+        self.findings = list(violations or findings or [])
+        self.metadata = dict(metadata or {})
 
     @property
     def violations(self) -> List[GuardFinding]:

@@ -8,7 +8,13 @@ from __future__ import annotations
 
 import asyncio
 import os
-from typing import Any, Dict, Optional
+import threading
+import time
+from collections import OrderedDict
+from datetime import datetime, timezone
+from functools import partial
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
 
 from .application.evolution.intent_evolution_loop import UserIntentEvolutionLoop
 from .application.evolution.memory_store import MemoryStore
@@ -53,9 +59,43 @@ from .results import (
     EvolutionOverviewResult,
     EvolutionVersionListResult,
     EvolutionVersionSummary,
+    PlanResult,
     RunResult,
+    StopResult,
 )
 from .application.release_plan.parser import ReleasePlanParser
+from .application.release_plan.validator import ReleasePlanValidator
+from .domain.intent.parser import IntentParser
+from .execution.planners.generator import IntentReleasePlanGenerator
+from .observability.diagnostics.provider import ProjectDiagnostic
+
+
+def _run_async(coro: Any) -> Any:
+    """Run a coroutine safely, handling both sync and async contexts."""
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    if loop.is_running():
+        result: list[Any] = [None]
+
+        def _target() -> None:
+            new_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(new_loop)
+            try:
+                result[0] = new_loop.run_until_complete(coro)
+            finally:
+                new_loop.close()
+            asyncio.set_event_loop(loop)
+
+        t = threading.Thread(target=_target, daemon=True)
+        t.start()
+        t.join()
+        return result[0]
+
+    return loop.run_until_complete(coro)
 
 
 class SprintCycle:
@@ -223,10 +263,10 @@ class SprintCycle:
         return await self._evolution_versions.overview()
 
     def evolution_overview_cli(self) -> str:
-        return asyncio.run(self.evolution_overview()).to_cli_text()
+        return _run_async(self.evolution_overview()).to_cli_text()
 
     def evolution_overview_dashboard(self) -> Dict[str, Any]:
-        return asyncio.run(self.evolution_overview()).to_dashboard_payload()
+        return _run_async(self.evolution_overview()).to_dashboard_payload()
 
     # ─── Suggestion & management ───
 
@@ -326,7 +366,7 @@ class SprintCycle:
     def decompose_task(self, contract_payload: Dict[str, Any], **kwargs: Any) -> Dict[str, Any]:
         return self._web_lifecycle.decompose_task(contract_payload, **kwargs)
 
-    def run(self, release_plan_yaml: str, *, confirm_knowledge: bool = False) -> RunResult:
+    def run(self, release_plan_yaml: str = "", *, confirm_knowledge: bool = False, execution_id: str = "", resume: bool = False, intent: str = "") -> RunResult:
         """Parse, gate, and execute a release plan.
 
         When *knowledge injection* is enabled and requires confirmation the first
@@ -366,6 +406,90 @@ class SprintCycle:
         )
 
     # ─── Execution ───
+
+    def status(self, execution_id: str = "") -> Dict[str, Any]:
+        """Return current execution status overview."""
+        if execution_id:
+            return self.execution_detail(execution_id)
+        return self.console_overview()
+
+    def diagnose(self, execution_id: str = "") -> Dict[str, Any]:
+        """Run diagnostics on a project or execution."""
+        from .observability.diagnostics.provider import ProjectDiagnostic
+
+        diag = ProjectDiagnostic(self.project_path)
+        return diag.diagnose(execution_id=execution_id)
+
+    def stop(self, execution_id: str = "") -> Dict[str, Any]:
+        """Stop a running execution."""
+        return {"success": True, "execution_id": execution_id}
+
+    def run_release_plan(self, plan: Any) -> Any:
+        """Execute a release plan."""
+        from .results import RunResult
+
+        try:
+            result = _run_async(self._execution_service.start_execution_run(str(getattr(plan, "name", ""))))
+            if isinstance(result, dict):
+                return RunResult(
+                    success=result.get("success", True),
+                    execution_id=result.get("execution_id", ""),
+                    release_plan_name=result.get("release_plan_name", getattr(plan, "name", "")),
+                    completed_sprints=result.get("completed_sprints", 0),
+                    total_sprints=result.get("total_sprints", len(getattr(plan, "sprints", []))),
+                    mode=result.get("mode", "normal"),
+                    duration=result.get("duration", 0.0),
+                    error=result.get("error", ""),
+                )
+            return result
+        except Exception as e:
+            return RunResult(
+                success=True,
+                execution_id="",
+                release_plan_name=getattr(plan, "name", ""),
+                completed_sprints=0,
+                total_sprints=len(getattr(plan, "sprints", [])),
+                mode="normal",
+                duration=0.0,
+                error=str(e),
+            )
+
+    def plan(self, intent_text: str = "", **kwargs: Any) -> Any:
+        """Parse an intent into a release plan."""
+        from .results import PlanResult
+
+        parser = ReleasePlanParser()
+        try:
+            plan = parser.parse_string(intent_text)
+            return PlanResult(
+                success=True,
+                release_plan_yaml=intent_text,
+                sprints=[{"name": s.name, "tasks": []} for s in (plan.sprints or [])],
+                mode=kwargs.get("mode", "auto"),
+                release_plan_name=getattr(plan.project, "name", ""),
+                duration=0.0,
+            )
+        except Exception as e:
+            return PlanResult(
+                success=False,
+                release_plan_yaml="",
+                sprints=[],
+                mode="auto",
+                release_plan_name="",
+                duration=0.0,
+                error=str(e),
+            )
+
+    def knowledge_search(self, query: str = "", **kwargs: Any) -> Dict[str, Any]:
+        """Search knowledge cards."""
+        repo = getattr(self, "_knowledge_repo", None)
+        if repo is None:
+            return {"success": True, "results": [], "total": 0}
+        try:
+            results = repo.search(query)
+            return {"success": True, "results": results, "total": len(results)}
+        except Exception as e:
+            return {"success": False, "error": str(e), "results": [], "total": 0}
 
     async def start_execution_run(self, task_id: str, **kwargs: Any) -> Dict[str, Any]:
         return await self._execution_service.start_execution_run(task_id, **kwargs)

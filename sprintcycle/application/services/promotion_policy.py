@@ -25,10 +25,25 @@ class PromotionPolicy:
         runtime_ok = bool((runtime or {}).get("healthy") or (runtime or {}).get("deploy_ready"))
         governance_ok = bool((governance or {}).get("approved") or (governance or {}).get("success"))
         evidence_ok = bool((evidence or {}).get("contract", {}).get("normalized"))
+        reasons = []
+        if score < self.min_score:
+            reasons.append("insufficient_score")
+        if not runtime_ok:
+            reasons.append("runtime_not_healthy")
+        if not governance_ok:
+            reasons.append("governance_not_approved")
+        if not evidence_ok:
+            reasons.append("evidence_not_normalized")
+        if not contract.get("validation_refs", {}).get("final_snapshot"):
+            reasons.append("missing_final_snapshot")
+        if not contract.get("evidence", {}).get("stages", {}).get("repair", {}).get("closed_loop"):
+            reasons.append("missing_stage_history")
         passed = score >= self.min_score and runtime_ok and governance_ok and evidence_ok
         return {
+            "allowed": passed,
             "passed": passed,
             "score": score,
+            "reasons": reasons,
             "runtime_ok": runtime_ok,
             "governance_ok": governance_ok,
             "evidence_ok": evidence_ok,

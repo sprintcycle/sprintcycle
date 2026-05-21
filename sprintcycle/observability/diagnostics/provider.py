@@ -115,7 +115,7 @@ class ProjectDiagnostic:
 
         return issues
 
-    def diagnose(self) -> ProjectHealthReport:
+    def diagnose(self, execution_id: str = "") -> ProjectHealthReport:
         report = ProjectHealthReport()
         report.target = self.project_path
 

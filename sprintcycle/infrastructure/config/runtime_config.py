@@ -85,6 +85,13 @@ class RuntimeConfig:
         settings = build_dynaconf(project_path, extra_files=extra_files)
         return cls(_dynaconf_to_dict(settings))
 
+    def effective_quality_level(self) -> str:
+        from .quality import resolve_effective_quality_level
+
+        profile = str(self._data.get("quality_profile", "default") or "default")
+        level = str(self._data.get("quality_level", "L2") or "L2")
+        return resolve_effective_quality_level(profile, level)
+
 
 def _dynaconf_to_dict(settings: Any) -> Dict[str, Any]:
     try:

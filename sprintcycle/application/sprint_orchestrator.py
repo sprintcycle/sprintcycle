@@ -87,8 +87,8 @@ class SprintOrchestrator:
         self._phoenix_runtime: Optional["PhoenixTraceRuntime"] = None
         if os.environ.get("PHOENIX_ENABLED"):
             try:
-                from ...infrastructure.integrations.phoenix.exporter import PhoenixExporterSpec
-                from ...infrastructure.integrations.phoenix.trace_runtime import PhoenixTraceRuntime
+                from ..infrastructure.integrations.phoenix.exporter import PhoenixExporterSpec
+                from ..infrastructure.integrations.phoenix.trace_runtime import PhoenixTraceRuntime
 
                 self._phoenix_runtime = PhoenixTraceRuntime(PhoenixExporterSpec(project_name=self._project_root))
             except ImportError:
@@ -130,7 +130,7 @@ class SprintOrchestrator:
         ):
             task_hooks = GovernanceTaskLifecycleHooks(self.config, self._project_root, self._get_event_bus())
         if self._hitl_coordinator is not None and getattr(self.config, "hitl_enabled", False):
-            from ...governance.hitl.hooks import HitlTaskHooks
+            from ..governance.hitl.hooks import HitlTaskHooks
 
             hitl_th = HitlTaskHooks(self.config, self._hitl_coordinator)
             if task_hooks is not None:
@@ -151,7 +151,7 @@ class SprintOrchestrator:
         if getattr(self.config, "verification_enabled", False):
             parts.append(VerificationSprintHooks(self._project_root, self.config, self._get_event_bus()))
         if self._hitl_coordinator is not None:
-            from ...governance.hitl.hooks import HitlSprintHooks
+            from ..governance.hitl.hooks import HitlSprintHooks
 
             parts.append(HitlSprintHooks(self.config, self._hitl_coordinator))
         parts.append(_OrchestratorSprintHooks(self, release_plan))
@@ -176,7 +176,7 @@ class SprintOrchestrator:
 
     def _persist_release_finalization(self, release_plan: ReleasePlan, finalize_result: Any) -> None:
         try:
-            from ...execution.state.state_store import get_state_store
+            from ..execution.state.state_store import get_state_store
 
             eid = getattr(release_plan, "execution_id", None)
             if not eid:
@@ -316,7 +316,7 @@ class SprintOrchestrator:
 
         # Finalization
         try:
-            from ...execution.orchestrator.finalization import ReleaseFinalizationPolicy, ReleaseFinalizationRunner
+            from ..execution.orchestrator.finalization import ReleaseFinalizationPolicy, ReleaseFinalizationRunner
 
             runner = ReleaseFinalizationRunner(
                 ReleaseFinalizationPolicy(), sprint_executor_factory=self._make_sprint_executor
@@ -365,7 +365,7 @@ class SprintOrchestrator:
         self._emit_trace_event(complete_event)
         # Persist state
         try:
-            from ...execution.state.state_store import get_state_store
+            from ..execution.state.state_store import get_state_store
 
             if getattr(release_plan, "execution_id", None):
                 store = get_state_store()

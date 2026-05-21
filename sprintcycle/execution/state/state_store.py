@@ -72,6 +72,10 @@ class ExecutionState:
     created_at: str = ""
     updated_at: str = ""
     error: Optional[str] = None
+    checkpoint: Optional[Dict[str, Any]] = None
+    last_stable_state: Optional[Dict[str, Any]] = None
+    event_cursor: Optional[int] = None
+    replay_version: int = 1
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self):
@@ -93,6 +97,10 @@ class ExecutionState:
             "created_at": self.created_at,
             "updated_at": self.updated_at,
             "error": self.error,
+            "checkpoint": self.checkpoint,
+            "last_stable_state": self.last_stable_state,
+            "event_cursor": self.event_cursor,
+            "replay_version": self.replay_version,
             "metadata": self.metadata,
         }
 
@@ -168,6 +176,8 @@ class StateStore:
         except Exception as e:
             logger.error(f"Failed to load state {execution_id}: {e}")
             return None
+
+    get_execution = load
 
     def delete(self, execution_id: str) -> bool:
         """

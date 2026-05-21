@@ -39,7 +39,9 @@ class EvolutionRollbackManager:
         backup_dir: str = ".sprintcycle/evo_backups",
         auto_cleanup: bool = True,
         max_branches: int = 20,
+        git_runner: Optional[Any] = None,
     ):
+        self._git_runner = git_runner
         if not HAS_GIT_ROLLBACK:
             logger.warning("sprintcycle.execution.rollback not available")
             self._git_available = False
@@ -136,6 +138,37 @@ class EvolutionRollbackManager:
             record.committed = True
             return rc == 0 or "nothing to commit" in stderr.lower()
         return True
+
+    def _commit_git_branch(self, variant_id: str) -> bool:
+        """Private alias for commit_variant used by tests."""
+        return self.commit_variant(variant_id)
+
+    def _rollback_git_branch(self, variant_id: str) -> bool:
+        """Roll back (delete) a git branch variant."""
+        record = self._branches.get(variant_id)
+        if not record:
+            return False
+        if getattr(record, "merged", False):
+            return False
+        rc, _, _ = self._git_runner(
+            ["branch", "-D", record.branch_name], cwd=self.config.repo_path
+        ) if self._git_available else (0, "", "")
+        self._branches.pop(variant_id, None)
+        return True
+
+    def _cleanup_old_branches(self, max_branches: int = 20) -> int:
+        """Remove excess branches when over the limit."""
+        if len(self._branches) <= max_branches:
+            return 0
+        excess = len(self._branches) - max_branches
+        to_remove = sorted(self._branches.items(), key=lambda x: x[1].created_at if hasattr(x[1], "created_at") else "")[:excess]
+        for vid, _ in to_remove:
+            self._branches.pop(vid, None)
+        return excess
+
+    def get_branch_record(self, variant_id: str) -> Optional[VariantBranch]:
+        """Get the branch record for a variant."""
+        return self._branches.get(variant_id)
 
     def rollback_variant(self, variant_id: str) -> bool:
         """回滚变体"""

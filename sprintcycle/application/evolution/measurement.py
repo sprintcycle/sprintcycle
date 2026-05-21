@@ -71,7 +71,7 @@ class MeasurementProvider:
             self.measurement_timeout = getattr(runtime_config, "diagnostic_timeout", measurement_timeout)
             self.coverage_threshold = coverage_threshold
             self._quality_level = normalize_quality_level(runtime_config.effective_quality_level())
-            self._min_coverage_percent = float(getattr(runtime_config, "min_coverage_percent", 80.0))
+            self._min_coverage_percent = float(getattr(runtime_config, "min_coverage_percent", 80.0) or 80.0)
         else:
             self.test_command = test_command
             self.quality_gate_enabled = quality_gate_enabled

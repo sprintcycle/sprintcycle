@@ -119,7 +119,7 @@ def test_api_knowledge_search(tmp_path: Path) -> None:
 
 
 def test_init_db_fresh_sqlite(tmp_path: Path) -> None:
-    from sprintcycle.persistence.session import create_engine_for_path, init_db
+    from sprintcycle.infrastructure.persistence.session import create_engine_for_path, init_db
 
     db = tmp_path / "fresh.sqlite"
     engine = create_engine_for_path(str(db))

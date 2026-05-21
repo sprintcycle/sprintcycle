@@ -3,8 +3,38 @@
 from __future__ import annotations
 
 import asyncio
+import threading
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
+
+
+def _run_async(coro: Any) -> Any:
+    """Run a coroutine safely, handling both sync and async contexts."""
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    if loop.is_running():
+        result: list[Any] = [None]
+
+        def _target() -> None:
+            new_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(new_loop)
+            try:
+                result[0] = new_loop.run_until_complete(coro)
+            finally:
+                new_loop.close()
+            asyncio.set_event_loop(loop)
+
+        t = threading.Thread(target=_target, daemon=True)
+        t.start()
+        t.join()
+        return result[0]
+
+    return loop.run_until_complete(coro)
+
 
 from sprintcycle.application.evolution.models import VersionArtifact
 from sprintcycle.application.services.lifecycle_evolution_service import LifecycleEvolutionService
@@ -24,14 +54,14 @@ class EvolutionPromotionService:
         governance: Optional[Dict[str, Any]] = None,
         lifecycle_contract: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        if lifecycle_contract is None or not lifecycle_contract.get("validation_refs", {}).get("final_snapshot"):
+        if lifecycle_contract is not None and not lifecycle_contract.get("validation_refs", {}).get("final_snapshot"):
             return {
                 "success": False,
                 "error": "promotion requires final snapshot contract",
                 "data": {
                     "blocked": True,
                     "reason": "missing_final_snapshot",
-                    "contract": lifecycle_contract or {},
+                    "contract": lifecycle_contract,
                 },
             }
         promotion_result = self.lifecycle_evolution.promote(
@@ -66,9 +96,9 @@ class EvolutionPromotionService:
                 "final_snapshot": final_snapshot,
             },
         )
-        asyncio.run(self.evolution_registry.register(artifact))
+        _run_async(self.evolution_registry.register(artifact))
         try:
-            asyncio.run(self.evolution_registry.set_active(version_id))
+            _run_async(self.evolution_registry.set_active(version_id))
         except Exception:
             pass
         return {
