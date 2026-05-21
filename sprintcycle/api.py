@@ -35,7 +35,7 @@ from .execution.events import (
     get_execution_event_backend,
 )
 from .execution.state.state_store import configure_default_store, get_state_store
-from .fitness import FitnessEvaluator
+from .domain.fitness.evaluator import FitnessEvaluator
 from .governance.facade import GovernanceFacade, create_governance_facade
 from .governance.suggestion import SuggestionFacade, create_suggestion_facade
 from .hooks import HookRegistry
@@ -45,7 +45,7 @@ from .infrastructure.evolution_registry_access import create_evolution_registry
 from .infrastructure.platform_launch_service import PlatformLaunchService
 from .infrastructure.runtime_registry import RuntimeRegistry
 from .observability.facade import ObservabilityFacade
-from .persistence.knowledge_repository import KnowledgeCardRepository
+from .infrastructure.persistence.knowledge_repository import KnowledgeCardRepository
 from .presentation.view_service import DashboardViewService
 from .presentation.workbench import DashboardWorkbenchService
 from .results import (

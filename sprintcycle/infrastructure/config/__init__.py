@@ -1,5 +1,6 @@
 """SprintCycle infrastructure config package exports."""
 
+from .flatten import flatten_sprintcycle_toml
 from .llm_config import (
     CodingClaudeConfig,
     CodingLLMConfig,
@@ -9,6 +10,7 @@ from .llm_config import (
 from .quality import (
     QualityLevel,
     QualityProfile,
+    resolve_effective_quality_level,
     runs_pytest,
 )
 from .runtime_config import RuntimeConfig
@@ -34,4 +36,6 @@ __all__ = [
     "QualityLevel",
     "QualityProfile",
     "runs_pytest",
+    "resolve_effective_quality_level",
+    "flatten_sprintcycle_toml",
 ]

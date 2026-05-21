@@ -16,8 +16,8 @@ from sprintcycle.execution.state.state_store import (
     get_state_store,
     reset_default_state_store,
 )
-from sprintcycle.persistence.import_json_state import import_json_executions_to_sqlite
-from sprintcycle.persistence.knowledge_repository import KnowledgeCardRepository
+from sprintcycle.infrastructure.persistence.import_json_state import import_json_executions_to_sqlite
+from sprintcycle.infrastructure.persistence.knowledge_repository import KnowledgeCardRepository
 
 
 @pytest.fixture(autouse=True)

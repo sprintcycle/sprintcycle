@@ -6,7 +6,7 @@ import pytest
 
 from sprintcycle.execution.planners.generator import IntentReleasePlanGenerator
 from sprintcycle.application.release_plan.models import ExecutionMode
-from sprintcycle.run_workspace import (
+from sprintcycle.execution.run_workspace import (
     effective_write_policy,
     normalize_reference_paths,
     normalize_write_policy,

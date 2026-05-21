@@ -7,7 +7,6 @@ Dynaconf-backed configuration loader.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from typing import Any, Dict, Optional, Sequence
 
 from .dynaconf_app import build_dynaconf
@@ -31,9 +30,15 @@ def _resolve_env_var(value: str) -> str:
     return value
 
 
-@dataclass
 class RuntimeConfig:
-    _data: Dict[str, Any] = field(default_factory=dict)
+    """Runtime configuration backed by an attribute-accessible dict."""
+
+    def __init__(self, _data: Optional[Dict[str, Any]] = None, **kwargs: Any) -> None:
+        if _data is not None:
+            self._data = dict(_data)
+        else:
+            self._data = {}
+        self._data.update(kwargs)
 
     def __getattr__(self, item: str) -> Any:
         try:

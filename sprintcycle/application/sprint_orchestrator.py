@@ -17,42 +17,42 @@ from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
 
 from loguru import logger
 
-from ...domain.verification.hooks import VerificationSprintHooks
-from ...execution.events import (
+from ..domain.verification.hooks import VerificationSprintHooks
+from ..execution.events import (
     Event,
     EventType,
     ExecutionEventBackend,
     create_event,
     get_execution_event_backend,
 )
-from ...execution.hooks.sprint_hooks import (
+from ..execution.hooks.sprint_hooks import (
     ChainedSprintHooks,
     SprintLifecycleHooks,
     _OrchestratorSprintHooks,
     _measurement_run_metadata,
 )
-from ...execution.hooks.task_hooks import ChainedTaskHooks, TaskLifecycleHooks
-from ...execution.knowledge.knowledge_hook import KnowledgeInjectionHook
-from ...execution.planners.models import ReleasePlan, SprintBacklogItem, SprintDefinition
-from ...execution.planners.expand import expand_release_plan_for_execution
-from ...execution.protocols import ExecutionContext
-from ...execution.skill_store import SkillStore
-from ...execution.skills import SkillOrchestrator
-from ...execution.sprint_executor import SprintExecutor
-from ...execution.sprint_types import ExecutionStatus, SprintResult, TaskResult
-from ...governance.sprint_hooks import GovernanceSprintHooks
-from ...governance.task_hooks import GovernanceTaskLifecycleHooks
-from ...infrastructure.config import RuntimeConfig
-from ...infrastructure.integrations.langgraph.compiler import compile_intent_graph, compile_sprint_graph
-from ...infrastructure.persistence.knowledge_repository import KnowledgeCardRepository
-from ..evolution.intent_evolution_loop import UserIntentEvolutionLoop
-from ..evolution.measurement import MeasurementResult
+from ..execution.hooks.task_hooks import ChainedTaskHooks, TaskLifecycleHooks
+from ..execution.knowledge.knowledge_hook import KnowledgeInjectionHook
+from ..execution.planners.models import ReleasePlan, SprintBacklogItem, SprintDefinition
+from ..execution.planners.expand import expand_release_plan_for_execution
+from ..execution.protocols import ExecutionContext
+from ..execution.skill_store import SkillStore
+from ..execution.skills import SkillOrchestrator
+from ..execution.sprint_executor import SprintExecutor
+from ..execution.sprint_types import ExecutionStatus, SprintResult, TaskResult
+from ..governance.sprint_hooks import GovernanceSprintHooks
+from ..governance.task_hooks import GovernanceTaskLifecycleHooks
+from ..infrastructure.config import RuntimeConfig
+from ..infrastructure.integrations.langgraph.compiler import compile_intent_graph, compile_sprint_graph
+from ..infrastructure.persistence.knowledge_repository import KnowledgeCardRepository
+from .evolution.intent_evolution_loop import UserIntentEvolutionLoop
+from .evolution.measurement import MeasurementResult
 from ..execution.feedback import FeedbackLoop
 from ..execution.hooks.skill_hooks import SkillLifecycleHook
-from ..services.lifecycle_contracts import build_lifecycle_contract
+from .services.lifecycle_contracts import build_lifecycle_contract
 
 if TYPE_CHECKING:
-    from ...infrastructure.integrations.phoenix.trace_runtime import PhoenixTraceRuntime
+    from ..infrastructure.integrations.phoenix.trace_runtime import PhoenixTraceRuntime
 
 
 class SprintOrchestrator:
