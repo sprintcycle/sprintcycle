@@ -18,7 +18,7 @@ from sprintcycle.execution.rollback import (
     _run_git,
     _is_git_repo,
 )
-from sprintcycle.application.evolution.rollback_manager import EvolutionRollbackManager
+from sprintcycle.domain.evolution.rollback_manager import EvolutionRollbackManager
 
 
 # =============================================================================
@@ -223,7 +223,7 @@ class TestModeSwitching:
 
     def test_fallback_to_file_when_no_git(self, temp_dir):
         config = RollbackConfig(git_branch_mode=True, repo_path=temp_dir, backup_dir=temp_dir + "/bk")
-        with patch('sprintcycle.application.evolution.rollback_manager._is_git_repo', return_value=False):
+        with patch('sprintcycle.domain.evolution.rollback_manager._is_git_repo', return_value=False):
             manager = EvolutionRollbackManager(git_branch_mode=True, backup_dir=temp_dir + "/bk")
             assert manager.mode == "file_backup"
 
@@ -264,7 +264,7 @@ class TestPublicAPI:
     def test_rollback_variant_routes_correctly(self, temp_dir):
         # With git_branch_mode=False, rollback_variant should call _rollback_file_backup
         config = RollbackConfig(git_branch_mode=False, repo_path=temp_dir, backup_dir=temp_dir + "/bk")
-        with patch('sprintcycle.application.evolution.rollback_manager._is_git_repo', return_value=False):
+        with patch('sprintcycle.domain.evolution.rollback_manager._is_git_repo', return_value=False):
             manager = EvolutionRollbackManager(git_branch_mode=False, backup_dir=temp_dir + "/bk")
 
             # Insert a record so rollback_variant doesn't bail early

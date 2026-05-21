@@ -12,7 +12,7 @@ from typing import Any, Dict
 
 from loguru import logger
 
-from ...application.evolution.models import EvolutionPlan, SandboxSpec
+from ...domain.evolution.models import EvolutionPlan, SandboxSpec
 from .manager import SandboxManager
 from .worktree_backend import GitWorktreeSandboxBackend
 

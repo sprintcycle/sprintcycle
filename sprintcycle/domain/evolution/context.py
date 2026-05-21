@@ -1,4 +1,4 @@
-"""兼容导出：保留旧导入路径 ``sprintcycle.application.evolution.context``。"""
+"""兼容导出：保留旧导入路径 ``sprintcycle.domain.evolution.context``。"""
 
 from __future__ import annotations
 

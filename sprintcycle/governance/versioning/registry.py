@@ -5,7 +5,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from ...application.evolution.models import EvolutionTarget, RollbackOutcome, VersionArtifact
+from ...domain.evolution.models import EvolutionTarget, RollbackOutcome, VersionArtifact
 
 
 class VersionRegistry(ABC):

@@ -47,8 +47,8 @@ from ..governance.task_hooks import GovernanceTaskLifecycleHooks
 from ..infrastructure.config import RuntimeConfig
 from ..infrastructure.integrations.langgraph.compiler import compile_intent_graph, compile_sprint_graph
 from ..infrastructure.persistence.knowledge_repository import KnowledgeCardRepository
-from .evolution.intent_evolution_loop import UserIntentEvolutionLoop
-from .evolution.measurement import MeasurementResult
+from sprintcycle.domain.evolution.intent_evolution_loop import UserIntentEvolutionLoop
+from sprintcycle.domain.evolution.measurement import MeasurementResult
 from .services.lifecycle_contracts import build_lifecycle_contract
 
 if TYPE_CHECKING:
@@ -201,7 +201,7 @@ class SprintOrchestrator:
         sprint_result: Optional[SprintResult] = None,
     ) -> Optional[MeasurementResult]:
         from ..infrastructure.config.quality import resolve_effective_quality_level, runs_pytest
-        from .evolution.measurement import MeasurementProvider
+        from sprintcycle.domain.evolution.measurement import MeasurementProvider
 
         quality_level = resolve_effective_quality_level(
             getattr(self.config, "quality_profile", ""),

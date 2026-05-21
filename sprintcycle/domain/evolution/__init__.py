@@ -1,29 +1,55 @@
 """
-SprintCycle Evolution Runtime State
+Domain Evolution - 版本演进领域模型
 
-Explicit runtime state primitives for the self-evolution activation lifecycle.
-The activator imports these types to keep orchestration decisions observable
-without embedding domain policy.
+包含版本控制、演进策略、回滚管理等核心领域逻辑。
 """
 
-from .runtime_state import (
-    ActivationDecision,
-    ActivationGuardResult,
-    ActivationReasonCode,
-    ActivationState,
-    EvolutionHealthSnapshot,
-    EvolutionHealthState,
-    RetryDecision,
-    RetryPolicyConfig,
+from .activator import EvolutionActivator
+from .context import EvolutionContext
+from .controller import EvolutionController
+from .default import DefaultEvolutionService
+from .facade import EvolutionFacade
+from .intent_evolution_loop import UserIntentEvolutionLoop
+from .measurement import MeasurementResult
+from .memory_store import MemoryStore
+from .models import (
+    EvolutionRequest,
+    EvolutionTarget,
+    RollbackOutcome,
+    VersionArtifact,
 )
+from .rollback_manager import (
+    EvolutionRollbackManager,
+    HAS_GIT_ROLLBACK,
+    RollbackConfig,
+    RollbackError,
+)
+from .types import SprintContext
 
 __all__ = [
-    "ActivationDecision",
-    "ActivationGuardResult",
-    "ActivationReasonCode",
-    "ActivationState",
-    "EvolutionHealthSnapshot",
-    "EvolutionHealthState",
-    "RetryDecision",
-    "RetryPolicyConfig",
+    # Core
+    "EvolutionController",
+    "EvolutionFacade",
+    "EvolutionActivator",
+    # Service
+    "DefaultEvolutionService",
+    # Intent Loop
+    "UserIntentEvolutionLoop",
+    # Context & Types
+    "EvolutionContext",
+    "SprintContext",
+    # Models
+    "EvolutionRequest",
+    "EvolutionTarget",
+    "RollbackOutcome",
+    "VersionArtifact",
+    # Measurement
+    "MeasurementResult",
+    # Memory
+    "MemoryStore",
+    # Rollback
+    "EvolutionRollbackManager",
+    "RollbackConfig",
+    "RollbackError",
+    "HAS_GIT_ROLLBACK",
 ]

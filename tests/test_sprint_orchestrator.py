@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from sprintcycle.infrastructure.config import RuntimeConfig
-from sprintcycle.application.evolution.measurement import MeasurementResult
+from sprintcycle.domain.evolution.measurement import MeasurementResult
 from sprintcycle.execution.sprint_types import ExecutionStatus, SprintResult, TaskResult
 from sprintcycle.application.sprint_orchestrator import SprintOrchestrator, _measurement_run_metadata
 from sprintcycle.application.release_plan.models import (
@@ -130,7 +130,7 @@ class TestSprintOrchestrator:
             correctness=1.0,
             details={"quality_level": "L2"},
         )
-        with patch("sprintcycle.application.evolution.measurement.MeasurementProvider") as MP:
+        with patch("sprintcycle.domain.evolution.measurement.MeasurementProvider") as MP:
             inst = MagicMock()
             inst.measure_all.return_value = fixed
             inst.check_quality_gate.return_value = True

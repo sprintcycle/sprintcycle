@@ -15,8 +15,8 @@ from typing import List
 
 from loguru import logger
 
-from ..release_plan.models import ReleasePlan
-from ..release_plan.parser import ReleasePlanParseError, ReleasePlanParser
+from sprintcycle.application.release_plan.models import ReleasePlan
+from sprintcycle.application.release_plan.parser import ReleasePlanParseError, ReleasePlanParser
 
 
 class EvolutionPlanSourceType(Enum):

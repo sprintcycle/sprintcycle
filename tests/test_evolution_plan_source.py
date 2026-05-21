@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from sprintcycle.application.evolution.evolution_plan_source import (
+from sprintcycle.domain.evolution.evolution_plan_source import (
     DiagnosticReleasePlanSource,
     EvolutionPlanSourceType,
     ManualReleasePlanSource,

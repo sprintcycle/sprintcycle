@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from loguru import logger
 
 if TYPE_CHECKING:
-    from ...application.evolution.measurement import MeasurementResult
+    from ...domain.evolution.measurement import MeasurementResult
     from ...application.release_plan.models import ReleasePlan, SprintDefinition
     from ...infrastructure.config.runtime_config import RuntimeConfig
     from ..sprint_types import SprintResult

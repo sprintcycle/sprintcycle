@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from ...application.evolution.measurement import MeasurementResult
+from ...domain.evolution.measurement import MeasurementResult
 from ...application.release_plan.models import ReleasePlan, SprintDefinition
 from ..sprint_types import ExecutionStatus, SprintResult
 

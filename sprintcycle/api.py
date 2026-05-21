@@ -11,8 +11,8 @@ import os
 import threading
 from typing import Any, Dict, Optional
 
-from .application.evolution.intent_evolution_loop import UserIntentEvolutionLoop
-from .application.evolution.memory_store import MemoryStore
+from .domain.evolution.intent_evolution_loop import UserIntentEvolutionLoop
+from .domain.evolution.memory_store import MemoryStore
 from .application.release_plan.parser import ReleasePlanParser
 from .application.release_plan.validator import ReleasePlanValidator
 from .application.services.evaluator_agent import EvaluatorAgent

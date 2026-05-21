@@ -10,7 +10,7 @@ from sprintcycle.infrastructure.config import (
     resolve_effective_quality_level,
 )
 from sprintcycle.infrastructure.config.dynaconf_app import build_dynaconf
-from sprintcycle.application.evolution.measurement import MeasurementProvider, MeasurementResult
+from sprintcycle.domain.evolution.measurement import MeasurementProvider, MeasurementResult
 
 
 def test_resolve_effective_quality_level_profiles():

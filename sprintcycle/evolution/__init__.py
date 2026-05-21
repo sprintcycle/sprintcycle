@@ -1,10 +1,13 @@
 """
-sprintcycle.evolution - package for backward-compatible re-exports.
+sprintcycle.evolution - 兼容层导出
 
-Tests and some internal callers reference ``sprintcycle.evolution.rollback_manager``
-which lives at ``sprintcycle.application.evolution.rollback_manager``.
+为了向后兼容，保留从顶层包访问 Evolution 模块的能力。
+实际实现已移动到 sprintcycle.domain.evolution。
 """
 
-from ..application.evolution.rollback_manager import EvolutionRollbackManager
+from sprintcycle.domain.evolution import (
+    EvolutionRollbackManager,
+    RollbackConfig,
+)
 
-__all__ = ["EvolutionRollbackManager"]
+__all__ = ["EvolutionRollbackManager", "RollbackConfig"]

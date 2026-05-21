@@ -5,7 +5,7 @@ Execution 模块。
 ``SprintOrchestrator``）。
 """
 
-from ..application.evolution.types import SprintContext
+from ..domain.evolution.types import SprintContext
 from .agents import (
     AgentContext,
     AgentExecutor,

@@ -11,7 +11,7 @@ import re
 from pathlib import Path
 from typing import Any, Optional
 
-from ...application.evolution.context import EvolutionContext
+from ...domain.evolution.context import EvolutionContext
 from ...domain.intent.parser import ActionType, ParsedIntent
 from ...infrastructure.config.runtime_config import RuntimeConfig
 from .models import (

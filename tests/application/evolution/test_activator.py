@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sprintcycle.application.evolution.activator import EvolutionActivator
+from sprintcycle.domain.evolution.activator import EvolutionActivator
 from sprintcycle.domain.evolution.runtime_state import (
     ActivationGuardResult,
     ActivationReasonCode,
