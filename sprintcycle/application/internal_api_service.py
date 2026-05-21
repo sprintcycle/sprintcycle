@@ -153,8 +153,8 @@ class InternalAPIService:
     def suggestion_board(
         self, execution_id: Optional[str] = None, limit: int = 20, context: Optional[RequestContext] = None
     ) -> Dict[str, Any]:
-        from sprintcycle.dashboard.view_service import DashboardViewService
-        from sprintcycle.dashboard.workbench import DashboardWorkbenchService
+        from sprintcycle.application.services.dashboard_view_service import DashboardViewService
+        from sprintcycle.application.services.dashboard_workbench_service import DashboardWorkbenchService
 
         dashboard_views = DashboardViewService(project_path=self.sc.project_path)
         dashboard_workbench = DashboardWorkbenchService(view_service=dashboard_views)
@@ -163,8 +163,8 @@ class InternalAPIService:
     def suggestion_and_hitl_panel(
         self, execution_id: Optional[str] = None, limit: int = 20, context: Optional[RequestContext] = None
     ) -> Dict[str, Any]:
-        from sprintcycle.dashboard.view_service import DashboardViewService
-        from sprintcycle.dashboard.workbench import DashboardWorkbenchService
+        from sprintcycle.application.services.dashboard_view_service import DashboardViewService
+        from sprintcycle.application.services.dashboard_workbench_service import DashboardWorkbenchService
 
         dashboard_views = DashboardViewService(project_path=self.sc.project_path)
         dashboard_workbench = DashboardWorkbenchService(view_service=dashboard_views)
@@ -175,13 +175,13 @@ class InternalAPIService:
     def execution_workspace(
         self, execution_id: str, limit: int = 200, context: Optional[RequestContext] = None
     ) -> Dict[str, Any]:
-        from sprintcycle.dashboard.view_service import DashboardViewService
+        from sprintcycle.application.services.dashboard_view_service import DashboardViewService
 
         dashboard_views = DashboardViewService(project_path=self.sc.project_path)
         return dashboard_views.execution_workspace(self.sc, execution_id=execution_id, limit=limit)
 
     def dashboard_platform_workspace(self, context: Optional[RequestContext] = None) -> Dict[str, Any]:
-        from sprintcycle.dashboard.view_service import DashboardViewService
+        from sprintcycle.application.services.dashboard_view_service import DashboardViewService
 
         dashboard_views = DashboardViewService(project_path=self.sc.project_path)
         return dashboard_views.platform_workspace(self.sc.platform_overview())
