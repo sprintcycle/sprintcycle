@@ -184,8 +184,6 @@ class ErrorRouter:
             from .agents.base import AgentContext
 
             analyzer = BugAnalyzerAgent(llm_client=self._llm_client)
-            rid = metadata_plan_id(context.metadata)
-            agent_ctx = AgentContext(release_plan_id=rid)
             request = AnalysisRequest(error_log=context.error_log, file_paths=context.file_paths, use_llm=True)
             result = await analyzer.analyze(request)
             return RoutingResult(

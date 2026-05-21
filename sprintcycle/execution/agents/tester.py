@@ -209,7 +209,7 @@ class TesterAgent(AgentExecutor):
     def _analyze_coverage(self, code: str, test_cases: List[TestCase]) -> Dict[str, Any]:
         """分析覆盖率"""
         lines = code.split("\n")
-        code_lines = [l for l in lines if l.strip() and not l.strip().startswith(("#", "//", "/*"))]
+        code_lines = [line for line in lines if line.strip() and not line.strip().startswith(("#", "//", "/*"))]
         total_lines = len(code_lines)
         covered_lines = min(int(total_lines * 0.7), len(test_cases) * 5)
 

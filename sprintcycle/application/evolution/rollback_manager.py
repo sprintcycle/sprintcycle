@@ -69,7 +69,7 @@ class EvolutionRollbackManager:
             self._git_runner = git_runner if git_runner is not None else _run_git
         self._git_available = git_branch_mode and _is_git_repo(repo_path)
         self._branches: Dict[str, Any] = {}
-        
+
         if git_branch_mode and not self._git_available:
             logger.debug("Git Branch 模式不可用，使用文件备份模式")
 
@@ -85,17 +85,16 @@ class EvolutionRollbackManager:
 
     def _prepare_git_branch(self, variant_id: str) -> str:
         """创建 git 分支环境"""
-        import hashlib
         from datetime import datetime
 
         safe_id = variant_id.replace("/", "-").replace("_", "-")[:20]
         timestamp = datetime.now().strftime("%m%d%H%M")
         branch_name = f"{self.config.branch_prefix}{safe_id}-{timestamp}"
-        
+
         rc, stdout, stderr = self._git_runner(["checkout", "-b", branch_name], cwd=self.config.repo_path)
         if rc != 0:
             raise RollbackError(f"Failed to create branch {branch_name}: {stderr}")
-        
+
         record = VariantBranch(
             variant_id=variant_id,
             branch_name=branch_name,
@@ -220,7 +219,7 @@ class EvolutionRollbackManager:
         )
         if rc != 0:
             logger.debug(f"Merge warning: {stderr}")
-        
+
         self._git_runner(["branch", "-d", record.branch_name], cwd=self.config.repo_path)
         record.merged = True
 

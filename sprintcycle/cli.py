@@ -3,19 +3,10 @@
 from __future__ import annotations
 
 import os
-from typing import Any, Dict, Optional
 
 import click
 
 from .api import SprintCycle
-from .results import (
-    DiagnoseResult,
-    PlanResult,
-    RollbackResult,
-    RunResult,
-    StatusResult,
-    StopResult,
-)
 
 
 @click.group()

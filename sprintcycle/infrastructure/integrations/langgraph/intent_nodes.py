@@ -144,7 +144,6 @@ def intent_evaluate(state: IntentState) -> IntentState:
 
 def intent_finalize(state: IntentState) -> IntentState:
     sprints = list(state.get("sprints", []) or [])
-    sprint_results = list(state.get("sprint_results", []) or [])
     evaluation = dict(state.get("evaluation", {}) or {})
     final_result = {
         "sprint_count": len(sprints),

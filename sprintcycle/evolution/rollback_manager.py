@@ -6,8 +6,8 @@ so that tests can patch ``sprintcycle.evolution.rollback_manager._is_git_repo``.
 """
 
 from ..application.evolution.rollback_manager import (  # noqa: F401
-    EvolutionRollbackManager,
     HAS_GIT_ROLLBACK,
+    EvolutionRollbackManager,
     RollbackConfig,
     RollbackError,
     VariantBranch,

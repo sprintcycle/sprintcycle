@@ -9,16 +9,12 @@ from __future__ import annotations
 import asyncio
 import os
 import threading
-import time
-from collections import OrderedDict
-from datetime import datetime, timezone
-from functools import partial
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Optional
 
 from .application.evolution.intent_evolution_loop import UserIntentEvolutionLoop
 from .application.evolution.memory_store import MemoryStore
-from .application.sprint_orchestrator import SprintOrchestrator
+from .application.release_plan.parser import ReleasePlanParser
+from .application.release_plan.validator import ReleasePlanValidator
 from .application.services.evaluator_agent import EvaluatorAgent
 from .application.services.evolution_promotion_service import EvolutionPromotionService
 from .application.services.evolution_version_service import EvolutionVersionService
@@ -34,6 +30,8 @@ from .application.services.promotion_policy import PromotionPolicy
 from .application.services.repair_orchestration_service import RepairOrchestrationService
 from .application.services.suggestion_application_service import SuggestionApplicationService
 from .application.services.web_lifecycle_orchestration_service import WebLifecycleOrchestrationService
+from .application.sprint_orchestrator import SprintOrchestrator
+from .domain.fitness.evaluator import FitnessEvaluator
 from .execution.cache import configure_execution_cache_from_runtime
 from .execution.core.engine import create_execution_engine
 from .execution.events import (
@@ -41,17 +39,17 @@ from .execution.events import (
     get_execution_event_backend,
 )
 from .execution.state.state_store import configure_default_store, get_state_store
-from .domain.fitness.evaluator import FitnessEvaluator
 from .governance.facade import GovernanceFacade, create_governance_facade
 from .governance.suggestion import SuggestionFacade, create_suggestion_facade
 from .hooks import HookRegistry
 from .infrastructure.config.runtime_config import RuntimeConfig
 from .infrastructure.deployment_spec_service import DeploymentSpecService
 from .infrastructure.evolution_registry_access import create_evolution_registry
+from .infrastructure.persistence.knowledge_repository import KnowledgeCardRepository
 from .infrastructure.platform_launch_service import PlatformLaunchService
 from .infrastructure.runtime_registry import RuntimeRegistry
+from .observability.diagnostics.provider import ProjectDiagnostic
 from .observability.facade import ObservabilityFacade
-from .infrastructure.persistence.knowledge_repository import KnowledgeCardRepository
 from .presentation.view_service import DashboardViewService
 from .presentation.workbench import DashboardWorkbenchService
 from .results import (
@@ -63,11 +61,6 @@ from .results import (
     RunResult,
     StopResult,
 )
-from .application.release_plan.parser import ReleasePlanParser
-from .application.release_plan.validator import ReleasePlanValidator
-from .domain.intent.parser import IntentParser
-from .execution.planners.generator import IntentReleasePlanGenerator
-from .observability.diagnostics.provider import ProjectDiagnostic
 
 
 def _run_async(coro: Any) -> Any:
@@ -491,7 +484,6 @@ class SprintCycle:
 
     def stop(self, execution_id: str = "") -> Any:
         """Stop a running execution."""
-        from .results import StopResult
         from .execution.sprint_types import ExecutionStatus
 
         if execution_id:
@@ -589,7 +581,6 @@ class SprintCycle:
 
     def plan(self, intent_text: str = "", **kwargs: Any) -> Any:
         """Parse an intent into a release plan."""
-        from .results import PlanResult
 
         parser = ReleasePlanParser()
         try:

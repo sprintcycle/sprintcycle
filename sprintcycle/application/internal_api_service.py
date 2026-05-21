@@ -25,9 +25,6 @@ class InternalAPIService:
     def status(self, execution_id: Optional[str] = None, context: Optional[RequestContext] = None) -> Dict[str, Any]:
         return self.sc.status(execution_id=execution_id).to_dict()
 
-    def project_path(self) -> str:
-        return self.sc.project_path
-
     def hitl_pending(
         self, execution_id: Optional[str] = None, context: Optional[RequestContext] = None
     ) -> Dict[str, Any]:

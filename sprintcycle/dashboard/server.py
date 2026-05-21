@@ -2,21 +2,20 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
-import os
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from ..infrastructure.config import RuntimeConfig, load_config_from_env
-
 # Re-export for dashboard tests that patch sprintcycle.dashboard.server.SprintCycle
 from ..api import SprintCycle
+from ..infrastructure.config import RuntimeConfig
 
 
 class ConfigUpdateRequest(BaseModel):

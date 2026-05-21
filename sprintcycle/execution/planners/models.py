@@ -10,14 +10,24 @@ Release Plan 数据模型（执行计划 / 多 Sprint 交付切片）
 本模块复用 ``application.release_plan.models`` 的核心类型并添加执行层专属方法。
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from sprintcycle.application.release_plan.models import (
     EvolutionParams as _BaseEvolutionParams,
+)
+from sprintcycle.application.release_plan.models import (
     ExecutionMode,
+)
+from sprintcycle.application.release_plan.models import (
     ProductAnchor as _BaseProductAnchor,
+)
+from sprintcycle.application.release_plan.models import (
     ReleasePlan as _BaseReleasePlan,
+)
+from sprintcycle.application.release_plan.models import (
     SprintBacklogItem as _BaseSprintBacklogItem,
+)
+from sprintcycle.application.release_plan.models import (
     SprintDefinition as _BaseSprintDefinition,
 )
 from sprintcycle.domain.quality_spec.spec.constraint_spec import ConstraintSpec

@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 from loguru import logger
 
@@ -25,16 +25,18 @@ from ..execution.events import (
     create_event,
     get_execution_event_backend,
 )
+from ..execution.feedback import FeedbackLoop
+from ..execution.hooks.skill_hooks import SkillLifecycleHook
 from ..execution.hooks.sprint_hooks import (
     ChainedSprintHooks,
     SprintLifecycleHooks,
-    _OrchestratorSprintHooks,
     _measurement_run_metadata,
+    _OrchestratorSprintHooks,
 )
 from ..execution.hooks.task_hooks import ChainedTaskHooks, TaskLifecycleHooks
 from ..execution.knowledge.knowledge_hook import KnowledgeInjectionHook
-from ..execution.planners.models import ReleasePlan, SprintBacklogItem, SprintDefinition
 from ..execution.planners.expand import expand_release_plan_for_execution
+from ..execution.planners.models import ReleasePlan, SprintBacklogItem, SprintDefinition
 from ..execution.protocols import ExecutionContext
 from ..execution.skill_store import SkillStore
 from ..execution.skills import SkillOrchestrator
@@ -47,8 +49,6 @@ from ..infrastructure.integrations.langgraph.compiler import compile_intent_grap
 from ..infrastructure.persistence.knowledge_repository import KnowledgeCardRepository
 from .evolution.intent_evolution_loop import UserIntentEvolutionLoop
 from .evolution.measurement import MeasurementResult
-from ..execution.feedback import FeedbackLoop
-from ..execution.hooks.skill_hooks import SkillLifecycleHook
 from .services.lifecycle_contracts import build_lifecycle_contract
 
 if TYPE_CHECKING:
@@ -168,7 +168,7 @@ class SprintOrchestrator:
             project_path=proj,
             release_plan_id=str(meta.get("id", "")),
             coding_engine=getattr(self.config, "coding_engine", "cursor"),
-            quality_level=quality_level,
+            quality_level=getattr(self.config, "quality_level", "L2"),
             project_goals=getattr(release_plan.project, "goals", "") if hasattr(release_plan.project, "goals") else "",
             metadata={"release_plan_name": release_plan.project.name, "release_plan": release_plan},
             codebase_context={},

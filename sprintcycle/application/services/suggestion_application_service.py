@@ -8,7 +8,7 @@ integration where applicable.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from ...governance.facade import GovernanceFacade
 from ...governance.suggestion import SuggestionFacade
@@ -33,6 +33,7 @@ from ...hooks import (
     HookContext,
     HookPhase,
     HookRegistry,
+    HookResult,
     HookRunner,
 )
 from ..evolution.models import VersionArtifact

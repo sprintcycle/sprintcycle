@@ -120,7 +120,6 @@ class ProjectDiagnostic:
         report.target = self.project_path
 
         test_results = self.run_tests()
-        total_tests = test_results["passed"] + test_results["failed"]
         report.test_failures = test_results["failed"]
         report.mypy_errors = len(self.check_complexity())
 

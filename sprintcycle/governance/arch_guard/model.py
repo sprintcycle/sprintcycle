@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Literal
+from typing import Any, Dict, List, Literal, Optional
 
 GuardSeverity = Literal["error", "warning", "info"]
 GuardAction = Literal["block", "warn", "info"]
