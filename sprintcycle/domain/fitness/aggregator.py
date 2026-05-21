@@ -62,7 +62,7 @@ class FitnessDimensionResult:
         return cls(
             name=str(value.get("name") or value.get("dimension") or "unknown"),
             score=float(value.get("score") or 0),
-            weight=float(value.get("weight") or 1.0),
+            weight=float(value.get("weight", 1.0)),
             reason=str(value.get("reason") or ""),
             metadata=metadata,
         )

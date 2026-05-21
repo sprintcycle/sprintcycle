@@ -372,6 +372,10 @@ class SprintExecutor(CheckpointMixin):
             self._save_checkpoint(0, sprint.name, result)
         return result
 
+    def _record_intent_evolution(self, sprint: SprintDefinition, result: SprintResult, ctx_acc: Dict[str, Any]) -> None:
+        """Record intent evolution for the sprint (no-op by default)."""
+        pass
+
     def _collect_feedback(self, sprint: SprintDefinition, result: SprintResult) -> None:
         if self._feedback_loop is None:
             return

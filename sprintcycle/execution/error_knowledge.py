@@ -169,6 +169,10 @@ class ErrorKnowledgeBase:
         self._patterns[pattern.pattern_id] = pattern
         return pattern.pattern_id
 
+    def get_pattern(self, pattern_id: str) -> Optional[ErrorPattern]:
+        """Get an error pattern by ID."""
+        return self._patterns.get(pattern_id)
+
     def record_fix(self, pattern_id: str, success: bool) -> None:
         pattern = self._patterns.get(pattern_id)
         if pattern:

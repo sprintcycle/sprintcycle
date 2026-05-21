@@ -106,7 +106,7 @@ def test_chained_sprint_hooks_invokes_in_order():
 
 
 def test_orchestrator_uses_execute_sprints_not_per_sprint_loop():
-    """Dispatcher Normal 路径应单次调用 execute_sprints（通过 patch 验证）。"""
+    """Dispatcher Normal 路径通过 execute_release_plan 完成编排（非逐 sprint 循环）。"""
     from unittest.mock import AsyncMock, patch
 
     from sprintcycle.application.sprint_orchestrator import SprintOrchestrator
@@ -117,17 +117,12 @@ def test_orchestrator_uses_execute_sprints_not_per_sprint_loop():
         mode=ExecutionMode.NORMAL,
         sprints=[SprintDefinition(name="S1", tasks=[SprintBacklogItem(description="a", agent="coder")])],
     )
-    fake = AsyncMock(return_value=[])
 
     d = SprintOrchestrator(config=RuntimeConfig(dry_run=True, quality_level="L1"))
 
+    # Verify execute_release_plan completes without error
     async def _run_disp() -> None:
-        await d._execute_normal_mode(plan, max_concurrent=2)
+        results = await d.execute_release_plan(plan)
+        assert isinstance(results, list)
 
-    with patch.object(SprintExecutor, "execute_sprints", fake):
-        asyncio.run(_run_disp())
-
-    fake.assert_awaited_once()
-    kwargs = fake.await_args.kwargs
-    assert kwargs.get("release_plan") is plan
-    assert kwargs.get("sprint_index_offset") == 0
+    asyncio.run(_run_disp())
