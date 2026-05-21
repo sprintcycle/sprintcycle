@@ -403,6 +403,10 @@ class SprintCycle:
         return RunResult(
             success=True,
             pending_knowledge_confirmation=False,
+            release_plan_name=getattr(plan.project, "name", ""),
+            mode=getattr(plan, "mode", "normal").value if hasattr(getattr(plan, "mode", ""), "value") else "normal",
+            total_sprints=len(plan.sprints or []),
+            completed_sprints=0,
         )
 
     # ─── Execution ───
@@ -477,6 +481,24 @@ class SprintCycle:
         """Execute a release plan."""
         from .results import RunResult
 
+        # Validate the plan
+        from .application.release_plan.validator import ReleasePlanValidator
+
+        validator = ReleasePlanValidator()
+        v_result = validator.validate(plan)
+        if not getattr(v_result, "is_valid", True):
+            errors = getattr(v_result, "errors", [])
+            return RunResult(
+                success=False,
+                execution_id="",
+                release_plan_name=getattr(plan, "name", ""),
+                completed_sprints=0,
+                total_sprints=len(getattr(plan, "sprints", [])),
+                mode="normal",
+                duration=0.0,
+                error="验证失败: " + "; ".join(errors) if errors else "验证失败",
+            )
+
         try:
             result = _run_async(self._execution_service.start_execution_run(str(getattr(plan, "name", ""))))
             if isinstance(result, dict):
@@ -512,7 +534,7 @@ class SprintCycle:
             plan = parser.parse_string(intent_text)
             return PlanResult(
                 success=True,
-                release_plan_yaml=intent_text,
+                release_plan_yaml=plan.to_yaml() if hasattr(plan, "to_yaml") else intent_text,
                 sprints=[{"name": s.name, "tasks": []} for s in (plan.sprints or [])],
                 mode=kwargs.get("mode", "auto"),
                 release_plan_name=getattr(plan.project, "name", ""),
