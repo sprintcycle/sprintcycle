@@ -55,8 +55,14 @@ class RuntimeConfig:
         self._data.setdefault("governance_cli_emit_events", False)
         self._data.setdefault("governance_history_max_files", 50)
         self._data.setdefault("governance_argv_entry_points", True)
+        self._data.setdefault("governance_planning_validate_release_plan", True)
         self._data.setdefault("governance_pluggy_argv", False)
         self._data.update(kwargs)
+        # Validate governance_block_on
+        valid_block_on_values = {"always", "on_error", "none"}
+        raw = self._data.get("governance_block_on")
+        if raw is not None and raw not in valid_block_on_values:
+            self._data["governance_block_on"] = "none"
 
     def __getattr__(self, item: str) -> Any:
         if item.startswith("_"):

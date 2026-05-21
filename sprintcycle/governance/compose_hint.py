@@ -27,13 +27,25 @@ def check_compose_supply_chain_hints(path: Path, services: Dict[str, Any]) -> Li
     if not services:
         return findings
     for name, cfg in services.items():
-        if isinstance(cfg, dict) and "image" in cfg and "build" not in cfg:
-            findings.append(
-                GuardFinding(
-                    rule_id="compose:supply_chain:image_only",
-                    severity="warning",
-                    message=f"服务 {name} 仅使用 image，建议确认供应链来源",
-                    location={"path": str(path), "service": name},
-                )
-            )
+        if isinstance(cfg, dict):
+            image = cfg.get("image", "")
+            if isinstance(image, str):
+                if "build" not in cfg:
+                    findings.append(
+                        GuardFinding(
+                            rule_id="compose:supply_chain:image_only",
+                            severity="warning",
+                            message=f"服务 {name} 仅使用 image，建议确认供应链来源",
+                            location={"path": str(path), "service": name},
+                        )
+                    )
+                if image.endswith(":latest") or ":" not in image:
+                    findings.append(
+                        GuardFinding(
+                            rule_id="compose:image_latest",
+                            severity="warning",
+                            message=f"服务 {name} 使用了latest标签 ({image})",
+                            location={"path": str(path), "service": name, "image": image},
+                        )
+                    )
     return findings

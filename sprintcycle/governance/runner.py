@@ -27,7 +27,7 @@ from .arch_guard.sdd_checks import (
     violations_from_release_plan_validator,
     violations_spec_marker_in_files,
 )
-from .arch_guard.yaml_checks import checks_for_gate, run_argv_checks
+from .arch_guard.yaml_checks import checks_for_gate, filter_argv_items_by_governance_sources, run_argv_checks
 from .hitl import HitlDecision, HitlGate, HitlPolicyResult, evaluate_hitl_policy
 from .hitl.facade import HitlFacade, create_hitl_facade
 
@@ -235,6 +235,7 @@ class GovernanceRunner:
 
         data = self._load_yaml_data(root)
         review_argv = extend_argv_items_with_plugins("review", checks_for_gate(data, "review"), self._cfg, root)
+        review_argv = filter_argv_items_by_governance_sources(review_argv, self._cfg, root)
         yv = run_argv_checks(review_argv, root, "review")
         violations.extend(yv)
         if yv or review_argv:
