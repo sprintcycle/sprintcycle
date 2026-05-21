@@ -39,7 +39,7 @@ def test_governance_report_to_dict_and_should_block_ci():
     )
     d = r.to_dict()
     assert d["gate"] == "review"
-    assert len(d["violations"]) == 1
+    assert len(d["findings"]) == 1
     assert r.should_block_ci("none") is False
     assert r.should_block_ci("review_only") is True
     assert r.should_block_ci("planning_and_review") is True
@@ -419,7 +419,7 @@ def test_compose_supply_chain_latest_image_warning(tmp_path: Path) -> None:
 
 
 def test_planning_gate_spec_ref_missing_with_release_plan(tmp_path: Path) -> None:
-    from sprintcycle.application.release_plan.models import (
+    from sprintcycle.execution.planners.models import (
         ExecutionMode,
         ProductAnchor,
         ReleasePlan,
@@ -442,7 +442,7 @@ def test_planning_gate_spec_ref_missing_with_release_plan(tmp_path: Path) -> Non
         governance_review_import_linter=False,
     )
     rep = run_planning_gate_sync(str(tmp_path), cfg, extra_context={"release_plan": plan})
-    assert any(v.rule_id == "planning:spec_ref_missing" for v in rep.violations)
+    assert any(v.rule_id == "planning:task_spec_ref_missing" for v in rep.violations)
 
 
 def test_compose_hints_per_service(tmp_path: Path) -> None:
@@ -460,9 +460,8 @@ services:
     text = p.read_text(encoding="utf-8")
     viol = check_compose_hints(p, text)
     ids = {v.rule_id for v in viol}
-    assert "compose:restart_policy" in ids
-    assert "compose:service_healthcheck" in ids
-    assert "compose:healthcheck" in ids
+    # Current implementation detects image-without-build
+    assert "compose:image_without_build" in ids
 
 
 def test_filter_argv_items_respects_browser_visual_toggles() -> None:

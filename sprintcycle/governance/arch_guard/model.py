@@ -90,3 +90,10 @@ class GuardReport:
 
     def has_error_severity(self) -> bool:
         return self.has_error()
+
+    def should_block_ci(self, mode: str = "on_error") -> bool:
+        if mode == "none":
+            return False
+        if mode == "always":
+            return True
+        return self.has_error()

@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional, Sequence
 
 from .dynaconf_app import build_dynaconf
+from .flatten import flatten_sprintcycle_toml
 
 
 def _mask_sensitive(value: Any) -> Any:
@@ -55,8 +56,14 @@ class RuntimeConfig:
         self._data.setdefault("governance_cli_emit_events", False)
         self._data.setdefault("governance_history_max_files", 50)
         self._data.setdefault("governance_argv_entry_points", True)
+        self._data.setdefault("governance_planning_validate_release_plan", True)
         self._data.setdefault("governance_pluggy_argv", False)
         self._data.update(kwargs)
+        # Validate governance_block_on
+        valid_block_on_values = {"always", "on_error", "none"}
+        raw = self._data.get("governance_block_on")
+        if raw is not None and raw not in valid_block_on_values:
+            self._data["governance_block_on"] = "none"
 
     def __getattr__(self, item: str) -> Any:
         if item.startswith("_"):
@@ -109,7 +116,22 @@ class RuntimeConfig:
 def _dynaconf_to_dict(settings: Any) -> Dict[str, Any]:
     try:
         data = settings.to_dict()
-        return dict(data) if isinstance(data, dict) else {}
+        if not isinstance(data, dict):
+            return {}
+        # Normalize uppercased keys from Dynaconf and filter internal keys
+        nested: Dict[str, Any] = {}
+        for k, v in data.items():
+            kl = k.lower()
+            if kl.endswith("_for_dynaconf") or k.startswith("_"):
+                continue
+            if isinstance(v, dict):
+                sub: Dict[str, Any] = {}
+                for sk, sv in v.items():
+                    sub[sk.lower()] = sv
+                nested[kl] = sub
+            else:
+                nested[kl] = v
+        return flatten_sprintcycle_toml(nested)
     except Exception:
         return {}
 

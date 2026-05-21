@@ -103,7 +103,7 @@ forbidden_modules = [
 name = "编排层不得依赖 dashboard（G4）"
 type = "forbidden"
 source_modules = [
-    "sprintcycle.application.orchestration",
+    "sprintcycle.application",
 ]
 forbidden_modules = [
     "sprintcycle.dashboard",

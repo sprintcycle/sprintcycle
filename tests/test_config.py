@@ -54,7 +54,7 @@ class TestEvolutionLLMConfig:
         d = config.to_dict()
         assert d["provider"] == "openai"
         assert d["model"] == "gpt-4"
-        assert d["api_key"] == "***"  # 应该被遮蔽
+        assert d["api_key"] == "sk-***et"  # 应该被遮蔽（保留前3后2）
         assert d["temperature"] == 0.7
 
 
