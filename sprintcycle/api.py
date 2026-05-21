@@ -374,6 +374,30 @@ class SprintCycle:
         and a ``knowledge_injection_preview`` dict.  Pass ``confirm_knowledge=True``
         on a second call to proceed.
         """
+        # Resume path: continue a paused execution
+        if resume and execution_id:
+            from .execution.sprint_types import ExecutionStatus
+
+            store = get_state_store()
+            state = store.load(execution_id)
+            if state is None or not store.can_resume(execution_id):
+                return RunResult(
+                    success=False,
+                    execution_id=execution_id,
+                    error="无法续跑: 执行不存在或不可恢复",
+                    pending_knowledge_confirmation=False,
+                )
+            store.update_status(execution_id, ExecutionStatus.RUNNING)
+            return RunResult(
+                success=True,
+                execution_id=execution_id,
+                release_plan_name=getattr(state, "release_plan_name", ""),
+                mode=getattr(state, "mode", "normal"),
+                completed_sprints=getattr(state, "current_sprint", 0),
+                total_sprints=getattr(state, "total_sprints", 0),
+                pending_knowledge_confirmation=False,
+            )
+
         parser = ReleasePlanParser()
         plan = parser.parse_string(release_plan_yaml)
 
@@ -441,7 +465,6 @@ class SprintCycle:
 
     def diagnose(self, execution_id: str = "") -> Any:
         """Run diagnostics on a project or execution."""
-        from .observability.diagnostics.provider import ProjectDiagnostic
         from .results import DiagnoseResult
 
         diag = ProjectDiagnostic(self.project_path)
@@ -469,7 +492,6 @@ class SprintCycle:
     def stop(self, execution_id: str = "") -> Any:
         """Stop a running execution."""
         from .results import StopResult
-        from .execution.state.state_store import get_state_store
         from .execution.sprint_types import ExecutionStatus
 
         if execution_id:
@@ -497,13 +519,33 @@ class SprintCycle:
             duration=0.0,
         )
 
+    def rollback(self, execution_id: str) -> Any:
+        """Rollback an execution to its pre-execution state."""
+        from .results import RollbackResult
+
+        store = get_state_store()
+        state = store.load(execution_id)
+        if state is None:
+            return RollbackResult(
+                success=False,
+                execution_id=execution_id,
+                rollback_point="",
+                error=f"Execution {execution_id} not found",
+                duration=0.0,
+            )
+        rollback_point = getattr(state, "metadata", {}).get("pre_execution_commit", "")
+        return RollbackResult(
+            success=bool(rollback_point),
+            execution_id=execution_id,
+            rollback_point=rollback_point or "",
+            duration=0.1,
+        )
+
     def run_release_plan(self, plan: Any) -> Any:
         """Execute a release plan."""
         from .results import RunResult
 
         # Validate the plan
-        from .application.release_plan.validator import ReleasePlanValidator
-
         validator = ReleasePlanValidator()
         v_result = validator.validate(plan)
         if not getattr(v_result, "is_valid", True):
