@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional
 def load_governance_yaml(path: Path) -> Dict[str, Any]:
     try:
         import yaml
+
         text = path.read_text(encoding="utf-8")
         data = yaml.safe_load(text)
         if isinstance(data, dict):
@@ -22,7 +23,9 @@ def checks_for_gate(data: Dict[str, Any], gate: str) -> List[Dict[str, Any]]:
     return list((data or {}).get(gate) or [])
 
 
-def filter_argv_items_by_governance_sources(items: List[Dict[str, Any]], cfg: Any, root: Optional[Path] = None) -> List[Dict[str, Any]]:
+def filter_argv_items_by_governance_sources(
+    items: List[Dict[str, Any]], cfg: Any, root: Optional[Path] = None
+) -> List[Dict[str, Any]]:
     """Filter argv items based on governance source toggles (browser/visual)."""
     browser = getattr(cfg, "governance_review_browser_e2e", False)
     visual = getattr(cfg, "governance_review_visual", False)
@@ -39,6 +42,7 @@ def filter_argv_items_by_governance_sources(items: List[Dict[str, Any]], cfg: An
 
 def run_argv_item(item: Dict[str, Any], root: Path, gate: str, extra_env: Optional[Dict[str, str]] = None):
     from .arch_guard.model import GuardFinding
+
     findings = []
     argv = item.get("argv") or []
     if not argv:
@@ -49,6 +53,7 @@ def run_argv_item(item: Dict[str, Any], root: Path, gate: str, extra_env: Option
     try:
         import os
         import subprocess
+
         env = dict(os.environ)
         if extra_env:
             env.update(extra_env)

@@ -359,7 +359,15 @@ class SprintCycle:
     def decompose_task(self, contract_payload: Dict[str, Any], **kwargs: Any) -> Dict[str, Any]:
         return self._web_lifecycle.decompose_task(contract_payload, **kwargs)
 
-    def run(self, release_plan_yaml: str = "", *, confirm_knowledge: bool = False, execution_id: str = "", resume: bool = False, intent: str = "") -> RunResult:
+    def run(
+        self,
+        release_plan_yaml: str = "",
+        *,
+        confirm_knowledge: bool = False,
+        execution_id: str = "",
+        resume: bool = False,
+        intent: str = "",
+    ) -> RunResult:
         """Parse, gate, and execute a release plan.
 
         When *knowledge injection* is enabled and requires confirmation the first
@@ -395,7 +403,12 @@ class SprintCycle:
         plan = parser.parse_string(release_plan_yaml)
 
         cfg = self.config
-        if cfg and cfg.knowledge_injection_enabled and cfg.require_knowledge_injection_confirm and not confirm_knowledge:
+        if (
+            cfg
+            and cfg.knowledge_injection_enabled
+            and cfg.require_knowledge_injection_confirm
+            and not confirm_knowledge
+        ):
             from .execution.knowledge.knowledge_injector import KnowledgeInjector
 
             injector = KnowledgeInjector(str(cfg.sqlite_path or ""))
@@ -403,7 +416,10 @@ class SprintCycle:
             preview: Dict[str, Any] = {}
             if sprint:
                 result = injector.inject_for_sprint(
-                    self.project_path, sprint, plan, persist_overlay=False,
+                    self.project_path,
+                    sprint,
+                    plan,
+                    persist_overlay=False,
                 )
                 preview = {
                     "sprint_name": sprint.name,

@@ -18,20 +18,118 @@ from loguru import logger
 
 # Default patterns - can be overridden by config file
 DEFAULT_PATTERNS: List[Dict[str, Any]] = [
-    {"pattern": r"name '(.+)' is not defined", "error_type": "NameError", "root_cause": "变量未定义", "suggested_fix": "确保变量在使用前已定义", "severity": "medium", "tags": ["variable"]},
-    {"pattern": r"unsupported operand type\(s\) for (.+): '(.+)' and '(.+)'", "error_type": "TypeError", "root_cause": "类型不匹配", "suggested_fix": "添加类型检查或转换", "severity": "medium", "tags": ["type"]},
-    {"pattern": r"'NoneType' object (has no attribute|is not iterable)", "error_type": "TypeError", "root_cause": "空值未检查", "suggested_fix": "使用 if value is not None", "severity": "medium", "tags": ["NoneType"]},
-    {"pattern": r"No module named '(.+)'", "error_type": "ImportError", "root_cause": "依赖包未安装", "suggested_fix": "pip install \\1", "severity": "high", "tags": ["import", "dependency"]},
-    {"pattern": r"cannot import name '(.+)' from '(.+)'", "error_type": "ImportError", "root_cause": "模块路径错误或版本不兼容", "suggested_fix": "检查 import 路径或版本", "severity": "high", "tags": ["import"]},
-    {"pattern": r"'(.+)' object has no attribute '(.+)'", "error_type": "AttributeError", "root_cause": "对象没有该属性", "suggested_fix": "检查对象类型和属性名", "severity": "medium", "tags": ["attribute"]},
-    {"pattern": r"list index out of range", "error_type": "IndexError", "root_cause": "索引超出列表长度", "suggested_fix": "检查索引范围", "severity": "medium", "tags": ["index"]},
-    {"pattern": r"KeyError: '?(.+?)'?\s*$", "error_type": "KeyError", "root_cause": "字典键不存在", "suggested_fix": "使用 dict.get(key, default)", "severity": "low", "tags": ["dictionary"]},
-    {"pattern": r"\[Errno 2\] No such file or directory: '(.+)'", "error_type": "FileNotFoundError", "root_cause": "文件路径错误", "suggested_fix": "检查文件路径", "severity": "high", "tags": ["file"]},
-    {"pattern": r"SyntaxError: (.+)", "error_type": "SyntaxError", "root_cause": "语法错误", "suggested_fix": "检查语法", "severity": "critical", "tags": ["syntax"]},
-    {"pattern": r"IndentationError: (.+)", "error_type": "IndentationError", "root_cause": "缩进不一致", "suggested_fix": "统一使用空格缩进", "severity": "critical", "tags": ["indentation"]},
-    {"pattern": r"Permission denied: '(.+)'", "error_type": "PermissionError", "root_cause": "权限不足", "suggested_fix": "检查文件权限", "severity": "high", "tags": ["permission"]},
-    {"pattern": r"(out of memory|MemoryError)", "error_type": "MemoryError", "root_cause": "内存不足", "suggested_fix": "优化内存使用", "severity": "critical", "tags": ["memory"]},
-    {"pattern": r"maximum recursion depth exceeded", "error_type": "RecursionError", "root_cause": "递归无终止条件", "suggested_fix": "检查递归终止条件", "severity": "high", "tags": ["recursion"]},
+    {
+        "pattern": r"name '(.+)' is not defined",
+        "error_type": "NameError",
+        "root_cause": "变量未定义",
+        "suggested_fix": "确保变量在使用前已定义",
+        "severity": "medium",
+        "tags": ["variable"],
+    },
+    {
+        "pattern": r"unsupported operand type\(s\) for (.+): '(.+)' and '(.+)'",
+        "error_type": "TypeError",
+        "root_cause": "类型不匹配",
+        "suggested_fix": "添加类型检查或转换",
+        "severity": "medium",
+        "tags": ["type"],
+    },
+    {
+        "pattern": r"'NoneType' object (has no attribute|is not iterable)",
+        "error_type": "TypeError",
+        "root_cause": "空值未检查",
+        "suggested_fix": "使用 if value is not None",
+        "severity": "medium",
+        "tags": ["NoneType"],
+    },
+    {
+        "pattern": r"No module named '(.+)'",
+        "error_type": "ImportError",
+        "root_cause": "依赖包未安装",
+        "suggested_fix": "pip install \\1",
+        "severity": "high",
+        "tags": ["import", "dependency"],
+    },
+    {
+        "pattern": r"cannot import name '(.+)' from '(.+)'",
+        "error_type": "ImportError",
+        "root_cause": "模块路径错误或版本不兼容",
+        "suggested_fix": "检查 import 路径或版本",
+        "severity": "high",
+        "tags": ["import"],
+    },
+    {
+        "pattern": r"'(.+)' object has no attribute '(.+)'",
+        "error_type": "AttributeError",
+        "root_cause": "对象没有该属性",
+        "suggested_fix": "检查对象类型和属性名",
+        "severity": "medium",
+        "tags": ["attribute"],
+    },
+    {
+        "pattern": r"list index out of range",
+        "error_type": "IndexError",
+        "root_cause": "索引超出列表长度",
+        "suggested_fix": "检查索引范围",
+        "severity": "medium",
+        "tags": ["index"],
+    },
+    {
+        "pattern": r"KeyError: '?(.+?)'?\s*$",
+        "error_type": "KeyError",
+        "root_cause": "字典键不存在",
+        "suggested_fix": "使用 dict.get(key, default)",
+        "severity": "low",
+        "tags": ["dictionary"],
+    },
+    {
+        "pattern": r"\[Errno 2\] No such file or directory: '(.+)'",
+        "error_type": "FileNotFoundError",
+        "root_cause": "文件路径错误",
+        "suggested_fix": "检查文件路径",
+        "severity": "high",
+        "tags": ["file"],
+    },
+    {
+        "pattern": r"SyntaxError: (.+)",
+        "error_type": "SyntaxError",
+        "root_cause": "语法错误",
+        "suggested_fix": "检查语法",
+        "severity": "critical",
+        "tags": ["syntax"],
+    },
+    {
+        "pattern": r"IndentationError: (.+)",
+        "error_type": "IndentationError",
+        "root_cause": "缩进不一致",
+        "suggested_fix": "统一使用空格缩进",
+        "severity": "critical",
+        "tags": ["indentation"],
+    },
+    {
+        "pattern": r"Permission denied: '(.+)'",
+        "error_type": "PermissionError",
+        "root_cause": "权限不足",
+        "suggested_fix": "检查文件权限",
+        "severity": "high",
+        "tags": ["permission"],
+    },
+    {
+        "pattern": r"(out of memory|MemoryError)",
+        "error_type": "MemoryError",
+        "root_cause": "内存不足",
+        "suggested_fix": "优化内存使用",
+        "severity": "critical",
+        "tags": ["memory"],
+    },
+    {
+        "pattern": r"maximum recursion depth exceeded",
+        "error_type": "RecursionError",
+        "root_cause": "递归无终止条件",
+        "suggested_fix": "检查递归终止条件",
+        "severity": "high",
+        "tags": ["recursion"],
+    },
 ]
 
 
@@ -64,6 +162,7 @@ class ErrorPattern:
     @property
     def pattern_id(self) -> str:
         import hashlib
+
         hash_input = f"{self.error_type}:{self.pattern[:50]}"
         return hashlib.md5(hash_input.encode()).hexdigest()[:12]
 
@@ -100,7 +199,18 @@ class ErrorPattern:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "ErrorPattern":
-        valid_fields = {"pattern", "error_type", "root_cause", "suggested_fix", "severity", "success_count", "failure_count", "last_seen", "tags", "metadata"}
+        valid_fields = {
+            "pattern",
+            "error_type",
+            "root_cause",
+            "suggested_fix",
+            "severity",
+            "success_count",
+            "failure_count",
+            "last_seen",
+            "tags",
+            "metadata",
+        }
         data = {k: v for k, v in data.items() if k in valid_fields}
         if "last_seen" in data and isinstance(data["last_seen"], str):
             data["last_seen"] = datetime.fromisoformat(data["last_seen"])
@@ -128,7 +238,12 @@ class PatternMatch:
 class ErrorKnowledgeBase:
     """统一错误知识库（精简版）"""
 
-    def __init__(self, storage_path: str = ".sprintcycle/error_knowledge", patterns: Optional[List[Dict[str, Any]]] = None, auto_save: bool = True):
+    def __init__(
+        self,
+        storage_path: str = ".sprintcycle/error_knowledge",
+        patterns: Optional[List[Dict[str, Any]]] = None,
+        auto_save: bool = True,
+    ):
         self.storage_path = Path(storage_path)
         self._patterns: Dict[str, ErrorPattern] = {}
         self._lock = asyncio.Lock()

@@ -38,6 +38,7 @@ def _result_to_dict(result: Any) -> Any:
         return result
     if hasattr(result, "__dataclass_fields__"):
         from dataclasses import asdict
+
         return asdict(result)
     return result
 
@@ -80,9 +81,11 @@ def create_app(project_path: str = ".") -> FastAPI:
             existing = {}
             if runtime_yaml.exists():
                 import yaml
+
                 existing = yaml.safe_load(runtime_yaml.read_text()) or {}
             existing.update(data)
             import yaml
+
             runtime_yaml.write_text(yaml.dump(existing, default_flow_style=False), encoding="utf-8")
         except Exception:
             pass
@@ -98,11 +101,13 @@ def create_app(project_path: str = ".") -> FastAPI:
         cfg = _load_config()
         cfg.update(body.updates)
         _save_config(cfg)
-        config_history.append({
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "source": "api_put",
-            "updates": body.updates,
-        })
+        config_history.append(
+            {
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "source": "api_put",
+                "updates": body.updates,
+            }
+        )
         return {"success": True, "data": cfg}
 
     @app.get("/api/config/schema")
@@ -133,11 +138,13 @@ def create_app(project_path: str = ".") -> FastAPI:
         cfg = _load_config()
         cfg.update(body.config)
         _save_config(cfg)
-        config_history.append({
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "source": "api_import",
-            "updates": body.config,
-        })
+        config_history.append(
+            {
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "source": "api_import",
+                "updates": body.config,
+            }
+        )
         return {"success": True, "data": cfg}
 
     # ── Dashboard home ────────────────────────────────────────────
@@ -145,6 +152,7 @@ def create_app(project_path: str = ".") -> FastAPI:
     @app.get("/")
     async def dashboard_home() -> Response:
         from fastapi.responses import HTMLResponse
+
         html = """<!DOCTYPE html>
 <html>
 <head><title>SprintCycle Dashboard</title></head>
@@ -197,6 +205,7 @@ def create_app(project_path: str = ".") -> FastAPI:
     async def api_clients() -> Dict[str, Any]:
         try:
             from ..observability.hooks import get_client_manager
+
             count = get_client_manager().get_client_count()
         except Exception:
             count = 0
@@ -208,6 +217,7 @@ def create_app(project_path: str = ".") -> FastAPI:
             while True:
                 yield f"data: {json.dumps({'event': 'keepalive'})}\n\n"
                 await asyncio.sleep(15)
+
         return StreamingResponse(event_generator(), media_type="text/event-stream")
 
     @app.get("/api/events")
@@ -225,6 +235,7 @@ def create_app(project_path: str = ".") -> FastAPI:
         path = Path(project_path) / ".sprintcycle" / "governance_last.json"
         if path.exists():
             import json
+
             data = json.loads(path.read_text(encoding="utf-8"))
             return {"success": True, **data}
         return Response(status_code=404)

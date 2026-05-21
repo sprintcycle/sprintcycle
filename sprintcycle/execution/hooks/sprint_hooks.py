@@ -161,7 +161,6 @@ def _measurement_run_metadata(
     import hashlib
     import os
 
-
     # Task outcome digest
     task_outcomes: List[str] = []
     if sprint_result and sprint_result.task_results:
@@ -184,12 +183,14 @@ def _measurement_run_metadata(
 
     # Config fingerprint
     config_fingerprint = hashlib.sha256(
-        "|".join([
-            str(getattr(config, "llm_provider", "")),
-            str(getattr(config, "llm_model", "")),
-            str(getattr(config, "coding_engine", "")),
-            str(getattr(config, "quality_level", "")),
-        ]).encode()
+        "|".join(
+            [
+                str(getattr(config, "llm_provider", "")),
+                str(getattr(config, "llm_model", "")),
+                str(getattr(config, "coding_engine", "")),
+                str(getattr(config, "quality_level", "")),
+            ]
+        ).encode()
     ).hexdigest()[:16]
 
     # Prompt sources fingerprint

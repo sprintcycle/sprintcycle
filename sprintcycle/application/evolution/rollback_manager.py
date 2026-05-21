@@ -19,6 +19,7 @@ try:
         _is_git_repo,
         _run_git,
     )
+
     HAS_GIT_ROLLBACK = True
 except ImportError:
     HAS_GIT_ROLLBACK = False
@@ -46,14 +47,18 @@ class EvolutionRollbackManager:
             logger.warning("sprintcycle.execution.rollback not available")
             self._git_available = False
             self._branches: Dict[str, Any] = {}
-            self.config = type("Config", (), {
-                "git_branch_mode": git_branch_mode,
-                "repo_path": repo_path,
-                "branch_prefix": branch_prefix,
-                "backup_dir": backup_dir,
-                "auto_cleanup": auto_cleanup,
-                "max_branches": max_branches,
-            })()
+            self.config = type(
+                "Config",
+                (),
+                {
+                    "git_branch_mode": git_branch_mode,
+                    "repo_path": repo_path,
+                    "branch_prefix": branch_prefix,
+                    "backup_dir": backup_dir,
+                    "auto_cleanup": auto_cleanup,
+                    "max_branches": max_branches,
+                },
+            )()
             return
 
         self.config = RollbackConfig(
@@ -154,9 +159,11 @@ class EvolutionRollbackManager:
             return False
         if getattr(record, "merged", False):
             return False
-        rc, _, _ = self._git_runner(
-            ["branch", "-D", record.branch_name], cwd=self.config.repo_path
-        ) if self._git_available else (0, "", "")
+        rc, _, _ = (
+            self._git_runner(["branch", "-D", record.branch_name], cwd=self.config.repo_path)
+            if self._git_available
+            else (0, "", "")
+        )
         self._branches.pop(variant_id, None)
         return True
 
@@ -178,7 +185,9 @@ class EvolutionRollbackManager:
         if len(self._branches) <= max_branches:
             return 0
         excess = len(self._branches) - max_branches
-        to_remove = sorted(self._branches.items(), key=lambda x: x[1].created_at if hasattr(x[1], "created_at") else "")[:excess]
+        to_remove = sorted(
+            self._branches.items(), key=lambda x: x[1].created_at if hasattr(x[1], "created_at") else ""
+        )[:excess]
         for vid, _ in to_remove:
             self._branches.pop(vid, None)
         return excess
@@ -235,7 +244,7 @@ class EvolutionRollbackManager:
         """获取统计信息"""
         return {
             "mode": self.mode,
-            "active_branches": len([r for r in self._branches.values() if not getattr(r, 'merged', False)]),
+            "active_branches": len([r for r in self._branches.values() if not getattr(r, "merged", False)]),
             "total_variants": len(self._branches),
             "git_available": self._git_available,
         }

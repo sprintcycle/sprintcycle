@@ -87,7 +87,11 @@ class ExecutionLifecycleService:
             "execution",
             "start",
             EXECUTION_STARTED_EVENT,
-            {"execution_id": runtime_id, "task_id": task_id, "context": {"metadata": dict(ctx.metadata), "payload": dict(ctx.payload)}},
+            {
+                "execution_id": runtime_id,
+                "task_id": task_id,
+                "context": {"metadata": dict(ctx.metadata), "payload": dict(ctx.payload)},
+            },
         )
 
         return {

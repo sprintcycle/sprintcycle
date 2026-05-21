@@ -47,11 +47,13 @@ __all__ = [
 
 class ProductAnchor(_BaseProductAnchor):
     """产品侧锚点：名称、路径、版本（执行层扩展）。"""
+
     pass
 
 
 class EvolutionParams(_BaseEvolutionParams):
     """进化配置（执行层扩展）。"""
+
     pass
 
 

@@ -67,7 +67,9 @@ class MeasurementProvider:
         self.repo_path = repo_path
         if runtime_config is not None:
             self.test_command = getattr(runtime_config, "test_command", test_command) or test_command
-            self.quality_gate_enabled = getattr(runtime_config, "quality_gate_enabled", quality_gate_enabled) or quality_gate_enabled
+            self.quality_gate_enabled = (
+                getattr(runtime_config, "quality_gate_enabled", quality_gate_enabled) or quality_gate_enabled
+            )
             self.measurement_timeout = getattr(runtime_config, "diagnostic_timeout", measurement_timeout)
             self.coverage_threshold = coverage_threshold
             self._quality_level = normalize_quality_level(runtime_config.effective_quality_level())

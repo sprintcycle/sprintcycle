@@ -337,8 +337,16 @@ class SprintOrchestrator:
             "sprint_count": len(sprint_results),
             "success": success,
         }
-        skill_matches = list(intent_context.get("skill_matches", [])) if isinstance(intent_context.get("skill_matches", []), list) else []
-        skill_trace = dict(intent_context.get("task_skill_trace", {})) if isinstance(intent_context.get("task_skill_trace", {}), dict) else {}
+        skill_matches = (
+            list(intent_context.get("skill_matches", []))
+            if isinstance(intent_context.get("skill_matches", []), list)
+            else []
+        )
+        skill_trace = (
+            dict(intent_context.get("task_skill_trace", {}))
+            if isinstance(intent_context.get("task_skill_trace", {}), dict)
+            else {}
+        )
         contract = build_lifecycle_contract(
             execution_id=getattr(release_plan, "execution_id", ""),
             task_id=getattr(release_plan, "execution_id", "") or getattr(to_run.project, "name", ""),
@@ -350,7 +358,9 @@ class SprintOrchestrator:
             evolution_refs={"finalization": completion_summary.get("finalization", {})},
             skill_refs=list(skill_matches),
             skill_matches=list(skill_matches),
-            skill_review_checklists=list(intent_context.get("review_checklists", [])) if isinstance(intent_context.get("review_checklists", []), list) else [],
+            skill_review_checklists=list(intent_context.get("review_checklists", []))
+            if isinstance(intent_context.get("review_checklists", []), list)
+            else [],
             skill_trace=skill_trace,
         )
         complete_event = create_event(
@@ -492,7 +502,9 @@ class SprintOrchestrator:
             logger.warning("Sprint 失败率较高")
 
     def get_summary(self) -> Dict[str, Any]:
-        contract = self._last_release_finalization_result if isinstance(self._last_release_finalization_result, dict) else {}
+        contract = (
+            self._last_release_finalization_result if isinstance(self._last_release_finalization_result, dict) else {}
+        )
         return {
             "callbacks": list(self._callbacks.keys()),
             "event_bus": self.event_bus is not None,

@@ -86,11 +86,14 @@ def check_adr_readme_strict_glob(root: Path, glob_pattern: str) -> List[GuardFin
             )
     # Check for phantom: files referenced in README but missing from glob
     if has_readme:
-        for readme in set(m.parent / "README.md" for m in matches if m.name != "README.md" and (m.parent / "README.md").is_file()):
+        for readme in set(
+            m.parent / "README.md" for m in matches if m.name != "README.md" and (m.parent / "README.md").is_file()
+        ):
             readme_text = readme.read_text(encoding="utf-8")
             matched_names = {m.name for m in matches}
             import re
-            for ref in re.finditer(r'\(([^)]+)\)', readme_text):
+
+            for ref in re.finditer(r"\(([^)]+)\)", readme_text):
                 ref_file = ref.group(1)
                 ref_name = ref_file.rstrip("/").split("/")[-1]
                 if ref_name.endswith(".md") and ref_name != "README.md" and ref_name not in matched_names:

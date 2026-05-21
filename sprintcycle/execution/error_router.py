@@ -15,7 +15,6 @@ from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
-from ..application.release_plan.payload_keys import metadata_plan_id
 
 
 class RoutingLevel(Enum):
@@ -181,7 +180,6 @@ class ErrorRouter:
             )
         try:
             from .agents.analyzer import AnalysisRequest, BugAnalyzerAgent
-            from .agents.base import AgentContext
 
             analyzer = BugAnalyzerAgent(llm_client=self._llm_client)
             request = AnalysisRequest(error_log=context.error_log, file_paths=context.file_paths, use_llm=True)

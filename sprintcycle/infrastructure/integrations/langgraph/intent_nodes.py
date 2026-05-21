@@ -59,7 +59,11 @@ async def plan_generate(state: IntentState) -> IntentState:
     if context.get("runtime_config", {}).get("dry_run"):
         # Generate minimal sprint plan from context
         release_plan = context.get("release_plan", {})
-        rp = getattr(release_plan, "to_dict", lambda: {"sprints": []})() if not isinstance(release_plan, dict) else release_plan
+        rp = (
+            getattr(release_plan, "to_dict", lambda: {"sprints": []})()
+            if not isinstance(release_plan, dict)
+            else release_plan
+        )
         return {
             **state,
             "release_plan": rp,
