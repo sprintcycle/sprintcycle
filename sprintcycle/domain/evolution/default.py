@@ -10,7 +10,7 @@ from typing import Any
 from ...governance.versioning.rollback import DefaultVersionRollbackManager
 from ...governance.versioning.sqlite_registry import SQLiteVersionRegistry
 from sprintcycle.execution.planners.generator import IntentReleasePlanGenerator
-from sprintcycle.application.release_plan.validator import ReleasePlanValidator
+from sprintcycle.domain.quality_spec.validator_protocol import ReleasePlanValidator
 from sprintcycle.infrastructure.sandbox.default_manager import DefaultSandboxManager
 from .controller import DefaultEvolutionController, EvolutionController
 from .facade import EvolutionFacade

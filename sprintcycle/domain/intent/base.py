@@ -92,7 +92,7 @@ class IntentHandler(ABC):
         pass
 
     def validate_release_plan(self, release_plan: "ReleasePlan") -> bool:
-        from ...application.release_plan.validator import ReleasePlanValidator
+        from sprintcycle.domain.quality_spec.validator_protocol import ReleasePlanValidator
 
         result = ReleasePlanValidator().validate(release_plan)
         return result.is_valid

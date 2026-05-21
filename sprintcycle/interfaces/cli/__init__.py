@@ -6,7 +6,7 @@ import os
 
 import click
 
-from .api import SprintCycle
+from sprintcycle.api import SprintCycle
 
 
 @click.group()

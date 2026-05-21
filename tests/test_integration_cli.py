@@ -14,7 +14,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from click.testing import CliRunner
 
-from sprintcycle.cli import cli
+from sprintcycle.interfaces.cli import cli
 from sprintcycle.results import (
     DiagnoseResult,
     PlanResult,
@@ -44,7 +44,7 @@ class TestCLIPlan:
 
     def test_cli_plan_command(self, cli_runner, temp_project):
         """sprintcycle plan "..." -> outputs plan result"""
-        with patch('sprintcycle.cli.SprintCycle') as mock_sc:
+        with patch('sprintcycle.interfaces.cli.SprintCycle') as mock_sc:
             mock_instance = MagicMock()
             mock_sc.return_value = mock_instance
 
@@ -66,7 +66,7 @@ class TestCLIPlan:
 
     def test_cli_plan_error(self, cli_runner, temp_project):
         """plan handles errors gracefully"""
-        with patch('sprintcycle.cli.SprintCycle') as mock_sc:
+        with patch('sprintcycle.interfaces.cli.SprintCycle') as mock_sc:
             mock_instance = MagicMock()
             mock_sc.return_value = mock_instance
 
@@ -89,7 +89,7 @@ class TestCLIRun:
 
     def test_cli_run_command(self, cli_runner, temp_project):
         """sprintcycle run "..." -> outputs run result"""
-        with patch('sprintcycle.cli.SprintCycle') as mock_sc:
+        with patch('sprintcycle.interfaces.cli.SprintCycle') as mock_sc:
             mock_instance = MagicMock()
             mock_sc.return_value = mock_instance
 
@@ -115,7 +115,7 @@ class TestCLIRun:
 
     def test_cli_run_with_mode(self, cli_runner, temp_project):
         """run respects --mode option"""
-        with patch('sprintcycle.cli.SprintCycle') as mock_sc:
+        with patch('sprintcycle.interfaces.cli.SprintCycle') as mock_sc:
             mock_instance = MagicMock()
             mock_sc.return_value = mock_instance
 
@@ -134,7 +134,7 @@ class TestCLIRun:
 
     def test_cli_run_failure(self, cli_runner, temp_project):
         """run exits with code 0 (result contains error field)"""
-        with patch('sprintcycle.cli.SprintCycle') as mock_sc:
+        with patch('sprintcycle.interfaces.cli.SprintCycle') as mock_sc:
             mock_instance = MagicMock()
             mock_sc.return_value = mock_instance
 
@@ -158,7 +158,7 @@ class TestCLIStatus:
 
     def test_cli_status_command(self, cli_runner, temp_project):
         """sprintcycle status -> outputs status"""
-        with patch('sprintcycle.cli.SprintCycle') as mock_sc:
+        with patch('sprintcycle.interfaces.cli.SprintCycle') as mock_sc:
             mock_instance = MagicMock()
             mock_sc.return_value = mock_instance
 
@@ -184,7 +184,7 @@ class TestCLIStatus:
 
     def test_cli_status_with_id(self, cli_runner, temp_project):
         """status with execution ID shows details"""
-        with patch('sprintcycle.cli.SprintCycle') as mock_sc:
+        with patch('sprintcycle.interfaces.cli.SprintCycle') as mock_sc:
             mock_instance = MagicMock()
             mock_sc.return_value = mock_instance
 
@@ -212,7 +212,7 @@ class TestCLIStop:
 
     def test_cli_stop_command(self, cli_runner, temp_project):
         """sprintcycle stop -> outputs stop result"""
-        with patch('sprintcycle.cli.SprintCycle') as mock_sc:
+        with patch('sprintcycle.interfaces.cli.SprintCycle') as mock_sc:
             mock_instance = MagicMock()
             mock_sc.return_value = mock_instance
 
@@ -234,7 +234,7 @@ class TestCLIStop:
 
     def test_cli_stop_then_run(self, cli_runner, temp_project):
         """stop + run sequence works"""
-        with patch('sprintcycle.cli.SprintCycle') as mock_sc:
+        with patch('sprintcycle.interfaces.cli.SprintCycle') as mock_sc:
             mock_instance = MagicMock()
             mock_sc.return_value = mock_instance
 
@@ -265,7 +265,7 @@ class TestCLIDiagnose:
 
     def test_cli_diagnose_command(self, cli_runner, temp_project):
         """sprintcycle diagnose -> outputs diagnostic"""
-        with patch('sprintcycle.cli.SprintCycle') as mock_sc:
+        with patch('sprintcycle.interfaces.cli.SprintCycle') as mock_sc:
             mock_instance = MagicMock()
             mock_sc.return_value = mock_instance
 
@@ -286,7 +286,7 @@ class TestCLIDiagnose:
 
     def test_cli_diagnose_with_issues(self, cli_runner, temp_project):
         """diagnose reports issues"""
-        with patch('sprintcycle.cli.SprintCycle') as mock_sc:
+        with patch('sprintcycle.interfaces.cli.SprintCycle') as mock_sc:
             mock_instance = MagicMock()
             mock_sc.return_value = mock_instance
 
@@ -311,7 +311,7 @@ class TestCLIRollback:
 
     def test_cli_rollback_command(self, cli_runner, temp_project):
         """sprintcycle rollback "id" -> rolls back"""
-        with patch('sprintcycle.cli.SprintCycle') as mock_sc:
+        with patch('sprintcycle.interfaces.cli.SprintCycle') as mock_sc:
             mock_instance = MagicMock()
             mock_sc.return_value = mock_instance
 
