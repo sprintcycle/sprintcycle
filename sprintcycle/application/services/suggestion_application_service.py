@@ -72,6 +72,21 @@ class SuggestionApplicationService:
             metadata=dict(metadata or {}),
         )
 
+    def _emit(
+        self,
+        phase: HookPhase,
+        action: str,
+        *,
+        subject_id: str = "",
+        execution_id: str = "",
+        payload: Optional[Dict[str, Any]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> List[HookResult]:
+        context = self._hook_context(
+            action, subject_id=subject_id, execution_id=execution_id, payload=payload, metadata=metadata
+        )
+        return self._hooks.emit(domain=context.domain, action=context.action, phase=phase, context=context)
+
     def _ensure_before(
         self,
         action: str,
@@ -316,7 +331,7 @@ class SuggestionApplicationService:
         )
         self._hooks.event(
             "suggestion",
-            "approve",
+            "approve_suggestion",
             SUGGESTION_APPROVAL_COMPLETED_EVENT,
             {
                 "suggestion_id": suggestion_id,

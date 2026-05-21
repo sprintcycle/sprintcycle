@@ -8,7 +8,7 @@ import pytest
 
 from sprintcycle.api import SprintCycle
 from sprintcycle.infrastructure.config import RuntimeConfig
-from sprintcycle.persistence.knowledge_repository import KnowledgeCardRepository
+from sprintcycle.infrastructure.persistence.knowledge_repository import KnowledgeCardRepository
 
 
 @pytest.fixture(autouse=True)

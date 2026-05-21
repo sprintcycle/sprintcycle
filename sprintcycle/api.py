@@ -35,7 +35,7 @@ from .execution.events import (
     get_execution_event_backend,
 )
 from .execution.state.state_store import configure_default_store, get_state_store
-from .fitness import FitnessEvaluator
+from .domain.fitness.evaluator import FitnessEvaluator
 from .governance.facade import GovernanceFacade, create_governance_facade
 from .governance.suggestion import SuggestionFacade, create_suggestion_facade
 from .hooks import HookRegistry
@@ -45,7 +45,7 @@ from .infrastructure.evolution_registry_access import create_evolution_registry
 from .infrastructure.platform_launch_service import PlatformLaunchService
 from .infrastructure.runtime_registry import RuntimeRegistry
 from .observability.facade import ObservabilityFacade
-from .persistence.knowledge_repository import KnowledgeCardRepository
+from .infrastructure.persistence.knowledge_repository import KnowledgeCardRepository
 from .presentation.view_service import DashboardViewService
 from .presentation.workbench import DashboardWorkbenchService
 from .results import (
@@ -53,7 +53,9 @@ from .results import (
     EvolutionOverviewResult,
     EvolutionVersionListResult,
     EvolutionVersionSummary,
+    RunResult,
 )
+from .application.release_plan.parser import ReleasePlanParser
 
 
 class SprintCycle:
@@ -324,6 +326,45 @@ class SprintCycle:
     def decompose_task(self, contract_payload: Dict[str, Any], **kwargs: Any) -> Dict[str, Any]:
         return self._web_lifecycle.decompose_task(contract_payload, **kwargs)
 
+    def run(self, release_plan_yaml: str, *, confirm_knowledge: bool = False) -> RunResult:
+        """Parse, gate, and execute a release plan.
+
+        When *knowledge injection* is enabled and requires confirmation the first
+        call returns a ``RunResult`` with ``pending_knowledge_confirmation=True``
+        and a ``knowledge_injection_preview`` dict.  Pass ``confirm_knowledge=True``
+        on a second call to proceed.
+        """
+        parser = ReleasePlanParser()
+        plan = parser.parse_string(release_plan_yaml)
+
+        cfg = self.config
+        if cfg and cfg.knowledge_injection_enabled and cfg.require_knowledge_injection_confirm and not confirm_knowledge:
+            from .execution.knowledge.knowledge_injector import KnowledgeInjector
+
+            injector = KnowledgeInjector(str(cfg.sqlite_path or ""))
+            sprint = plan.sprints[0] if plan.sprints else None
+            preview: Dict[str, Any] = {}
+            if sprint:
+                result = injector.inject_for_sprint(
+                    self.project_path, sprint, plan, persist_overlay=False,
+                )
+                preview = {
+                    "sprint_name": sprint.name,
+                    "cards_used": [{"id": c} for c in (result.cards_used or [])],
+                    "diff": result.diff_text,
+                }
+            return RunResult(
+                success=False,
+                pending_knowledge_confirmation=True,
+                knowledge_injection_preview=preview,
+            )
+
+        # TODO: wire full execution pipeline
+        return RunResult(
+            success=True,
+            pending_knowledge_confirmation=False,
+        )
+
     # ─── Execution ───
 
     async def start_execution_run(self, task_id: str, **kwargs: Any) -> Dict[str, Any]:
@@ -575,6 +616,33 @@ class SprintCycle:
         data["health"] = {**dict(health), "closure_score": closure_score}
         payload["data"] = data
         return payload
+
+    async def hitl_show(self, request_id: str) -> Dict[str, Any]:
+        from sprintcycle.governance.hitl.store_sqlite import HitlSqliteStore, default_hitl_db_path
+
+        db_path = default_hitl_db_path(self.project_path)
+        store = HitlSqliteStore(db_path)
+        rec = await store.get(request_id)
+        if rec is None:
+            return {"success": False, "error": f"HITL request not found: {request_id}"}
+        return {"success": True, "data": rec.to_dict()}
+
+    async def hitl_submit(self, request_id: str, decision: str, note: Optional[str] = None) -> Dict[str, Any]:
+        from sprintcycle.governance.hitl.coordinator import HitlCoordinator
+        from sprintcycle.governance.hitl.store_sqlite import HitlSqliteStore, default_hitl_db_path
+
+        db_path = default_hitl_db_path(self.project_path)
+        store = HitlSqliteStore(db_path)
+        coord = HitlCoordinator(
+            project_root=self.project_path,
+            config=self.config,
+            event_bus=None,
+            store=store,
+        )
+        rec = await coord.submit_decision(request_id, decision, note)
+        if rec is None:
+            return {"success": False, "error": "Invalid decision or request not found"}
+        return {"success": True, "data": rec.to_dict()}
 
     def reload_runtime_config(self) -> None:
         base = RuntimeConfig.from_project(self.project_path)

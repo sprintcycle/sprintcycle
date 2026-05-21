@@ -330,11 +330,13 @@ def configure_execution_cache_from_runtime(runtime: "RuntimeConfig", project_pat
 
     backend = build_cache_backend(runtime, project_path)
     cache_dir = str(resolve_cache_dir_for_project(runtime, project_path))
+    ttl = runtime.cache_default_ttl_hours
+    max_entries = runtime.cache_max_entries
     set_cache(
         ExecutionCache(
             cache_dir=cache_dir,
-            ttl_hours=int(runtime.cache_default_ttl_hours),
-            max_entries=max(1, int(runtime.cache_max_entries)),
+            ttl_hours=int(ttl) if ttl is not None else 24,
+            max_entries=max(1, int(max_entries)) if max_entries is not None else 1000,
             backend=backend,
         )
     )

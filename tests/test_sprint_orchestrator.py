@@ -130,7 +130,7 @@ class TestSprintOrchestrator:
             correctness=1.0,
             details={"quality_level": "L2"},
         )
-        with patch("sprintcycle.evolution.measurement.MeasurementProvider") as MP:
+        with patch("sprintcycle.application.evolution.measurement.MeasurementProvider") as MP:
             inst = MagicMock()
             inst.measure_all.return_value = fixed
             inst.check_quality_gate.return_value = True

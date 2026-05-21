@@ -7,7 +7,6 @@ Dynaconf-backed configuration loader.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from typing import Any, Dict, Optional, Sequence
 
 from .dynaconf_app import build_dynaconf
@@ -31,15 +30,25 @@ def _resolve_env_var(value: str) -> str:
     return value
 
 
-@dataclass
 class RuntimeConfig:
-    _data: Dict[str, Any] = field(default_factory=dict)
+    """Runtime configuration backed by an attribute-accessible dict."""
+
+    def __init__(self, _data: Optional[Dict[str, Any]] = None, **kwargs: Any) -> None:
+        if _data is not None:
+            self._data = dict(_data)
+        else:
+            self._data = {}
+        self._data.setdefault("hitl_enabled", False)
+        self._data.setdefault("cache_backend", "diskcache")
+        self._data.setdefault("cache_default_ttl_hours", 24)
+        self._data.setdefault("cache_max_entries", 1000)
+        self._data.setdefault("cache_enabled", True)
+        self._data.update(kwargs)
 
     def __getattr__(self, item: str) -> Any:
-        try:
-            return self._data[item]
-        except KeyError as exc:
-            raise AttributeError(item) from exc
+        if item.startswith("_"):
+            raise AttributeError(item)
+        return self._data.get(item)
 
     def __setattr__(self, key: str, value: Any) -> None:
         if key == "_data":
@@ -55,10 +64,16 @@ class RuntimeConfig:
         data.update(kwargs)
         return RuntimeConfig(data)
 
-    def merge(self, *_args: Any, **kwargs: Any) -> "RuntimeConfig":
-        data = self.to_dict()
-        data.update(kwargs)
-        return RuntimeConfig(data)
+    @classmethod
+    def merge(cls, *args: Any, **kwargs: Any) -> "RuntimeConfig":
+        base: Dict[str, Any] = {}
+        for arg in args:
+            if isinstance(arg, dict):
+                base.update(arg)
+            elif isinstance(arg, RuntimeConfig):
+                base.update(arg.to_dict())
+        base.update(kwargs)
+        return RuntimeConfig(base)
 
     @classmethod
     def from_project(cls, project_path: str) -> "RuntimeConfig":

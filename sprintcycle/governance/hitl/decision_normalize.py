@@ -5,9 +5,9 @@ from __future__ import annotations
 from typing import Optional, Tuple
 
 _DECISION_ALIASES: dict[str, str] = {
-    "reject": "reject",
-    "deny": "reject",
-    "decline": "reject",
+    "reject": "abort_execution",
+    "deny": "abort_execution",
+    "decline": "abort_execution",
     "skip": "skip_sprint",
     "abort": "abort_execution",
     "stop": "abort_execution",

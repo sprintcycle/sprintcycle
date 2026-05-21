@@ -214,6 +214,7 @@ class ReleasePlanParser:
             constraints=constraints,
             expected_output=data.get("expected_output"),
             timeout=data.get("timeout", 600),
+            spec_ref=data.get("spec_ref"),
         )
 
     @classmethod

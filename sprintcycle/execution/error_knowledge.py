@@ -128,7 +128,7 @@ class PatternMatch:
 class ErrorKnowledgeBase:
     """统一错误知识库（精简版）"""
 
-    def __init__(self, storage_path: str = ".sprintcycle/error_knowledge", patterns: Optional[List[Dict[str, Any]]] = None):
+    def __init__(self, storage_path: str = ".sprintcycle/error_knowledge", patterns: Optional[List[Dict[str, Any]]] = None, auto_save: bool = True):
         self.storage_path = Path(storage_path)
         self._patterns: Dict[str, ErrorPattern] = {}
         self._lock = asyncio.Lock()

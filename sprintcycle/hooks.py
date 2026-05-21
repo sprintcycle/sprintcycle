@@ -39,7 +39,7 @@ HOOK_EVENTS = {
     "execution.start": (EXECUTION_STARTED_EVENT, EXECUTION_START_FAILED_EVENT),
     "suggestion.review": (SUGGESTION_REVIEWED_EVENT,),
     "suggestion.review_suggestion": (SUGGESTION_REVIEW_RECORD_EVENT,),
-    "suggestion.approve_suggestion": (SUGGESTION_APPROVED_EVENT,),
+    "suggestion.approve_suggestion": (SUGGESTION_APPROVED_EVENT, SUGGESTION_APPROVAL_COMPLETED_EVENT),
     "suggestion.reject_suggestion": (SUGGESTION_REJECTED_EVENT,),
     "suggestion.promote_to_hitl": (SUGGESTION_PROMOTED_TO_HITL_EVENT,),
     "suggestion.attach_replay": (),
@@ -52,7 +52,9 @@ HOOK_ACTIONS = {
     "execution.start": EXECUTION_START,
     "suggestion.review": SUGGESTION_REVIEW,
     "suggestion.review_suggestion": SUGGESTION_REVIEW_SUGGESTION,
+    "suggestion.approve": SUGGESTION_APPROVE_SUGGESTION,
     "suggestion.approve_suggestion": SUGGESTION_APPROVE_SUGGESTION,
+    "suggestion.reject": SUGGESTION_REJECT_SUGGESTION,
     "suggestion.reject_suggestion": SUGGESTION_REJECT_SUGGESTION,
     "suggestion.promote_to_hitl": SUGGESTION_PROMOTE_TO_HITL,
     "suggestion.attach_replay": SUGGESTION_ATTACH_REPLAY,
@@ -162,6 +164,11 @@ class HookRegistry:
                 handler(dict(payload))
             except Exception:
                 continue
+
+    def emit(self, *, domain: str, action: str, phase: HookPhase, context: HookContext) -> List[HookResult]:
+        """Convenience shortcut that creates a HookRunner and delegates."""
+        runner = HookRunner(self)
+        return runner.emit(domain=domain, action=action, phase=phase, context=context)
 
 
 class HookRunner:
