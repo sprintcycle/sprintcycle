@@ -1,6 +1,6 @@
 """稳定 prompt 模板摘要（与 Coder/Analyzer 共用模板）。"""
 
-from sprintcycle.domain.support_legacy.prompt_sources import (
+from sprintcycle.domain.prompts.prompt_sources import (
     compute_prompt_sources_fingerprint,
     format_analyzer_bug_llm_prompt,
     format_coder_generation_prompt,

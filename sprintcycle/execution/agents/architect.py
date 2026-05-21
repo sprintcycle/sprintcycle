@@ -10,7 +10,7 @@ from typing import Any, Dict
 
 from loguru import logger
 
-from sprintcycle.domain.support_legacy.prompt_sources import ARCHITECT_DOC_SECTION_MARKERS
+from sprintcycle.domain.prompts.prompt_sources import ARCHITECT_DOC_SECTION_MARKERS
 
 from .base import AgentContext, AgentExecutor, AgentResult, AgentType
 

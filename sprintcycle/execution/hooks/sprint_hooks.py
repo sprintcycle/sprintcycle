@@ -194,7 +194,7 @@ def _measurement_run_metadata(
     ).hexdigest()[:16]
 
     # Prompt sources fingerprint
-    from sprintcycle.domain.support_legacy.prompt_sources import compute_prompt_sources_fingerprint
+    from sprintcycle.domain.prompts.prompt_sources import compute_prompt_sources_fingerprint
 
     prompt_fp = compute_prompt_sources_fingerprint()
 

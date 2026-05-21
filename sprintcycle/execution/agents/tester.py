@@ -9,7 +9,7 @@ from typing import Any, Dict, List
 
 from loguru import logger
 
-from sprintcycle.domain.support_legacy.prompt_sources import TESTER_UNITTEST_STUB_PREFIX
+from sprintcycle.domain.prompts.prompt_sources import TESTER_UNITTEST_STUB_PREFIX
 
 from .base import AgentContext, AgentExecutor, AgentResult, AgentType
 
