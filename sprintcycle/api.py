@@ -469,12 +469,32 @@ class SprintCycle:
     def stop(self, execution_id: str = "") -> Any:
         """Stop a running execution."""
         from .results import StopResult
+        from .execution.state.state_store import get_state_store
+        from .execution.sprint_types import ExecutionStatus
+
+        if execution_id:
+            store = get_state_store()
+            state = store.load(execution_id)
+            if state is None:
+                return StopResult(
+                    success=False,
+                    execution_id=execution_id,
+                    cancelled=False,
+                    error=f"Execution {execution_id} not found",
+                    duration=0.0,
+                )
+            store.update_status(execution_id, ExecutionStatus.CANCELLED)
+            return StopResult(
+                success=True,
+                execution_id=execution_id,
+                cancelled=True,
+                message="已标记为 CANCELLED",
+                duration=0.1,
+            )
         return StopResult(
             success=True,
-            execution_id=execution_id,
             cancelled=True,
-            message="已标记为 CANCELLED",
-            duration=0.1,
+            duration=0.0,
         )
 
     def run_release_plan(self, plan: Any) -> Any:
