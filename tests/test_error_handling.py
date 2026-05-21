@@ -10,7 +10,7 @@ class TestErrorKnowledgeBase:
     
     @pytest.fixture
     def kb(self):
-        from sprintcycle.execution.error_knowledge import ErrorKnowledgeBase, reset_error_knowledge_base
+        from sprintcycle.domain.errors.error_knowledge import ErrorKnowledgeBase, reset_error_knowledge_base
         with tempfile.TemporaryDirectory() as tmpdir:
             kb = ErrorKnowledgeBase(storage_path=f"{tmpdir}/test_knowledge", auto_save=False)
             yield kb
@@ -31,7 +31,7 @@ class TestErrorKnowledgeBase:
         assert match.pattern.error_type == "ImportError"
     
     def test_add_custom_pattern(self, kb):
-        from sprintcycle.execution.error_knowledge import ErrorPattern
+        from sprintcycle.domain.errors.error_knowledge import ErrorPattern
         pattern = ErrorPattern(
             pattern=r"CustomError: (.+)", error_type="CustomError",
             root_cause="自定义错误", suggested_fix="处理自定义错误",
@@ -45,7 +45,7 @@ class TestErrorRouter:
     
     @pytest.fixture
     def router(self):
-        from sprintcycle.execution.error_router import ErrorRouter
+        from sprintcycle.domain.errors.error_router import ErrorRouter
         return ErrorRouter()
     
     @pytest.mark.asyncio

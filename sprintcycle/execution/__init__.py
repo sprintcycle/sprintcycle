@@ -30,14 +30,14 @@ from .cache import (
 from .error_handler import ErrorContext, ErrorHandler, FixResult, get_error_handler, reset_error_handler
 
 # 错误处理组件 (新增)
-from .error_knowledge import (
+from ..domain.errors.error_knowledge import (
     ErrorKnowledgeBase,
     ErrorPattern,
     PatternMatch,
     get_error_knowledge_base,
     reset_error_knowledge_base,
 )
-from .error_router import ErrorRouter, RoutingContext, RoutingLevel, RoutingResult, get_error_router
+from ..domain.errors.error_router import ErrorRouter, RoutingContext, RoutingLevel, RoutingResult, get_error_router
 from .events import (
     Event,
     EventBus,
