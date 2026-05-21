@@ -65,8 +65,8 @@ class EvolutionRollbackManager:
             max_branches=max_branches,
         )
         GitRollbackMixin.__init__(self, **self.config.__dict__)
-        if self._git_runner is None:
-            self._git_runner = _run_git
+        if self._git_runner is None or self._git_runner is _run_git:
+            self._git_runner = git_runner if git_runner is not None else _run_git
         self._git_available = git_branch_mode and _is_git_repo(repo_path)
         self._branches: Dict[str, Any] = {}
         
