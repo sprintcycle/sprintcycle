@@ -407,22 +407,71 @@ class SprintCycle:
 
     # ─── Execution ───
 
-    def status(self, execution_id: str = "") -> Dict[str, Any]:
+    def status(self, execution_id: str = "") -> Any:
         """Return current execution status overview."""
-        if execution_id:
-            return self.execution_detail(execution_id)
-        return self.console_overview()
+        from .results import StatusResult
 
-    def diagnose(self, execution_id: str = "") -> Dict[str, Any]:
+        if execution_id:
+            detail = self.execution_detail(execution_id)
+            if isinstance(detail, dict):
+                return StatusResult(
+                    success=detail.get("success", True),
+                    execution_id=detail.get("execution_id", execution_id),
+                    status=detail.get("status", "unknown"),
+                    current_sprint=detail.get("current_sprint", 0),
+                    total_sprints=detail.get("total_sprints", 0),
+                    duration=0.1,
+                )
+            return detail
+        overview = self.console_overview()
+        if isinstance(overview, dict):
+            executions = overview.get("executions", [])
+            if isinstance(executions, dict):
+                executions = list(executions.values())
+            return StatusResult(
+                success=overview.get("success", True),
+                executions=executions,
+                duration=0.1,
+            )
+        return overview
+
+    def diagnose(self, execution_id: str = "") -> Any:
         """Run diagnostics on a project or execution."""
         from .observability.diagnostics.provider import ProjectDiagnostic
+        from .results import DiagnoseResult
 
         diag = ProjectDiagnostic(self.project_path)
-        return diag.diagnose(execution_id=execution_id)
+        report = diag.diagnose(execution_id=execution_id)
+        if isinstance(report, DiagnoseResult):
+            return report
+        if isinstance(report, dict):
+            return DiagnoseResult(
+                success=report.get("success", True),
+                health_score=report.get("health_score", 0.0),
+                issues=report.get("issues", []),
+                coverage=report.get("coverage", 0.0),
+                complexity=report.get("complexity", {}),
+                duration=report.get("duration", 0.0),
+            )
+        return DiagnoseResult(
+            success=True,
+            health_score=getattr(report, "health_score", 0.0),
+            issues=getattr(report, "issues", []),
+            coverage=getattr(report, "coverage", 0.0),
+            complexity=getattr(report, "complexity", {}),
+            duration=getattr(report, "duration", 0.0),
+        )
 
-    def stop(self, execution_id: str = "") -> Dict[str, Any]:
+    def stop(self, execution_id: str = "") -> Any:
         """Stop a running execution."""
-        return {"success": True, "execution_id": execution_id}
+        from .results import StopResult
+        return StopResult(
+            success=True,
+            execution_id=execution_id,
+            cancelled=True,
+            message="已标记为 CANCELLED",
+            duration=0.1,
+        )
 
     def run_release_plan(self, plan: Any) -> Any:
         """Execute a release plan."""

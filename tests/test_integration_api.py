@@ -37,8 +37,7 @@ class TestAPIPlan:
         sc = SprintCycle(project_path=self.temp_dir)
 
         # Mock the ReleasePlan generation to avoid LLM calls
-        with patch('sprintcycle.api.IntentParser') as mock_parser, \
-             patch('sprintcycle.api.IntentReleasePlanGenerator') as mock_generator:
+        with patch('sprintcycle.api.ReleasePlanParser') as mock_parser:
 
             # Setup mock ReleasePlan
             from sprintcycle.application.release_plan.models import ReleasePlan, ProductAnchor, SprintDefinition, SprintBacklogItem, ExecutionMode
@@ -53,7 +52,9 @@ class TestAPIPlan:
                     )
                 ]
             )
-            mock_generator.generate.return_value = mock_plan
+            mock_parser_instance = MagicMock()
+            mock_parser_instance.parse_string.return_value = mock_plan
+            mock_parser.return_value = mock_parser_instance
 
             result = sc.plan(intent="Test intent")
 
@@ -70,9 +71,7 @@ class TestAPIPlan:
         """test_plan_with_mode: plan respects mode parameter"""
         sc = SprintCycle(project_path=self.temp_dir)
 
-        with patch('sprintcycle.api.IntentParser') as mock_parser, \
-             patch('sprintcycle.api.IntentReleasePlanGenerator') as mock_generator, \
-             patch('sprintcycle.api.ReleasePlanValidator') as mock_validator:
+        with patch('sprintcycle.api.ReleasePlanParser') as mock_parser:
 
             from sprintcycle.application.release_plan.models import ReleasePlan, ProductAnchor, SprintDefinition, SprintBacklogItem, ExecutionMode
             mock_plan = ReleasePlan(
@@ -80,12 +79,9 @@ class TestAPIPlan:
                 mode=ExecutionMode.EVOLUTION,
                 sprints=[]
             )
-            mock_generator.generate.return_value = mock_plan
-            
-            # Mock validator
-            mock_validator_instance = MagicMock()
-            mock_validator_instance.validate.return_value = MagicMock(is_valid=True)
-            mock_validator.return_value = mock_validator_instance
+            mock_parser_instance = MagicMock()
+            mock_parser_instance.parse_string.return_value = mock_plan
+            mock_parser.return_value = mock_parser_instance
 
             result = sc.plan(intent="Evolve the code", mode="evolution")
 
@@ -96,8 +92,10 @@ class TestAPIPlan:
         """test_plan_failure_handling: plan handles errors gracefully"""
         sc = SprintCycle(project_path=self.temp_dir)
 
-        with patch('sprintcycle.api.IntentParser') as mock_parser:
-            mock_parser.return_value.parse.side_effect = Exception("Parse error")
+        with patch('sprintcycle.api.ReleasePlanParser') as mock_parser:
+            mock_parser_instance = MagicMock()
+            mock_parser_instance.parse_string.side_effect = Exception("Parse error")
+            mock_parser.return_value = mock_parser_instance
 
             result = sc.plan(intent="Test intent")
 
@@ -123,8 +121,7 @@ class TestAPIRun:
         """test_run_creates_execution: run → creates execution and returns RunResult"""
         sc = SprintCycle(project_path=self.temp_dir)
 
-        with patch('sprintcycle.api.IntentParser') as mock_parser, \
-             patch('sprintcycle.api.IntentReleasePlanGenerator') as mock_generator, \
+        with patch('sprintcycle.api.ReleasePlanParser') as mock_parser, \
              patch('sprintcycle.api.get_state_store') as mock_get_store, \
              patch('sprintcycle.application.sprint_orchestrator.SprintOrchestrator') as mock_dispatcher_cls:
 
@@ -149,7 +146,9 @@ class TestAPIRun:
                     )
                 ]
             )
-            mock_generator.generate.return_value = mock_plan
+            mock_parser_instance = MagicMock()
+            mock_parser_instance.parse_string.return_value = mock_plan
+            mock_parser.return_value = mock_parser_instance
 
             # Mock sprint results
             mock_task = MagicMock()
