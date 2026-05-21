@@ -47,7 +47,7 @@ class RunnerHandler(IntentHandler):
         if api is not None:
             self._api = api
         else:
-            from ..api import SprintCycle as _SprintCycle
+            from sprintcycle.api import SprintCycle as _SprintCycle
 
             self._api = _SprintCycle(project_path=project_path, config=config)
 

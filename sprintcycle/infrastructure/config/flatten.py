@@ -49,13 +49,19 @@ def flatten_sprintcycle_toml(nested: Dict[str, Any]) -> Dict[str, Any]:
 
     Example:
         {"quality": {"level": "L2"}} → {"quality_level": "L2"}
+
+    When multiple keys map to the same flat key (e.g. cache.url / cache.redis_url
+    both map to ``cache_redis_url``), the more specific key wins via sorting.
     """
     flat: Dict[str, Any] = {}
     for section, values in nested.items():
         if not isinstance(values, dict):
             flat[section] = values
             continue
-        for key, val in values.items():
+        # Process keys in reverse-sorted order so more-specific keys (e.g. redis_url)
+        # overwrite less-specific ones (e.g. url) when they share a flat name.
+        for key in sorted(values.keys(), reverse=True):
+            val = values[key]
             mapped = _FLATTEN_MAP.get(f"{section}.{key}")
             if mapped is not None:
                 flat[mapped] = val

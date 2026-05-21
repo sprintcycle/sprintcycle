@@ -61,6 +61,11 @@ def _resolve_lint_imports_exe() -> Optional[str]:
     cand = Path(sys.executable).resolve().parent / "lint-imports"
     if cand.is_file():
         return str(cand)
+    # Check common user-local bin paths
+    for home_prefix in (Path.home() / ".local", Path.home()):
+        cand2 = home_prefix / "bin" / "lint-imports"
+        if cand2.is_file():
+            return str(cand2)
     return None
 
 
