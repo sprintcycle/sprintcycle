@@ -184,7 +184,7 @@ class TestFileBackupMode:
     def test_init_file_backup_mode(self, temp_dir):
         # When git is not available, manager falls back to file_backup mode
         config = RollbackConfig(git_branch_mode=False, backup_dir=temp_dir + "/backups")
-        with patch('sprintcycle.evolution.rollback_manager._is_git_repo', return_value=False):
+        with patch('sprintcycle.domain.evolution.rollback_manager._is_git_repo', return_value=False):
             manager = EvolutionRollbackManager(git_branch_mode=False, backup_dir=temp_dir + "/backups")
             assert manager.mode == "file_backup"
 
@@ -215,7 +215,7 @@ class TestFileBackupMode:
 class TestModeSwitching:
     def test_git_mode_when_git_available(self, temp_dir):
         config = RollbackConfig(git_branch_mode=True, repo_path=temp_dir)
-        with patch('sprintcycle.evolution.rollback_manager._is_git_repo', return_value=True):
+        with patch('sprintcycle.domain.evolution.rollback_manager._is_git_repo', return_value=True):
             responses = {"rev-parse --git-dir": (0, "/git/dir")}
             mock_runner = make_mock_runner(responses)
             manager = EvolutionRollbackManager(git_runner=mock_runner)
@@ -230,7 +230,7 @@ class TestModeSwitching:
     def test_explicit_file_backup_mode(self, temp_dir):
         # When git_branch_mode=False, should use file_backup mode regardless of git availability
         config = RollbackConfig(git_branch_mode=False, repo_path=temp_dir, backup_dir=temp_dir + "/bk")
-        with patch('sprintcycle.evolution.rollback_manager._is_git_repo', return_value=True):
+        with patch('sprintcycle.domain.evolution.rollback_manager._is_git_repo', return_value=True):
             manager = EvolutionRollbackManager(git_branch_mode=False, backup_dir=temp_dir + "/bk")
             assert manager.mode == "file_backup"
 
@@ -243,7 +243,7 @@ class TestPublicAPI:
     def test_prepare_variant_routes_correctly(self, temp_dir):
         # With git_branch_mode=False, prepare_variant should call _prepare_file_backup
         config = RollbackConfig(git_branch_mode=False, repo_path=temp_dir, backup_dir=temp_dir + "/bk")
-        with patch('sprintcycle.evolution.rollback_manager._is_git_repo', return_value=False):
+        with patch('sprintcycle.domain.evolution.rollback_manager._is_git_repo', return_value=False):
             manager = EvolutionRollbackManager(git_branch_mode=False, backup_dir=temp_dir + "/bk")
 
             with patch.object(manager, '_prepare_file_backup', return_value="backup_id_123") as mock_prep:
@@ -253,7 +253,7 @@ class TestPublicAPI:
     def test_commit_variant_routes_correctly(self, temp_dir):
         # With git_branch_mode=False, commit_variant should call _commit_file_backup
         config = RollbackConfig(git_branch_mode=False, repo_path=temp_dir, backup_dir=temp_dir + "/bk")
-        with patch('sprintcycle.evolution.rollback_manager._is_git_repo', return_value=False):
+        with patch('sprintcycle.domain.evolution.rollback_manager._is_git_repo', return_value=False):
             manager = EvolutionRollbackManager(git_branch_mode=False, backup_dir=temp_dir + "/bk")
 
             with patch.object(manager, '_commit_file_backup', return_value=True) as mock_commit:
@@ -292,7 +292,7 @@ class TestPublicAPI:
     def test_merge_winner_file_mode(self, temp_dir):
         # In file_backup mode, merge_winner requires a record to return True
         config = RollbackConfig(git_branch_mode=False, repo_path=temp_dir, backup_dir=temp_dir + "/bk")
-        with patch('sprintcycle.evolution.rollback_manager._is_git_repo', return_value=False):
+        with patch('sprintcycle.domain.evolution.rollback_manager._is_git_repo', return_value=False):
             manager = EvolutionRollbackManager(git_branch_mode=False, backup_dir=temp_dir + "/bk")
             
             # First prepare the variant to create a record
@@ -320,7 +320,7 @@ class TestPublicAPI:
     def test_get_stats(self, temp_dir):
         # The implementation uses a `stats` property, not a `get_stats()` method
         config = RollbackConfig(git_branch_mode=False, repo_path=temp_dir, backup_dir=temp_dir + "/bk")
-        with patch('sprintcycle.evolution.rollback_manager._is_git_repo', return_value=False):
+        with patch('sprintcycle.domain.evolution.rollback_manager._is_git_repo', return_value=False):
             manager = EvolutionRollbackManager(git_branch_mode=False, backup_dir=temp_dir + "/bk")
             stats = manager.stats  # Use property, not method
             assert "mode" in stats

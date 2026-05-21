@@ -50,8 +50,8 @@ from .infrastructure.platform_launch_service import PlatformLaunchService
 from .infrastructure.runtime_registry import RuntimeRegistry
 from .observability.diagnostics.provider import ProjectDiagnostic
 from .observability.facade import ObservabilityFacade
-from .presentation.view_service import DashboardViewService
-from .presentation.workbench import DashboardWorkbenchService
+from .dashboard.view_service import DashboardViewService
+from .dashboard.workbench import DashboardWorkbenchService
 from .results import (
     EvolutionIndexResult,
     EvolutionOverviewResult,

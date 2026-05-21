@@ -13,8 +13,8 @@ from ...domain.platform.overview import build_platform_overview_view
 from ...domain.platform.spec import build_platform_spec
 from ...execution.state import summarize_state_machine
 from ...execution.state.state_store import get_state_store
-from ...presentation.view_service import DashboardViewService
-from ...presentation.workbench import DashboardWorkbenchService
+from ...dashboard.view_service import DashboardViewService
+from ...dashboard.workbench import DashboardWorkbenchService
 
 
 @dataclass
