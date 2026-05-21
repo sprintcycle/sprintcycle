@@ -138,11 +138,15 @@ class EvolutionRollbackManager:
             )
             record.committed = True
             return rc == 0 or "nothing to commit" in stderr.lower()
-        return True
+        return self._commit_file_backup(variant_id)
 
     def _commit_git_branch(self, variant_id: str) -> bool:
         """Private alias for commit_variant used by tests."""
         return self.commit_variant(variant_id)
+
+    def _commit_file_backup(self, variant_id: str) -> bool:
+        """Confirm file backup variant (always succeeds)."""
+        return True
 
     def _rollback_git_branch(self, variant_id: str) -> bool:
         """Roll back (delete) a git branch variant."""
@@ -154,6 +158,19 @@ class EvolutionRollbackManager:
         rc, _, _ = self._git_runner(
             ["branch", "-D", record.branch_name], cwd=self.config.repo_path
         ) if self._git_available else (0, "", "")
+        self._branches.pop(variant_id, None)
+        return True
+
+    def _rollback_file_backup(self, variant_id: str) -> bool:
+        """Roll back (clean up) a file backup variant."""
+        backup_dir = Path(self.config.backup_dir)
+        if backup_dir.exists():
+            prefix = f"evo_{variant_id}_"
+            for backup_file in backup_dir.glob(f"{prefix}*.py"):
+                try:
+                    backup_file.unlink()
+                except Exception:
+                    pass
         self._branches.pop(variant_id, None)
         return True
 
@@ -171,6 +188,10 @@ class EvolutionRollbackManager:
         """Get the branch record for a variant."""
         return self._branches.get(variant_id)
 
+    def list_active_branches(self) -> List[VariantBranch]:
+        """列出所有活跃（未合并）变体分支记录"""
+        return [r for r in self._branches.values() if not getattr(r, "merged", False)]
+
     def rollback_variant(self, variant_id: str) -> bool:
         """回滚变体"""
         record = self._branches.get(variant_id)
@@ -180,18 +201,9 @@ class EvolutionRollbackManager:
         if self._git_available:
             self._git_runner(["branch", "-D", record.branch_name], cwd=self.config.repo_path)
             self._git_runner(["checkout", "main"], cwd=self.config.repo_path)
-        else:
-            backup_dir = Path(self.config.backup_dir)
-            if backup_dir.exists():
-                prefix = f"evo_{variant_id}_"
-                for backup_file in backup_dir.glob(f"{prefix}*.py"):
-                    try:
-                        backup_file.unlink()
-                    except Exception:
-                        pass
-
-        del self._branches[variant_id]
-        return True
+            del self._branches[variant_id]
+            return True
+        return self._rollback_file_backup(variant_id)
 
     def merge_winner(self, variant_id: str, target_branch: str = "main") -> bool:
         """将获胜变体合并到目标分支"""
