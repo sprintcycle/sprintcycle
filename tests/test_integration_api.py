@@ -40,7 +40,7 @@ class TestAPIPlan:
         with patch('sprintcycle.api.ReleasePlanParser') as mock_parser:
 
             # Setup mock ReleasePlan
-            from sprintcycle.application.release_plan.models import ReleasePlan, ProductAnchor, SprintDefinition, SprintBacklogItem, ExecutionMode
+            from sprintcycle.domain.models import ReleasePlan, ProductAnchor, SprintDefinition, SprintBacklogItem, ExecutionMode
             mock_plan = ReleasePlan(
                 project=ProductAnchor(name="TestProject", path=self.temp_dir),
                 mode=ExecutionMode.NORMAL,
@@ -73,7 +73,7 @@ class TestAPIPlan:
 
         with patch('sprintcycle.api.ReleasePlanParser') as mock_parser:
 
-            from sprintcycle.application.release_plan.models import ReleasePlan, ProductAnchor, SprintDefinition, SprintBacklogItem, ExecutionMode
+            from sprintcycle.domain.models import ReleasePlan, ProductAnchor, SprintDefinition, SprintBacklogItem, ExecutionMode
             mock_plan = ReleasePlan(
                 project=ProductAnchor(name="TestProject", path=self.temp_dir),
                 mode=ExecutionMode.EVOLUTION,
@@ -132,7 +132,7 @@ class TestAPIRun:
                 MagicMock(execution_id="test-exec-123")
             ]
 
-            from sprintcycle.application.release_plan.models import ReleasePlan, ProductAnchor, SprintDefinition, SprintBacklogItem, ExecutionMode
+            from sprintcycle.domain.models import ReleasePlan, ProductAnchor, SprintDefinition, SprintBacklogItem, ExecutionMode
             from sprintcycle.execution.sprint_types import SprintResult, TaskResult
 
             mock_plan = ReleasePlan(
@@ -205,7 +205,7 @@ sprints:
             mock_get_store.return_value = mock_store
             mock_store.list_executions.return_value = []
 
-            from sprintcycle.application.release_plan.models import ReleasePlan, ProductAnchor, ExecutionMode
+            from sprintcycle.domain.models import ReleasePlan, ProductAnchor, ExecutionMode
             mock_plan = ReleasePlan(
                 project=ProductAnchor(name="YAMLProject", path="."),
                 mode=ExecutionMode.NORMAL,
@@ -232,7 +232,7 @@ sprints:
 
     def test_run_release_plan_success(self):
         """run_release_plan: validated in-memory ReleasePlan → RunResult"""
-        from sprintcycle.application.release_plan.models import (
+        from sprintcycle.domain.models import (
             ExecutionMode,
             ProductAnchor,
             ReleasePlan,
@@ -274,7 +274,7 @@ sprints:
 
     def test_run_release_plan_validation_failure(self):
         """run_release_plan returns failed RunResult when validator rejects plan."""
-        from sprintcycle.application.release_plan.models import (
+        from sprintcycle.domain.models import (
             ExecutionMode,
             ProductAnchor,
             ReleasePlan,

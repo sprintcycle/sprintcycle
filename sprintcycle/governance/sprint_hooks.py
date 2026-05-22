@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from loguru import logger
 
-from ..application.release_plan.models import ReleasePlan, SprintDefinition
+from sprintcycle.domain.models import ReleasePlan, SprintDefinition
 from ..execution.events import Event, EventType, ExecutionEventBackend
 from ..execution.hooks.sprint_hooks import SprintLifecycleHooks
 from ..execution.sprint_types import SprintResult

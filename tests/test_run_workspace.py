@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from sprintcycle.execution.planners.generator import IntentReleasePlanGenerator
-from sprintcycle.application.release_plan.models import ExecutionMode
+from sprintcycle.domain.models import ExecutionMode
 from sprintcycle.execution.run_workspace import (
     effective_write_policy,
     normalize_reference_paths,

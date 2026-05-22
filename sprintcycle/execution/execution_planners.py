@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from typing import Any, Dict
 
 from .context import SprintExecutionContext, TaskExecutionContext
-from .planners.models import ReleasePlan, SprintBacklogItem, SprintDefinition
+from sprintcycle.domain.models import ReleasePlan, SprintBacklogItem, SprintDefinition
 from .policies import SprintFeedbackPolicy, SprintRetryPolicy
 
 

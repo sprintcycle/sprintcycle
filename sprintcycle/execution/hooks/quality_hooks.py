@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from ...application.release_plan.models import ReleasePlan, SprintBacklogItem, SprintDefinition
+from sprintcycle.domain.models import ReleasePlan, SprintBacklogItem, SprintDefinition
 from ...domain.quality_spec.context import build_quality_context
 from ...domain.quality_spec.hooks.lifecycle_report import LifecycleReport
 from ...domain.quality_spec.hooks.quality_hooks import QualityLifecycleHooks

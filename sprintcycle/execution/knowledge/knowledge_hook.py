@@ -6,7 +6,7 @@ from typing import Any, Dict, Optional
 
 from loguru import logger
 
-from ...application.release_plan.models import ReleasePlan, SprintDefinition
+from sprintcycle.domain.models import ReleasePlan, SprintDefinition
 from ...infrastructure.config import RuntimeConfig
 from ..hooks.sprint_hooks import SprintLifecycleHooks
 from ..sprint_types import SprintResult

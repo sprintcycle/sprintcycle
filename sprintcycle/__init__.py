@@ -7,7 +7,7 @@ __author__ = "SprintCycle Team"
 
 VERSION = __version__
 
-from .application.release_plan.models import (
+from .domain.models import (
     EvolutionParams,
     ExecutionMode,
     ProductAnchor,

@@ -11,7 +11,7 @@ from sprintcycle.infrastructure.config import RuntimeConfig
 from sprintcycle.domain.evolution.measurement import MeasurementResult
 from sprintcycle.execution.sprint_types import ExecutionStatus, SprintResult, TaskResult
 from sprintcycle.application.sprint_orchestrator import SprintOrchestrator, _measurement_run_metadata
-from sprintcycle.application.release_plan.models import (
+from sprintcycle.domain.models import (
     ExecutionMode,
     ProductAnchor,
     ReleasePlan,
@@ -83,7 +83,7 @@ class TestSprintOrchestrator:
 
     def test_execute_evolution_expands_to_sprints(self):
         """自进化模式经展开后与 SprintExecutor 单一路径一致。"""
-        from sprintcycle.application.release_plan.models import EvolutionParams
+        from sprintcycle.domain.models import EvolutionParams
 
         plan = ReleasePlan(
             project=ProductAnchor(name="evo", path="/root/test"),

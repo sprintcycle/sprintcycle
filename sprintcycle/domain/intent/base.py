@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 # 使用 TYPE_CHECKING 避免循环导入
 if TYPE_CHECKING:
-    from ...application.release_plan.models import ReleasePlan
+    from sprintcycle.domain.models import ReleasePlan
     from ...application.sprint_orchestrator import SprintResult
     from ...results import RunResult
 

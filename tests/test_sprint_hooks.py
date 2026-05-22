@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 from sprintcycle.infrastructure.config import RuntimeConfig
 from sprintcycle.execution.sprint_executor import SprintExecutor
 from sprintcycle.execution.hooks.sprint_hooks import ChainedSprintHooks, SprintLifecycleHooks
-from sprintcycle.application.release_plan.models import ReleasePlan, ProductAnchor, SprintDefinition, SprintBacklogItem, ExecutionMode
+from sprintcycle.domain.models import ReleasePlan, ProductAnchor, SprintDefinition, SprintBacklogItem, ExecutionMode
 
 
 class CountingHooks(SprintLifecycleHooks):
@@ -110,7 +110,7 @@ def test_orchestrator_uses_execute_sprints_not_per_sprint_loop():
     from unittest.mock import AsyncMock, patch
 
     from sprintcycle.application.sprint_orchestrator import SprintOrchestrator
-    from sprintcycle.application.release_plan.models import ReleasePlan, ProductAnchor, SprintDefinition, SprintBacklogItem, ExecutionMode
+    from sprintcycle.domain.models import ReleasePlan, ProductAnchor, SprintDefinition, SprintBacklogItem, ExecutionMode
 
     plan = ReleasePlan(
         project=ProductAnchor(name="x", path="."),

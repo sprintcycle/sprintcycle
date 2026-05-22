@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from loguru import logger
 
-from ...application.release_plan.models import ReleasePlan, SprintBacklogItem, SprintDefinition
+from sprintcycle.domain.models import ReleasePlan, SprintBacklogItem, SprintDefinition
 from ...execution.hooks.sprint_hooks import SprintLifecycleHooks
 from ...execution.hooks.task_hooks import TaskLifecycleHooks
 from ...execution.sprint_types import ExecutionStatus, SprintResult, TaskResult

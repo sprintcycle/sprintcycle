@@ -16,7 +16,7 @@ from sprintcycle.execution.planners.generator import (
     EvolutionParams,
     ExecutionMode,
 )
-from sprintcycle.application.release_plan.models import ReleasePlan
+from sprintcycle.domain.models import ReleasePlan
 
 
 class TestIntentReleasePlanGenerator:

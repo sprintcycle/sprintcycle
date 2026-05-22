@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from ..application.release_plan.models import ReleasePlan, SprintDefinition
+from sprintcycle.domain.models import ReleasePlan, SprintDefinition
 from .protocols import ExecutionContext
 from .sprint_executor import SprintExecutor
 from .sprint_types import SprintResult

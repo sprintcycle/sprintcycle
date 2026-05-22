@@ -14,7 +14,7 @@ from typing import Any, Optional
 from ...domain.evolution.context import EvolutionContext
 from ...domain.intent.parser import ActionType, ParsedIntent
 from ...infrastructure.config.runtime_config import RuntimeConfig
-from .models import (
+from sprintcycle.domain.models import (
     EvolutionParams,
     ExecutionMode,
     ProductAnchor,

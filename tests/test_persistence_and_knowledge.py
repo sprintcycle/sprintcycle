@@ -89,7 +89,7 @@ def test_knowledge_search_and_injection(tmp_path: Path) -> None:
     tagged = repo.search(query="", tags=["security"], limit=10)
     assert len(tagged) == 1
 
-    from sprintcycle.application.release_plan.models import ReleasePlan, ProductAnchor, SprintDefinition, SprintBacklogItem, ExecutionMode
+    from sprintcycle.domain.models import ReleasePlan, ProductAnchor, SprintDefinition, SprintBacklogItem, ExecutionMode
 
     sprint = SprintDefinition(name="auth sprint", goals=["harden api"], tasks=[SprintBacklogItem(description="t", agent="coder")])
     plan = ReleasePlan(project=ProductAnchor(name="p", path=str(tmp_path)), mode=ExecutionMode.NORMAL, sprints=[sprint])

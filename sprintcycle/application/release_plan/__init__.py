@@ -1,44 +1,24 @@
 """
-SprintCycle Release Plan 模块（工程包名 ``release_plan``）
+Application Release Plan - 发布计划应用层
 
-可执行多 Sprint 计划：内存模型在 ``models`` 中为 ``ReleasePlan``、``SprintDefinition`` 等；
-根包 ``from sprintcycle import ReleasePlan, ReleasePlanParser`` 与本文档一致。
+为保持向后兼容，本模块重新导出 domain.models 中的核心类型。
+实际类型定义已移动到 sprintcycle.domain.models。
 """
 
-from .builders import (
-    release_plan_from_diagnostic_slices,
-    sprint_backlog_item_from_dict,
-    sprint_definition_from_dict,
-)
-from .expand import EvolutionPath, EvolutionStrategy, expand_release_plan_for_execution
-from .models import (
-    EvolutionParams,
+from sprintcycle.domain.models import (
     ExecutionMode,
+    EvolutionParams,
     ProductAnchor,
     ReleasePlan,
     SprintBacklogItem,
     SprintDefinition,
 )
-from .parser import ReleasePlanParseError, ReleasePlanParser, YAMLError
-from .validator import ReleasePlanValidator, ValidationError, ValidationResult
 
 __all__ = [
-    "ReleasePlan",
-    "ProductAnchor",
-    "SprintDefinition",
-    "SprintBacklogItem",
-    "EvolutionParams",
-    "EvolutionPath",
-    "EvolutionStrategy",
-    "sprint_backlog_item_from_dict",
-    "sprint_definition_from_dict",
-    "release_plan_from_diagnostic_slices",
-    "expand_release_plan_for_execution",
     "ExecutionMode",
-    "ReleasePlanParser",
-    "ReleasePlanParseError",
-    "YAMLError",
-    "ReleasePlanValidator",
-    "ValidationError",
-    "ValidationResult",
+    "EvolutionParams",
+    "ProductAnchor",
+    "ReleasePlan",
+    "SprintBacklogItem",
+    "SprintDefinition",
 ]

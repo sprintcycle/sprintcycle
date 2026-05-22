@@ -13,7 +13,7 @@ from typing import Any, Callable, Dict, List, Optional, Set
 
 from loguru import logger
 
-from ..application.release_plan.models import ReleasePlan, SprintBacklogItem, SprintDefinition
+from sprintcycle.domain.models import ReleasePlan, SprintBacklogItem, SprintDefinition
 from ..application.release_plan.payload_keys import context_plan_id_name
 from ..governance.hitl.types import CTX_HITL_ABORT_EXECUTION, CTX_HITL_SPRINT_ACTION
 from .events import EventType, ExecutionEventBackend, create_event

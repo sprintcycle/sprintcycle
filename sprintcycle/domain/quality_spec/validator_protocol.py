@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import List, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from sprintcycle.execution.planners.models import ReleasePlan
+    from sprintcycle.domain.models import ReleasePlan
 
 
 @dataclass

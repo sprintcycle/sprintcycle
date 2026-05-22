@@ -15,7 +15,7 @@ from typing import List
 
 from loguru import logger
 
-from sprintcycle.application.release_plan.models import ReleasePlan
+from sprintcycle.domain.models import ReleasePlan
 from sprintcycle.application.release_plan.parser import ReleasePlanParseError, ReleasePlanParser
 
 

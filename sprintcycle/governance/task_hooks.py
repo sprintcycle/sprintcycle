@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from loguru import logger
 
-from ..application.release_plan.models import SprintBacklogItem
+from sprintcycle.domain.models import SprintBacklogItem
 from ..execution.events import EventType, ExecutionEventBackend, create_event, get_execution_event_backend
 from ..execution.hooks.governance_context import (
     CTX_GOVERNANCE_TASK_AFTER_DETAIL,

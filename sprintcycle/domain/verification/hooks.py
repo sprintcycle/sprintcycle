@@ -8,7 +8,7 @@ from sprintcycle.execution.events import Event, EventType, ExecutionEventBackend
 from sprintcycle.execution.hooks.sprint_hooks import SprintLifecycleHooks
 from sprintcycle.execution.sprint_types import SprintResult
 
-from ...application.release_plan.models import ReleasePlan, SprintDefinition
+from sprintcycle.domain.models import ReleasePlan, SprintDefinition
 from .config import VerificationConfig
 from .engine import VerificationEngine
 from .reporter import VerificationReportAdapter

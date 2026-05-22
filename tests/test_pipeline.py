@@ -12,7 +12,7 @@ import pytest
 from sprintcycle.api import SprintCycle
 from sprintcycle.infrastructure.config import RuntimeConfig
 from sprintcycle.application.sprint_orchestrator import SprintOrchestrator
-from sprintcycle.application.release_plan.models import (
+from sprintcycle.domain.models import (
     ExecutionMode,
     ProductAnchor,
     ReleasePlan,

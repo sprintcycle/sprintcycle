@@ -36,7 +36,7 @@ from ..execution.hooks.sprint_hooks import (
 from ..execution.hooks.task_hooks import ChainedTaskHooks, TaskLifecycleHooks
 from ..execution.knowledge.knowledge_hook import KnowledgeInjectionHook
 from ..execution.planners.expand import expand_release_plan_for_execution
-from ..execution.planners.models import ReleasePlan, SprintBacklogItem, SprintDefinition
+from sprintcycle.domain.models import ReleasePlan, SprintBacklogItem, SprintDefinition
 from ..execution.protocols import ExecutionContext
 from ..execution.skill_store import SkillStore
 from ..execution.skills import SkillOrchestrator

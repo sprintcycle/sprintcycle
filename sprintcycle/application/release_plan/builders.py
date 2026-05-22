@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from .models import (
+from sprintcycle.domain.models import (
     ExecutionMode,
     ProductAnchor,
     ReleasePlan,

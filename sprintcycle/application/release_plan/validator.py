@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List
 
-from .models import (
+from sprintcycle.domain.models import (
     ExecutionMode,
     ProductAnchor,
     ReleasePlan,

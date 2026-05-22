@@ -232,7 +232,7 @@ def test_quality_gate_l2_coverage_fail():
 
 def test_sprint_executor_retry_budget():
     from sprintcycle.execution.sprint_executor import SprintExecutor
-    from sprintcycle.application.release_plan.models import SprintDefinition
+    from sprintcycle.domain.models import SprintDefinition
 
     ex = SprintExecutor(max_verify_fix_rounds=3)
     sp = SprintDefinition(name="s", goals=[], tasks=[])

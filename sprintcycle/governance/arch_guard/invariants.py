@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from ...execution.planners.models import ReleasePlan
+from sprintcycle.domain.models import ReleasePlan
 from .model import GuardFinding
 
 

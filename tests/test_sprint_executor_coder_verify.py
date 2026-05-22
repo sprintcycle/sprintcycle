@@ -8,7 +8,7 @@ import pytest
 
 from sprintcycle.infrastructure.config import RuntimeConfig
 from sprintcycle.execution.sprint_executor import SprintExecutor
-from sprintcycle.application.release_plan.models import SprintBacklogItem
+from sprintcycle.domain.models import SprintBacklogItem
 
 
 class _FakeCoder:

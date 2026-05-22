@@ -17,7 +17,7 @@ from ...application.release_plan.parser import ReleasePlanParser
 from .base import IntentHandler, IntentResult
 
 if TYPE_CHECKING:
-    from ...application.release_plan.models import ReleasePlan
+    from sprintcycle.domain.models import ReleasePlan
     from ...infrastructure.config import RuntimeConfig
     from ..api import SprintCycle
 

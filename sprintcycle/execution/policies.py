@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict
 
-from .planners.models import SprintDefinition
+from sprintcycle.domain.models import SprintDefinition
 
 
 @dataclass

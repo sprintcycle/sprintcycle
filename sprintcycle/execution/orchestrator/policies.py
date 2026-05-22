@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 from ...domain.evolution.measurement import MeasurementResult
-from ...application.release_plan.models import ReleasePlan, SprintDefinition
+from sprintcycle.domain.models import ReleasePlan, SprintDefinition
 from ..sprint_types import ExecutionStatus, SprintResult
 
 
