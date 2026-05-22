@@ -35,7 +35,6 @@ def build_public_router(services: HTTPServices, project_path: str) -> APIRouter:
     async def plan(request: Request, payload: dict) -> dict:
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/v1/plan", context=ctx)
-        # 调用 SprintOrchestrator 进行规划
         from sprintcycle.application.sprint_orchestrator import SprintOrchestrator
         from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
         
@@ -94,7 +93,7 @@ def build_public_router(services: HTTPServices, project_path: str) -> APIRouter:
     async def diagnose(request: Request) -> dict:
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/v1/diagnose", context=ctx)
-        result = deps.services.status()  # TODO: 需要专门的 diagnose 方法
+        result = deps.services.diagnose()
         record_audit_event(
             request_id=ctx.request_id,
             actor=ctx.caller,
@@ -122,7 +121,7 @@ def build_public_router(services: HTTPServices, project_path: str) -> APIRouter:
     async def rollback(request: Request, payload: dict) -> dict:
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/v1/rollback", context=ctx)
-        # TODO: 调用 rollback 逻辑
+        result = deps.services.rollback(execution_id=payload.get("execution_id", ""))
         record_audit_event(
             request_id=ctx.request_id,
             actor=ctx.caller,
@@ -130,13 +129,13 @@ def build_public_router(services: HTTPServices, project_path: str) -> APIRouter:
             resource="/api/v1/rollback",
             outcome="success",
         )
-        return {"success": True, "message": "rollback endpoint - to be implemented"}
+        return result
 
     @router.post("/stop")
     async def stop(request: Request, payload: dict) -> dict:
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/v1/stop", context=ctx)
-        # TODO: 调用 stop 逻辑
+        result = deps.services.stop(execution_id=payload.get("execution_id", ""))
         record_audit_event(
             request_id=ctx.request_id,
             actor=ctx.caller,
@@ -144,6 +143,6 @@ def build_public_router(services: HTTPServices, project_path: str) -> APIRouter:
             resource="/api/v1/stop",
             outcome="success",
         )
-        return {"success": True, "message": "stop endpoint - to be implemented"}
+        return result
 
     return router

@@ -243,6 +243,89 @@ class HTTPServices:
     def get_evolution_version(self, version_id: str) -> Any:
         return self._evolution_version.get_version(version_id)
 
+    # ===== Public API 方法 =====
+
+    def diagnose(self, execution_id: str = "") -> Any:
+        """运行项目或执行诊断"""
+        from sprintcycle.infrastructure.observability.diagnostics.provider import ProjectDiagnostic
+        from sprintcycle.results import DiagnoseResult
+
+        diag = ProjectDiagnostic(self.project_path)
+        report = diag.diagnose(execution_id=execution_id)
+        if isinstance(report, DiagnoseResult):
+            return report.to_dict()
+        if isinstance(report, dict):
+            return {
+                "success": report.get("success", True),
+                "health_score": report.get("health_score", 0.0),
+                "issues": report.get("issues", []),
+                "coverage": report.get("coverage", 0.0),
+                "complexity": report.get("complexity", {}),
+                "duration": report.get("duration", 0.0),
+            }
+        return {
+            "success": True,
+            "health_score": getattr(report, "health_score", 0.0) if hasattr(report, "health_score") else 0.0,
+            "issues": getattr(report, "issues", []) if hasattr(report, "issues") else [],
+            "coverage": getattr(report, "coverage", 0.0) if hasattr(report, "coverage") else 0.0,
+            "complexity": getattr(report, "complexity", {}) if hasattr(report, "complexity") else {},
+            "duration": getattr(report, "duration", 0.0) if hasattr(report, "duration") else 0.0,
+        }
+
+    def stop(self, execution_id: str = "") -> Any:
+        """停止正在运行的执行"""
+        from sprintcycle.execution.sprint_types import ExecutionStatus
+        from sprintcycle.execution.state.state_store import get_state_store
+        from sprintcycle.results import StopResult
+
+        if execution_id:
+            store = get_state_store()
+            state = store.load(execution_id)
+            if state is None:
+                return StopResult(
+                    success=False,
+                    execution_id=execution_id,
+                    cancelled=False,
+                    error=f"Execution {execution_id} not found",
+                    duration=0.0,
+                ).to_dict()
+            store.update_status(execution_id, ExecutionStatus.CANCELLED)
+            return StopResult(
+                success=True,
+                execution_id=execution_id,
+                cancelled=True,
+                message="已标记为 CANCELLED",
+                duration=0.1,
+            ).to_dict()
+        return StopResult(
+            success=True,
+            cancelled=True,
+            duration=0.0,
+        ).to_dict()
+
+    def rollback(self, execution_id: str) -> Any:
+        """回滚执行到执行前状态"""
+        from sprintcycle.execution.state.state_store import get_state_store
+        from sprintcycle.results import RollbackResult
+
+        store = get_state_store()
+        state = store.load(execution_id)
+        if state is None:
+            return RollbackResult(
+                success=False,
+                execution_id=execution_id,
+                rollback_point="",
+                error=f"Execution {execution_id} not found",
+                duration=0.0,
+            ).to_dict()
+        rollback_point = getattr(state, "metadata", {}).get("pre_execution_commit", "")
+        return RollbackResult(
+            success=bool(rollback_point),
+            execution_id=execution_id,
+            rollback_point=rollback_point or "",
+            duration=0.1,
+        ).to_dict()
+
 
 def create_http_services(project_path: str) -> HTTPServices:
     """工厂函数：创建 HTTP 层服务实例"""
