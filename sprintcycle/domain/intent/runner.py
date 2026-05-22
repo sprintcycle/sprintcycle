@@ -1,7 +1,7 @@
 """
 已解析 Release Plan 的执行适配（弃用路径）
 
-首选：``SprintCycle.run_release_plan(release_plan)``，返回与 ``run()`` 一致的 ``RunResult``。
+首选：``SprintOrchestrator.run_release_plan(release_plan)``，返回与 ``run()`` 一致的 ``RunResult``。
 
 ``RunnerHandler`` 仅保留向后兼容，委托 ``run_release_plan`` 并映射为 ``IntentResult``。
 """
@@ -19,8 +19,7 @@ from .base import IntentHandler, IntentResult
 if TYPE_CHECKING:
     from sprintcycle.domain.models import ReleasePlan
     from sprintcycle.domain.interfaces import ReleasePlanParserProtocol
-    from ...infrastructure.config import RuntimeConfig
-    from ..api import SprintCycle
+    from sprintcycle.application.sprint_orchestrator import SprintOrchestrator
 
 
 def parse_release_plan_file(file_path: str) -> "ReleasePlan":
@@ -31,34 +30,36 @@ def parse_release_plan_file(file_path: str) -> "ReleasePlan":
 
 
 class RunnerHandler(IntentHandler):
-    """已弃用：请使用 ``SprintCycle.run_release_plan``；需 ``IntentResult`` 时用 ``IntentResult.from_run_result``。"""
+    """已弃用：请使用 ``SprintOrchestrator.run_release_plan``；需 ``IntentResult`` 时用 ``IntentResult.from_run_result``。"""
 
     def __init__(
         self,
-        api: Optional["SprintCycle"] = None,
+        orchestrator: Optional["SprintOrchestrator"] = None,
         parser: Optional["ReleasePlanParserProtocol"] = None,
         *,
         project_path: str = ".",
-        config: Optional["RuntimeConfig"] = None,
+        config: Optional[Any] = None,
     ):
         warnings.warn(
-            "RunnerHandler is deprecated; use SprintCycle.run_release_plan(release_plan) "
+            "RunnerHandler is deprecated; use SprintOrchestrator.run_release_plan(release_plan) "
             "and IntentResult.from_run_result(plan, run_result) if you need IntentResult.",
             DeprecationWarning,
             stacklevel=2,
         )
         super().__init__()
         self._parser = parser
-        if api is not None:
-            self._api = api
+        if orchestrator is not None:
+            self._orchestrator = orchestrator
         else:
-            from sprintcycle.api import SprintCycle as _SprintCycle
-            self._api = _SprintCycle(project_path=project_path, config=config)
+            from sprintcycle.application.sprint_orchestrator import SprintOrchestrator
+            from sprintcycle.infrastructure.config import RuntimeConfig
+            cfg = config or RuntimeConfig.from_project(project_path)
+            self._orchestrator = SprintOrchestrator(project_path=project_path, config=cfg)
 
     def execute(self, release_plan: "ReleasePlan") -> IntentResult:
-        """执行已解析计划（委托 ``SprintCycle.run_release_plan``）。"""
+        """执行已解析计划（委托 ``SprintOrchestrator.run_release_plan``）。"""
         logger.info("🚀 开始执行 Release Plan: {}", release_plan.project.name)
-        run_result = self._api.run_release_plan(
+        run_result = self._orchestrator.run_release_plan(
             release_plan,
             confirm_knowledge=False,
         )

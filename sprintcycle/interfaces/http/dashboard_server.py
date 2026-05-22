@@ -13,9 +13,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-# Re-export for dashboard tests that patch sprintcycle.dashboard.server.SprintCycle
-from ..api import SprintCycle
-from ..infrastructure.config import RuntimeConfig
+from sprintcycle.application.http_factories import create_http_services
+from sprintcycle.application.sprint_orchestrator import SprintOrchestrator
+from sprintcycle.infrastructure.config import RuntimeConfig
 
 
 class ConfigUpdateRequest(BaseModel):
@@ -55,7 +55,10 @@ def create_app(project_path: str = ".") -> FastAPI:
         allow_headers=["*"],
     )
 
-    sc = SprintCycle(project_path=project_path)
+    # 使用 HTTPServices 替代 SprintCycle
+    http_services = create_http_services(project_path)
+    config = RuntimeConfig.from_project(project_path)
+    orchestrator = SprintOrchestrator(project_path=project_path, config=config)
     runtime_yaml = Path(project_path) / "sprintcycle.runtime.yaml"
     config_history: List[Dict[str, Any]] = []
 
@@ -164,15 +167,15 @@ def create_app(project_path: str = ".") -> FastAPI:
 
     @app.post("/api/plan")
     async def api_plan(body: Dict[str, Any] = {}) -> Any:
-        result = sc.plan(
-            intent_text=body.get("intent", ""),
+        result = orchestrator.plan(
+            intent=body.get("intent", ""),
             mode=body.get("mode", "auto"),
         )
         return _result_to_dict(result)
 
     @app.post("/api/run")
     async def api_run(body: Dict[str, Any] = {}) -> Any:
-        result = sc.run(
+        result = orchestrator.run(
             release_plan_yaml=body.get("release_plan_yaml", ""),
             intent=body.get("intent", ""),
         )
@@ -180,26 +183,26 @@ def create_app(project_path: str = ".") -> FastAPI:
 
     @app.post("/api/status")
     async def api_status(body: Dict[str, Any] = {}) -> Any:
-        result = sc.status(
+        result = http_services.status(
             execution_id=body.get("execution_id", ""),
         )
         return _result_to_dict(result)
 
     @app.post("/api/stop")
     async def api_stop(body: Dict[str, Any] = {}) -> Any:
-        result = sc.stop(
+        result = http_services.stop(
             execution_id=body.get("execution_id", ""),
         )
         return _result_to_dict(result)
 
     @app.get("/api/diagnose")
     async def api_diagnose() -> Any:
-        result = sc.diagnose()
+        result = http_services.diagnose()
         return _result_to_dict(result)
 
     @app.get("/api/platform/summary")
     async def api_platform_summary() -> Any:
-        return sc.platform_overview()
+        return http_services.platform_overview()
 
     @app.get("/api/clients")
     async def api_clients() -> Dict[str, Any]:
