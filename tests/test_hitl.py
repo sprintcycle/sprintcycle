@@ -154,7 +154,7 @@ async def test_hitl_submit_unblocks_waiter(tmp_path) -> None:
 
 @pytest.mark.asyncio
 async def test_hitl_show_reads_db_without_hitl_enabled(tmp_path, monkeypatch) -> None:
-    from sprintcycle.api import SprintCycle
+    from sprintcycle.application.http_factories import HTTPServices
 
     monkeypatch.chdir(tmp_path)
     db = default_hitl_db_path(str(tmp_path.resolve()))
@@ -173,9 +173,9 @@ async def test_hitl_show_reads_db_without_hitl_enabled(tmp_path, monkeypatch) ->
             timeout_seconds=60,
         )
     )
-    sc = SprintCycle(project_path=str(tmp_path.resolve()))
-    assert sc.config.hitl_enabled is False
-    out = await sc.hitl_show(rid)
+    services = HTTPServices(project_path=str(tmp_path.resolve()))
+    assert services.config.hitl_enabled is False
+    out = await services.hitl_show(rid)
     assert out["success"] is True
     assert isinstance(out.get("data"), dict)
     assert out["data"]["request_id"] == rid
@@ -183,11 +183,12 @@ async def test_hitl_show_reads_db_without_hitl_enabled(tmp_path, monkeypatch) ->
 
 @pytest.mark.asyncio
 async def test_hitl_submit_rejects_invalid_decision(tmp_path, monkeypatch) -> None:
-    from sprintcycle.api import SprintCycle
+    from sprintcycle.application.http_factories import HTTPServices
 
     monkeypatch.chdir(tmp_path)
     cfg = RuntimeConfig.merge({"hitl_enabled": True}, RuntimeConfig())
-    sc = SprintCycle(project_path=str(tmp_path.resolve()), config=cfg)
-    out = await sc.hitl_submit("no-such-id", "regen", None)
+    services = HTTPServices(project_path=str(tmp_path.resolve()))
+    services.config = cfg
+    out = await services.hitl_submit("no-such-id", "regen", None)
     assert out["success"] is False
     assert "Invalid" in (out.get("error") or "")

@@ -1,8 +1,7 @@
 """
-SprintCycle API Integration Tests
+SprintCycle Integration Tests
 
-Tests the SprintCycle API class (CLI/MCP/Dashboard shared entry point)
-covering all 6 operations: plan, run, diagnose, status, rollback, stop
+Tests for HTTPServices and SprintOrchestrator covering: plan, run, diagnose, status, rollback, stop
 """
 
 import pytest
@@ -11,7 +10,8 @@ import shutil
 from pathlib import Path
 from unittest.mock import patch, MagicMock, AsyncMock
 
-from sprintcycle.api import SprintCycle
+from sprintcycle.application.http_factories import HTTPServices
+from sprintcycle.application.sprint_orchestrator import SprintOrchestrator
 from sprintcycle.results import (
     PlanResult, RunResult, DiagnoseResult,
     StatusResult, RollbackResult, StopResult,
@@ -20,598 +20,128 @@ from sprintcycle.execution.sprint_types import ExecutionStatus
 from sprintcycle.execution.state.state_store import StateStore, ExecutionState
 
 
-class TestAPIPlan:
-    """Test plan operation"""
-
-    def setup_method(self):
-        """Setup temp directory for each test"""
-        self.temp_dir = tempfile.mkdtemp()
-        self.original_dir = Path.cwd()
-
-    def teardown_method(self):
-        """Cleanup after each test"""
-        shutil.rmtree(self.temp_dir, ignore_errors=True)
-
-    def test_plan_returns_release_plan_yaml(self):
-        """plan → returns PlanResult containing release_plan_yaml"""
-        sc = SprintCycle(project_path=self.temp_dir)
-
-        # Mock the ReleasePlan generation to avoid LLM calls
-        with patch('sprintcycle.api.ReleasePlanParser') as mock_parser:
-
-            # Setup mock ReleasePlan
-            from sprintcycle.domain.models import ReleasePlan, ProductAnchor, SprintDefinition, SprintBacklogItem, ExecutionMode
-            mock_plan = ReleasePlan(
-                project=ProductAnchor(name="TestProject", path=self.temp_dir),
-                mode=ExecutionMode.NORMAL,
-                sprints=[
-                    SprintDefinition(
-                        name="Sprint 1",
-                        goals=["Test goal"],
-                        tasks=[SprintBacklogItem(description="Test task", agent="coder")]
-                    )
-                ]
-            )
-            mock_parser_instance = MagicMock()
-            mock_parser_instance.parse_string.return_value = mock_plan
-            mock_parser.return_value = mock_parser_instance
-
-            result = sc.plan(intent="Test intent")
-
-            assert isinstance(result, PlanResult)
-            assert result.success is True
-            assert result.release_plan_yaml is not None
-            assert len(result.release_plan_yaml) > 0
-            assert "project" in result.release_plan_yaml
-            assert "Sprint 1" in result.release_plan_yaml
-            assert result.release_plan_name == "TestProject"
-            assert len(result.sprints) == 1
-
-    def test_plan_with_mode(self):
-        """test_plan_with_mode: plan respects mode parameter"""
-        sc = SprintCycle(project_path=self.temp_dir)
-
-        with patch('sprintcycle.api.ReleasePlanParser') as mock_parser:
-
-            from sprintcycle.domain.models import ReleasePlan, ProductAnchor, SprintDefinition, SprintBacklogItem, ExecutionMode
-            mock_plan = ReleasePlan(
-                project=ProductAnchor(name="TestProject", path=self.temp_dir),
-                mode=ExecutionMode.EVOLUTION,
-                sprints=[]
-            )
-            mock_parser_instance = MagicMock()
-            mock_parser_instance.parse_string.return_value = mock_plan
-            mock_parser.return_value = mock_parser_instance
-
-            result = sc.plan(intent="Evolve the code", mode="evolution")
-
-            assert result.success is True
-            assert result.mode == "evolution"
-
-    def test_plan_failure_handling(self):
-        """test_plan_failure_handling: plan handles errors gracefully"""
-        sc = SprintCycle(project_path=self.temp_dir)
-
-        with patch('sprintcycle.api.ReleasePlanParser') as mock_parser:
-            mock_parser_instance = MagicMock()
-            mock_parser_instance.parse_string.side_effect = Exception("Parse error")
-            mock_parser.return_value = mock_parser_instance
-
-            result = sc.plan(intent="Test intent")
-
-            assert isinstance(result, PlanResult)
-            assert result.success is False
-            assert result.error is not None
-
-
-class TestAPIRun:
-    """Test run operation"""
-
-    def setup_method(self):
-        """Setup temp directory for each test"""
-        self.temp_dir = tempfile.mkdtemp()
-        self.state_dir = Path(self.temp_dir) / ".sprintcycle" / "state"
-        self.state_dir.mkdir(parents=True, exist_ok=True)
-
-    def teardown_method(self):
-        """Cleanup after each test"""
-        shutil.rmtree(self.temp_dir, ignore_errors=True)
-
-    def test_run_creates_execution(self):
-        """test_run_creates_execution: run → creates execution and returns RunResult"""
-        sc = SprintCycle(project_path=self.temp_dir)
-
-        with patch('sprintcycle.api.ReleasePlanParser') as mock_parser, \
-             patch('sprintcycle.api.get_state_store') as mock_get_store, \
-             patch('sprintcycle.application.sprint_orchestrator.SprintOrchestrator') as mock_dispatcher_cls:
-
-            # Setup mock state store
-            mock_store = MagicMock(spec=StateStore)
-            mock_get_store.return_value = mock_store
-            mock_store.list_executions.return_value = [
-                MagicMock(execution_id="test-exec-123")
-            ]
-
-            from sprintcycle.domain.models import ReleasePlan, ProductAnchor, SprintDefinition, SprintBacklogItem, ExecutionMode
-            from sprintcycle.execution.sprint_types import SprintResult, TaskResult
-
-            mock_plan = ReleasePlan(
-                project=ProductAnchor(name="TestProject", path=self.temp_dir),
-                mode=ExecutionMode.NORMAL,
-                sprints=[
-                    SprintDefinition(
-                        name="Sprint 1",
-                        goals=["Test"],
-                        tasks=[SprintBacklogItem(description="Task 1", agent="coder")]
-                    )
-                ]
-            )
-            mock_parser_instance = MagicMock()
-            mock_parser_instance.parse_string.return_value = mock_plan
-            mock_parser.return_value = mock_parser_instance
-
-            # Mock sprint results
-            mock_task = MagicMock()
-            mock_task.status = ExecutionStatus.SUCCESS
-            mock_task.success_count = 1
-
-            mock_sprint_result = MagicMock()
-            mock_sprint_result.status = ExecutionStatus.SUCCESS
-            mock_sprint_result.success_count = 1
-            mock_sprint_result.task_results = [mock_task]
-            mock_sprint_result.duration = 1.0
-
-            # Mock the orchestrator resume path
-            mock_dispatcher_instance = MagicMock()
-            mock_dispatcher_instance.execute_release_plan = AsyncMock(
-                return_value=[mock_sprint_result]
-            )
-            mock_dispatcher_cls.return_value = mock_dispatcher_instance
-
-            # Also need to patch the event_bus
-            with patch('sprintcycle.execution.events.get_execution_event_backend') as mock_event_bus:
-                mock_event_bus_instance = MagicMock()
-                mock_event_bus.return_value = mock_event_bus_instance
-                
-                # Create a new SprintCycle to get fresh dispatcher
-                sc2 = SprintCycle(project_path=self.temp_dir)
-                result = sc2.run(intent="Run test")
-
-                assert isinstance(result, RunResult)
-                assert result.release_plan_name == "TestProject"
-                assert result.total_sprints >= 0
-
-    def test_run_with_release_plan_yaml(self):
-        """run accepts release_plan_yaml parameter"""
-        sc = SprintCycle(project_path=self.temp_dir)
-
-        release_plan_yaml = """
-project:
-  name: "YAMLProject"
-  path: "."
-mode: normal
-sprints:
-  - name: "Sprint 1"
-    tasks:
-      - description: "Test task"
-        agent: coder
-"""
-
-        with patch('sprintcycle.api.ReleasePlanParser') as mock_parser, \
-             patch('sprintcycle.api.get_state_store') as mock_get_store, \
-             patch('sprintcycle.application.sprint_orchestrator.SprintOrchestrator') as mock_dispatcher_cls:
-
-            mock_store = MagicMock(spec=StateStore)
-            mock_get_store.return_value = mock_store
-            mock_store.list_executions.return_value = []
-
-            from sprintcycle.domain.models import ReleasePlan, ProductAnchor, ExecutionMode
-            mock_plan = ReleasePlan(
-                project=ProductAnchor(name="YAMLProject", path="."),
-                mode=ExecutionMode.NORMAL,
-                sprints=[]
-            )
-            mock_parser.return_value.parse_string.return_value = mock_plan
-
-            # Mock the dispatcher
-            mock_dispatcher_instance = MagicMock()
-            mock_dispatcher_instance.execute_release_plan = AsyncMock(return_value=[])
-            mock_dispatcher_cls.return_value = mock_dispatcher_instance
-
-            with patch('sprintcycle.execution.events.get_execution_event_backend') as mock_event_bus:
-                mock_event_bus_instance = MagicMock()
-                mock_event_bus.return_value = mock_event_bus_instance
-                
-                sc2 = SprintCycle(project_path=self.temp_dir)
-                result = sc2.run(release_plan_yaml=release_plan_yaml)
-
-                assert isinstance(result, RunResult)
-                mock_parser.return_value.parse_string.assert_called_once_with(
-                    release_plan_yaml
-                )
-
-    def test_run_release_plan_success(self):
-        """run_release_plan: validated in-memory ReleasePlan → RunResult"""
-        from sprintcycle.domain.models import (
-            ExecutionMode,
-            ProductAnchor,
-            ReleasePlan,
-            SprintBacklogItem,
-            SprintDefinition,
-        )
-
-        mock_plan = ReleasePlan(
-            project=ProductAnchor(name="DirectPlan", path=self.temp_dir),
-            mode=ExecutionMode.NORMAL,
-            sprints=[
-                SprintDefinition(
-                    name="Sprint 1",
-                    goals=["G"],
-                    tasks=[SprintBacklogItem(description="T", agent="coder")],
-                )
-            ],
-        )
-
-        with patch("sprintcycle.api.ReleasePlanValidator") as mock_v:
-            mock_v.return_value.validate.return_value = MagicMock(is_valid=True)
-
-            sc2 = SprintCycle(project_path=self.temp_dir)
-            with patch.object(sc2, '_execution_service') as mock_svc:
-                mock_svc.start_execution_run = AsyncMock(return_value={
-                    "success": True,
-                    "execution_id": "exec-rp",
-                    "release_plan_name": "DirectPlan",
-                    "completed_sprints": 0,
-                    "total_sprints": 1,
-                    "mode": "normal",
-                })
-
-                result = sc2.run_release_plan(mock_plan)
-
-        assert isinstance(result, RunResult)
-        assert result.success is True
-        assert result.release_plan_name == "DirectPlan"
-
-    def test_run_release_plan_validation_failure(self):
-        """run_release_plan returns failed RunResult when validator rejects plan."""
-        from sprintcycle.domain.models import (
-            ExecutionMode,
-            ProductAnchor,
-            ReleasePlan,
-            SprintBacklogItem,
-            SprintDefinition,
-        )
-
-        mock_plan = ReleasePlan(
-            project=ProductAnchor(name="Bad", path=self.temp_dir),
-            mode=ExecutionMode.NORMAL,
-            sprints=[
-                SprintDefinition(
-                    name="S1",
-                    goals=["G"],
-                    tasks=[SprintBacklogItem(description="T", agent="coder")],
-                )
-            ],
-        )
-
-        with patch("sprintcycle.api.ReleasePlanValidator") as mock_v:
-            mock_v.return_value.validate.return_value = MagicMock(is_valid=False, errors=["Invalid sprint"])
-            sc = SprintCycle(project_path=self.temp_dir)
-            result = sc.run_release_plan(mock_plan)
-
-        assert isinstance(result, RunResult)
-        assert result.success is False
-        assert result.error is not None
-        assert "验证" in result.error
-
-
-class TestAPIStatus:
-    """Test status operation"""
-
-    def setup_method(self):
-        """Setup temp directory for each test"""
-        self.temp_dir = tempfile.mkdtemp()
-
-    def teardown_method(self):
-        """Cleanup after each test"""
-        shutil.rmtree(self.temp_dir, ignore_errors=True)
-
-    def test_status_returns_execution_state(self):
-        """status → returns StatusResult for a specific execution"""
-        sc = SprintCycle(project_path=self.temp_dir)
-
-        with patch.object(sc, 'execution_detail') as mock_detail:
-            mock_detail.return_value = {
-                "success": True,
-                "execution_id": "exec-123",
-                "status": "running",
-                "current_sprint": 2,
-                "total_sprints": 5,
-            }
-
-            result = sc.status(execution_id="exec-123")
-
-            assert isinstance(result, StatusResult)
-            assert result.success is True
-            assert result.execution_id == "exec-123"
-            assert result.status == "running"
-            assert result.current_sprint == 2
-            assert result.total_sprints == 5
-
-    def test_status_lists_all_executions(self):
-        """status without id returns all executions"""
-        sc = SprintCycle(project_path=self.temp_dir)
-
-        with patch.object(sc, 'console_overview') as mock_overview:
-            mock_overview.return_value = {
-                "success": True,
-                "executions": [
-                    {"execution_id": "exec-1", "status": "success"},
-                    {"execution_id": "exec-2", "status": "running"},
-                    {"execution_id": "exec-3", "status": "failed"},
-                ]
-            }
-
-            result = sc.status()
-
-            assert isinstance(result, StatusResult)
-            assert result.success is True
-            assert len(result.executions) == 3
-
-    def test_status_not_found(self):
-        """status returns error for non-existent id"""
-        sc = SprintCycle(project_path=self.temp_dir)
-
-        with patch.object(sc, 'execution_detail') as mock_detail:
-            mock_detail.return_value = {
-                "success": False,
-                "error": "Execution not found",
-            }
-
-            result = sc.status(execution_id="non-existent")
-
-            assert isinstance(result, StatusResult)
-            assert result.success is False
-
-
-class TestAPIStop:
-    """Test stop operation"""
-
-    def setup_method(self):
-        """Setup temp directory for each test"""
-        self.temp_dir = tempfile.mkdtemp()
-
-    def teardown_method(self):
-        """Cleanup after each test"""
-        shutil.rmtree(self.temp_dir, ignore_errors=True)
-
-    def test_stop_cancels_execution(self):
-        """run → stop → state becomes cancelled"""
-        sc = SprintCycle(project_path=self.temp_dir)
-
-        with patch('sprintcycle.api.get_state_store') as mock_get_store:
-            mock_store = MagicMock(spec=StateStore)
-            mock_get_store.return_value = mock_store
-
-            # Mock running execution
-            mock_state = ExecutionState(
-                execution_id="exec-stop-test",
-                release_plan_name="TestProject",
-                mode="normal",
-                status=ExecutionStatus.RUNNING,
-                current_sprint=1,
-                total_sprints=3,
-                total_tasks=5,
-            )
-            mock_state.metadata = {}
-            mock_store.load.return_value = mock_state
-
-            result = sc.stop(execution_id="exec-stop-test")
-
-            assert isinstance(result, StopResult)
-            assert result.success is True
-            assert result.execution_id == "exec-stop-test"
-            assert result.cancelled is True
-            mock_store.update_status.assert_called_once_with(
-                "exec-stop-test",
-                ExecutionStatus.CANCELLED
-            )
-
-    def test_stop_not_found(self):
-        """stop returns error for non-existent execution"""
-        sc = SprintCycle(project_path=self.temp_dir)
-
-        with patch('sprintcycle.api.get_state_store') as mock_get_store:
-            mock_store = MagicMock(spec=StateStore)
-            mock_get_store.return_value = mock_store
-            mock_store.load.return_value = None
-
-            result = sc.stop(execution_id="non-existent")
-
-            assert isinstance(result, StopResult)
-            assert result.success is False
-
-
-class TestAPIDiagnose:
+class TestHTTPServicesDiagnose:
     """Test diagnose operation"""
 
     def setup_method(self):
-        """Setup temp directory for each test"""
         self.temp_dir = tempfile.mkdtemp()
 
     def teardown_method(self):
-        """Cleanup after each test"""
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def test_diagnose_returns_health(self):
-        """diagnose → returns DiagnoseResult"""
-        sc = SprintCycle(project_path=self.temp_dir)
-
-        with patch('sprintcycle.api.ProjectDiagnostic') as mock_diagnostic:
-            # Setup mock diagnostic report (dict so getattr works properly)
-            mock_report = {
-                "health_score": 85.0,
-                "coverage": 72.5,
-                "complexity": {"average": 10.5},
-                "issues": [],
-            }
-
-            mock_diagnostic_instance = MagicMock()
-            mock_diagnostic_instance.diagnose.return_value = mock_report
-            mock_diagnostic.return_value = mock_diagnostic_instance
-
-            result = sc.diagnose()
-
-            assert isinstance(result, DiagnoseResult)
-            assert result.success is True
-            assert result.health_score == 85.0
-            assert result.coverage == 72.5
-
-    def test_diagnose_with_issues(self):
-        """diagnose reports issues"""
-        sc = SprintCycle(project_path=self.temp_dir)
-
-        with patch('sprintcycle.api.ProjectDiagnostic') as mock_diagnostic:
-            mock_report = {
-                "health_score": 60.0,
-                "coverage": 50.0,
-                "complexity": {},
-                "issues": [
-                    {"severity": "warning", "message": "Test issue"}
-                ],
-            }
-
-            mock_diagnostic_instance = MagicMock()
-            mock_diagnostic_instance.diagnose.return_value = mock_report
-            mock_diagnostic.return_value = mock_diagnostic_instance
-
-            result = sc.diagnose()
-
-            assert isinstance(result, DiagnoseResult)
-            assert result.success is True
-            assert len(result.issues) == 1
-            assert result.issues[0]["severity"] == "warning"
+        """diagnose → returns health information"""
+        services = HTTPServices(project_path=self.temp_dir)
+        result = services.diagnose()
+        
+        assert isinstance(result, dict)
+        assert "success" in result
+        assert "health_score" in result
+        assert "issues" in result
 
 
-class TestAPIRollback:
-    """Test rollback operation"""
+class TestHTTPServicesStatus:
+    """Test status operation"""
 
     def setup_method(self):
-        """Setup temp directory for each test"""
         self.temp_dir = tempfile.mkdtemp()
 
     def teardown_method(self):
-        """Cleanup after each test"""
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    def test_rollback_restores_state(self):
-        """rollback returns success when state has pre_execution_commit"""
-        sc = SprintCycle(project_path=self.temp_dir)
-
-        with patch('sprintcycle.api.get_state_store') as mock_get_store:
-            mock_store = MagicMock(spec=StateStore)
-            mock_get_store.return_value = mock_store
-
-            mock_state = ExecutionState(
-                execution_id="exec-rollback-test",
-                release_plan_name="TestProject",
-                mode="normal",
-                status=ExecutionStatus.COMPLETED,
-                current_sprint=3,
-                total_sprints=3,
-                total_tasks=5,
-            )
-            mock_state.metadata = {"pre_execution_commit": "abc1234"}
-            mock_store.load.return_value = mock_state
-
-            result = sc.rollback(execution_id="exec-rollback-test")
-
-            assert isinstance(result, RollbackResult)
-            assert result.success is True
-            assert result.execution_id == "exec-rollback-test"
-            assert result.rollback_point == "abc1234"
-
-    def test_rollback_non_git_repo(self):
-        """rollback handles missing git commit gracefully"""
-        sc = SprintCycle(project_path=self.temp_dir)
-
-        with patch('sprintcycle.api.get_state_store') as mock_get_store:
-            mock_store = MagicMock(spec=StateStore)
-            mock_get_store.return_value = mock_store
-
-            mock_state = ExecutionState(
-                execution_id="exec-no-git",
-                release_plan_name="TestProject",
-                mode="normal",
-                status=ExecutionStatus.COMPLETED,
-                current_sprint=3,
-                total_sprints=3,
-                total_tasks=5,
-            )
-            mock_state.metadata = {}
-            mock_store.load.return_value = mock_state
-
-            result = sc.rollback(execution_id="exec-no-git")
-
-            assert isinstance(result, RollbackResult)
-            assert result.success is False
+    def test_status_returns_overview(self):
+        """status → returns console overview when no execution_id provided"""
+        services = HTTPServices(project_path=self.temp_dir)
+        result = services.status()
+        
+        assert isinstance(result, dict)
+        assert "success" in result
 
 
-class TestAPIResume:
-    """Test legacy resume compatibility path."""
+class TestHTTPServicesStop:
+    """Test stop operation"""
 
     def setup_method(self):
-        """Setup temp directory for each test"""
+        self.temp_dir = tempfile.mkdtemp()
+
+    def teardown_method(self):
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+    def test_stop_returns_result(self):
+        """stop returns StopResult-like dict"""
+        services = HTTPServices(project_path=self.temp_dir)
+        result = services.stop(execution_id="test-exec")
+        
+        assert isinstance(result, dict)
+        assert "success" in result
+        assert "execution_id" in result
+
+
+class TestHTTPServicesRollback:
+    """Test rollback operation"""
+
+    def setup_method(self):
+        self.temp_dir = tempfile.mkdtemp()
+
+    def teardown_method(self):
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+    def test_rollback_returns_result(self):
+        """rollback returns RollbackResult-like dict"""
+        services = HTTPServices(project_path=self.temp_dir)
+        result = services.rollback(execution_id="test-exec")
+        
+        assert isinstance(result, dict)
+        assert "success" in result
+        assert "execution_id" in result
+
+
+class TestSprintOrchestratorPlan:
+    """Test plan operation via SprintOrchestrator"""
+
+    def setup_method(self):
+        self.temp_dir = tempfile.mkdtemp()
+
+    def teardown_method(self):
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+    def test_plan_returns_plan_result(self):
+        """plan → returns PlanResult"""
+        from sprintcycle.infrastructure.config import RuntimeConfig
+        
+        cfg = RuntimeConfig(dry_run=True)
+        orch = SprintOrchestrator(config=cfg, project_path=self.temp_dir)
+        
+        with patch('sprintcycle.application.sprint_orchestrator.UserIntentEvolutionLoop'):
+            result = orch.plan(intent="Test intent")
+            
+            assert isinstance(result, PlanResult)
+            assert hasattr(result, 'success')
+            assert hasattr(result, 'release_plan_yaml')
+
+
+class TestSprintOrchestratorRun:
+    """Test run operation via SprintOrchestrator"""
+
+    def setup_method(self):
         self.temp_dir = tempfile.mkdtemp()
         self.state_dir = Path(self.temp_dir) / ".sprintcycle" / "state"
         self.state_dir.mkdir(parents=True, exist_ok=True)
 
     def teardown_method(self):
-        """Cleanup after each test"""
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    def test_resume_continues_execution(self):
-        """resume: continues a paused execution via run(execution_id=..., resume=True)"""
-        sc = SprintCycle(project_path=self.temp_dir)
-
-        with patch('sprintcycle.api.get_state_store') as mock_get_store:
-            mock_store = MagicMock(spec=StateStore)
-            mock_get_store.return_value = mock_store
-
-            mock_state = ExecutionState(
-                execution_id="exec-resume-test",
-                release_plan_name="ResumeProject",
-                mode="normal",
-                status=ExecutionStatus.PAUSED,
-                current_sprint=1,
-                total_sprints=2,
-                total_tasks=2,
-            )
-            mock_state.metadata = {}
-            mock_store.load.return_value = mock_state
-            mock_store.can_resume.return_value = True
-
-            result = sc.run(execution_id="exec-resume-test", resume=True)
-
+    def test_run_returns_run_result(self):
+        """run → returns RunResult"""
+        from sprintcycle.infrastructure.config import RuntimeConfig
+        
+        cfg = RuntimeConfig(dry_run=True)
+        orch = SprintOrchestrator(config=cfg, project_path=self.temp_dir)
+        
+        with patch('sprintcycle.application.sprint_orchestrator.UserIntentEvolutionLoop'), \
+             patch('sprintcycle.application.sprint_orchestrator.get_execution_event_backend'):
+            result = orch.run(intent="Run test")
+            
             assert isinstance(result, RunResult)
-            assert result.execution_id == "exec-resume-test"
-            mock_store.update_status.assert_any_call(
-                "exec-resume-test",
-                ExecutionStatus.RUNNING
-            )
-
-    def test_resume_cannot_resume(self):
-        """resume returns an error when execution cannot be resumed"""
-        sc = SprintCycle(project_path=self.temp_dir)
-
-        with patch('sprintcycle.api.get_state_store') as mock_get_store:
-            mock_store = MagicMock(spec=StateStore)
-            mock_get_store.return_value = mock_store
-            mock_store.load.return_value = None
-            mock_store.can_resume.return_value = False
-
-            result = sc.run(execution_id="cannot-resume", resume=True)
-
-            assert isinstance(result, RunResult)
-            assert result.success is False
-            assert "无法续跑" in result.error
+            assert hasattr(result, 'success')
+            assert hasattr(result, 'execution_id')

@@ -18,7 +18,7 @@
 
 ## Import coupling fixes (validation unblockers)
 
-During smoke/pytest collection, corrected broken imports unrelated to layering but blocking `from sprintcycle.api import SprintCycle`:
+During smoke/pytest collection, corrected broken imports unrelated to layering but blocking `from sprintcycle.application.http_factories import HTTPServices`:
 
 - `execution/skill_store.py`, `execution/skills.py` — skill model paths
 - `governance/runner.py` — HITL facade alias for `create_observability_facade`

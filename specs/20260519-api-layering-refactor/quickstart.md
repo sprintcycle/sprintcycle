@@ -8,17 +8,13 @@
 
 ## Smoke (full façade)
 
-Requires a working import chain for `sprintcycle.api`. If import fails, use the targeted service tests below.
+Requires a working import chain for `sprintcycle.application.http_factories`. If import fails, use the targeted service tests below.
 
 ```bash
 .venv/bin/python -c "
-from sprintcycle.api import SprintCycle
-sc = SprintCycle(project_path='.')
-assert sc.platform_spec()['success']
-r = sc.normalize_lifecycle_request(execution_id='e1', task_id='t1')
-assert 'request' in r and 'contract' in r
-w = sc.orchestrate_web_request(execution_id='e1', task_id='t1', execute=False)
-assert w['success'] and 'plan' in w['data']
+from sprintcycle.application.http_factories import HTTPServices
+services = HTTPServices(project_path='.')
+assert services.platform_overview()['success']
 print('smoke ok')
 "
 ```

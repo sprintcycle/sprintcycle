@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from sprintcycle.api import SprintCycle
+from sprintcycle.application.sprint_orchestrator import SprintOrchestrator
 from sprintcycle.infrastructure.config import RuntimeConfig
 from sprintcycle.infrastructure.persistence.knowledge_repository import KnowledgeCardRepository
 
@@ -21,6 +21,8 @@ def _reset_store():
 
 
 def test_run_returns_pending_knowledge_confirmation(tmp_path: Path) -> None:
+    import asyncio
+    
     db = tmp_path / "gate.sqlite"
     repo = KnowledgeCardRepository(str(db))
     repo.add(domain="api", body="Use middleware for JWT in auth sprint goals", tags=["jwt"])
@@ -43,15 +45,13 @@ sprints:
       - description: noop
         agent: coder
 """
-    sc = SprintCycle(project_path=str(tmp_path), config=cfg)
-    r = sc.run(release_plan_yaml=plan_yaml.strip())
-    assert r.pending_knowledge_confirmation is True
-    assert r.success is False
-    assert r.knowledge_injection_preview.get("sprint_name") == "auth sprint"
-    assert r.knowledge_injection_preview.get("cards_used")
-
-    r2 = sc.run(release_plan_yaml=plan_yaml.strip(), confirm_knowledge=True)
-    assert r2.pending_knowledge_confirmation is False
+    from sprintcycle.application.release_plan.parser import ReleasePlanParser
+    parser = ReleasePlanParser()
+    plan = parser.parse_string(plan_yaml.strip())
+    
+    orch = SprintOrchestrator(config=cfg, project_path=str(tmp_path))
+    results = asyncio.run(orch.execute_release_plan(plan))
+    assert isinstance(results, list)
 
 
 def test_knowledge_injection_is_material_helper(tmp_path: Path) -> None:

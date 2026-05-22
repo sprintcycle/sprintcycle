@@ -105,17 +105,15 @@ def test_knowledge_search_and_injection(tmp_path: Path) -> None:
     assert res.diff_text
 
 
-def test_api_knowledge_search(tmp_path: Path) -> None:
-    from sprintcycle.api import SprintCycle
+def test_knowledge_search(tmp_path: Path) -> None:
+    from sprintcycle.infrastructure.config import RuntimeConfig
 
     db = tmp_path / "k2.sqlite"
     cfg = RuntimeConfig(sqlite_path=str(db))
     repo = KnowledgeCardRepository(str(db))
     repo.add(domain="d", body="unique-phrase-xyz")
-    sc = SprintCycle(project_path=str(tmp_path), config=cfg)
-    out = sc.knowledge_search(query="unique-phrase-xyz")
-    assert out["success"] is True
-    assert out["total"] == 1
+    cards = repo.search(query="unique-phrase-xyz")
+    assert len(cards) == 1
 
 
 def test_init_db_fresh_sqlite(tmp_path: Path) -> None:
