@@ -2,13 +2,6 @@
 Domain Interfaces - 领域接口层
 
 定义所有领域相关的协议/接口，由外层（Infrastructure、Execution、Governance）实现。
-
-使用方式：
-    from sprintcycle.domain.interfaces import VersionRegistryProtocol
-    
-    class EvolutionController:
-        def __init__(self, registry: VersionRegistryProtocol):
-            self._registry = registry
 """
 
 from .version_registry import (
@@ -43,6 +36,19 @@ from .sandbox import (
     RetryPolicyAdapterProtocol,
 )
 
+from .lifecycle_hooks import (
+    SprintLifecycleHookProtocol,
+    TaskLifecycleHookProtocol,
+    ExecutionEventProtocol,
+)
+
+from .governance import (
+    GovernanceCheckResult,
+    GovernanceCheckProtocol,
+    ArchitectureCheckProtocol,
+    QualityGateProtocol,
+)
+
 __all__ = [
     # Version Registry
     "VersionRegistryProtocol",
@@ -66,4 +72,13 @@ __all__ = [
     "SandboxManagerProtocol",
     "HealthCheckAdapterProtocol",
     "RetryPolicyAdapterProtocol",
+    # Lifecycle Hooks
+    "SprintLifecycleHookProtocol",
+    "TaskLifecycleHookProtocol",
+    "ExecutionEventProtocol",
+    # Governance
+    "GovernanceCheckResult",
+    "GovernanceCheckProtocol",
+    "ArchitectureCheckProtocol",
+    "QualityGateProtocol",
 ]

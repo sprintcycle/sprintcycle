@@ -9,22 +9,25 @@
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING, Optional
+from pathlib import Path
+from typing import TYPE_CHECKING, Optional, Any
 
 from loguru import logger
 
-from ...application.release_plan.parser import ReleasePlanParser
 from .base import IntentHandler, IntentResult
 
 if TYPE_CHECKING:
     from sprintcycle.domain.models import ReleasePlan
+    from sprintcycle.domain.interfaces import ReleasePlanParserProtocol
     from ...infrastructure.config import RuntimeConfig
     from ..api import SprintCycle
 
 
 def parse_release_plan_file(file_path: str) -> "ReleasePlan":
     """从 YAML 文件解析 Release Plan。"""
-    return ReleasePlanParser().parse_file(file_path)
+    from sprintcycle.application.release_plan.parser import ReleasePlanParser
+    parser = ReleasePlanParser()
+    return parser.parse_file(file_path)
 
 
 class RunnerHandler(IntentHandler):
@@ -33,6 +36,7 @@ class RunnerHandler(IntentHandler):
     def __init__(
         self,
         api: Optional["SprintCycle"] = None,
+        parser: Optional["ReleasePlanParserProtocol"] = None,
         *,
         project_path: str = ".",
         config: Optional["RuntimeConfig"] = None,
@@ -44,11 +48,11 @@ class RunnerHandler(IntentHandler):
             stacklevel=2,
         )
         super().__init__()
+        self._parser = parser
         if api is not None:
             self._api = api
         else:
             from sprintcycle.api import SprintCycle as _SprintCycle
-
             self._api = _SprintCycle(project_path=project_path, config=config)
 
     def execute(self, release_plan: "ReleasePlan") -> IntentResult:

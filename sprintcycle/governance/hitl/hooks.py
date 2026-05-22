@@ -1,4 +1,7 @@
-"""HITL 生命周期钩子（治理域版本）。"""
+"""HITL 生命周期钩子（治理域版本）。
+
+使用 Domain 定义的接口协议，打破 Governance → Execution 循环依赖。
+"""
 
 from __future__ import annotations
 
@@ -7,9 +10,8 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 from loguru import logger
 
 from sprintcycle.domain.models import ReleasePlan, SprintBacklogItem, SprintDefinition
-from ...execution.hooks.sprint_hooks import SprintLifecycleHooks
-from ...execution.hooks.task_hooks import TaskLifecycleHooks
-from ...execution.sprint_types import ExecutionStatus, SprintResult, TaskResult
+from sprintcycle.domain.interfaces import SprintLifecycleHookProtocol, TaskLifecycleHookProtocol
+from sprintcycle.execution.sprint_types import ExecutionStatus, SprintResult, TaskResult
 from sprintcycle.infrastructure.observability import ObservabilityFacade
 from .types import (
     CTX_HITL_ABORT_EXECUTION,
@@ -21,21 +23,26 @@ from .types import (
 )
 
 if TYPE_CHECKING:
-    from ...infrastructure.config.runtime_config import RuntimeConfig
+    from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
 
 
-class HitlSprintHooks(SprintLifecycleHooks):
+class HitlSprintHooks(SprintLifecycleHookProtocol):
+    """HITL Sprint 钩子 - 实现协议接口"""
+    
     def __init__(self, config: "RuntimeConfig", observability: ObservabilityFacade) -> None:
         self._config = config
         self._observability = observability
 
-    async def on_before_sprint(
+    async def on_sprint_start(
         self,
-        sprint_index: int,
         sprint: SprintDefinition,
-        context: Dict[str, Any],
-        release_plan: Optional[ReleasePlan],
+        **kwargs: Any,
     ) -> None:
+        """Sprint 开始钩子"""
+        sprint_index = kwargs.get("sprint_index", 0)
+        context = kwargs.get("context", {})
+        release_plan = kwargs.get("release_plan")
+        
         if not hitl_gate_enabled(self._config, HitlGate.BEFORE_SPRINT):
             return
         eid = str(context.get("execution_id") or "").strip()
@@ -63,14 +70,17 @@ class HitlSprintHooks(SprintLifecycleHooks):
             except Exception:
                 logger.warning("HITL before_sprint decision not applied: {}", result.decision)
 
-    async def on_after_sprint(
+    async def on_sprint_complete(
         self,
-        sprint_index: int,
         sprint: SprintDefinition,
         result: SprintResult,
-        context: Dict[str, Any],
-        release_plan: Optional[ReleasePlan],
+        **kwargs: Any,
     ) -> None:
+        """Sprint 完成钩子"""
+        sprint_index = kwargs.get("sprint_index", 0)
+        context = kwargs.get("context", {})
+        release_plan = kwargs.get("release_plan")
+        
         if not hitl_gate_enabled(self._config, HitlGate.AFTER_SPRINT):
             return
         if result.status == ExecutionStatus.SKIPPED:
@@ -101,18 +111,27 @@ class HitlSprintHooks(SprintLifecycleHooks):
                 logger.warning("HITL after_sprint decision not applied: {}", decision.decision)
 
 
-class HitlTaskHooks(TaskLifecycleHooks):
+class HitlTaskHooks(TaskLifecycleHookProtocol):
+    """HITL Task 钩子 - 实现协议接口"""
+    
     def __init__(self, config: "RuntimeConfig", observability: ObservabilityFacade) -> None:
         self._config = config
         self._observability = observability
 
-    async def on_after_task_complete(
+    async def on_task_complete(
         self,
         task: SprintBacklogItem,
-        sprint_name: str,
-        context: Dict[str, Any],
-        task_result: TaskResult,
+        result: Dict[str, Any],
+        **kwargs: Any,
     ) -> None:
+        """Task 完成钩子"""
+        task_result = kwargs.get("task_result")
+        if task_result is None:
+            return
+            
+        sprint_name = kwargs.get("sprint_name", "")
+        context = kwargs.get("context", {})
+        
         if not hitl_gate_enabled(self._config, HitlGate.AFTER_TASK):
             return
         on_failure_only = getattr(self._config, "hitl_after_task_on_failure", True)
@@ -122,7 +141,7 @@ class HitlTaskHooks(TaskLifecycleHooks):
         if not eid:
             return
         preview = (task.description or "")[:400]
-        result = await self._observability.request_human_decision(
+        decision = await self._observability.request_human_decision(
             execution_id=eid,
             gate=HitlGate.AFTER_TASK.value,
             title=f"任务完成: {preview[:80]}",
@@ -136,5 +155,5 @@ class HitlTaskHooks(TaskLifecycleHooks):
             risk_level="medium",
             wait=True,
         )
-        if result.decision == HitlDecision.ABORT_EXECUTION.value:
+        if decision.decision == HitlDecision.ABORT_EXECUTION.value:
             context[CTX_HITL_ABORT_EXECUTION] = True

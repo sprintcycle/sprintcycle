@@ -21,7 +21,7 @@ from sprintcycle.domain.interfaces import (
     ReleasePlanValidatorProtocol,
 )
 
-from ...governance.versioning.manifests import VersionManifest
+from sprintcycle.domain.evolution.manifest import VersionManifest
 from .models import (
     EvolutionPlan,
     EvolutionRequest,

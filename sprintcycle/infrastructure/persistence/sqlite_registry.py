@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Optional
 
 from ...domain.evolution.models import EvolutionTarget, VersionArtifact
-from sprintcycle.governance.versioning.registry import VersionRegistry
+from sprintcycle.governance.versioning.registry import VersionRegistry  # noqa: E402
 
 
 class SQLiteVersionRegistry(VersionRegistry):
