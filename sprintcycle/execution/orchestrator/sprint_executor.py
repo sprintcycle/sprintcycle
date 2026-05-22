@@ -30,6 +30,7 @@ from .protocols import ExecutionContext
 from .sprint_types import ExecutionStatus, SprintResult, TaskResult
 from .state.checkpoint import CheckpointMixin
 from .state.state_store import StateStore, get_state_store
+from ._feedback_stub import FeedbackReleasePlanStub
 
 
 class SprintExecutor(CheckpointMixin):
@@ -385,12 +386,7 @@ class SprintExecutor(CheckpointMixin):
                 feedback = self._feedback_loop.collect(self._release_plan, [result])
             else:
 
-                class _FeedbackReleasePlanStub:
-                    def __init__(self):
-                        self.id = f"sprint-{self._sprint_count}"
-                        self.project = type("obj", (), {"name": sprint.name})()
-
-                feedback = self._feedback_loop.collect(_FeedbackReleasePlanStub(), [result])
+                feedback = self._feedback_loop.collect(FeedbackReleasePlanStub(sprint_name=sprint.name), [result])
             self._feedback_loop.save(feedback)
         except Exception as e:
             logger.warning(f"收集反馈失败: {e}")
@@ -635,12 +631,7 @@ class SprintExecutor(CheckpointMixin):
                 return self._feedback_loop.collect(self._release_plan, [result])
             else:
 
-                class _FeedbackReleasePlanStub:
-                    def __init__(self):
-                        self.id = "sprint-feedback"
-                        self.project = type("obj", (), {"name": sprint.name})()
-
-                return self._feedback_loop.collect(_FeedbackReleasePlanStub(), [result])
+                return self._feedback_loop.collect(FeedbackReleasePlanStub(sprint_name=sprint.name), [result])
         except Exception as e:
             logger.warning(f"收集反馈失败: {e}")
             return None

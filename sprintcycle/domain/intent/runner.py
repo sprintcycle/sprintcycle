@@ -52,8 +52,8 @@ class RunnerHandler(IntentHandler):
             self._orchestrator = orchestrator
         else:
             from sprintcycle.application.sprint_orchestrator import SprintOrchestrator
-            from sprintcycle.infrastructure.config import RuntimeConfig
-            cfg = config or RuntimeConfig.from_project(project_path)
+            from sprintcycle.domain.interfaces.config import load_project_config
+            cfg = config or load_project_config(project_path)
             self._orchestrator = SprintOrchestrator(project_path=project_path, config=cfg)
 
     def execute(self, release_plan: "ReleasePlan") -> IntentResult:

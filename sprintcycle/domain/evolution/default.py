@@ -69,13 +69,16 @@ def create_evolution_facade(
     return service
 
 
-# 向后兼容：提供默认实现工厂（使用 Infrastructure 实现）
-def create_default_evolution_facade(project_path: str) -> EvolutionFacade:
+# =============================================================================
+# 向后兼容警告：以下函数已弃用，将在后续版本移除
+# 请使用 create_evolution_facade 并通过依赖注入传递 Infrastructure 实现
+# =============================================================================
+def _create_default_evolution_facade_internal(project_path: str) -> EvolutionFacade:
     """
-    Create evolution facade with default implementations (Infrastructure layer).
+    [内部] Create evolution facade with default implementations.
     
-    注意：此函数仅用于快速原型，实际生产应使用 create_evolution_facade 
-    并通过依赖注入传递实现。
+    此函数仅用于快速原型和向后兼容。
+    正式代码应使用 create_evolution_facade 并显式注入依赖。
     """
     from sprintcycle.infrastructure.persistence import SQLiteVersionRegistry
     from sprintcycle.governance.versioning.rollback import DefaultVersionRollbackManager
@@ -91,3 +94,19 @@ def create_default_evolution_facade(project_path: str) -> EvolutionFacade:
         release_plan_validator=ReleasePlanValidator(),
         sandbox_manager=DefaultSandboxManager(),
     )
+
+
+def create_default_evolution_facade(project_path: str) -> EvolutionFacade:
+    """
+    [已弃用] 请使用 create_evolution_facade。
+    
+    DEPRECATED: 此函数仅用于快速原型。
+    """
+    import warnings
+    warnings.warn(
+        "create_default_evolution_facade is deprecated. "
+        "Use create_evolution_facade with explicit dependency injection.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return _create_default_evolution_facade_internal(project_path)

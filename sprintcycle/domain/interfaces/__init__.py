@@ -71,6 +71,11 @@ from .quality import (
     runs_architecture_guard,
 )
 
+from .config import (
+    ConfigProtocol,
+    load_project_config,
+)
+
 __all__ = [
     # Version Registry
     "VersionRegistryProtocol",
@@ -118,4 +123,7 @@ __all__ = [
     "runs_static_gate",
     "runs_coverage_gate",
     "runs_architecture_guard",
+    # Config
+    "ConfigProtocol",
+    "load_project_config",
 ]
