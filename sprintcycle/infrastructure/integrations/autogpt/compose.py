@@ -61,10 +61,10 @@ def build_default_compose_spec(project_name: str = "sprintcycle") -> ComposeSpec
                 ports=["3000:3000"],
                 environment={
                     "SPRINTCYCLE_SERVICE": "dashboard",
-                    "SPRINTCYCLE_ENTRYPOINT": "sprintcycle.interfaces.http.dashboard_server:create_app",
+                    "SPRINTCYCLE_ENTRYPOINT": "sprintcycle.interfaces.http.app:create_app",
                 },
                 depends_on=["api"],
-                command="uvicorn sprintcycle.interfaces.http.dashboard_server:create_app --factory --host 0.0.0.0 --port 3000",
+                command="uvicorn sprintcycle.interfaces.http.app:create_app --factory --host 0.0.0.0 --port 3000",
             ),
             "phoenix": ComposeService(
                 name="phoenix",
