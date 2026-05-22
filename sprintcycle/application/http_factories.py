@@ -204,6 +204,9 @@ class HTTPServices:
     def suggestion_overview(self) -> Any:
         return self._management_overview.suggestion_overview()
 
+    def management_overview(self) -> Any:
+        return self._management_overview.management_overview(self.project_path)
+
     def suggestion_board(self, execution_id: Optional[str] = None, limit: int = 20) -> Any:
         return self._dashboard_workbench.suggestion_board(self, execution_id=execution_id, limit=limit)
 

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any, Dict, List, Optional
+
 from fastapi import APIRouter, Request
 
 from sprintcycle.application.http_factories import HTTPServices
@@ -33,7 +35,24 @@ def build_public_router(services: HTTPServices, project_path: str) -> APIRouter:
     async def plan(request: Request, payload: dict) -> dict:
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/v1/plan", context=ctx)
-        # TODO: 调用 release plan parser
+        # 调用 SprintOrchestrator 进行规划
+        from sprintcycle.application.sprint_orchestrator import SprintOrchestrator
+        from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
+        
+        config = RuntimeConfig.from_project(deps.project_path)
+        orchestrator = SprintOrchestrator(project_path=deps.project_path, config=config)
+        
+        result = orchestrator.plan(
+            intent=payload.get("intent", ""),
+            mode=payload.get("mode", "auto"),
+            target=payload.get("target"),
+            release_plan_yaml=payload.get("release_plan_yaml"),
+            release_plan_path=payload.get("release_plan_path"),
+            product=payload.get("product"),
+            reference_paths=payload.get("reference_paths"),
+            write_policy=payload.get("write_policy", "auto"),
+        )
+        
         record_audit_event(
             request_id=ctx.request_id,
             actor=ctx.caller,
@@ -41,23 +60,41 @@ def build_public_router(services: HTTPServices, project_path: str) -> APIRouter:
             resource="/api/v1/plan",
             outcome="success",
         )
-        return {"success": True, "message": "plan endpoint - to be implemented"}
+        return result.to_dict() if hasattr(result, "to_dict") else dict(result)
 
     @router.post("/run")
     async def run(request: Request, payload: dict) -> dict:
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/v1/run", context=ctx)
-        # TODO: 调用 execution lifecycle
+        from sprintcycle.application.sprint_orchestrator import SprintOrchestrator
+        from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
+        
+        config = RuntimeConfig.from_project(deps.project_path)
+        orchestrator = SprintOrchestrator(project_path=deps.project_path, config=config)
+        
+        result = orchestrator.run(
+            intent=payload.get("intent"),
+            mode=payload.get("mode", "auto"),
+            target=payload.get("target"),
+            release_plan_yaml=payload.get("release_plan_yaml"),
+            release_plan_path=payload.get("release_plan_path"),
+            product=payload.get("product"),
+            execution_id=payload.get("execution_id"),
+            resume=payload.get("resume", False),
+            reference_paths=payload.get("reference_paths"),
+            write_policy=payload.get("write_policy", "auto"),
+        )
+        
         record_audit_event(
             request_id=ctx.request_id, actor=ctx.caller, action="public.run", resource="/api/v1/run", outcome="success"
         )
-        return {"success": True, "message": "run endpoint - to be implemented"}
+        return result.to_dict() if hasattr(result, "to_dict") else dict(result)
 
     @router.get("/diagnose")
     async def diagnose(request: Request) -> dict:
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/v1/diagnose", context=ctx)
-        # TODO: 调用 observability
+        result = deps.services.status()  # TODO: 需要专门的 diagnose 方法
         record_audit_event(
             request_id=ctx.request_id,
             actor=ctx.caller,
@@ -65,7 +102,7 @@ def build_public_router(services: HTTPServices, project_path: str) -> APIRouter:
             resource="/api/v1/diagnose",
             outcome="success",
         )
-        return {"success": True, "message": "diagnose endpoint - to be implemented"}
+        return result
 
     @router.post("/status")
     async def status(request: Request, payload: dict) -> dict:
@@ -85,7 +122,7 @@ def build_public_router(services: HTTPServices, project_path: str) -> APIRouter:
     async def rollback(request: Request, payload: dict) -> dict:
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/v1/rollback", context=ctx)
-        # TODO: 调用 rollback
+        # TODO: 调用 rollback 逻辑
         record_audit_event(
             request_id=ctx.request_id,
             actor=ctx.caller,
@@ -99,7 +136,7 @@ def build_public_router(services: HTTPServices, project_path: str) -> APIRouter:
     async def stop(request: Request, payload: dict) -> dict:
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/v1/stop", context=ctx)
-        # TODO: 调用 stop
+        # TODO: 调用 stop 逻辑
         record_audit_event(
             request_id=ctx.request_id,
             actor=ctx.caller,
