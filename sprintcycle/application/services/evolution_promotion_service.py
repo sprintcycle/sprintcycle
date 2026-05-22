@@ -37,7 +37,7 @@ def _run_async(coro: Any) -> Any:
 
 
 from sprintcycle.domain.evolution.models import VersionArtifact
-from sprintcycle.application.services.lifecycle_evolution_service import LifecycleEvolutionService
+from sprintcycle.application.services.lifecycle.lifecycle_evolution_service import LifecycleEvolutionService
 
 
 @dataclass
