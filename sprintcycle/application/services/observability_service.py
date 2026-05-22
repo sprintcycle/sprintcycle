@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
 from ...execution.state.state_store import get_state_store
-from ...observability.facade import ObservabilityFacade
+from sprintcycle.infrastructure.observability.facade import ObservabilityFacade
 from .lifecycle_contracts import build_lifecycle_contract
 from .lifecycle_state_machine import build_default_correlation
 from .phase_workflow import build_observe_artifact

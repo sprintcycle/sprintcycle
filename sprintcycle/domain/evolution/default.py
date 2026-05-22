@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import Any
 
 from ...governance.versioning.rollback import DefaultVersionRollbackManager
-from ...governance.versioning.sqlite_registry import SQLiteVersionRegistry
+from sprintcycle.infrastructure.persistence import SQLiteVersionRegistry
 from sprintcycle.execution.planners.generator import IntentReleasePlanGenerator
 from sprintcycle.domain.quality_spec.validator_protocol import ReleasePlanValidator
 from sprintcycle.infrastructure.sandbox.default_manager import DefaultSandboxManager

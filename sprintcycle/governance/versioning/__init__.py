@@ -1,6 +1,7 @@
 """Versioning package.
 
 Keeps version registry and rollback contracts isolated from execution logic.
+SQLite implementation moved to infrastructure/persistence/.
 """
 
 from .git_backend import GitVersionBackend
@@ -8,7 +9,9 @@ from .interface import get_version_manifest_summary
 from .manifests import VersionManifest
 from .registry import VersionRegistry, VersionRollbackManager
 from .rollback import DefaultVersionRollbackManager
-from .sqlite_registry import SQLiteVersionRegistry
+
+# Re-export from infrastructure for backwards compatibility
+from sprintcycle.infrastructure.persistence.sqlite_registry import SQLiteVersionRegistry
 
 __all__ = [
     "GitVersionBackend",

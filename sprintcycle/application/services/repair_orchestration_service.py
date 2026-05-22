@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
-from ...observability.facade import ObservabilityFacade
+from sprintcycle.infrastructure.observability.facade import ObservabilityFacade
 from .lifecycle_contracts import build_lifecycle_contract, build_lifecycle_state_machine
 from .phase_workflow import build_diagnose_artifact, build_observe_artifact, build_repair_artifact
 

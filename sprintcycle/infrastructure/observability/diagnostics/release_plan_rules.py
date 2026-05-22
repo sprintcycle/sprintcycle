@@ -10,7 +10,7 @@ from typing import Any, List
 
 from loguru import logger
 
-from ...application.release_plan.builders import release_plan_from_diagnostic_slices
+from sprintcycle.application.release_plan.builders import release_plan_from_diagnostic_slices
 from sprintcycle.domain.models import ReleasePlan
 from .health_report import ProjectHealthReport
 

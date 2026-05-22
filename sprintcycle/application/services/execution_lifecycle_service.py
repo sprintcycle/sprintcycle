@@ -11,7 +11,7 @@ from typing import Any, Dict, Optional
 from sprintcycle.execution.state.state_store import get_state_store
 from sprintcycle.hooks import EXECUTION_STARTED_EVENT, HookContext, HookPhase, HookRegistry, HookRunner
 from sprintcycle.infrastructure.runtime_registry import RuntimeRegistry
-from sprintcycle.observability.facade import ObservabilityFacade
+from sprintcycle.infrastructure.observability.facade import ObservabilityFacade
 
 
 class ExecutionLifecycleService:

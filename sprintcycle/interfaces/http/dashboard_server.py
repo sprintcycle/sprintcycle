@@ -204,7 +204,7 @@ def create_app(project_path: str = ".") -> FastAPI:
     @app.get("/api/clients")
     async def api_clients() -> Dict[str, Any]:
         try:
-            from ..observability.hooks import get_client_manager
+            from sprintcycle.infrastructure.observability.hooks import get_client_manager
 
             count = get_client_manager().get_client_count()
         except Exception:

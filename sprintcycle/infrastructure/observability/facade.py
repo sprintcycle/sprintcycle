@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, List
 
-from ..infrastructure.integrations.phoenix.trace_runtime import PhoenixTraceRuntime
+from sprintcycle.infrastructure.integrations.phoenix.trace_runtime import PhoenixTraceRuntime
 from .event_models import EventStoreSnapshot, ObservabilityEvent
 
 

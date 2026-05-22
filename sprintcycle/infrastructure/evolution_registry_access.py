@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 
 
 def create_evolution_registry(config: RuntimeConfig) -> Any:
-    from sprintcycle.governance.versioning.sqlite_registry import SQLiteVersionRegistry
+    from sprintcycle.infrastructure.persistence import SQLiteVersionRegistry
 
     root_dir = str(
         getattr(getattr(config, "evolution_versioning", None), "root_dir", None) or ".sprintcycle/versioning"

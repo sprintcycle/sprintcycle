@@ -10,7 +10,7 @@ from sprintcycle.domain.models import ReleasePlan, SprintBacklogItem, SprintDefi
 from ...execution.hooks.sprint_hooks import SprintLifecycleHooks
 from ...execution.hooks.task_hooks import TaskLifecycleHooks
 from ...execution.sprint_types import ExecutionStatus, SprintResult, TaskResult
-from ...observability import ObservabilityFacade
+from sprintcycle.infrastructure.observability import ObservabilityFacade
 from .types import (
     CTX_HITL_ABORT_EXECUTION,
     HitlDecision,

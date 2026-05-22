@@ -48,8 +48,8 @@ from .infrastructure.evolution_registry_access import create_evolution_registry
 from .infrastructure.persistence.knowledge_repository import KnowledgeCardRepository
 from .infrastructure.platform_launch_service import PlatformLaunchService
 from .infrastructure.runtime_registry import RuntimeRegistry
-from .observability.diagnostics.provider import ProjectDiagnostic
-from .observability.facade import ObservabilityFacade
+from sprintcycle.infrastructure.observability.diagnostics.provider import ProjectDiagnostic
+from sprintcycle.infrastructure.observability.facade import ObservabilityFacade
 from .application.services.dashboard_view_service import DashboardViewService
 from .application.services.dashboard_workbench_service import DashboardWorkbenchService
 from .results import (
