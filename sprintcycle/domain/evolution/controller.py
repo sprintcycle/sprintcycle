@@ -2,6 +2,8 @@
 
 This module wires the evolution control plane together without touching
 SprintCycle's main execution path.
+
+使用接口协议，由外层注入具体实现。
 """
 
 from __future__ import annotations
@@ -12,9 +14,14 @@ from typing import Optional
 
 from loguru import logger
 
+from sprintcycle.domain.interfaces import (
+    VersionRegistryProtocol,
+    SandboxManagerProtocol,
+    ReleasePlanGeneratorProtocol,
+    ReleasePlanValidatorProtocol,
+)
+
 from ...governance.versioning.manifests import VersionManifest
-from ...governance.versioning.registry import VersionRegistry
-from ...infrastructure.sandbox.manager import SandboxManager
 from .models import (
     EvolutionPlan,
     EvolutionRequest,
@@ -85,15 +92,22 @@ class DefaultEvolutionController(EvolutionController):
 
     def __init__(
         self,
+        *,
+        project_path: str,
         code_adapter: CodeEvolutionAdapter,
         requirement_adapter: RequirementEvolutionAdapter,
-        sandbox_manager: SandboxManager,
-        version_registry: VersionRegistry,
+        sandbox_manager: SandboxManagerProtocol,
+        version_registry: VersionRegistryProtocol,
+        release_plan_generator: Optional[ReleasePlanGeneratorProtocol] = None,
+        release_plan_validator: Optional[ReleasePlanValidatorProtocol] = None,
     ) -> None:
+        self._project_path = project_path
         self._code_adapter = code_adapter
         self._requirement_adapter = requirement_adapter
         self._sandbox_manager = sandbox_manager
         self._version_registry = version_registry
+        self._release_plan_generator = release_plan_generator
+        self._release_plan_validator = release_plan_validator
 
     async def intake(self, request: EvolutionRequest) -> EvolutionPlan:
         if request.target == "code":
@@ -101,8 +115,12 @@ class DefaultEvolutionController(EvolutionController):
         return await self._requirement_adapter.plan(request)
 
     async def create_sandbox(self, plan: EvolutionPlan) -> SandboxSpec:
-        sandbox = await self._sandbox_manager.create(plan)
-        await self._sandbox_manager.prepare(sandbox)
+        sandbox_config = {"root_dir": self._project_path, "target": plan.target}
+        sandbox_id = self._sandbox_manager.create_sandbox(sandbox_config)
+        sandbox = SandboxSpec(
+            sandbox_id=sandbox_id,
+            root_dir=str(Path(self._project_path) / ".sprintcycle" / "sandbox" / sandbox_id),
+        )
         return sandbox
 
     async def apply(self, plan: EvolutionPlan, sandbox: SandboxSpec) -> None:
