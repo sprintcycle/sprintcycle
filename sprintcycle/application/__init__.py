@@ -7,8 +7,7 @@ SprintCycle Application Layer
 Architecture:
     L6 (Application Services)
     ├── SprintOrchestrator      - Sprint 编排核心
-    ├── PublicAPIService       - 公共 API 服务
-    ├── InternalAPIService     - 内部 API 服务
+    ├── HTTPServices            - HTTP 层服务工厂
     ├── Evolution Loop         - 意图演进循环
     └── Protocols              - 接口定义
 """
@@ -19,16 +18,16 @@ from sprintcycle.application.protocols import (
     LifecycleProtocol,
     OrchestrationProtocol,
 )
-from sprintcycle.application.public_api_service import PublicAPIService
+from sprintcycle.application.http_factories import HTTPServices, create_http_services
 from sprintcycle.application.request_context import RequestContext
 from sprintcycle.application.sprint_orchestrator import SprintOrchestrator
 
 __all__ = [
     # Core
     "SprintOrchestrator",
-    # API Services
-    "PublicAPIService",
-    "InternalAPIService",
+    # HTTP Services
+    "HTTPServices",
+    "create_http_services",
     # Context
     "RequestContext",
     # Protocols

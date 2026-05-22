@@ -39,16 +39,7 @@ class ValidatorProtocol:
         raise NotImplementedError
 
 
-# 导入实际实现（保持兼容性）
-from sprintcycle.application.release_plan.validator import (
-    ReleasePlanValidator as ReleasePlanValidator,
-    ValidationError,
-    ValidationResult as AppValidationResult,
-)
-
 __all__ = [
     "ValidatorProtocol",
     "ValidationResult",
-    "ReleasePlanValidator",
-    "ValidationError",
 ]

@@ -7,11 +7,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from sprintcycle.infrastructure.config.quality import (
-    normalize_quality_level,
-    runs_coverage_gate,
-    runs_pytest,
-)
+from sprintcycle.domain.interfaces import normalize_quality_level, runs_pytest
 
 
 @dataclass
