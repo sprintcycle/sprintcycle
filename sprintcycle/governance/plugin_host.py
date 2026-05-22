@@ -11,7 +11,7 @@ from ..domain.quality_spec.plugin_protocols import QualityPlugin
 from ..domain.quality_spec.registry import QualityRegistry
 
 
-def merge_argv_via_pluggy(
+def merge_argv_via_plugin(
     gate: str,
     base_items: List[Dict[str, Any]],
     cfg: Any,
