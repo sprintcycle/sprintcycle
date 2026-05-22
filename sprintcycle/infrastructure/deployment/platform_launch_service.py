@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict
 
-from sprintcycle.infrastructure.deployment_spec_service import DeploymentSpecService
+from sprintcycle.infrastructure.deployment.deployment_spec_service import DeploymentSpecService
 
 
 @dataclass

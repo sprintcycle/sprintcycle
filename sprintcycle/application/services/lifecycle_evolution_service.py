@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
 from sprintcycle.application.services.promotion_policy import PromotionPolicy
-from sprintcycle.infrastructure.runtime_registry import RuntimeRegistry
+from sprintcycle.infrastructure.config.runtime_registry import RuntimeRegistry
 from sprintcycle.infrastructure.observability.facade import ObservabilityFacade
 
 

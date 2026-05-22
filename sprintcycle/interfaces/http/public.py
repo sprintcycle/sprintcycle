@@ -8,8 +8,8 @@ from fastapi import APIRouter, Request
 
 from sprintcycle.application.http_factories import HTTPServices
 from sprintcycle.application.request_context import RequestContext
-from sprintcycle.infrastructure.audit import record_audit_event
-from sprintcycle.infrastructure.rate_limit import check_rate_limit
+from sprintcycle.infrastructure.integrations.audit import record_audit_event
+from sprintcycle.infrastructure.config.rate_limit import check_rate_limit
 
 
 class _PublicRouteDeps:

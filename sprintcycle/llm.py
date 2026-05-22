@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from sprintcycle.infrastructure.llm_provider import resolve_provider
+from sprintcycle.infrastructure.integrations.llm_provider import resolve_provider
 
 
 class LLMInterface:

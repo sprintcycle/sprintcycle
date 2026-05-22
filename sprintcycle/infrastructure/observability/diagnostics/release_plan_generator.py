@@ -27,7 +27,7 @@ class LLMReleasePlanGenerator:
         api_base: Optional[str] = None,
         provider: Optional[str] = None,
     ):
-        from sprintcycle.infrastructure.llm_provider import resolve_provider
+        from sprintcycle.infrastructure.integrations.llm_provider import resolve_provider
 
         cfg = resolve_provider(provider=provider, api_key=api_key, api_base=api_base, model=model)
         self._api_key = cfg.api_key
@@ -35,7 +35,7 @@ class LLMReleasePlanGenerator:
         self._api_base = cfg.api_base
 
     def generate(self, report: ProjectHealthReport, project_path: str) -> List[ReleasePlan]:
-        from sprintcycle.infrastructure.llm_provider import call_llm
+        from sprintcycle.infrastructure.integrations.llm_provider import call_llm
 
         if not self._api_key:
             logger.warning("LLM_API_KEY未设置，跳过LLM生成")

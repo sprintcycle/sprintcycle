@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
 from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
-from sprintcycle.infrastructure.evolution_registry_access import (
+from sprintcycle.infrastructure.evolution.evolution_registry_access import (
     create_evolution_registry,
     evolution_sandbox_status,
 )

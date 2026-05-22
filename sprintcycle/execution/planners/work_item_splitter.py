@@ -9,7 +9,7 @@ WorkItemSplitter — 将自然语言意图拆为可编排的工作项草案（Sc
 
 使用方式：
 ```python
-from sprintcycle.execution.work_item_splitter import WorkItemSplitter
+from sprintcycle.execution.planners.work_item_splitter import WorkItemSplitter
 
 splitter = WorkItemSplitter()
 items = splitter.split("实现用户认证和权限管理功能")
