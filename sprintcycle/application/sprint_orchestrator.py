@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 from loguru import logger
 
 from ..domain.verification.hooks import VerificationSprintHooks
-from ..execution.events import (
+from ..execution.core.events import (
     Event,
     EventType,
     ExecutionEventBackend,

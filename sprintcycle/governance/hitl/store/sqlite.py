@@ -123,6 +123,23 @@ class HitlSqliteStore(HitlStore):
             conn.commit()
             return cur.rowcount > 0
 
+    async def resolve(
+        self,
+        request_id: str,
+        decision: str,
+        note: Optional[str] = None,
+        from_timeout: bool = False,
+    ) -> bool:
+        """Resolve a HITL request (compatible interface)."""
+        decision_kind = "timeout" if from_timeout else "manual"
+        return await self.update_decision(
+            request_id,
+            decision=decision,
+            note=note,
+            decision_kind=decision_kind,
+            status="resolved",
+        )
+
     async def get(self, request_id: str) -> Optional[HitlRequestRecord]:
         with self._connect() as conn:
             cur = conn.execute("SELECT * FROM hitl_requests WHERE request_id = ?", (request_id,))

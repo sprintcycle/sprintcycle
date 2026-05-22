@@ -101,7 +101,7 @@ class TestIntegration:
     @pytest.mark.asyncio
     async def test_full_flow(self):
         from sprintcycle.execution.error_handler import ErrorHandler, ErrorContext
-        from sprintcycle.execution.events import EventType
+        from sprintcycle.execution.core.events import EventType
         
         handler = ErrorHandler(enable_rollback=False, enable_cache=False)
         context = ErrorContext(error_log="SyntaxError: invalid syntax", project_path=".")

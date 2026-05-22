@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from sprintcycle.infrastructure.config import RuntimeConfig
-from sprintcycle.execution.events import EventType, reset_event_bus
+from sprintcycle.execution.core.events import EventType, reset_event_bus
 from sprintcycle.governance.report import GovernanceReport, GovernanceViolation
 from sprintcycle.governance.sprint_hooks import GovernanceSprintHooks
 from sprintcycle.domain.models import SprintBacklogItem, SprintDefinition

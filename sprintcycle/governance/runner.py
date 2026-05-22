@@ -561,7 +561,7 @@ def emit_governance_gate_cli_sync(
     """``sprintcycle governance check`` 可选：向执行事件后端派发 ``GOVERNANCE_GATE``（与 Dashboard SSE 对齐）。"""
     if not bool(getattr(runtime_config, "governance_cli_emit_events", False)):
         return
-    from ..execution.events import (
+    from ..execution.core.events import (
         Event,
         EventType,
         ensure_default_execution_event_backend_for_project,

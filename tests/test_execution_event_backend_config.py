@@ -3,17 +3,17 @@
 import pytest
 
 from sprintcycle.infrastructure.config import RuntimeConfig
-from sprintcycle.execution.events import (
+from sprintcycle.execution.core.events import (
     EventBus,
     ensure_default_execution_event_backend_for_project,
     get_execution_event_backend,
 )
-from sprintcycle.execution.sqlite_event_backend import SQLiteMQEventBackend
+from sprintcycle.execution.state.sqlite_event_backend import SQLiteMQEventBackend
 
 
 @pytest.fixture
 def clear_global_backend(monkeypatch):
-    import sprintcycle.execution.events as ev
+    import sprintcycle.execution.core.events as ev
 
     monkeypatch.setattr(ev, "_default_execution_event_backend", None)
     yield

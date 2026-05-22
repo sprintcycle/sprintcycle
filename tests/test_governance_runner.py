@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
-from sprintcycle.execution.events import EventBus, EventType
+from sprintcycle.execution.core.events import EventBus, EventType
 from sprintcycle.execution.hooks.governance_context import (
     CTX_GOVERNANCE_TASK_AFTER_DETAIL,
     CTX_GOVERNANCE_TASK_AFTER_FAILED,
@@ -549,7 +549,7 @@ def test_persist_report_and_planning_append_history(tmp_path: Path) -> None:
 
 
 def test_emit_governance_gate_cli_sync_emits_when_enabled(tmp_path: Path) -> None:
-    from sprintcycle.execution.events import EventType, reset_event_bus
+    from sprintcycle.execution.core.events import EventType, reset_event_bus
 
     bus = reset_event_bus()
     seen: list = []
