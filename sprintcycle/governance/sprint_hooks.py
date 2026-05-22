@@ -12,7 +12,7 @@ from loguru import logger
 
 from sprintcycle.domain.models import ReleasePlan, SprintDefinition
 from sprintcycle.domain.interfaces import SprintLifecycleHookProtocol, ExecutionEventProtocol
-from sprintcycle.execution.sprint_types import SprintResult
+from sprintcycle.domain.interfaces import SprintResult
 from sprintcycle.infrastructure.observability import ObservabilityFacade
 from .arch_guard.config import ArchGuardConfig
 from .arch_guard.engine import ArchGuardEngine

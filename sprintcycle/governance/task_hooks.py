@@ -12,7 +12,7 @@ from loguru import logger
 
 from sprintcycle.domain.models import SprintBacklogItem
 from sprintcycle.domain.interfaces import TaskLifecycleHookProtocol, ExecutionEventProtocol
-from sprintcycle.execution.sprint_types import ExecutionStatus, TaskResult
+from sprintcycle.domain.interfaces import ExecutionStatus, TaskResult
 from .hitl import HitlGate, HitlService, create_hitl_coordinator, evaluate_hitl_policy
 from .report import GovernanceViolation
 from .yaml_checks import checks_for_gate, filter_argv_items_by_governance_sources, run_argv_item

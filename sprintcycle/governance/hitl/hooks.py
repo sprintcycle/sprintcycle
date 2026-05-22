@@ -11,7 +11,7 @@ from loguru import logger
 
 from sprintcycle.domain.models import ReleasePlan, SprintBacklogItem, SprintDefinition
 from sprintcycle.domain.interfaces import SprintLifecycleHookProtocol, TaskLifecycleHookProtocol
-from sprintcycle.execution.sprint_types import ExecutionStatus, SprintResult, TaskResult
+from sprintcycle.domain.interfaces import ExecutionStatus, TaskResult, SprintResult
 from sprintcycle.infrastructure.observability import ObservabilityFacade
 from .types import (
     CTX_HITL_ABORT_EXECUTION,

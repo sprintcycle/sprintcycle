@@ -27,7 +27,12 @@ from .event_bus import (
 from .execution import (
     ExecutionPlannerProtocol,
     TaskExecutorProtocol,
+)
+
+from .types import (
+    ExecutionStatus,
     TaskResult,
+    SprintResult,
 )
 
 from .sandbox import (
@@ -67,7 +72,9 @@ __all__ = [
     # Execution
     "ExecutionPlannerProtocol",
     "TaskExecutorProtocol",
+    "ExecutionStatus",
     "TaskResult",
+    "SprintResult",
     # Sandbox
     "SandboxManagerProtocol",
     "HealthCheckAdapterProtocol",

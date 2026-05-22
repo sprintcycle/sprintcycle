@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
 from sprintcycle.domain.models import ReleasePlan, SprintDefinition
-from sprintcycle.execution.sprint_types import SprintResult, TaskResult
+from sprintcycle.domain.interfaces import SprintResult, TaskResult
 
 
 class OrchestrationProtocol(ABC):
