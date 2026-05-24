@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import List
 
-from ...governance.report import GovernanceReport, GovernanceViolation
+from ...governance.core.report import GovernanceReport, GovernanceViolation
 from .model import VerificationReport
 
 

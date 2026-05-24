@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from .yaml_checks import load_governance_yaml
+from ..arch_guard.yaml_checks import load_governance_yaml
 
 
 def resolve_governance_file(root: Path, raw: str) -> Optional[Path]:

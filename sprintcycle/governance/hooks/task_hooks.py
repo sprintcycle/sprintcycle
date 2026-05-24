@@ -13,10 +13,10 @@ from loguru import logger
 from sprintcycle.domain.models import SprintBacklogItem
 from sprintcycle.domain.interfaces import TaskLifecycleHookProtocol, ExecutionEventProtocol
 from sprintcycle.domain.interfaces import ExecutionStatus, TaskResult
-from .hitl import HitlGate, HitlService, create_hitl_coordinator, evaluate_hitl_policy
-from .report import GovernanceViolation
-from .yaml_checks import checks_for_gate, filter_argv_items_by_governance_sources, run_argv_item
-from .yaml_merge import load_merged_governance_data
+from ..hitl import HitlGate, HitlService, create_hitl_coordinator, evaluate_hitl_policy
+from ..core import GovernanceViolation
+from ..arch_guard.yaml_checks import checks_for_gate, filter_argv_items_by_governance_sources, run_argv_item
+from ..core import load_merged_governance_data
 
 if TYPE_CHECKING:
     from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
 class GovernanceTaskLifecycleHooks(TaskLifecycleHookProtocol):
     """治理任务钩子 - 实现协议接口"""
-    
+
     def __init__(
         self,
         config: "RuntimeConfig",
@@ -86,10 +86,10 @@ class GovernanceTaskLifecycleHooks(TaskLifecycleHookProtocol):
         task_result = kwargs.get("task_result")
         if task_result is None:
             return
-        
+
         sprint_name = kwargs.get("sprint_name", "")
         context = kwargs.get("context", {})
-        
+
         st = task_result.status
         wi = task_result.work_item
         logger.info(
@@ -106,9 +106,9 @@ class GovernanceTaskLifecycleHooks(TaskLifecycleHookProtocol):
         items = self._get_task_after_items()
         if not items:
             return
-        
+
         extra_env = self._extra_env(task, sprint_name, task_result)
-        
+
         for item in items:
             when_raw = item.get("run_when", "success")
             if not self._should_run_item(when_raw, task_ok):
@@ -132,15 +132,15 @@ class GovernanceTaskLifecycleHooks(TaskLifecycleHookProtocol):
                         location={},
                     )
                 ]
-            
+
             for v in viols:
                 lv = logger.warning if v.severity != "error" else logger.error
                 lv("  [{}] {}", v.rule_id, v.message)
-            
+
             if viols and self._item_blocks(item):
                 context["__governance_task_after_block__"] = True
                 logger.error("Task after check 阻断：任务被标记为 failed")
-            
+
             gov_key = "governance_task_after_results"
             if gov_key not in context:
                 context[gov_key] = []

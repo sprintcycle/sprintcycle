@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
-from ...governance.facade import GovernanceFacade
+from ...governance.core.facade import GovernanceFacade
 from ...governance.suggestion import SuggestionFacade
 from ...governance.versioning.registry import VersionRegistry
 from ...domain.hooks import (

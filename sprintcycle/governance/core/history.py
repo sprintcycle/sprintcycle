@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
-from .arch_guard.model import GuardReport as GovernanceReport
+from ..arch_guard.model import GuardReport as GovernanceReport
 
 _TS_GATE_RE = re.compile(r"^(\d{8}T\d{6}Z)_(planning|review)\.json$")
 
@@ -55,7 +55,7 @@ def _prune_history_dir(hdir: Path, max_files: int) -> None:
     for old in files[max_files:]:
         try:
             old.unlink()
-        except OSError:
+        except Exception:
             pass
 
 

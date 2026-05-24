@@ -42,8 +42,8 @@ from ..execution.skill_store import SkillStore
 from ..execution.skills import SkillOrchestrator
 from ..execution.sprint_executor import SprintExecutor
 from ..execution.sprint_types import ExecutionStatus, SprintResult, TaskResult
-from ..governance.sprint_hooks import GovernanceSprintHooks
-from ..governance.task_hooks import GovernanceTaskLifecycleHooks
+from ..governance.hooks.sprint_hooks import GovernanceSprintHooks
+from ..governance.hooks.task_hooks import GovernanceTaskLifecycleHooks
 from ..infrastructure.config import RuntimeConfig
 from ..infrastructure.integrations.langgraph.compiler import compile_intent_graph, compile_sprint_graph
 from ..infrastructure.persistence.knowledge_repository import KnowledgeCardRepository

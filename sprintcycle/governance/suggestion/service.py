@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from ...domain.evolution.models import EvolutionRequest
-from ..suggestion_analyzer import SuggestionAnalyzer
+from .analyzer import SuggestionAnalyzer
 from .approval import SuggestionApprovalService
 from .classifier import SuggestionClassifier
 from .models import (

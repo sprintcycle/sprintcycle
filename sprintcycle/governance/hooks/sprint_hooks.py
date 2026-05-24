@@ -14,11 +14,11 @@ from sprintcycle.domain.models import ReleasePlan, SprintDefinition
 from sprintcycle.domain.interfaces import SprintLifecycleHookProtocol, ExecutionEventProtocol
 from sprintcycle.domain.interfaces import SprintResult
 from sprintcycle.infrastructure.observability import ObservabilityFacade
-from .arch_guard.config import ArchGuardConfig
-from .arch_guard.engine import ArchGuardEngine
-from .arch_guard.reporter import GovernanceReportAdapter
-from .report import GovernanceReport
-from .runner import persist_planning_report, persist_report
+from ..arch_guard.config import ArchGuardConfig
+from ..arch_guard.engine import ArchGuardEngine
+from ..arch_guard.reporter import GovernanceReportAdapter
+from ..core import GovernanceReport
+from ..core import persist_planning_report, persist_report
 
 if TYPE_CHECKING:
     from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
 class GovernanceSprintHooks(SprintLifecycleHookProtocol):
     """治理 Sprint 钩子 - 实现协议接口"""
-    
+
     def __init__(
         self,
         project_path: str,
@@ -62,7 +62,7 @@ class GovernanceSprintHooks(SprintLifecycleHookProtocol):
             )
         if result is not None:
             ctx.setdefault(
-                "sprint_status", getattr(getattr(result, "status", None), "value", str(getattr(result, "status", "")))
+                "sprint_status", getattr(getattr(result.status, None), "value", str(getattr(result.status, "")))
             )
         return ctx
 
@@ -78,7 +78,7 @@ class GovernanceSprintHooks(SprintLifecycleHookProtocol):
         sprint_index = kwargs.get("sprint_index", 0)
         context = kwargs.get("context", {})
         release_plan = kwargs.get("release_plan")
-        
+
         if not self._enabled():
             return
         try:
@@ -121,7 +121,7 @@ class GovernanceSprintHooks(SprintLifecycleHookProtocol):
         sprint_index = kwargs.get("sprint_index", 0)
         context = kwargs.get("context", {})
         release_plan = kwargs.get("release_plan")
-        
+
         if not self._enabled():
             return
         try:
@@ -157,7 +157,7 @@ class GovernanceSprintHooks(SprintLifecycleHookProtocol):
             if gov_report.should_block_ci(block) and block != "none":
                 logger.error(
                     "治理 Review 存在 error 级别违规；当前 Sprint 已完成，请在本地或 CI 运行 "
-                    "`sprintcycle governance check` 并修复（governance_block_on={})",
+                    "`sprintcycle governance check` 并修复（governance_block_on={}）",
                     block,
                 )
         except Exception as e:

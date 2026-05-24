@@ -8,10 +8,10 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from .hitl.facade import HitlFacade, create_hitl_facade
+from ..hitl.facade import HitlFacade, create_hitl_facade
 from .runner import GovernanceRunner
-from .suggestion import create_suggestion_facade
-from .suggestion_service import SuggestionService
+from ..suggestion import create_suggestion_facade
+from ..suggestion.service import SuggestionService
 
 
 class GovernanceFacade:
@@ -81,7 +81,7 @@ class GovernanceFacade:
         return self.suggestion.mark_reviewed(execution_id, suggestion_id, reviewer=reviewer, notes=notes)
 
     async def approve_suggestion(self, execution_id: str, suggestion_id: str, approver: str = "", notes: str = ""):
-        return self.suggestion.mark_approved(execution_id, suggestion_id, approved_by=approver, note=notes)
+        return self.suggestion.mark_approved(execution_id, suggestion_id, approver=approver, note=notes)
 
     async def reject_suggestion(self, execution_id: str, suggestion_id: str, rejected_by: str = "", notes: str = ""):
         return self.suggestion.reject(execution_id, suggestion_id, rejected_by=rejected_by, note=notes)

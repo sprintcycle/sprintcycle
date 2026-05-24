@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from sprintcycle.application.http_factories import HTTPServices
 from sprintcycle.application.request_context import RequestContext
 from sprintcycle.application.sprint_orchestrator import SprintOrchestrator
-from sprintcycle.governance.runner import run_governance_check_and_persist
+from sprintcycle.governance.core.runner import run_governance_check_and_persist
 from sprintcycle.infrastructure.integrations.audit import record_audit_event
 from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
 from sprintcycle.infrastructure.config.rate_limit import check_rate_limit

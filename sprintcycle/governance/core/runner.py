@@ -12,24 +12,24 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 import yaml
 from loguru import logger
 
-from ..domain.quality_spec.context import build_quality_context
-from ..domain.quality_spec.rules.planning_rules import default_planning_rules
-from ..domain.quality_spec.spec.task_spec import TaskSpec
-from ..execution.static_analyzer import AnalysisConfig, StaticAnalyzer
-from ..infrastructure.config.quality import runs_architecture_guard, runs_pytest, runs_static_gate
-from .arch_guard.adr_check import check_adr_readme_index, check_adr_readme_strict_glob
-from .arch_guard.argv_extensions import extend_argv_items_with_plugins
-from .arch_guard.compose_hint import check_compose_hints, check_compose_supply_chain_hints
-from .arch_guard.model import GuardFinding, GuardReport, GuardSeverity
-from .arch_guard.sdd_checks import (
+from ...domain.quality_spec.context import build_quality_context
+from ...domain.quality_spec.rules.planning_rules import default_planning_rules
+from ...domain.quality_spec.spec.task_spec import TaskSpec
+from ...execution.static_analyzer import AnalysisConfig, StaticAnalyzer
+from ...infrastructure.config.quality import runs_architecture_guard, runs_pytest, runs_static_gate
+from ..arch_guard.adr_check import check_adr_readme_index, check_adr_readme_strict_glob
+from ..arch_guard.argv_extensions import extend_argv_items_with_plugins
+from ..arch_guard.compose_hint import check_compose_hints, check_compose_supply_chain_hints
+from ..arch_guard.model import GuardFinding, GuardReport, GuardSeverity
+from ..arch_guard.sdd_checks import (
     violations_acceptance_files,
     violations_for_task_spec_refs,
     violations_from_release_plan_validator,
     violations_spec_marker_in_files,
 )
-from .arch_guard.yaml_checks import checks_for_gate, filter_argv_items_by_governance_sources, run_argv_checks
-from .hitl import HitlDecision, HitlGate, HitlPolicyResult, evaluate_hitl_policy
-from .hitl.facade import HitlFacade, create_hitl_facade
+from ..arch_guard.yaml_checks import checks_for_gate, filter_argv_items_by_governance_sources, run_argv_checks
+from ..hitl import HitlDecision, HitlGate, HitlPolicyResult, evaluate_hitl_policy
+from ..hitl.facade import HitlFacade, create_hitl_facade
 
 
 def create_observability_facade(project_path: str, cfg: "RuntimeConfig") -> HitlFacade:
@@ -40,7 +40,7 @@ def create_observability_facade(project_path: str, cfg: "RuntimeConfig") -> Hitl
 from .yaml_merge import load_merged_governance_data
 
 if TYPE_CHECKING:
-    from ..infrastructure.config.runtime_config import RuntimeConfig
+    from ...infrastructure.config.runtime_config import RuntimeConfig
 
 
 def _maybe_downgrade_errors_to_warnings(cfg: "RuntimeConfig", findings: List[GuardFinding]) -> None:
@@ -414,11 +414,11 @@ class GovernanceRunner:
                 meta["hitl_policy_risk_level"] = policy.risk_level
 
         try:
-            from ..domain.quality_spec.adapters.arch_adapter import ArchAdapter
-            from ..domain.quality_spec.adapters.bandit_adapter import BanditAdapter
-            from ..domain.quality_spec.adapters.deal_adapter import DealAdapter
-            from ..domain.quality_spec.context import build_quality_context
-            from ..domain.quality_spec.reports.report import Report as QualityReport
+            from ...domain.quality_spec.adapters.arch_adapter import ArchAdapter
+            from ...domain.quality_spec.adapters.bandit_adapter import BanditAdapter
+            from ...domain.quality_spec.adapters.deal_adapter import DealAdapter
+            from ...domain.quality_spec.context import build_quality_context
+            from ...domain.quality_spec.reports.report import Report as QualityReport
         except Exception:
             DealAdapter = BanditAdapter = ArchAdapter = None  # type: ignore[assignment]
             build_quality_context = None  # type: ignore[assignment]
@@ -561,7 +561,7 @@ def emit_governance_gate_cli_sync(
     """``sprintcycle governance check`` 可选：向执行事件后端派发 ``GOVERNANCE_GATE``（与 Dashboard SSE 对齐）。"""
     if not bool(getattr(runtime_config, "governance_cli_emit_events", False)):
         return
-    from ..execution.core.events import (
+    from ...execution.core.events import (
         Event,
         EventType,
         ensure_default_execution_event_backend_for_project,

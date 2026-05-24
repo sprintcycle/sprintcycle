@@ -1,5 +1,6 @@
 """Suggestion governance module."""
 
+from .analyzer import SuggestionAnalyzer
 from .facade import SuggestionFacade, create_suggestion_facade
 from .models import (
     Suggestion,
@@ -14,6 +15,7 @@ from .models import (
 )
 
 __all__ = [
+    "SuggestionAnalyzer",
     "SuggestionFacade",
     "create_suggestion_facade",
     "Suggestion",
