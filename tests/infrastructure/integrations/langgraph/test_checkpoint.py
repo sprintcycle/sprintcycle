@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from sprintcycle.infrastructure.integrations.langgraph.checkpoint import LocalJsonCheckpointStore
+from sprintcycle.infrastructure.adapters.generic.integrations.langgraph.checkpoint import LocalJsonCheckpointStore
 
 
 def test_local_json_checkpoint_store_roundtrip(tmp_path: Path):

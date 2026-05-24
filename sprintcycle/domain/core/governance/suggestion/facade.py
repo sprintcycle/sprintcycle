@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, List, Optional
+from typing import Any, List, Optional, TYPE_CHECKING
 
 from .models import (
     Suggestion,
@@ -12,7 +12,9 @@ from .models import (
     SuggestionStatus,
 )
 from .service import SuggestionService
-from sprintcycle.infrastructure.governance.suggestion_store import SuggestionStore
+
+if TYPE_CHECKING:
+    from sprintcycle.infrastructure.adapters.core.governance.suggestion_store import SuggestionStore
 
 
 class SuggestionFacade:

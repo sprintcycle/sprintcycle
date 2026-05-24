@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from sprintcycle.domain.core.evolution.models import EvolutionRequest
 from .analyzer import SuggestionAnalyzer
@@ -17,7 +17,9 @@ from .models import (
     SuggestionStatus,
 )
 from .reviewer import SuggestionReviewer
-from sprintcycle.infrastructure.governance.suggestion_store import SuggestionStore
+
+if TYPE_CHECKING:
+    from sprintcycle.infrastructure.adapters.core.governance.suggestion_store import SuggestionStore
 
 
 class SuggestionService:

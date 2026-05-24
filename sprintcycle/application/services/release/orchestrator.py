@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict
 
-from ...infrastructure.integrations.langgraph.compiler import compile_intent_graph
+from sprintcycle.infrastructure.adapters.generic.integrations.langgraph.compiler import compile_intent_graph
 
 
 @dataclass

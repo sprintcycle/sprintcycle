@@ -20,7 +20,7 @@ from loguru import logger
 def register_all_infrastructure(project_path: str, config: Any) -> None:
     """统一注册所有 Infrastructure 层实现到 Domain/Application 层"""
     # 状态持久化相关
-    from sprintcycle.infrastructure.persistence.state import (
+    from sprintcycle.infrastructure.adapters.core.execution.state_store import (
         register_event_backend_factory,
         register_rollback_implementations,
     )

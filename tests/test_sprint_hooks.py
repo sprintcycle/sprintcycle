@@ -3,7 +3,7 @@
 import asyncio
 from typing import Any, Dict, List, Optional
 
-from sprintcycle.infrastructure.config import RuntimeConfig
+from sprintcycle.infrastructure.adapters.generic.config import RuntimeConfig
 from sprintcycle.execution.sprint_executor import SprintExecutor
 from sprintcycle.execution.hooks.sprint_hooks import ChainedSprintHooks, SprintLifecycleHooks
 from sprintcycle.domain.generic.models import ReleasePlan, ProductAnchor, SprintDefinition, SprintBacklogItem, ExecutionMode

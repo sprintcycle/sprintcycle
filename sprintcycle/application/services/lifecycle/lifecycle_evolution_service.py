@@ -15,8 +15,8 @@ from sprintcycle.application.services.governance.promotion_policy import Promoti
 
 # TYPE_CHECKING: 仅用于类型提示
 if TYPE_CHECKING:
-    from sprintcycle.infrastructure.observability.facade import ObservabilityFacade
-    from sprintcycle.infrastructure.config.runtime_registry import RuntimeRegistry
+    from sprintcycle.infrastructure.adapters.generic.observability.facade import ObservabilityFacade
+    from sprintcycle.infrastructure.adapters.generic.config.runtime_registry import RuntimeRegistry
 
 
 @dataclass

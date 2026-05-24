@@ -8,8 +8,8 @@ from fastapi import APIRouter, Request
 
 from sprintcycle.application.http_factories import HTTPServices
 from sprintcycle.application.request_context import RequestContext
-from sprintcycle.infrastructure.integrations.audit import record_audit_event
-from sprintcycle.infrastructure.config.rate_limit import check_rate_limit
+from sprintcycle.infrastructure.adapters.generic.integrations.audit import record_audit_event
+from sprintcycle.infrastructure.adapters.generic.config.rate_limit import check_rate_limit
 
 
 class _PublicRouteDeps:
@@ -36,7 +36,7 @@ def build_public_router(services: HTTPServices, project_path: str) -> APIRouter:
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/v1/plan", context=ctx)
         from sprintcycle.application.sprint_orchestrator import SprintOrchestrator
-        from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
+        from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
         
         config = RuntimeConfig.from_project(deps.project_path)
         orchestrator = SprintOrchestrator(project_path=deps.project_path, config=config)
@@ -66,7 +66,7 @@ def build_public_router(services: HTTPServices, project_path: str) -> APIRouter:
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/v1/run", context=ctx)
         from sprintcycle.application.sprint_orchestrator import SprintOrchestrator
-        from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
+        from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
         
         config = RuntimeConfig.from_project(deps.project_path)
         orchestrator = SprintOrchestrator(project_path=deps.project_path, config=config)

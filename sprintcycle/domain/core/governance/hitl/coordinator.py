@@ -20,13 +20,13 @@ from .events import HitlEventType
 from .types import HitlCorrection, HitlDecision, HitlGate, HitlReplayDirective, HitlRequestRecord, HitlRiskLevel
 
 if TYPE_CHECKING:
-    from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
-    from sprintcycle.infrastructure.governance.hitl_store import HitlSqliteStore
+    from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
+    from sprintcycle.infrastructure.adapters.core.governance.hitl_store import HitlSqliteStore
 
 
 def _create_hitl_store(project_path: str) -> "HitlSqliteStore":
     """创建 HITL Store（延迟导入）"""
-    from sprintcycle.infrastructure.governance.hitl_store import HitlSqliteStore, default_hitl_db_path
+    from sprintcycle.infrastructure.adapters.core.governance.hitl_store import HitlSqliteStore, default_hitl_db_path
     return HitlSqliteStore(default_hitl_db_path(project_path))
 
 

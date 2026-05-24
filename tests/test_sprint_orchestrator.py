@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from sprintcycle.infrastructure.config import RuntimeConfig
+from sprintcycle.infrastructure.adapters.generic.config import RuntimeConfig
 from sprintcycle.domain.evolution.measurement import MeasurementResult
 from sprintcycle.execution.sprint_types import ExecutionStatus, SprintResult, TaskResult
 from sprintcycle.application.sprint_orchestrator import SprintOrchestrator, _measurement_run_metadata

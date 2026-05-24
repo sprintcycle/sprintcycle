@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
 from .models import SuggestionApprovalRecord, SuggestionReviewRecord
-from sprintcycle.infrastructure.governance.suggestion_store import SuggestionStore
+
+if TYPE_CHECKING:
+    from sprintcycle.infrastructure.adapters.core.governance.suggestion_store import SuggestionStore
 
 
 class SuggestionApprovalService:

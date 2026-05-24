@@ -6,9 +6,9 @@ import asyncio
 
 import pytest
 
-from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
+from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
 from sprintcycle.execution.core.events import EventBus, configure_execution_event_backend, get_execution_event_backend
-from sprintcycle.infrastructure.persistence.state.sqlite_event_backend import fetch_execution_events_for_replay
+from sprintcycle.infrastructure.adapters.core.execution.event_backend.sqlite_event_backend import fetch_execution_events_for_replay
 from sprintcycle.governance.hitl.coordinator import HitlCoordinator
 from sprintcycle.governance.hitl.decision_normalize import (
     normalize_hitl_decision,
@@ -16,7 +16,7 @@ from sprintcycle.governance.hitl.decision_normalize import (
 )
 from sprintcycle.governance.hitl.store import HitlSqliteStore, default_hitl_db_path
 from sprintcycle.governance.hitl.types import HitlDecision, HitlGate, HitlRequestRecord, parse_hitl_gates
-from sprintcycle.infrastructure.mq.sqlite_mq import SQLiteMQ
+from sprintcycle.infrastructure.adapters.generic.mq.sqlite_mq import SQLiteMQ
 
 
 @pytest.fixture

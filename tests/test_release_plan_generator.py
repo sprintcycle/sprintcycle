@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
+from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
 from sprintcycle.domain.intent.parser import ActionType, ParsedIntent
 from sprintcycle.execution.planners.generator import (
     IntentReleasePlanGenerator,

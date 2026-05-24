@@ -14,8 +14,8 @@ from sprintcycle.application.services.governance.repair_orchestration_service im
 
 # TYPE_CHECKING: 仅用于类型提示
 if TYPE_CHECKING:
-    from sprintcycle.infrastructure.deployment.platform_launch_service import PlatformLaunchService
-    from sprintcycle.infrastructure.config.runtime_registry import RuntimeRegistry
+    from sprintcycle.infrastructure.adapters.generic.deploy.platform_launch_service import PlatformLaunchService
+    from sprintcycle.infrastructure.adapters.generic.config.runtime_registry import RuntimeRegistry
 
 
 @dataclass

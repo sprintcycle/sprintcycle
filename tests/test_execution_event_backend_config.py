@@ -2,13 +2,13 @@
 
 import pytest
 
-from sprintcycle.infrastructure.config import RuntimeConfig
+from sprintcycle.infrastructure.adapters.generic.config import RuntimeConfig
 from sprintcycle.execution.core.events import (
     EventBus,
     ensure_default_execution_event_backend_for_project,
     get_execution_event_backend,
 )
-from sprintcycle.infrastructure.persistence.state.sqlite_event_backend import SQLiteMQEventBackend
+from sprintcycle.infrastructure.adapters.core.execution.event_backend.sqlite_event_backend import SQLiteMQEventBackend
 
 
 @pytest.fixture

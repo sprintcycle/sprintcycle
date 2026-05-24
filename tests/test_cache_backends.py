@@ -3,8 +3,8 @@
 import tempfile
 from pathlib import Path
 
-from sprintcycle.infrastructure.cache import DiskCacheBackend, NullCacheBackend, build_cache_backend
-from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
+from sprintcycle.infrastructure.adapters.generic.cache import DiskCacheBackend, NullCacheBackend, build_cache_backend
+from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
 from sprintcycle.execution.cache import ExecutionCache, configure_execution_cache_from_runtime, get_cache, set_cache
 
 

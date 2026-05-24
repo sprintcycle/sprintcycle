@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict
 
-from ...infrastructure.integrations.autogpt.compose import ComposeSpec, build_default_compose_spec
+from sprintcycle.infrastructure.adapters.generic.integrations.autogpt.compose import ComposeSpec, build_default_compose_spec
 from .spec import PlatformSpec, build_platform_spec
 
 

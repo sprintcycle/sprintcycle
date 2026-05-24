@@ -15,7 +15,7 @@ from ..execution.phase_workflow import build_diagnose_artifact, build_observe_ar
 
 # TYPE_CHECKING: 仅用于类型提示
 if TYPE_CHECKING:
-    from sprintcycle.infrastructure.observability.facade import ObservabilityFacade
+    from sprintcycle.infrastructure.adapters.generic.observability.facade import ObservabilityFacade
 
 
 @dataclass

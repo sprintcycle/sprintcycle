@@ -5,8 +5,12 @@ Builds context for human approval.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from .models import SuggestionReviewContext
-from sprintcycle.infrastructure.governance.suggestion_store import SuggestionStore
+
+if TYPE_CHECKING:
+    from sprintcycle.infrastructure.adapters.core.governance.suggestion_store import SuggestionStore
 
 
 class SuggestionReviewer:

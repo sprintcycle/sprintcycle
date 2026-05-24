@@ -34,24 +34,24 @@ from ..hitl import HitlDecision, HitlGate, HitlPolicyResult, evaluate_hitl_polic
 from ..hitl.facade import HitlFacade, create_hitl_facade
 
 if TYPE_CHECKING:
-    from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
+    from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
 
 
 def _runs_architecture_guard(project_path: str) -> bool:
     """检查是否运行架构守卫（延迟导入）"""
-    from sprintcycle.infrastructure.config.quality import runs_architecture_guard
+    from sprintcycle.infrastructure.adapters.generic.config.quality import runs_architecture_guard
     return runs_architecture_guard(project_path)
 
 
 def _runs_pytest(project_path: str) -> bool:
     """检查是否运行 pytest（延迟导入）"""
-    from sprintcycle.infrastructure.config.quality import runs_pytest
+    from sprintcycle.infrastructure.adapters.generic.config.quality import runs_pytest
     return runs_pytest(project_path)
 
 
 def _runs_static_gate(project_path: str) -> bool:
     """检查是否运行静态门检查（延迟导入）"""
-    from sprintcycle.infrastructure.config.quality import runs_static_gate
+    from sprintcycle.infrastructure.adapters.generic.config.quality import runs_static_gate
     return runs_static_gate(project_path)
 
 
@@ -63,7 +63,7 @@ def create_observability_facade(project_path: str, cfg: "RuntimeConfig") -> Hitl
 from sprintcycle.domain.core.governance.core.yaml_merge import load_merged_governance_data
 
 if TYPE_CHECKING:
-    from ...infrastructure.config.runtime_config import RuntimeConfig
+    from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
 
 
 def _maybe_downgrade_errors_to_warnings(cfg: "RuntimeConfig", findings: List[GuardFinding]) -> None:

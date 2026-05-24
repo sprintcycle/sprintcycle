@@ -46,13 +46,13 @@ def create_default_evolution_facade(
     """
     # 延迟导入，避免循环依赖
     if version_registry is None:
-        from sprintcycle.infrastructure.persistence import SQLiteVersionRegistry
+        from sprintcycle.infrastructure.shared.persistence import SQLiteVersionRegistry
         version_registry = SQLiteVersionRegistry(
             root_dir=f"{project_path}/.sprintcycle/versioning"
         )
 
     if rollback_manager is None:
-        from sprintcycle.infrastructure.governance.versioning.rollback import DefaultVersionRollbackManager
+        from sprintcycle.infrastructure.adapters.core.evolution.version_store.rollback import DefaultVersionRollbackManager
         rollback_manager = DefaultVersionRollbackManager()
 
     if release_plan_generator is None:
@@ -64,7 +64,7 @@ def create_default_evolution_facade(
         release_plan_validator = ReleasePlanValidator()
 
     if sandbox_manager is None:
-        from sprintcycle.infrastructure.sandbox.default_manager import DefaultSandboxManager
+        from sprintcycle.infrastructure.adapters.generic.sandbox.default_manager import DefaultSandboxManager
         sandbox_manager = DefaultSandboxManager()
 
     return create_evolution_facade(

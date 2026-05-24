@@ -9,8 +9,8 @@ from __future__ import annotations
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from sprintcycle.infrastructure.config import flatten_sprintcycle_toml
-from sprintcycle.infrastructure.config.quality import (
+from sprintcycle.infrastructure.adapters.generic.config import flatten_sprintcycle_toml
+from sprintcycle.infrastructure.adapters.generic.config.quality import (
     QUALITY_LEVELS,
     QUALITY_PROFILES,
     normalize_quality_level,

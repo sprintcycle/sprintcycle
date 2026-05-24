@@ -16,9 +16,9 @@ from sprintcycle.application.http_factories import HTTPServices
 from sprintcycle.application.request_context import RequestContext
 from sprintcycle.application.sprint_orchestrator import SprintOrchestrator
 from sprintcycle.domain.core.governance.core.runner import run_governance_check_and_persist
-from sprintcycle.infrastructure.integrations.audit import record_audit_event
-from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
-from sprintcycle.infrastructure.config.rate_limit import check_rate_limit
+from sprintcycle.infrastructure.adapters.generic.integrations.audit import record_audit_event
+from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
+from sprintcycle.infrastructure.adapters.generic.config.rate_limit import check_rate_limit
 
 
 class ConfigUpdateRequest(BaseModel):
@@ -442,7 +442,7 @@ def build_internal_router(services: HTTPServices, project_path: str) -> APIRoute
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/clients", context=ctx)
         try:
-            from sprintcycle.infrastructure.observability.hooks import get_client_manager
+            from sprintcycle.infrastructure.adapters.generic.observability.hooks import get_client_manager
             count = get_client_manager().get_client_count()
         except Exception:
             count = 0

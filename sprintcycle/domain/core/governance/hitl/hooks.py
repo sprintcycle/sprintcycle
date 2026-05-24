@@ -24,8 +24,8 @@ from .types import (
 )
 
 if TYPE_CHECKING:
-    from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
-    from sprintcycle.infrastructure.observability import ObservabilityFacade
+    from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
+    from sprintcycle.infrastructure.adapters.generic.observability import ObservabilityFacade
 
 
 class HitlSprintHooks(SprintLifecycleHookProtocol):

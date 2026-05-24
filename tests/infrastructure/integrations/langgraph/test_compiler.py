@@ -1,4 +1,4 @@
-from sprintcycle.infrastructure.integrations.langgraph.compiler import compile_intent_graph, compile_sprint_graph
+from sprintcycle.infrastructure.adapters.generic.integrations.langgraph.compiler import compile_intent_graph, compile_sprint_graph
 
 
 def test_compile_intent_graph_returns_runtime_metadata():

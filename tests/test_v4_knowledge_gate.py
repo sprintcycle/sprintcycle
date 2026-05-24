@@ -7,13 +7,13 @@ from pathlib import Path
 import pytest
 
 from sprintcycle.application.sprint_orchestrator import SprintOrchestrator
-from sprintcycle.infrastructure.config import RuntimeConfig
-from sprintcycle.infrastructure.persistence.knowledge_repository import KnowledgeCardRepository
+from sprintcycle.infrastructure.adapters.generic.config import RuntimeConfig
+from sprintcycle.infrastructure.adapters.generic.knowledge.knowledge_repository import KnowledgeCardRepository
 
 
 @pytest.fixture(autouse=True)
 def _reset_store():
-    from sprintcycle.infrastructure.persistence.state.state_store import reset_default_state_store
+    from sprintcycle.infrastructure.adapters.core.execution.state_store.state_store import reset_default_state_store
 
     reset_default_state_store()
     yield

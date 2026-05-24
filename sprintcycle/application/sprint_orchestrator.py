@@ -51,10 +51,10 @@ from .services.lifecycle.lifecycle_contracts import build_lifecycle_contract
 
 # TYPE_CHECKING: 仅用于类型提示，不在运行时导入 Infrastructure
 if TYPE_CHECKING:
-    from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
-    from sprintcycle.infrastructure.integrations.phoenix.trace_runtime import PhoenixTraceRuntime
-    from sprintcycle.infrastructure.persistence.knowledge_repository import KnowledgeCardRepository
-    from sprintcycle.infrastructure.knowledge.knowledge_hook import KnowledgeInjectionHook
+    from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
+    from sprintcycle.infrastructure.adapters.generic.integrations.phoenix.trace_runtime import PhoenixTraceRuntime
+    from sprintcycle.infrastructure.adapters.generic.knowledge.knowledge_repository import KnowledgeCardRepository
+    from sprintcycle.infrastructure.adapters.generic.knowledge.knowledge_hook import KnowledgeInjectionHook
 
 
 # =============================================================================
@@ -63,31 +63,31 @@ if TYPE_CHECKING:
 
 def _compile_intent_graph(**kwargs: Any) -> Any:
     """编译意图图（延迟导入）"""
-    from sprintcycle.infrastructure.integrations.langgraph.compiler import compile_intent_graph as _compile
+    from sprintcycle.infrastructure.adapters.generic.integrations.langgraph.compiler import compile_intent_graph as _compile
     return _compile(**kwargs)
 
 
 def _compile_sprint_graph(**kwargs: Any) -> Any:
     """编译 Sprint 图（延迟导入）"""
-    from sprintcycle.infrastructure.integrations.langgraph.compiler import compile_sprint_graph as _compile
+    from sprintcycle.infrastructure.adapters.generic.integrations.langgraph.compiler import compile_sprint_graph as _compile
     return _compile(**kwargs)
 
 
 def _create_knowledge_card_repository(db_path: str) -> "KnowledgeCardRepository":
     """创建知识库仓库（延迟导入）"""
-    from sprintcycle.infrastructure.persistence.knowledge_repository import KnowledgeCardRepository
+    from sprintcycle.infrastructure.adapters.generic.knowledge.knowledge_repository import KnowledgeCardRepository
     return KnowledgeCardRepository(db_path)
 
 
 def _create_knowledge_injection_hook(project_root: str, config: Any) -> "KnowledgeInjectionHook":
     """创建知识注入 Hook（延迟导入）"""
-    from sprintcycle.infrastructure.knowledge.knowledge_hook import KnowledgeInjectionHook
+    from sprintcycle.infrastructure.adapters.generic.knowledge.knowledge_hook import KnowledgeInjectionHook
     return KnowledgeInjectionHook(project_root, config)
 
 
 def _get_runtime_config() -> "RuntimeConfig":
     """获取运行时配置（延迟导入）"""
-    from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
+    from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
     return RuntimeConfig()
 
 
@@ -123,8 +123,8 @@ class SprintOrchestrator:
         self._phoenix_runtime: Optional["PhoenixTraceRuntime"] = None
         if os.environ.get("PHOENIX_ENABLED"):
             try:
-                from sprintcycle.infrastructure.integrations.phoenix.exporter import PhoenixExporterSpec
-                from sprintcycle.infrastructure.integrations.phoenix.trace_runtime import PhoenixTraceRuntime
+                from sprintcycle.infrastructure.adapters.generic.integrations.phoenix.exporter import PhoenixExporterSpec
+                from sprintcycle.infrastructure.adapters.generic.integrations.phoenix.trace_runtime import PhoenixTraceRuntime
 
                 self._phoenix_runtime = PhoenixTraceRuntime(PhoenixExporterSpec(project_name=self._project_root))
             except ImportError:
@@ -212,7 +212,7 @@ class SprintOrchestrator:
 
     def _persist_release_finalization(self, release_plan: ReleasePlan, finalize_result: Any) -> None:
         try:
-            from sprintcycle.infrastructure.persistence.state import get_state_store
+            from sprintcycle.infrastructure.adapters.core.execution.state_store import get_state_store
 
             eid = getattr(release_plan, "execution_id", None)
             if not eid:
@@ -236,7 +236,7 @@ class SprintOrchestrator:
         sprint: Optional[SprintDefinition] = None,
         sprint_result: Optional[SprintResult] = None,
     ) -> Optional[MeasurementResult]:
-        from sprintcycle.infrastructure.config.quality import resolve_effective_quality_level, runs_pytest
+        from sprintcycle.infrastructure.adapters.generic.config.quality import resolve_effective_quality_level, runs_pytest
         from sprintcycle.domain.core.evolution.measurement import MeasurementProvider
 
         quality_level = resolve_effective_quality_level(
@@ -411,7 +411,7 @@ class SprintOrchestrator:
         self._emit_trace_event(complete_event)
         # Persist state
         try:
-            from sprintcycle.infrastructure.persistence.state import get_state_store
+            from sprintcycle.infrastructure.adapters.core.execution.state_store import get_state_store
 
             if getattr(release_plan, "execution_id", None):
                 store = get_state_store()

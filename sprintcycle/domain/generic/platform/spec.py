@@ -5,9 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict
 
-from sprintcycle.infrastructure.integrations.autogpt.deploy import AutoGPTDeploymentSpec
-from sprintcycle.infrastructure.integrations.langgraph.adapter import LangGraphExecutionAdapter
-from sprintcycle.infrastructure.integrations.phoenix.adapter import PhoenixObservabilityAdapter
+from sprintcycle.infrastructure.adapters.generic.integrations.autogpt.deploy import AutoGPTDeploymentSpec
+from sprintcycle.infrastructure.adapters.generic.integrations.langgraph.adapter import LangGraphExecutionAdapter
+from sprintcycle.infrastructure.adapters.generic.integrations.phoenix.adapter import PhoenixObservabilityAdapter
 
 
 @dataclass

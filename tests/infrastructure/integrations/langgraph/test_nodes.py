@@ -1,7 +1,7 @@
 import pytest
 
-from sprintcycle.infrastructure.integrations.langgraph.intent_nodes import intent_evaluate, intent_finalize, sprint_split, should_retry
-from sprintcycle.infrastructure.integrations.langgraph.sprint_nodes import sprint_finalize, sprint_prepare, should_retry_sprint
+from sprintcycle.infrastructure.adapters.generic.integrations.langgraph.intent_nodes import intent_evaluate, intent_finalize, sprint_split, should_retry
+from sprintcycle.infrastructure.adapters.generic.integrations.langgraph.sprint_nodes import sprint_finalize, sprint_prepare, should_retry_sprint
 
 
 @pytest.mark.asyncio

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from sprintcycle.infrastructure.mq import MQMessage, SQLiteMQ
+from sprintcycle.infrastructure.adapters.generic.mq import MQMessage, SQLiteMQ
 
 
 @pytest.mark.asyncio

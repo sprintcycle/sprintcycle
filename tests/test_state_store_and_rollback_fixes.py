@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from sprintcycle.infrastructure.config import RuntimeConfig
+from sprintcycle.infrastructure.adapters.generic.config import RuntimeConfig
 from sprintcycle.execution.rollback import RollbackManager
-from sprintcycle.infrastructure.persistence.state.state_store import (
+from sprintcycle.infrastructure.adapters.core.execution.state_store.state_store import (
     configure_default_store,
     get_state_store,
     reset_default_state_store,

@@ -1,4 +1,4 @@
-from sprintcycle.infrastructure.integrations.langgraph.states import IntentState, SprintState
+from sprintcycle.infrastructure.adapters.generic.integrations.langgraph.states import IntentState, SprintState
 
 
 def test_state_types_accept_expected_keys():

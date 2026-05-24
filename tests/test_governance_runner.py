@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
+from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
 from sprintcycle.execution.core.events import EventBus, EventType
 from sprintcycle.execution.hooks.governance_context import (
     CTX_GOVERNANCE_TASK_AFTER_DETAIL,

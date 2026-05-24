@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 from loguru import logger
 
 if TYPE_CHECKING:
-    from sprintcycle.infrastructure.persistence.state.rollback_types import (
+    from sprintcycle.infrastructure.adapters.core.evolution.rollback_store.rollback_types import (
         RollbackConfig as InfraRollbackConfig,
         VariantBranch as InfraVariantBranch,
     )

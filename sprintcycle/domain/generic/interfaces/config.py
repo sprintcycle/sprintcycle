@@ -50,7 +50,7 @@ def load_project_config(project_path: str) -> ConfigProtocol:
     if _config_loader is not None:
         return _config_loader(project_path)
     # 默认实现：延迟导入避免循环依赖
-    from sprintcycle.infrastructure.config import RuntimeConfig
+    from sprintcycle.infrastructure.adapters.generic.config import RuntimeConfig
     return RuntimeConfig.from_project(project_path)
 
 

@@ -7,17 +7,17 @@ from pathlib import Path
 
 import pytest
 
-from sprintcycle.infrastructure.config import RuntimeConfig
+from sprintcycle.infrastructure.adapters.generic.config import RuntimeConfig
 from sprintcycle.execution.knowledge.knowledge_injector import KnowledgeInjector
 from sprintcycle.execution.sprint_types import ExecutionStatus
-from sprintcycle.infrastructure.persistence.state.state_store import (
+from sprintcycle.infrastructure.adapters.core.execution.state_store.state_store import (
     ExecutionState,
     configure_default_store,
     get_state_store,
     reset_default_state_store,
 )
-from sprintcycle.infrastructure.persistence.import_json_state import import_json_executions_to_sqlite
-from sprintcycle.infrastructure.persistence.knowledge_repository import KnowledgeCardRepository
+from sprintcycle.infrastructure.shared.persistence.import_json_state import import_json_executions_to_sqlite
+from sprintcycle.infrastructure.adapters.generic.knowledge.knowledge_repository import KnowledgeCardRepository
 
 
 @pytest.fixture(autouse=True)
@@ -72,7 +72,7 @@ def test_import_json_executions(tmp_path: Path) -> None:
     db = tmp_path / "merged.sqlite"
     n = import_json_executions_to_sqlite(jdir, db)
     assert n == 1
-    from sprintcycle.infrastructure.persistence.state.sqlite_state_store import SqliteExecutionStore
+    from sprintcycle.infrastructure.adapters.core.execution.state_store.sqlite_state_store import SqliteExecutionStore
 
     s2 = SqliteExecutionStore(str(db))
     got = s2.load("imp-1")
@@ -106,7 +106,7 @@ def test_knowledge_search_and_injection(tmp_path: Path) -> None:
 
 
 def test_knowledge_search(tmp_path: Path) -> None:
-    from sprintcycle.infrastructure.config import RuntimeConfig
+    from sprintcycle.infrastructure.adapters.generic.config import RuntimeConfig
 
     db = tmp_path / "k2.sqlite"
     cfg = RuntimeConfig(sqlite_path=str(db))
@@ -117,7 +117,7 @@ def test_knowledge_search(tmp_path: Path) -> None:
 
 
 def test_init_db_fresh_sqlite(tmp_path: Path) -> None:
-    from sprintcycle.infrastructure.persistence.session import create_engine_for_path, init_db
+    from sprintcycle.infrastructure.shared.persistence.session import create_engine_for_path, init_db
 
     db = tmp_path / "fresh.sqlite"
     engine = create_engine_for_path(str(db))

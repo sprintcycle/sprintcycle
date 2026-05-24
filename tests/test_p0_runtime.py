@@ -4,12 +4,12 @@ from pathlib import Path
 
 import pytest
 
-from sprintcycle.infrastructure.config import (
+from sprintcycle.infrastructure.adapters.generic.config import (
     RuntimeConfig,
     flatten_sprintcycle_toml,
     resolve_effective_quality_level,
 )
-from sprintcycle.infrastructure.config.dynaconf_app import build_dynaconf
+from sprintcycle.infrastructure.adapters.generic.config.dynaconf_app import build_dynaconf
 from sprintcycle.domain.evolution.measurement import MeasurementProvider, MeasurementResult
 
 

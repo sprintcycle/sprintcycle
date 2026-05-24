@@ -57,7 +57,7 @@ class SprintPersistencePolicy:
         sprint_result: SprintResult,
         measurement: Optional[MeasurementResult],
     ) -> None:
-        from sprintcycle.infrastructure.knowledge.sprint_knowledge_card import persist_sprint_outcome_card
+        from sprintcycle.infrastructure.adapters.generic.knowledge.sprint_knowledge_card import persist_sprint_outcome_card
 
         persist_sprint_outcome_card(
             project_path=orchestrator._project_root,

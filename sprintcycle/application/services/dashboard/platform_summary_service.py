@@ -18,7 +18,7 @@ from .dashboard_workbench_service import DashboardWorkbenchService
 
 # TYPE_CHECKING: 仅用于类型提示
 if TYPE_CHECKING:
-    from sprintcycle.infrastructure.persistence.state import ExecutionState
+    from sprintcycle.infrastructure.adapters.core.execution.state_store import ExecutionState
 
 
 @dataclass
@@ -29,7 +29,7 @@ class PlatformSummaryService:
 
     def _get_state_machine_summary(self) -> Dict[str, Any]:
         """获取状态机摘要（延迟导入避免循环依赖）"""
-        from sprintcycle.infrastructure.persistence.state import summarize_state_machine
+        from sprintcycle.infrastructure.adapters.core.execution.state_store import summarize_state_machine
         return summarize_state_machine()
 
     def platform_overview(self) -> Dict[str, Any]:
@@ -107,7 +107,7 @@ class PlatformSummaryService:
 
     def console_overview(self, trace_payload: Dict[str, Any] | None = None, limit: int = 20) -> Dict[str, Any]:
         # 延迟导入避免循环依赖
-        from sprintcycle.infrastructure.persistence.state import get_state_store
+        from sprintcycle.infrastructure.adapters.core.execution.state_store import get_state_store
         store = get_state_store()
         states = store.list_executions(limit=max(1, int(limit)))
         executions = [s.to_dict() for s in states]

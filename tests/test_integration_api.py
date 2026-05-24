@@ -17,7 +17,7 @@ from sprintcycle.application.results import (
     StatusResult, RollbackResult, StopResult,
 )
 from sprintcycle.execution.sprint_types import ExecutionStatus
-from sprintcycle.infrastructure.persistence.state.state_store import StateStore, ExecutionState
+from sprintcycle.infrastructure.adapters.core.execution.state_store.state_store import StateStore, ExecutionState
 
 
 class TestHTTPServicesDiagnose:
@@ -107,7 +107,7 @@ class TestSprintOrchestratorPlan:
 
     def test_plan_returns_plan_result(self):
         """plan → returns PlanResult"""
-        from sprintcycle.infrastructure.config import RuntimeConfig
+        from sprintcycle.infrastructure.adapters.generic.config import RuntimeConfig
         
         cfg = RuntimeConfig(dry_run=True)
         orch = SprintOrchestrator(config=cfg, project_path=self.temp_dir)
@@ -133,7 +133,7 @@ class TestSprintOrchestratorRun:
 
     def test_run_returns_run_result(self):
         """run → returns RunResult"""
-        from sprintcycle.infrastructure.config import RuntimeConfig
+        from sprintcycle.infrastructure.adapters.generic.config import RuntimeConfig
         
         cfg = RuntimeConfig(dry_run=True)
         orch = SprintOrchestrator(config=cfg, project_path=self.temp_dir)

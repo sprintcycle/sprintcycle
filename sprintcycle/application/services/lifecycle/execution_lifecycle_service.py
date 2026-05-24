@@ -14,8 +14,8 @@ from sprintcycle.domain.generic.interfaces.hooks import EXECUTION_STARTED_EVENT,
 
 # TYPE_CHECKING: 仅用于类型提示
 if TYPE_CHECKING:
-    from sprintcycle.infrastructure.observability.facade import ObservabilityFacade
-    from sprintcycle.infrastructure.config.runtime_registry import RuntimeRegistry
+    from sprintcycle.infrastructure.adapters.generic.observability.facade import ObservabilityFacade
+    from sprintcycle.infrastructure.adapters.generic.config.runtime_registry import RuntimeRegistry
 
 
 class ExecutionLifecycleService:
@@ -69,7 +69,7 @@ class ExecutionLifecycleService:
         }
         self.runtime_registry.register(runtime_payload)
         # 延迟导入避免循环依赖
-        from sprintcycle.infrastructure.persistence.state import get_state_store
+        from sprintcycle.infrastructure.adapters.core.execution.state_store import get_state_store
         state_store = get_state_store()
         try:
             state_store.update_execution_status(runtime_id, "running")
@@ -121,7 +121,7 @@ class ExecutionLifecycleService:
 
     def execution_detail(self, execution_id: str, limit: int = 200) -> Dict[str, Any]:
         # 延迟导入避免循环依赖
-        from sprintcycle.infrastructure.persistence.state import get_state_store
+        from sprintcycle.infrastructure.adapters.core.execution.state_store import get_state_store
         state_store = get_state_store()
         state = state_store.get_execution(execution_id)
         trace = self.observability.trace(execution_id)

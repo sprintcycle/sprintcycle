@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict
 
-from sprintcycle.infrastructure.persistence.state.context import SprintExecutionContext, TaskExecutionContext
+from sprintcycle.infrastructure.adapters.core.execution.state_store.context import SprintExecutionContext, TaskExecutionContext
 from sprintcycle.domain.generic.models import ReleasePlan, SprintBacklogItem, SprintDefinition
 from sprintcycle.domain.core.execution.core.policies import SprintFeedbackPolicy, SprintRetryPolicy
 

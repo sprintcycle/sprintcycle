@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from sprintcycle.infrastructure.governance.arch_guard_adapters import (
+from sprintcycle.infrastructure.adapters.core.governance.arch_guard import (
     ArchonAdapter,
     GrimpAdapter,
     ImportLinterAdapter,

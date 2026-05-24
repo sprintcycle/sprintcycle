@@ -18,7 +18,7 @@ from ..execution.phase_workflow import build_observe_artifact
 
 # TYPE_CHECKING: 仅用于类型提示
 if TYPE_CHECKING:
-    from sprintcycle.infrastructure.observability.facade import ObservabilityFacade
+    from sprintcycle.infrastructure.adapters.generic.observability.facade import ObservabilityFacade
 
 
 @dataclass
@@ -167,7 +167,7 @@ class ObservabilityService:
         if not eid:
             return {"success": False, "error": "execution_id required"}
         # 延迟导入避免循环依赖
-        from sprintcycle.infrastructure.persistence.state import get_state_store
+        from sprintcycle.infrastructure.adapters.core.execution.state_store import get_state_store
         store = get_state_store()
         state = store.load(eid)
         if state is None:

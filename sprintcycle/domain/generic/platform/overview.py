@@ -5,13 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict
 
-from sprintcycle.infrastructure.integrations.autogpt.compose import build_default_compose_spec
-from sprintcycle.infrastructure.integrations.autogpt.runtime import AutoGPTRuntimeSpec
-from sprintcycle.infrastructure.integrations.langgraph import LangGraphRuntimeAdapter, LangGraphRuntimeSpec
-from sprintcycle.infrastructure.integrations.langgraph.compiler import compile_intent_graph, compile_sprint_graph
-from sprintcycle.infrastructure.integrations.langgraph.plan_runtime import PlanRuntime
-from sprintcycle.infrastructure.integrations.phoenix.exporter import PhoenixExporterSpec
-from sprintcycle.infrastructure.integrations.phoenix.trace_runtime import PhoenixTraceRuntime
+from sprintcycle.infrastructure.adapters.generic.integrations.autogpt.compose import build_default_compose_spec
+from sprintcycle.infrastructure.adapters.generic.integrations.autogpt.runtime import AutoGPTRuntimeSpec
+from sprintcycle.infrastructure.adapters.generic.integrations.langgraph import LangGraphRuntimeAdapter, LangGraphRuntimeSpec
+from sprintcycle.infrastructure.adapters.generic.integrations.langgraph.compiler import compile_intent_graph, compile_sprint_graph
+from sprintcycle.infrastructure.adapters.generic.integrations.langgraph.plan_runtime import PlanRuntime
+from sprintcycle.infrastructure.adapters.generic.integrations.phoenix.exporter import PhoenixExporterSpec
+from sprintcycle.infrastructure.adapters.generic.integrations.phoenix.trace_runtime import PhoenixTraceRuntime
 from .spec import build_platform_spec
 
 

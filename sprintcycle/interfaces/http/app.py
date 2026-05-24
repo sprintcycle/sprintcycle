@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from sprintcycle.application.http_factories import create_http_services
-from sprintcycle.infrastructure.config.runtime_config import DashboardPortDefaults
+from sprintcycle.infrastructure.adapters.generic.config.runtime_config import DashboardPortDefaults
 
 from .internal import build_internal_router
 from .public import build_public_router

@@ -21,7 +21,7 @@ from ..arch_guard.yaml_checks import checks_for_gate, filter_argv_items_by_gover
 from sprintcycle.domain.core.governance.core import load_merged_governance_data
 
 if TYPE_CHECKING:
-    from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
+    from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
 
 
 class GovernanceTaskLifecycleHooks(TaskLifecycleHookProtocol):

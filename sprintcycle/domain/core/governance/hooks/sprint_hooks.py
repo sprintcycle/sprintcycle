@@ -22,8 +22,8 @@ from sprintcycle.domain.core.governance.arch_guard.model import GuardReport as G
 from sprintcycle.domain.core.governance.core import persist_planning_report, persist_report
 
 if TYPE_CHECKING:
-    from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
-    from sprintcycle.infrastructure.observability import ObservabilityFacade
+    from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
+    from sprintcycle.infrastructure.adapters.generic.observability import ObservabilityFacade
 
 
 class GovernanceSprintHooks(SprintLifecycleHookProtocol):

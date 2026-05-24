@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
+from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
 from sprintcycle.execution.hooks.governance_context import (
     CTX_GOVERNANCE_TASK_AFTER_DETAIL,
     CTX_GOVERNANCE_TASK_AFTER_FAILED,
