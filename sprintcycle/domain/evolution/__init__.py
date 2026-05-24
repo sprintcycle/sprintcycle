@@ -7,7 +7,7 @@ Domain Evolution - 版本演进领域模型
 from .activator import EvolutionActivator
 from .context import EvolutionContext
 from .controller import EvolutionController
-from .default import DefaultEvolutionService
+from .default import DefaultEvolutionService, create_evolution_facade
 from .facade import EvolutionFacade
 from .intent_evolution_loop import UserIntentEvolutionLoop
 from .measurement import MeasurementResult
@@ -25,6 +25,7 @@ from .rollback_manager import (
     RollbackError,
 )
 from .types import SprintContext
+
 
 __all__ = [
     # Core
@@ -52,4 +53,6 @@ __all__ = [
     "RollbackConfig",
     "RollbackError",
     "HAS_GIT_ROLLBACK",
+    # Factories
+    "create_evolution_facade",
 ]
