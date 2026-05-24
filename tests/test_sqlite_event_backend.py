@@ -22,7 +22,7 @@ async def test_emit_awaits_async_handler(tmp_path):
         await be.emit(Event(type=EventType.TASK_START, data={"k": 1}))
         assert log == ["a"]
     finally:
-        be.close()
+        await be.close()
 
 
 def test_execution_events_sqlite_path_under_project(tmp_path):
@@ -33,7 +33,8 @@ def test_execution_events_sqlite_path_under_project(tmp_path):
     assert out.endswith("exec_events.sqlite")
 
 
-def test_emit_sync_invokes_sync_handler(tmp_path):
+@pytest.mark.asyncio
+async def test_emit_sync_invokes_sync_handler(tmp_path):
     be = SQLiteMQEventBackend(str(tmp_path / "e2.db"))
     try:
         seen: list[Event] = []
@@ -42,14 +43,15 @@ def test_emit_sync_invokes_sync_handler(tmp_path):
             seen.append(ev)
 
         be.on(EventType.SPRINT_START, h)
-        be.emit_sync(Event(type=EventType.SPRINT_START, data={"n": 2}))
+        await be.emit_sync(Event(type=EventType.SPRINT_START, data={"n": 2}))
         assert len(seen) == 1
         assert seen[0].data["n"] == 2
     finally:
-        be.close()
+        await be.close()
 
 
-def test_mq_publish_triggers_bridge_sync_handler(tmp_path):
+@pytest.mark.asyncio
+async def test_mq_publish_triggers_bridge_sync_handler(tmp_path):
     """经 SQLiteMQ.publish 投递时走 bridge（同步 handler）。"""
     be = SQLiteMQEventBackend(str(tmp_path / "e3.db"))
     try:
@@ -59,7 +61,7 @@ def test_mq_publish_triggers_bridge_sync_handler(tmp_path):
             seen.append("x")
 
         be.on(EventType.EXECUTION_START, h)
-        be._mq.publish(EventType.EXECUTION_START.value, {"data": {}, "timestamp": None})
+        await be._mq.publish(EventType.EXECUTION_START.value, {"data": {}, "timestamp": None})
         assert seen == ["x"]
     finally:
-        be.close()
+        await be.close()

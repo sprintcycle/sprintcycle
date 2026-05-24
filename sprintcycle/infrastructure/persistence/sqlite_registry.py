@@ -5,32 +5,34 @@ Persists version artifacts and active pointers.
 
 from __future__ import annotations
 
-import asyncio
-import json
-import sqlite3
-from pathlib import Path
 from typing import Optional
 
-from ...domain.evolution.models import EvolutionTarget, VersionArtifact
-from sprintcycle.governance.versioning.registry import VersionRegistry  # noqa: E402
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncConnection
+
+from sprintcycle.domain.evolution.models import EvolutionTarget, VersionArtifact
+from sprintcycle.governance.versioning.registry import VersionRegistry
+from sprintcycle.infrastructure.persistence.base import BaseSqliteStore
 
 
-class SQLiteVersionRegistry(VersionRegistry):
+class SQLiteVersionRegistry(BaseSqliteStore, VersionRegistry):
+    """基于 BaseSqliteStore 的版本注册中心实现。"""
+
     def __init__(self, root_dir: str = ".sprintcycle/versioning") -> None:
-        self._root_dir = Path(root_dir).expanduser().resolve()
-        self._root_dir.mkdir(parents=True, exist_ok=True)
-        self._db_path = self._root_dir / "versions.sqlite3"
-        self._lock = asyncio.Lock()
-        self._init_db()
+        from pathlib import Path
 
-    def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(str(self._db_path))
-        conn.row_factory = sqlite3.Row
-        return conn
+        root = Path(root_dir).expanduser().resolve()
+        root.mkdir(parents=True, exist_ok=True)
+        super().__init__(str(root / "versions.sqlite3"))
+        self._root_dir = root
 
-    def _init_db(self) -> None:
-        with self._connect() as conn:
-            conn.execute(
+    # ─────────────────────────────────────────────────────────────────
+    # BaseSqliteStore 模板方法实现
+    # ─────────────────────────────────────────────────────────────────
+
+    def _define_schema(self, conn: AsyncConnection) -> None:
+        conn.execute(
+            text(
                 """
                 CREATE TABLE IF NOT EXISTS versions (
                     version_id TEXT PRIMARY KEY,
@@ -46,96 +48,127 @@ class SQLiteVersionRegistry(VersionRegistry):
                 )
                 """
             )
-            conn.execute(
+        )
+        conn.execute(
+            text(
                 """
                 CREATE INDEX IF NOT EXISTS idx_versions_target_active
                 ON versions(target, is_active, created_at DESC)
                 """
             )
-            conn.commit()
+        )
+
+    # ─────────────────────────────────────────────────────────────────
+    # VersionRegistry 接口实现
+    # ─────────────────────────────────────────────────────────────────
 
     async def register(self, artifact: VersionArtifact) -> VersionArtifact:
-        async with self._lock:
-            with self._connect() as conn:
-                conn.execute(
-                    """
-                    INSERT OR REPLACE INTO versions
-                    (version_id, target, commit_hash, tag, branch, manifest_path, sandbox_id, metadata_json, is_active)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT is_active FROM versions WHERE version_id=?), 0))
-                    """,
-                    (
-                        artifact.version_id,
-                        artifact.target,
-                        artifact.commit_hash,
-                        artifact.tag,
-                        artifact.branch,
-                        artifact.manifest_path,
-                        artifact.sandbox_id,
-                        json.dumps(artifact.metadata, ensure_ascii=False),
-                        artifact.version_id,
-                    ),
-                )
-                conn.commit()
+        # 查询当前 is_active 值（aiosqlite 不支持绑定参数在 COALESCE 子查询中）
+        row = await self.execute_one(
+            "SELECT is_active FROM versions WHERE version_id = ?",
+            (artifact.version_id,),
+        )
+        is_active = int(row[0]) if row else 0
+
+        await self.execute_modify(
+            """
+            INSERT OR REPLACE INTO versions
+            (version_id, target, commit_hash, tag, branch, manifest_path, sandbox_id, metadata_json, is_active)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                artifact.version_id,
+                artifact.target,
+                artifact.commit_hash,
+                artifact.tag,
+                artifact.branch,
+                artifact.manifest_path,
+                artifact.sandbox_id,
+                self.json_dumps(artifact.metadata),
+                is_active,
+            ),
+        )
         return artifact
 
     async def set_active(self, version_id: str) -> None:
-        async with self._lock:
-            with self._connect() as conn:
-                row = conn.execute("SELECT target FROM versions WHERE version_id=?", (version_id,)).fetchone()
-                if row is None:
-                    raise KeyError(f"version not found: {version_id}")
-                target = row["target"]
-                conn.execute("UPDATE versions SET is_active=0 WHERE target=?", (target,))
-                conn.execute("UPDATE versions SET is_active=1 WHERE version_id=?", (version_id,))
-                conn.commit()
+        row = await self.execute_one("SELECT target FROM versions WHERE version_id = ?", (version_id,))
+        if row is None:
+            raise KeyError(f"version not found: {version_id}")
+        target = row[0]
+
+        await self.execute_modify(
+            "UPDATE versions SET is_active=0 WHERE target = ?",
+            (target,),
+        )
+        await self.execute_modify(
+            "UPDATE versions SET is_active=1 WHERE version_id = ?",
+            (version_id,),
+        )
 
     async def get_active(self, target: EvolutionTarget) -> Optional[VersionArtifact]:
-        with self._connect() as conn:
-            row = conn.execute(
-                "SELECT * FROM versions WHERE target=? AND is_active=1 ORDER BY created_at DESC LIMIT 1",
-                (target,),
-            ).fetchone()
+        row = await self.execute_one(
+            """
+            SELECT * FROM versions
+            WHERE target = ? AND is_active = 1
+            ORDER BY created_at DESC LIMIT 1
+            """,
+            (target,),
+        )
         return self._row_to_artifact(row) if row else None
 
     async def get(self, version_id: str) -> Optional[VersionArtifact]:
-        with self._connect() as conn:
-            row = conn.execute("SELECT * FROM versions WHERE version_id=?", (version_id,)).fetchone()
+        row = await self.execute_one(
+            "SELECT * FROM versions WHERE version_id = ?",
+            (version_id,),
+        )
         return self._row_to_artifact(row) if row else None
 
-    async def list_versions(self, target: Optional[EvolutionTarget] = None, limit: int = 20) -> list[VersionArtifact]:
-        with self._connect() as conn:
-            if target is None:
-                rows = conn.execute("SELECT * FROM versions ORDER BY created_at DESC LIMIT ?", (limit,)).fetchall()
-            else:
-                rows = conn.execute(
-                    "SELECT * FROM versions WHERE target=? ORDER BY created_at DESC LIMIT ?",
-                    (target, limit),
-                ).fetchall()
+    async def list_versions(
+        self,
+        target: Optional[EvolutionTarget] = None,
+        limit: int = 20,
+    ) -> list[VersionArtifact]:
+        if target is None:
+            rows = await self.execute(
+                "SELECT * FROM versions ORDER BY created_at DESC LIMIT ?",
+                (limit,),
+            )
+        else:
+            rows = await self.execute(
+                """
+                SELECT * FROM versions
+                WHERE target = ? ORDER BY created_at DESC LIMIT ?
+                """,
+                (target, limit),
+            )
         return [self._row_to_artifact(r) for r in rows]
 
     async def list_targets(self) -> list[EvolutionTarget]:
-        with self._connect() as conn:
-            rows = conn.execute("SELECT DISTINCT target FROM versions ORDER BY target ASC").fetchall()
+        rows = await self.execute(
+            "SELECT DISTINCT target FROM versions ORDER BY target ASC"
+        )
         return [row[0] for row in rows]
 
     async def export_manifest_index(self) -> dict[str, list[str]]:
-        with self._connect() as conn:
-            rows = conn.execute("SELECT target, version_id FROM versions ORDER BY created_at DESC").fetchall()
+        rows = await self.execute(
+            "SELECT target, version_id FROM versions ORDER BY created_at DESC"
+        )
         index: dict[str, list[str]] = {}
         for row in rows:
-            target = row[0]
-            version_id = row[1]
+            target = str(row[0])
+            version_id = str(row[1])
             index.setdefault(target, []).append(version_id)
         return index
 
-    def _row_to_artifact(self, row: sqlite3.Row) -> VersionArtifact:
+    def _row_to_artifact(self, row: tuple) -> VersionArtifact:
+        """将查询行转换为 VersionArtifact。"""
         return VersionArtifact(
-            version_id=row["version_id"],
-            target=row["target"],
-            commit_hash=row["commit_hash"],
-            tag=row["tag"],
-            branch=row["branch"],
-            manifest_path=row["manifest_path"],
-            sandbox_id=row["sandbox_id"],
-            metadata=json.loads(row["metadata_json"] or "{}"),
+            version_id=str(row[0]),
+            target=str(row[1]),
+            commit_hash=row[2],
+            tag=row[3],
+            branch=row[4],
+            manifest_path=row[5],
+            sandbox_id=row[6],
+            metadata=self.json_loads(row[7]),
         )

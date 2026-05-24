@@ -1,35 +1,34 @@
-"""HITL SQLite 存储。"""
+"""HITL SQLite 存储（基于 BaseSqliteStore）。"""
 
 from __future__ import annotations
 
-import json
-import sqlite3
-from pathlib import Path
 from typing import Optional
 
-from ..types import HitlCorrection, HitlReplayDirective, HitlRequestRecord
-from .base import HitlStore
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncConnection
+
+from sprintcycle.governance.hitl.store.base import HitlStore
+from sprintcycle.governance.hitl.types import HitlCorrection, HitlReplayDirective, HitlRequestRecord
+from sprintcycle.infrastructure.persistence.base import BaseSqliteStore
 
 
 def default_hitl_db_path(project_root: str) -> str:
+    from pathlib import Path
+
     root = Path(project_root).expanduser().resolve()
     return str(root / ".sprintcycle" / "hitl.sqlite3")
 
 
-class HitlSqliteStore(HitlStore):
-    def __init__(self, db_path: str) -> None:
-        self._db_path = Path(db_path).expanduser().resolve()
-        self._db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._init_db()
+class HitlSqliteStore(BaseSqliteStore, HitlStore):
+    """HITL 请求持久化（基于 BaseSqliteStore）。"""
 
-    def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(str(self._db_path), timeout=30)
-        conn.row_factory = sqlite3.Row
-        return conn
+    # ─────────────────────────────────────────────────────────────────
+    # BaseSqliteStore 模板方法实现
+    # ─────────────────────────────────────────────────────────────────
 
-    def _init_db(self) -> None:
-        with self._connect() as conn:
-            conn.execute(
+    def _define_schema(self, conn: AsyncConnection) -> None:
+        conn.execute(
+            text(
                 """
                 CREATE TABLE IF NOT EXISTS hitl_requests (
                     request_id TEXT PRIMARY KEY,
@@ -57,49 +56,54 @@ class HitlSqliteStore(HitlStore):
                 )
                 """
             )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_hitl_requests_execution_status ON hitl_requests(execution_id, status, created_at DESC)"
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_hitl_requests_execution_status "
+                "ON hitl_requests(execution_id, status, created_at DESC)"
             )
-            conn.commit()
+        )
+
+    # ─────────────────────────────────────────────────────────────────
+    # HitlStore 接口实现
+    # ─────────────────────────────────────────────────────────────────
 
     async def insert_open(self, row: HitlRequestRecord) -> None:
-        with self._connect() as conn:
-            conn.execute(
-                """
-                INSERT OR REPLACE INTO hitl_requests (
-                    request_id, execution_id, gate, status, title, summary,
-                    context_json, created_at, decided_at, decision, decision_note,
-                    timeout_seconds, risk_level, parent_request_id, revision, decision_kind,
-                    status_reason, superseded_by, replay_count, applied_context_json,
-                    correction_json, replay_directive_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    row.request_id,
-                    row.execution_id,
-                    row.gate,
-                    row.status,
-                    row.title,
-                    row.summary,
-                    json.dumps(row.context, ensure_ascii=False),
-                    row.created_at,
-                    row.decided_at,
-                    row.decision,
-                    row.decision_note,
-                    row.timeout_seconds,
-                    row.risk_level,
-                    row.parent_request_id,
-                    row.revision,
-                    row.decision_kind,
-                    row.status_reason,
-                    row.superseded_by,
-                    row.replay_count,
-                    json.dumps(row.applied_context, ensure_ascii=False),
-                    json.dumps(row.correction.to_dict(), ensure_ascii=False) if row.correction else None,
-                    json.dumps(row.replay_directive.to_dict(), ensure_ascii=False) if row.replay_directive else None,
-                ),
-            )
-            conn.commit()
+        await self.execute_modify(
+            """
+            INSERT OR REPLACE INTO hitl_requests (
+                request_id, execution_id, gate, status, title, summary,
+                context_json, created_at, decided_at, decision, decision_note,
+                timeout_seconds, risk_level, parent_request_id, revision, decision_kind,
+                status_reason, superseded_by, replay_count, applied_context_json,
+                correction_json, replay_directive_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                row.request_id,
+                row.execution_id,
+                row.gate,
+                row.status,
+                row.title,
+                row.summary,
+                self.json_dumps(row.context),
+                row.created_at,
+                row.decided_at,
+                row.decision,
+                row.decision_note,
+                row.timeout_seconds,
+                row.risk_level,
+                row.parent_request_id,
+                row.revision,
+                row.decision_kind,
+                row.status_reason,
+                row.superseded_by,
+                row.replay_count,
+                self.json_dumps(row.applied_context),
+                self.json_dumps(row.correction.to_dict()) if row.correction else None,
+                self.json_dumps(row.replay_directive.to_dict()) if row.replay_directive else None,
+            ),
+        )
 
     async def update_decision(
         self,
@@ -110,18 +114,15 @@ class HitlSqliteStore(HitlStore):
         decision_kind: Optional[str] = None,
         status: Optional[str] = None,
     ) -> bool:
-        decided_at = self._now_iso()
-        with self._connect() as conn:
-            cur = conn.execute(
-                """
-                UPDATE hitl_requests
-                SET status = ?, decided_at = ?, decision = ?, decision_note = ?, decision_kind = ?
-                WHERE request_id = ? AND status IN ('open', 'modified', 'retrying')
-                """,
-                (status or "resolved", decided_at, decision, note, decision_kind, request_id),
-            )
-            conn.commit()
-            return cur.rowcount > 0
+        rows = await self.execute_modify(
+            """
+            UPDATE hitl_requests
+            SET status = ?, decided_at = ?, decision = ?, decision_note = ?, decision_kind = ?
+            WHERE request_id = ? AND status IN ('open', 'modified', 'retrying')
+            """,
+            (status or "resolved", self.now_iso(), decision, note, decision_kind, request_id),
+        )
+        return rows > 0
 
     async def resolve(
         self,
@@ -130,7 +131,6 @@ class HitlSqliteStore(HitlStore):
         note: Optional[str] = None,
         from_timeout: bool = False,
     ) -> bool:
-        """Resolve a HITL request (compatible interface)."""
         decision_kind = "timeout" if from_timeout else "manual"
         return await self.update_decision(
             request_id,
@@ -141,85 +141,100 @@ class HitlSqliteStore(HitlStore):
         )
 
     async def get(self, request_id: str) -> Optional[HitlRequestRecord]:
-        with self._connect() as conn:
-            cur = conn.execute("SELECT * FROM hitl_requests WHERE request_id = ?", (request_id,))
-            row = cur.fetchone()
-            if row is None:
-                return None
-            return self._row_to_record(row)
+        row = await self.execute_one(
+            "SELECT * FROM hitl_requests WHERE request_id = ?",
+            (request_id,),
+        )
+        return self._row_to_record(row) if row else None
 
     async def list_open(self, execution_id: Optional[str] = None) -> list[HitlRequestRecord]:
-        sql = "SELECT * FROM hitl_requests WHERE status IN ('open', 'modified', 'retrying')"
-        params: list[object] = []
-        if execution_id:
-            sql += " AND execution_id = ?"
-            params.append(execution_id)
-        sql += " ORDER BY created_at DESC"
-        with self._connect() as conn:
-            cur = conn.execute(sql, params)
-            return [self._row_to_record(r) for r in cur.fetchall()]
+        if execution_id is None:
+            rows = await self.execute(
+                """
+                SELECT * FROM hitl_requests
+                WHERE status IN ('open', 'modified', 'retrying')
+                ORDER BY created_at DESC
+                """
+            )
+        else:
+            rows = await self.execute(
+                """
+                SELECT * FROM hitl_requests
+                WHERE status IN ('open', 'modified', 'retrying') AND execution_id = ?
+                ORDER BY created_at DESC
+                """,
+                (execution_id,),
+            )
+        return [self._row_to_record(r) for r in rows]
 
-    async def list_history(self, execution_id: Optional[str] = None, limit: int = 50) -> list[HitlRequestRecord]:
-        sql = "SELECT * FROM hitl_requests"
-        params: list[object] = []
-        if execution_id:
-            sql += " WHERE execution_id = ?"
-            params.append(execution_id)
-        sql += " ORDER BY created_at DESC LIMIT ?"
-        params.append(limit)
-        with self._connect() as conn:
-            cur = conn.execute(sql, params)
-            return [self._row_to_record(r) for r in cur.fetchall()]
+    async def list_history(
+        self,
+        execution_id: Optional[str] = None,
+        limit: int = 50,
+    ) -> list[HitlRequestRecord]:
+        if execution_id is None:
+            rows = await self.execute(
+                "SELECT * FROM hitl_requests ORDER BY created_at DESC LIMIT ?",
+                (limit,),
+            )
+        else:
+            rows = await self.execute(
+                """
+                SELECT * FROM hitl_requests
+                WHERE execution_id = ? ORDER BY created_at DESC LIMIT ?
+                """,
+                (execution_id, limit),
+            )
+        return [self._row_to_record(r) for r in rows]
 
     async def insert_correction(self, request_id: str, correction: HitlCorrection) -> None:
-        with self._connect() as conn:
-            conn.execute(
-                "UPDATE hitl_requests SET correction_json = ?, status = 'modified' WHERE request_id = ?",
-                (json.dumps(correction.to_dict(), ensure_ascii=False), request_id),
-            )
-            conn.commit()
+        await self.execute_modify(
+            """
+            UPDATE hitl_requests
+            SET correction_json = ?, status = 'modified'
+            WHERE request_id = ?
+            """,
+            (self.json_dumps(correction.to_dict()), request_id),
+        )
 
     async def insert_replay(self, request_id: str, replay: HitlReplayDirective) -> None:
-        with self._connect() as conn:
-            conn.execute(
-                "UPDATE hitl_requests SET replay_directive_json = ?, status = 'retrying', replay_count = replay_count + 1 WHERE request_id = ?",
-                (json.dumps(replay.to_dict(), ensure_ascii=False), request_id),
-            )
-            conn.commit()
+        await self.execute_modify(
+            """
+            UPDATE hitl_requests
+            SET replay_directive_json = ?, status = 'retrying', replay_count = replay_count + 1
+            WHERE request_id = ?
+            """,
+            (self.json_dumps(replay.to_dict()), request_id),
+        )
 
     async def append_event(self, *args, **kwargs) -> None:
         return None
 
-    def _row_to_record(self, row: sqlite3.Row) -> HitlRequestRecord:
-        correction = row["correction_json"]
-        replay = row["replay_directive_json"]
+    def _row_to_record(self, row: tuple) -> HitlRequestRecord:
+        """将查询行转换为 HitlRequestRecord。"""
+        correction_json = row[20]
+        replay_directive_json = row[21]
         return HitlRequestRecord(
-            request_id=row["request_id"],
-            execution_id=row["execution_id"],
-            gate=row["gate"],
-            status=row["status"],
-            title=row["title"],
-            summary=row["summary"],
-            context=json.loads(row["context_json"] or "{}"),
-            created_at=row["created_at"],
-            decided_at=row["decided_at"],
-            decision=row["decision"],
-            decision_note=row["decision_note"],
-            timeout_seconds=int(row["timeout_seconds"] or 300),
-            risk_level=row["risk_level"] or "medium",
-            parent_request_id=row["parent_request_id"],
-            revision=int(row["revision"] or 1),
-            decision_kind=row["decision_kind"],
-            status_reason=row["status_reason"],
-            superseded_by=row["superseded_by"],
-            replay_count=int(row["replay_count"] or 0),
-            applied_context=json.loads(row["applied_context_json"] or "{}"),
-            correction=HitlCorrection(**json.loads(correction)) if correction else None,
-            replay_directive=HitlReplayDirective(**json.loads(replay)) if replay else None,
+            request_id=str(row[0]),
+            execution_id=str(row[1]),
+            gate=str(row[2]),
+            status=str(row[3]),
+            title=str(row[4]),
+            summary=str(row[5]),
+            context=self.json_loads(row[6]),
+            created_at=str(row[7]),
+            decided_at=row[8],
+            decision=row[9],
+            decision_note=row[10],
+            timeout_seconds=int(row[11]) if row[11] else 300,
+            risk_level=str(row[12]) if row[12] else "medium",
+            parent_request_id=row[13],
+            revision=int(row[14]) if row[14] else 1,
+            decision_kind=row[15],
+            status_reason=row[16],
+            superseded_by=row[17],
+            replay_count=int(row[18]) if row[18] else 0,
+            applied_context=self.json_loads(row[19]),
+            correction=HitlCorrection(**self.json_loads(correction_json)) if correction_json else None,
+            replay_directive=HitlReplayDirective(**self.json_loads(replay_directive_json)) if replay_directive_json else None,
         )
-
-    @staticmethod
-    def _now_iso() -> str:
-        from datetime import datetime
-
-        return datetime.now().isoformat()

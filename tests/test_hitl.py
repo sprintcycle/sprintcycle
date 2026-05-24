@@ -37,26 +37,30 @@ def test_hitl_decision_normalize_and_validate() -> None:
     assert normalize_hitl_decision("SKIP") == "skip_sprint"
 
 
-def test_fetch_execution_events_for_replay_empty_missing_db(tmp_path) -> None:
-    assert fetch_execution_events_for_replay(str(tmp_path / "missing.sqlite"), "e1") == []
+@pytest.mark.asyncio
+async def test_fetch_execution_events_for_replay_empty_missing_db(tmp_path) -> None:
+    assert await fetch_execution_events_for_replay(str(tmp_path / "missing.sqlite"), "e1") == []
 
 
-def test_fetch_execution_events_for_replay_filters(tmp_path) -> None:
+@pytest.mark.asyncio
+async def test_fetch_execution_events_for_replay_filters(tmp_path) -> None:
     db = tmp_path / "ev.sqlite"
     mq = SQLiteMQ(str(db))
-    mq.enqueue(
-        "sprint_started",
-        {
-            "data": {"execution_id": "e-a", "description": "d"},
-            "timestamp": "2026-01-01T00:00:00+00:00",
-        },
-    )
-    mq.enqueue(
-        "task_done",
-        {"data": {"execution_id": "e-b"}, "timestamp": "2026-01-02T00:00:00+00:00"},
-    )
-    mq.close()
-    rows = fetch_execution_events_for_replay(str(db), "e-a", limit=50)
+    try:
+        await mq._enqueue(
+            "sprint_started",
+            {
+                "data": {"execution_id": "e-a", "description": "d"},
+                "timestamp": "2026-01-01T00:00:00+00:00",
+            },
+        )
+        await mq._enqueue(
+            "task_done",
+            {"data": {"execution_id": "e-b"}, "timestamp": "2026-01-02T00:00:00+00:00"},
+        )
+    finally:
+        await mq.close()
+    rows = await fetch_execution_events_for_replay(str(db), "e-a", limit=50)
     assert len(rows) == 1
     assert rows[0]["event_type"] == "sprint_started"
     assert rows[0]["data"].get("execution_id") == "e-a"
