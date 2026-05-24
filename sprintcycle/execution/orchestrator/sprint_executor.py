@@ -1,8 +1,8 @@
 """
-Sprint 执行器 — 与 Scrum **Sprint** 时间盒内交付对应
+Sprint 执行器 — 与 Scrum Sprint 时间盒内交付对应
 
-顺序（或受控并行）跑完单个 ``SprintDefinition`` 的 Sprint Backlog（``tasks``），
-聚合为 ``SprintResult``；多 Sprint 由 ``SprintOrchestrator`` 编排。
+顺序（或受控并行）跑完单个 SprintDefinition 的 Sprint Backlog（tasks），
+聚合为 SprintResult；多 Sprint 由 SprintOrchestrator 编排。
 """
 
 import asyncio
@@ -16,6 +16,27 @@ from loguru import logger
 from sprintcycle.domain.models import ReleasePlan, SprintBacklogItem, SprintDefinition
 from sprintcycle.application.release_plan.payload_keys import context_plan_id_name
 from sprintcycle.governance.hitl.types import CTX_HITL_ABORT_EXECUTION, CTX_HITL_SPRINT_ACTION
+from .constants import (
+    TASK_SPLIT_THRESHOLD,
+    MAX_SUBTASKS,
+    DEPENDENCY_KEYWORDS,
+    ACTION_PATTERNS,
+    DEFAULT_MAX_PARALLEL,
+    DEFAULT_MAX_VERIFY_FIX_ROUNDS,
+    DEFAULT_CHECKPOINT_INTERVAL,
+    AGENT_TYPE_CODER,
+    AGENT_TYPE_IMPLEMENT,
+    AGENT_TYPE_TESTER,
+    AGENT_TYPE_ARCHITECT,
+    AGENT_TYPE_REGRESSION_TESTER,
+)
+from .strategies import (
+    AgentStrategy,
+    CoderStrategy,
+    TesterStrategy,
+    ArchitectStrategy,
+    RegressionTesterStrategy,
+)
 from ..core.events import EventType, ExecutionEventBackend, create_event
 from ..planners.execution_planners import TaskContextBuilder
 from ..hooks.governance_context import (
@@ -24,7 +45,7 @@ from ..hooks.governance_context import (
 )
 from ..hooks.sprint_hooks import NoOpSprintLifecycleHooks, SprintLifecycleHooks
 from ..hooks.task_hooks import NoOpTaskLifecycleHooks, TaskLifecycleHooks
-from ..core.policies import SprintFeedbackPolicy, SprintRetryPolicy, TaskRetryPolicy
+from ..core.policies import SprintFeedbackPolicy, SprintRetryPolicy
 from ..project_write import ProjectWritePlan
 from ..core.protocols import ExecutionContext
 from ..core.sprint_types import ExecutionStatus, SprintResult, TaskResult
@@ -38,22 +59,21 @@ class SprintExecutor(CheckpointMixin):
 
     def __init__(
         self,
-        max_parallel: int = 3,
+        max_parallel: int = DEFAULT_MAX_PARALLEL,
         feedback_loop: Optional[Any] = None,
         release_plan: Optional[ReleasePlan] = None,
         error_handler: Optional[Any] = None,
         state_store: Optional[StateStore] = None,
-        max_verify_fix_rounds: int = 3,
+        max_verify_fix_rounds: int = DEFAULT_MAX_VERIFY_FIX_ROUNDS,
         runtime_config: Optional[Any] = None,
         sprint_hooks: Optional[SprintLifecycleHooks] = None,
         task_hooks: Optional[TaskLifecycleHooks] = None,
         evolution_loop: Optional[Any] = None,
     ):
-        self._agent_executors: Dict[str, Callable] = {}
+        self._strategies: Dict[str, AgentStrategy] = {}
         self._callbacks: Dict[str, Callable] = {}
         self._max_parallel = max_parallel
         self._max_verify_fix_rounds = max(1, int(max_verify_fix_rounds))
-        self._task_retry_policy = TaskRetryPolicy(self._max_verify_fix_rounds)
         self._sprint_retry_policy = SprintRetryPolicy(self._max_verify_fix_rounds)
         self._sprint_feedback_policy = SprintFeedbackPolicy()
         self._runtime_config = runtime_config
@@ -69,11 +89,39 @@ class SprintExecutor(CheckpointMixin):
         self._execution_id: str = ""
         self._cancelled: bool = False
         self._event_cursor: int = 0
-        self._checkpoint_interval = 1
+        self._checkpoint_interval = DEFAULT_CHECKPOINT_INTERVAL
         self._task_context_builder = TaskContextBuilder()
         self._project_write_plan: Optional[ProjectWritePlan] = None
         self._trace_callback: Optional[Callable[[Dict[str, Any]], None]] = None
-        self._register_default_executors()
+        self._register_default_strategies()
+
+    def _register_default_strategies(self) -> None:
+        """Register default execution strategies for different agent types."""
+        dry_run = self._dry_run()
+        self._strategies = {
+            AGENT_TYPE_CODER: CoderStrategy(
+                max_verify_fix_rounds=self._max_verify_fix_rounds,
+                project_write_plan=self._project_write_plan,
+                dry_run=dry_run,
+            ),
+            AGENT_TYPE_IMPLEMENT: CoderStrategy(
+                max_verify_fix_rounds=self._max_verify_fix_rounds,
+                project_write_plan=self._project_write_plan,
+                dry_run=dry_run,
+            ),
+            AGENT_TYPE_TESTER: TesterStrategy(
+                project_write_plan=self._project_write_plan,
+                dry_run=dry_run,
+            ),
+            AGENT_TYPE_ARCHITECT: ArchitectStrategy(
+                project_write_plan=self._project_write_plan,
+                dry_run=dry_run,
+            ),
+            AGENT_TYPE_REGRESSION_TESTER: RegressionTesterStrategy(
+                project_write_plan=self._project_write_plan,
+                dry_run=dry_run,
+            ),
+        }
 
     def set_trace_callback(self, callback: Optional[Callable[[Dict[str, Any]], None]]) -> None:
         self._trace_callback = callback
@@ -88,6 +136,11 @@ class SprintExecutor(CheckpointMixin):
 
     def set_project_write_plan(self, plan: Optional[ProjectWritePlan]) -> None:
         self._project_write_plan = plan
+        # Update strategies with new write plan
+        dry_run = self._dry_run()
+        for strategy in self._strategies.values():
+            strategy.project_write_plan = plan
+            strategy.dry_run = dry_run
 
     @property
     def project_write_plan(self) -> Optional[ProjectWritePlan]:
@@ -125,15 +178,6 @@ class SprintExecutor(CheckpointMixin):
             await self._task_hooks.on_after_task_complete(task, sprint_name, context, task_result)
         except Exception as e:
             logger.warning("task_hooks on_after_task_complete: {}", e)
-
-    def _register_default_executors(self) -> None:
-        self._agent_executors = {
-            "coder": self._execute_coder_task,
-            "implement": self._execute_coder_task,
-            "tester": self._execute_tester_task,
-            "architect": self._execute_architect_task,
-            "regression_tester": self._execute_regression_tester_task,
-        }
 
     def get_feedback_history(self) -> List[Any]:
         if self._feedback_loop:
@@ -192,8 +236,9 @@ class SprintExecutor(CheckpointMixin):
             config={"cache_llm_codegen": cache_llm},
         )
 
-    def register_agent_executor(self, agent_type: str, executor: Callable):
-        self._agent_executors[agent_type] = executor
+    def register_agent_strategy(self, agent_type: str, strategy: AgentStrategy) -> None:
+        """Register a custom execution strategy for an agent type."""
+        self._strategies[agent_type] = strategy
 
     def cancel(self) -> None:
         self._cancelled = True
@@ -203,11 +248,8 @@ class SprintExecutor(CheckpointMixin):
     def is_cancelled(self) -> bool:
         return self._cancelled
 
-    TASK_SPLIT_THRESHOLD = 500
-    MAX_SUBTASKS = 5
-
     def _should_split_task(self, task: SprintBacklogItem) -> bool:
-        if len(task.description) >= self.TASK_SPLIT_THRESHOLD:
+        if len(task.description) >= TASK_SPLIT_THRESHOLD:
             return True
         complex_keywords = ["重构", "迁移", "优化", "重写", "implement", "refactor", "migrate", "optimize", "rewrite"]
         task_lower = task.description.lower()
@@ -217,20 +259,12 @@ class SprintExecutor(CheckpointMixin):
     def _split_task(self, task: SprintBacklogItem) -> List[SprintBacklogItem]:
         subtasks = []
         task_text = task.description
-        action_patterns = [
-            r"实现[^\s，,。]+",
-            r"添加[^\s，,。]+",
-            r"修改[^\s，,。]+",
-            r"修复[^\s，,。]+",
-            r"优化[^\s，,。]+",
-            r"创建[^\s，,。]+",
-        ]
         subtask_parts = []
-        for pattern in action_patterns:
+        for pattern in ACTION_PATTERNS:
             matches = re.findall(pattern, task_text, re.IGNORECASE)
             subtask_parts.extend(matches)
         if len(subtask_parts) >= 2:
-            for i, part in enumerate(subtask_parts[: self.MAX_SUBTASKS]):
+            for i, part in enumerate(subtask_parts[: MAX_SUBTASKS]):
                 subtask = SprintBacklogItem(
                     description=part.strip(),
                     agent=task.agent,
@@ -242,8 +276,8 @@ class SprintExecutor(CheckpointMixin):
                 subtasks.append(subtask)
         else:
             subtask = SprintBacklogItem(
-                description=task_text[: self.TASK_SPLIT_THRESHOLD] + "..."
-                if len(task_text) > self.TASK_SPLIT_THRESHOLD
+                description=task_text[: TASK_SPLIT_THRESHOLD] + "..."
+                if len(task_text) > TASK_SPLIT_THRESHOLD
                 else task_text,
                 agent=task.agent,
                 target=task.target,
@@ -337,9 +371,9 @@ class SprintExecutor(CheckpointMixin):
             )
             if task_result.status == ExecutionStatus.SUCCESS:
                 deps = ctx_acc.setdefault("dependencies", {})
-                if task.agent in ("coder", "implement"):
+                if task.agent in (AGENT_TYPE_CODER, AGENT_TYPE_IMPLEMENT):
                     deps["code"] = task_result.output
-                if task.agent == "architect":
+                if task.agent == AGENT_TYPE_ARCHITECT:
                     ctx_acc["architecture_design"] = task_result.output
         if all(r.status == ExecutionStatus.SUCCESS for r in result.task_results):
             result.status = ExecutionStatus.SUCCESS
@@ -713,14 +747,14 @@ class SprintExecutor(CheckpointMixin):
 
     async def _execute_task(self, task: SprintBacklogItem, sprint_name: str, context: Dict[str, Any]) -> TaskResult:
         start_time = time.time()
-        executor = self._agent_executors.get(task.agent)
-        if not executor:
+        strategy = self._strategies.get(task.agent)
+        if not strategy:
             return TaskResult(
-                work_item=task,
-                sprint_name=sprint_name,
-                status=ExecutionStatus.FAILED,
-                error=f"未知的 Agent 类型: {task.agent}",
-            )
+            work_item=task,
+            sprint_name=sprint_name,
+            status=ExecutionStatus.FAILED,
+            error=f"未知的 Agent 类型: {task.agent}",
+        )
         try:
             enriched_context = dict(context)
             enriched_context.setdefault("sprint_name", sprint_name)
@@ -746,8 +780,8 @@ class SprintExecutor(CheckpointMixin):
                     )
             if "retry_from_failure" in context:
                 enriched_context["task_guidance"] = (
-                    enriched_context.get("task_guidance", "") + "\n[重要] 本次为失败重试，请特别注意上述问题。"
-                )
+                enriched_context.get("task_guidance", "") + "\n[重要] 本次为失败重试，请特别注意上述问题。"
+            )
             task_start = {
                 "kind": "task_execute_start",
                 "execution_id": self._execution_id,
@@ -757,7 +791,7 @@ class SprintExecutor(CheckpointMixin):
                 "metadata": {"agent": task.agent, "sprint_name": sprint_name},
             }
             self._emit_trace("task_execute_start", task_start)
-            output = await executor(task, enriched_context)
+            output = await strategy.execute(task, enriched_context, self._build_agent_context)
             task_result = TaskResult(
                 work_item=task,
                 sprint_name=sprint_name,
@@ -829,70 +863,6 @@ class SprintExecutor(CheckpointMixin):
             self._emit_trace("task_execute_failed", failed_phase)
             return failed
 
-    async def _execute_coder_task(self, task: SprintBacklogItem, context: Dict[str, Any]) -> str:
-        if self._dry_run():
-            return f"[dry_run] 完成: {task.description[:120]}"
-        from .agents.coder_base import CoderAgent
-
-        work = dict(context)
-        max_r = self._max_verify_fix_rounds
-        last_msg = "CoderAgent 执行失败"
-        for attempt in range(max_r):
-            ctx = self._build_agent_context(task, work.get("sprint_name", ""), work)
-            agent = CoderAgent()
-            if self._project_write_plan is not None:
-                agent.set_project_write_plan(self._project_write_plan)
-            res = await agent.execute(task.description, ctx)
-            if res.success:
-                return res.output or ""
-            last_msg = res.error or last_msg
-            decision = self._task_retry_policy.should_retry(attempt, last_msg)
-            if not decision.should_retry:
-                raise RuntimeError(last_msg)
-            prev = (work.get("verify_fix_notes") or "").strip()
-            work["verify_fix_notes"] = (
-                prev + f"\n[attempt {decision.attempt}/{decision.max_attempts}] {last_msg}"
-            ).strip()
-
-    async def _execute_tester_task(self, task: SprintBacklogItem, context: Dict[str, Any]) -> str:
-        if self._dry_run():
-            return f"[dry_run] 测试完成: {task.description[:80]}"
-        from .agents.tester import TesterAgent
-
-        ctx = self._build_agent_context(task, context.get("sprint_name", ""), context)
-        agent = TesterAgent()
-        if self._project_write_plan is not None:
-            agent.set_project_write_plan(self._project_write_plan)
-        res = await agent.execute(task.description, ctx)
-        if not res.success:
-            raise RuntimeError(res.error or "TesterAgent 执行失败")
-        return res.output or ""
-
-    async def _execute_architect_task(self, task: SprintBacklogItem, context: Dict[str, Any]) -> str:
-        if self._dry_run():
-            summary = f"[dry_run] 架构设计: {task.description[:80]}"
-            context["architecture_design"] = summary
-            return summary
-        from .agents.architect import ArchitectureAgent
-
-        ctx = self._build_agent_context(task, context.get("sprint_name", ""), context)
-        agent = ArchitectureAgent()
-        if self._project_write_plan is not None:
-            agent.set_project_write_plan(self._project_write_plan)
-        res = await agent.execute(task.description, ctx)
-        if not res.success:
-            raise RuntimeError(res.error or "ArchitectureAgent 执行失败")
-        arch = ctx.codebase_context.get("architecture_design") or res.output or ""
-        if arch:
-            context["architecture_design"] = arch
-        return str(arch)
-
-    async def _execute_regression_tester_task(self, task: SprintBacklogItem, context: Dict[str, Any]) -> str:
-        if self._dry_run():
-            return f"[dry_run] 回归测试完成: {task.description[:80]}"
-        await asyncio.sleep(0.05)
-        return f"回归测试完成: {task.description[:80]}"
-
     def _analyze_dependencies(
         self, tasks: List[SprintBacklogItem], context: Optional[Dict[str, Any]] = None
     ) -> Dict[int, Set[int]]:
@@ -908,20 +878,8 @@ class SprintExecutor(CheckpointMixin):
     def _add_keyword_based_dependencies(
         self, tasks: List[SprintBacklogItem], task_idx: int, task: SprintBacklogItem, dep_map: Dict[int, Set[int]]
     ) -> None:
-        dependency_keywords = [
-            ("测试", "实现"),
-            ("test", "implement"),
-            ("verify", "build"),
-            ("build", "compile"),
-            ("集成", "单元"),
-            ("integration", "unit"),
-            ("端到端", "模块"),
-            ("e2e", "module"),
-            ("部署", "构建"),
-            ("deploy", "build"),
-        ]
         task_text = task.description.lower()
-        for dep_kw, src_kw in dependency_keywords:
+        for dep_kw, src_kw in DEPENDENCY_KEYWORDS:
             if dep_kw in task_text:
                 for j in range(task_idx):
                     prev_text = tasks[j].description.lower()
