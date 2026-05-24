@@ -2,16 +2,20 @@
 
 This service provides a minimal bridge between execution state, runtime linkage,
 and dashboard-facing lifecycle snapshots.
+
+**分层**：ExecutionLifecycleService 通过构造函数接收依赖。
 """
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
-from sprintcycle.infrastructure.persistence.state import get_state_store
 from sprintcycle.domain.hooks import EXECUTION_STARTED_EVENT, HookContext, HookPhase, HookRegistry, HookRunner
-from sprintcycle.infrastructure.config.runtime_registry import RuntimeRegistry
-from sprintcycle.infrastructure.observability.facade import ObservabilityFacade
+
+# TYPE_CHECKING: 仅用于类型提示
+if TYPE_CHECKING:
+    from sprintcycle.infrastructure.observability.facade import ObservabilityFacade
+    from sprintcycle.infrastructure.config.runtime_registry import RuntimeRegistry
 
 
 class ExecutionLifecycleService:
@@ -64,6 +68,8 @@ class ExecutionLifecycleService:
             "metadata": dict(kwargs.get("metadata") or {}),
         }
         self.runtime_registry.register(runtime_payload)
+        # 延迟导入避免循环依赖
+        from sprintcycle.infrastructure.persistence.state import get_state_store
         state_store = get_state_store()
         try:
             state_store.update_execution_status(runtime_id, "running")
@@ -114,6 +120,8 @@ class ExecutionLifecycleService:
         return self.runtime_registry.register(merged)
 
     def execution_detail(self, execution_id: str, limit: int = 200) -> Dict[str, Any]:
+        # 延迟导入避免循环依赖
+        from sprintcycle.infrastructure.persistence.state import get_state_store
         state_store = get_state_store()
         state = state_store.get_execution(execution_id)
         trace = self.observability.trace(execution_id)

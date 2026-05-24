@@ -7,6 +7,8 @@ SprintOrchestrator - 统一的 Sprint 交付编排器
 
 本模块负责将 ReleasePlan 编排为按 Sprint 顺序执行的交付流程。
 execute_release_plan 与 resume_from_sprint 是主入口。
+
+**分层**：LangGraph 编译器和知识库通过工厂函数获取，不直接依赖 Infrastructure。
 """
 
 from __future__ import annotations
@@ -34,7 +36,6 @@ from sprintcycle.application.execution.hooks.sprint_hooks import (
     _OrchestratorSprintHooks,
 )
 from sprintcycle.application.execution.hooks.task_hooks import ChainedTaskHooks, TaskLifecycleHooks
-from sprintcycle.infrastructure.knowledge.knowledge_hook import KnowledgeInjectionHook
 from sprintcycle.application.execution.planners.expand import expand_release_plan_for_execution
 from sprintcycle.domain.models import ReleasePlan, SprintBacklogItem, SprintDefinition
 from sprintcycle.domain.execution.core.protocols import ExecutionContext
@@ -44,15 +45,50 @@ from sprintcycle.application.execution.orchestrator.sprint_executor import Sprin
 from sprintcycle.domain.interfaces import ExecutionStatus, SprintResult, TaskResult
 from sprintcycle.application.governance.hooks.sprint_hooks import GovernanceSprintHooks
 from sprintcycle.application.governance.hooks.task_hooks import GovernanceTaskLifecycleHooks
-from sprintcycle.infrastructure.config import RuntimeConfig
-from sprintcycle.infrastructure.integrations.langgraph.compiler import compile_intent_graph, compile_sprint_graph
-from sprintcycle.infrastructure.persistence.knowledge_repository import KnowledgeCardRepository
 from sprintcycle.domain.evolution.intent_evolution_loop import UserIntentEvolutionLoop
 from sprintcycle.domain.evolution.measurement import MeasurementResult
 from .services.lifecycle.lifecycle_contracts import build_lifecycle_contract
 
+# TYPE_CHECKING: 仅用于类型提示，不在运行时导入 Infrastructure
 if TYPE_CHECKING:
+    from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
     from sprintcycle.infrastructure.integrations.phoenix.trace_runtime import PhoenixTraceRuntime
+    from sprintcycle.infrastructure.persistence.knowledge_repository import KnowledgeCardRepository
+    from sprintcycle.infrastructure.knowledge.knowledge_hook import KnowledgeInjectionHook
+
+
+# =============================================================================
+# LangGraph 编译器工厂函数（延迟导入避免循环依赖）
+# =============================================================================
+
+def _compile_intent_graph(**kwargs: Any) -> Any:
+    """编译意图图（延迟导入）"""
+    from sprintcycle.infrastructure.integrations.langgraph.compiler import compile_intent_graph as _compile
+    return _compile(**kwargs)
+
+
+def _compile_sprint_graph(**kwargs: Any) -> Any:
+    """编译 Sprint 图（延迟导入）"""
+    from sprintcycle.infrastructure.integrations.langgraph.compiler import compile_sprint_graph as _compile
+    return _compile(**kwargs)
+
+
+def _create_knowledge_card_repository(db_path: str) -> "KnowledgeCardRepository":
+    """创建知识库仓库（延迟导入）"""
+    from sprintcycle.infrastructure.persistence.knowledge_repository import KnowledgeCardRepository
+    return KnowledgeCardRepository(db_path)
+
+
+def _create_knowledge_injection_hook(project_root: str, config: Any) -> "KnowledgeInjectionHook":
+    """创建知识注入 Hook（延迟导入）"""
+    from sprintcycle.infrastructure.knowledge.knowledge_hook import KnowledgeInjectionHook
+    return KnowledgeInjectionHook(project_root, config)
+
+
+def _get_runtime_config() -> "RuntimeConfig":
+    """获取运行时配置（延迟导入）"""
+    from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
+    return RuntimeConfig()
 
 
 class SprintOrchestrator:
@@ -60,20 +96,20 @@ class SprintOrchestrator:
 
     def __init__(
         self,
-        config: Optional[RuntimeConfig] = None,
+        config: Optional["RuntimeConfig"] = None,
         event_bus: Optional[ExecutionEventBackend] = None,
         project_path: Optional[str] = None,
         hitl_coordinator: Optional[Any] = None,
         evolution_loop: Optional[UserIntentEvolutionLoop] = None,
     ):
-        self.config = config or RuntimeConfig()
+        self.config = config or _get_runtime_config()
         self._project_root = os.path.abspath(project_path or ".")
         self.event_bus = event_bus
         self._hitl_coordinator = hitl_coordinator
         self._evolution_loop = evolution_loop or UserIntentEvolutionLoop(
             memory_store=None,
             feedback_loop=FeedbackLoop(),
-            knowledge_repo=KnowledgeCardRepository(".sprintcycle/knowledge.db"),
+            knowledge_repo=_create_knowledge_card_repository(".sprintcycle/knowledge.db"),
         )
         self._callbacks: Dict[str, Callable] = {
             "on_task_start": self._default_on_task_start,
@@ -143,7 +179,7 @@ class SprintOrchestrator:
 
     def _build_sprint_hooks(self, release_plan: ReleasePlan) -> SprintLifecycleHooks:
         parts: List[SprintLifecycleHooks] = [
-            KnowledgeInjectionHook(self._project_root, self.config),
+            _create_knowledge_injection_hook(self._project_root, self.config),
             SkillLifecycleHook(self._skill_orchestrator, self._skill_store),
         ]
         if getattr(self.config, "governance_enabled", False):
@@ -252,7 +288,7 @@ class SprintOrchestrator:
             )
         )
         # 使用 intent graph 执行
-        intent_runtime = compile_intent_graph(checkpointer=getattr(self.config, "checkpoint_store", None))
+        intent_runtime = _compile_intent_graph(checkpointer=getattr(self.config, "checkpoint_store", None))
         intent_graph = intent_runtime.graph
         intent_context = {
             "project_path": self._project_root,
@@ -419,7 +455,7 @@ class SprintOrchestrator:
                 sprint_number=resume_from_idx,
             )
         )
-        sprint_runtime = compile_sprint_graph(checkpointer=getattr(self.config, "checkpoint_store", None))
+        sprint_runtime = _compile_sprint_graph(checkpointer=getattr(self.config, "checkpoint_store", None))
         results = list(previous_results)
         for sprint_index, sprint in enumerate(to_run.sprints[resume_from_idx:], start=resume_from_idx):
             sprint_state = {

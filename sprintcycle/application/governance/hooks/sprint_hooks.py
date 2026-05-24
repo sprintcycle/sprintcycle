@@ -2,6 +2,8 @@
 Sprint 生命周期钩子：治理 Planning（before）与 Review（after）。
 
 使用 Domain 定义的协议接口，打破 Governance → Execution 循环依赖。
+
+**分层**：GovernanceHooks 通过构造函数接收依赖。
 """
 
 from __future__ import annotations
@@ -13,7 +15,6 @@ from loguru import logger
 from sprintcycle.domain.models import ReleasePlan, SprintDefinition
 from sprintcycle.domain.interfaces import SprintLifecycleHookProtocol, ExecutionEventProtocol
 from sprintcycle.domain.interfaces import SprintResult
-from sprintcycle.infrastructure.observability import ObservabilityFacade
 from ..arch_guard.config import ArchGuardConfig
 from ..arch_guard.engine import ArchGuardEngine
 from ..arch_guard.reporter import GovernanceReportAdapter
@@ -22,6 +23,7 @@ from sprintcycle.application.governance.core import persist_planning_report, per
 
 if TYPE_CHECKING:
     from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
+    from sprintcycle.infrastructure.observability import ObservabilityFacade
 
 
 class GovernanceSprintHooks(SprintLifecycleHookProtocol):

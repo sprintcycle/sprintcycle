@@ -1,6 +1,8 @@
 """HITL 生命周期钩子（治理域版本）。
 
 使用 Domain 定义的接口协议，打破 Governance → Execution 循环依赖。
+
+**分层**：HitlHooks 通过构造函数接收依赖。
 """
 
 from __future__ import annotations
@@ -12,7 +14,6 @@ from loguru import logger
 from sprintcycle.domain.models import ReleasePlan, SprintBacklogItem, SprintDefinition
 from sprintcycle.domain.interfaces import SprintLifecycleHookProtocol, TaskLifecycleHookProtocol
 from sprintcycle.domain.interfaces import ExecutionStatus, TaskResult, SprintResult
-from sprintcycle.infrastructure.observability import ObservabilityFacade
 from .types import (
     CTX_HITL_ABORT_EXECUTION,
     HitlDecision,
@@ -24,6 +25,7 @@ from .types import (
 
 if TYPE_CHECKING:
     from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
+    from sprintcycle.infrastructure.observability import ObservabilityFacade
 
 
 class HitlSprintHooks(SprintLifecycleHookProtocol):

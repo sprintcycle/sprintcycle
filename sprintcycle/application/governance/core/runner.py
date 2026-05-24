@@ -1,4 +1,7 @@
-"""治理执行器：Planning / Review 检查包聚合。"""
+"""治理执行器：Planning / Review 检查包聚合。
+
+**分层**：Quality 相关函数通过延迟导入获取。
+"""
 
 from __future__ import annotations
 
@@ -16,7 +19,6 @@ from sprintcycle.domain.quality_spec.context import build_quality_context
 from sprintcycle.domain.quality_spec.rules.planning_rules import default_planning_rules
 from sprintcycle.domain.quality_spec.spec.task_spec import TaskSpec
 from sprintcycle.application.execution.core.static_analyzer import AnalysisConfig, StaticAnalyzer
-from sprintcycle.infrastructure.config.quality import runs_architecture_guard, runs_pytest, runs_static_gate
 from ..arch_guard.adr_check import check_adr_readme_index, check_adr_readme_strict_glob
 from ..arch_guard.argv_extensions import extend_argv_items_with_plugins
 from ..arch_guard.compose_hint import check_compose_hints, check_compose_supply_chain_hints
@@ -30,6 +32,27 @@ from ..arch_guard.sdd_checks import (
 from ..arch_guard.yaml_checks import checks_for_gate, filter_argv_items_by_governance_sources, run_argv_checks
 from ..hitl import HitlDecision, HitlGate, HitlPolicyResult, evaluate_hitl_policy
 from ..hitl.facade import HitlFacade, create_hitl_facade
+
+if TYPE_CHECKING:
+    from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
+
+
+def _runs_architecture_guard(project_path: str) -> bool:
+    """检查是否运行架构守卫（延迟导入）"""
+    from sprintcycle.infrastructure.config.quality import runs_architecture_guard
+    return runs_architecture_guard(project_path)
+
+
+def _runs_pytest(project_path: str) -> bool:
+    """检查是否运行 pytest（延迟导入）"""
+    from sprintcycle.infrastructure.config.quality import runs_pytest
+    return runs_pytest(project_path)
+
+
+def _runs_static_gate(project_path: str) -> bool:
+    """检查是否运行静态门检查（延迟导入）"""
+    from sprintcycle.infrastructure.config.quality import runs_static_gate
+    return runs_static_gate(project_path)
 
 
 def create_observability_facade(project_path: str, cfg: "RuntimeConfig") -> HitlFacade:
@@ -138,7 +161,7 @@ class GovernanceRunner:
         }
         level = self._cfg.effective_quality_level()
         meta["checks_planned"].append(
-            f"quality_level={level} (static={runs_static_gate(level)}, pytest={runs_pytest(level)}, arch={runs_architecture_guard(level)})"
+            f"quality_level={level} (static={_runs_static_gate(level)}, pytest={_runs_pytest(level)}, arch={_runs_architecture_guard(level)})"
         )
 
         spec_glob = (getattr(self._cfg, "governance_spec_glob", None) or "").strip()
@@ -247,7 +270,7 @@ class GovernanceRunner:
             meta["steps"].append("yaml_review_checks")
 
         level = self._cfg.effective_quality_level()
-        if getattr(self._cfg, "governance_review_static", True) and runs_static_gate(level):
+        if getattr(self._cfg, "governance_review_static", True) and _runs_static_gate(level):
             cfg = AnalysisConfig(
                 ruff_enabled=True,
                 mypy_enabled=True,

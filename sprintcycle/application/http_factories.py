@@ -43,12 +43,27 @@ class HTTPServices:
     def __init__(self, project_path: str):
         self.project_path = project_path
         self.config = RuntimeConfig.from_project(project_path)
-        
+
+        # 注册 Domain 层依赖的 Infrastructure 工厂函数
+        self._register_infrastructure_factories()
+
         # 初始化核心依赖
         self._observability = ObservabilityFacade()
         self._runtime_registry = RuntimeRegistry()
         self._hooks = HookRegistry()
         self._evolution_registry = create_evolution_registry(self.config)
+
+    def _register_infrastructure_factories(self) -> None:
+        """注册 Domain 层依赖的 Infrastructure 工厂函数（DDD 依赖倒置）"""
+        # 注册事件后端工厂
+        from sprintcycle.infrastructure.persistence.state import register_event_backend_factory
+
+        register_event_backend_factory()
+
+        # 注册回滚实现
+        from sprintcycle.infrastructure.persistence.state import register_rollback_implementations
+
+        register_rollback_implementations()
         
         # 初始化 governance facade
         self._governance = create_governance_facade(

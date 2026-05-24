@@ -3,18 +3,22 @@
 Owns trace/replay/event read paths and keeps the facade free from observability
 implementation details. This layer also exposes diagnosis-oriented metadata
 for failure classification and repair analysis.
+
+**分层**：ObservabilityService 通过构造函数接收 ObservabilityFacade 依赖。
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
-from ...infrastructure.persistence.state import get_state_store
-from sprintcycle.infrastructure.observability.facade import ObservabilityFacade
 from .lifecycle.lifecycle_contracts import build_lifecycle_contract
 from .lifecycle.lifecycle_state_machine import build_default_correlation
 from .phase_workflow import build_observe_artifact
+
+# TYPE_CHECKING: 仅用于类型提示
+if TYPE_CHECKING:
+    from sprintcycle.infrastructure.observability.facade import ObservabilityFacade
 
 
 @dataclass
@@ -162,6 +166,8 @@ class ObservabilityService:
         eid = (execution_id or "").strip()
         if not eid:
             return {"success": False, "error": "execution_id required"}
+        # 延迟导入避免循环依赖
+        from sprintcycle.infrastructure.persistence.state import get_state_store
         store = get_state_store()
         state = store.load(eid)
         if state is None:

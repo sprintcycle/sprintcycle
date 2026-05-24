@@ -3,13 +3,15 @@ Sprint 执行器 — 与 Scrum Sprint 时间盒内交付对应
 
 顺序（或受控并行）跑完单个 SprintDefinition 的 Sprint Backlog（tasks），
 聚合为 SprintResult；多 Sprint 由 SprintOrchestrator 编排。
+
+**分层**：SprintExecutor 通过构造函数接收 StateStore 依赖，不直接依赖 Infrastructure 实现。
 """
 
 import asyncio
 import re
 import time
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional, Set
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set
 
 from loguru import logger
 
@@ -49,13 +51,19 @@ from sprintcycle.application.execution.core.policies import SprintFeedbackPolicy
 from sprintcycle.domain.execution.project_write import ProjectWritePlan
 from sprintcycle.domain.execution.core.protocols import ExecutionContext
 from sprintcycle.domain.interfaces.types import ExecutionStatus, SprintResult, TaskResult
-from sprintcycle.infrastructure.persistence.state.checkpoint import CheckpointMixin
-from sprintcycle.infrastructure.persistence.state.state_store import StateStore, get_state_store
 from ._feedback_stub import FeedbackReleasePlanStub
 
+# TYPE_CHECKING: 仅用于类型提示，不在运行时导入 Infrastructure
+if TYPE_CHECKING:
+    from sprintcycle.infrastructure.persistence.state.state_store import ExecutionState
 
-class SprintExecutor(CheckpointMixin):
-    """执行单个 Sprint 的 Sprint Backlog（支持断点续传，经 StateStore）。"""
+
+class SprintExecutor:
+    """执行单个 Sprint 的 Sprint Backlog（支持断点续传，经 StateStore）。
+
+    **分层**：SprintExecutor 不继承 CheckpointMixin，而是直接实现断点续传功能，
+    通过构造函数接收 StateStore 依赖。
+    """
 
     def __init__(
         self,
@@ -63,7 +71,7 @@ class SprintExecutor(CheckpointMixin):
         feedback_loop: Optional[Any] = None,
         release_plan: Optional[ReleasePlan] = None,
         error_handler: Optional[Any] = None,
-        state_store: Optional[StateStore] = None,
+        state_store: Optional[Any] = None,  # StateStore 实例，由调用方注入
         max_verify_fix_rounds: int = DEFAULT_MAX_VERIFY_FIX_ROUNDS,
         runtime_config: Optional[Any] = None,
         sprint_hooks: Optional[SprintLifecycleHooks] = None,
@@ -147,12 +155,15 @@ class SprintExecutor(CheckpointMixin):
         return self._project_write_plan
 
     @property
-    def state_store(self) -> StateStore:
+    def state_store(self) -> Any:
+        """获取状态存储（延迟初始化以避免循环依赖）"""
         if self._state_store is None:
+            from sprintcycle.infrastructure.persistence.state import get_state_store
             self._state_store = get_state_store()
         return self._state_store
 
-    def set_state_store(self, state_store: StateStore) -> None:
+    def set_state_store(self, state_store: Any) -> None:
+        """设置状态存储"""
         self._state_store = state_store
         logger.info("StateStore 已注入到 SprintExecutor")
 

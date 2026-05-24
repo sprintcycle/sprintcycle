@@ -1,15 +1,21 @@
-"""Runtime, governance, deploy, and recovery lifecycle delivery."""
+"""Runtime, governance, deploy, and recovery lifecycle delivery.
+
+**分层**：LifecycleDeliveryService 通过构造函数接收依赖。
+"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 
 from sprintcycle.application.services.governance_orchestration_service import GovernanceOrchestrationService
 from sprintcycle.application.services.lifecycle.lifecycle_evolution_service import LifecycleEvolutionService
 from sprintcycle.application.services.repair_orchestration_service import RepairOrchestrationService
-from sprintcycle.infrastructure.deployment.platform_launch_service import PlatformLaunchService
-from sprintcycle.infrastructure.config.runtime_registry import RuntimeRegistry
+
+# TYPE_CHECKING: 仅用于类型提示
+if TYPE_CHECKING:
+    from sprintcycle.infrastructure.deployment.platform_launch_service import PlatformLaunchService
+    from sprintcycle.infrastructure.config.runtime_registry import RuntimeRegistry
 
 
 @dataclass

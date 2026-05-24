@@ -3,30 +3,102 @@
 支持两种模式：
 1. Git Branch 模式（默认）：每个变体一个 branch
 2. 文件备份模式（fallback）
+
+**分层**：Git 回滚相关功能由 Infrastructure 层实现，通过工厂函数注入 Domain 层。
 """
 
+from __future__ import annotations
+
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 from loguru import logger
 
-try:
-    from sprintcycle.infrastructure.persistence.state.rollback import (
-        GitRollbackMixin,
-        RollbackConfig,
-        RollbackError,
-        VariantBranch,
-        _is_git_repo,
-        _run_git,
+if TYPE_CHECKING:
+    from sprintcycle.infrastructure.persistence.state.rollback_types import (
+        RollbackConfig as InfraRollbackConfig,
+        VariantBranch as InfraVariantBranch,
     )
 
-    HAS_GIT_ROLLBACK = True
-except ImportError:
-    HAS_GIT_ROLLBACK = False
-    GitRollbackMixin = object
-    RollbackConfig = None
-    RollbackError = Exception
-    VariantBranch = None
+
+# 回滚相关类型的默认值（由 Infrastructure 层注入）
+GitRollbackMixin: Any = object
+RollbackConfig: Any = None
+RollbackError: Any = Exception
+VariantBranch: Any = None
+_is_git_repo: Optional[Callable[[str], bool]] = None
+_run_git: Optional[Callable[..., Any]] = None
+HAS_GIT_ROLLBACK: bool = False
+
+
+def register_rollback_implementations(
+    implementations: Dict[str, Any],
+) -> None:
+    """注册回滚实现（由 Infrastructure 层调用）。
+
+    Args:
+        implementations: 包含以下键的字典:
+            - GitRollbackMixin: Git 回滚 mixin 类
+            - RollbackConfig: 回滚配置类
+            - RollbackError: 回滚错误异常类
+            - VariantBranch: 分支记录数据类
+            - _is_git_repo: 判断是否为 git 仓库的函数
+            - _run_git: 执行 git 命令的函数
+    """
+    global GitRollbackMixin, RollbackConfig, RollbackError, VariantBranch
+    global _is_git_repo, _run_git, HAS_GIT_ROLLBACK
+
+    GitRollbackMixin = implementations.get("GitRollbackMixin", object)
+    RollbackConfig = implementations.get("RollbackConfig")
+    RollbackError = implementations.get("RollbackError", Exception)
+    VariantBranch = implementations.get("VariantBranch")
+    _is_git_repo = implementations.get("_is_git_repo")
+    _run_git = implementations.get("_run_git")
+    HAS_GIT_ROLLBACK = all([
+        GitRollbackMixin is not object,
+        RollbackConfig is not None,
+        VariantBranch is not None,
+        _is_git_repo is not None,
+        _run_git is not None,
+    ])
+
+
+def _default_is_git_repo(repo_path: str) -> bool:
+    """默认的 git 仓库检查（不依赖 Infrastructure）"""
+    import subprocess
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--git-dir"],
+            cwd=repo_path,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
+
+
+def _default_run_git(args: List[str], cwd: str) -> Any:
+    """默认的 git 命令执行（不依赖 Infrastructure）"""
+    import subprocess
+    try:
+        result = subprocess.run(
+            ["git"] + args,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        return (result.returncode, result.stdout, result.stderr)
+    except Exception as e:
+        return (1, "", str(e))
+
+
+# 默认实现（不依赖 Infrastructure）
+_is_git_repo = _default_is_git_repo
+_run_git = _default_run_git
 
 
 class EvolutionRollbackManager:

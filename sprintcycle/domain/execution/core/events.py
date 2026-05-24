@@ -6,6 +6,8 @@
 （``sqlite`` | ``memory``）或环境变量 ``SPRINTCYCLE_EXECUTION_EVENT_BACKEND``、``sprintcycle.toml`` 的
 ``[execution] event_backend`` 切换；测试亦可 ``reset_event_bus()`` 或 ``configure_execution_event_backend(...)``。
 
+**依赖注入**：事件后端工厂由 Infrastructure 层注册，Domain 层不直接依赖 Infrastructure 实现。
+
 事件类型：
 - execution_start: 执行开始
 - sprint_start: Sprint 开始
@@ -24,16 +26,18 @@
 - config_changed: Dashboard 配置变更或文件热重载（仅 SSE 广播，不经执行事件后端持久化）
 """
 
+from __future__ import annotations
+
 import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Protocol, Self
-
-if TYPE_CHECKING:
-    from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Protocol, Self, Union
 
 from loguru import logger
+
+if TYPE_CHECKING:
+    from sprintcycle.domain.interfaces.config import ConfigProtocol
 
 
 class EventType(Enum):
@@ -243,49 +247,54 @@ class EventBus:
         return bool(self._handlers.get(event_type, []) or self._once_handlers.get(event_type, []))
 
 
-# 全局默认事件后端（惰性初始化为 ``SQLiteMQEventBackend``，路径见 ``ensure_default...``）
+# 全局默认事件后端（惰性初始化）
 _default_execution_event_backend: Optional[ExecutionEventBackend] = None
+
+# 事件后端工厂函数（由 Infrastructure 层注册）
+_event_backend_factory: Optional[Callable[..., ExecutionEventBackend]] = None
+
+
+def register_event_backend_factory(factory: Callable[..., ExecutionEventBackend]) -> None:
+    """注册事件后端工厂函数（由 Infrastructure 层调用）"""
+    global _event_backend_factory
+    _event_backend_factory = factory
 
 
 def ensure_default_execution_event_backend_for_project(
     project_path: str,
-    config: Optional["RuntimeConfig"] = None,
+    config: Optional["ConfigProtocol"] = None,
 ) -> None:
-    """若尚未配置全局后端，则按 ``RuntimeConfig.execution_event_backend`` 选择实现。
+    """若尚未配置全局后端，则按配置选择实现。
 
-    - ``sqlite``（默认）：``SQLiteMQEventBackend``，库路径见 ``execution_events_sqlite_path``。
-    - ``memory``：进程内 ``EventBus``（无持久化）。
+    - 使用注册的事件后端工厂（由 Infrastructure 层提供）
+    - ``sqlite``（默认）：``SQLiteMQEventBackend``
+    - ``memory``：进程内 ``EventBus``（无持久化）
 
-    环境变量 ``SPRINTCYCLE_EXECUTION_EVENT_BACKEND`` 与 ``sprintcycle.toml`` 的
-    ``[execution] event_backend`` 会进入 ``RuntimeConfig``（见 ``from_project`` / ``merge``）。
+    若未注册工厂，则使用 Domain 层内置的内存实现。
     """
     global _default_execution_event_backend
     if _default_execution_event_backend is not None:
         return
-    from pathlib import Path
 
-    from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
-
-    cfg = config if config is not None else RuntimeConfig.from_project(project_path)
-    mode = (getattr(cfg, "execution_event_backend", None) or "sqlite").strip().lower()
-    if mode == "memory":
-        _default_execution_event_backend = EventBus()
+    # 优先使用注册的工厂
+    if _event_backend_factory is not None:
+        _default_execution_event_backend = _event_backend_factory(project_path, config)
         return
 
-    from sprintcycle.infrastructure.persistence.state.sqlite_event_backend import SQLiteMQEventBackend, execution_events_sqlite_path
-
-    root = str(Path(project_path).expanduser().resolve())
-    _default_execution_event_backend = SQLiteMQEventBackend(execution_events_sqlite_path(root))
+    # 内置内存实现（Domain 层不依赖 Infrastructure）
+    _default_execution_event_backend = EventBus()
 
 
 def get_execution_event_backend() -> ExecutionEventBackend:
-    """获取当前全局执行事件后端（未配置时按当前工作目录解析 ``RuntimeConfig`` 后初始化）。"""
+    """获取当前全局执行事件后端（未配置时按当前工作目录解析配置后初始化）。"""
     global _default_execution_event_backend
     if _default_execution_event_backend is None:
         from pathlib import Path
+        from sprintcycle.domain.interfaces.config import load_project_config
 
         cwd = str(Path.cwd().resolve())
-        ensure_default_execution_event_backend_for_project(cwd, None)
+        config = load_project_config(cwd)
+        ensure_default_execution_event_backend_for_project(cwd, config)
     return _default_execution_event_backend
 
 

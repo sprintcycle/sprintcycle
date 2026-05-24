@@ -1,9 +1,12 @@
 """
 Coder Agent Base - 核心执行逻辑
+
+**分层**：LLM 引擎和缓存由 Infrastructure 层实现，通过工厂函数注入 Domain 层。
 """
 
+from dataclasses import dataclass
 import hashlib
-from typing import Any, Dict, Optional, cast
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Protocol, cast
 
 from loguru import logger
 
@@ -12,6 +15,86 @@ from sprintcycle.domain.prompts.prompt_sources import format_coder_generation_pr
 from sprintcycle.domain.execution.project_write import ProjectWritePlan
 from .base import AgentContext, AgentExecutor, AgentResult, AgentType
 from .coder_types import BatchConfig
+
+if TYPE_CHECKING:
+    from sprintcycle.infrastructure.cache.base import CacheBackend
+
+
+# 引擎适配器协议（DDD Port）
+class EngineAdapterProtocol(Protocol):
+    """LLM 引擎适配器协议"""
+
+    name: str
+
+    async def execute(self, prompt: str, context: Dict[str, Any]) -> "EngineResult": ...
+
+
+@dataclass
+class EngineResult:
+    """引擎执行结果"""
+    success: bool
+    output: Optional[str] = None
+    error: Optional[str] = None
+    error_code: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
+    request_id: str = ""
+    trace_id: str = ""
+
+
+@dataclass
+class EngineAdapterConfig:
+    """引擎适配器配置"""
+    timeout_seconds: int = 900
+    cwd: str = "."
+    max_output_chars: int = 20000
+
+
+# 工厂函数注册（由 Infrastructure 层实现并注册）
+_cache_backend_factory: Optional[Callable[[], "CacheBackend"]] = None
+_engine_adapter_factory: Optional[Callable[[str, EngineAdapterConfig], EngineAdapterProtocol]] = None
+
+
+def register_cache_backend_factory(factory: Callable[[], "CacheBackend"]) -> None:
+    """注册缓存后端工厂（由 Infrastructure 层调用）"""
+    global _cache_backend_factory
+    _cache_backend_factory = factory
+
+
+def register_engine_adapter_factory(factory: Callable[[str, EngineAdapterConfig], EngineAdapterProtocol]) -> None:
+    """注册引擎适配器工厂（由 Infrastructure 层调用）"""
+    global _engine_adapter_factory
+    _engine_adapter_factory = factory
+
+
+def _get_cache_backend() -> Optional["CacheBackend"]:
+    """获取缓存后端（延迟导入避免循环依赖）"""
+    global _cache_backend_factory
+    if _cache_backend_factory is not None:
+        return _cache_backend_factory()
+    # 默认实现：延迟导入
+    from sprintcycle.infrastructure.cache import get_cache
+    return get_cache()
+
+
+def _resolve_engine_adapter(
+    engine: str,
+    config: EngineAdapterConfig,
+) -> EngineAdapterProtocol:
+    """解析引擎适配器（延迟导入避免循环依赖）"""
+    global _engine_adapter_factory
+    if _engine_adapter_factory is not None:
+        return _engine_adapter_factory(engine, config)
+    # 默认实现：延迟导入
+    from sprintcycle.infrastructure.llm.engine_adapters import resolve_engine_adapter as _resolve
+
+    return _resolve(
+        engine,
+        EngineAdapterConfig(
+            timeout_seconds=config.timeout_seconds,
+            cwd=config.cwd,
+            max_output_chars=config.max_output_chars,
+        ),
+    )
 
 
 class CoderAgent(AgentExecutor):
@@ -151,9 +234,10 @@ class CoderAgent(AgentExecutor):
     def _maybe_get_codegen_cache(self, context: AgentContext, cache_key: str) -> Optional[Dict[str, Any]]:
         if not context.config.get("cache_llm_codegen", True):
             return None
-        from sprintcycle.infrastructure.cache import get_cache
-
-        v = get_cache().get(cache_key)
+        cache = _get_cache_backend()
+        if cache is None:
+            return None
+        v = cache.get(cache_key)
         if isinstance(v, dict) and v.get("success"):
             return cast(Dict[str, Any], v)
         return None
@@ -163,9 +247,10 @@ class CoderAgent(AgentExecutor):
             return
         if not result.get("success"):
             return
-        from sprintcycle.infrastructure.cache import get_cache
-
-        get_cache().set(cache_key, result, ttl_hours=24)
+        cache = _get_cache_backend()
+        if cache is None:
+            return
+        cache.set(cache_key, result, ttl_hours=24)
 
     async def _generate_code(self, requirements: Dict[str, Any], context: AgentContext) -> Dict[str, Any]:
         engine = self._resolve_coding_engine(context)
@@ -182,9 +267,7 @@ class CoderAgent(AgentExecutor):
             self._maybe_put_codegen_cache(context, gen_ck, payload)
             return payload
 
-        from sprintcycle.infrastructure.llm.engine_adapters import EngineAdapterConfig, resolve_engine_adapter
-
-        adapter = resolve_engine_adapter(
+        adapter = _resolve_engine_adapter(
             engine,
             EngineAdapterConfig(
                 timeout_seconds=int(context.config.get("engine_timeout_seconds", 900)),

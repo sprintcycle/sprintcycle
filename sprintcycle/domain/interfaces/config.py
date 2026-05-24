@@ -7,8 +7,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 
 class ConfigProtocol(ABC):
@@ -37,7 +36,22 @@ class ConfigProtocol(ABC):
 
 
 # 便捷函数：从项目加载配置（由 Infrastructure 实现）
+_config_loader: Optional["Callable[[str], ConfigProtocol]"] = None
+
+
+def register_config_loader(loader: "Callable[[str], ConfigProtocol]") -> None:
+    """注册配置加载器（由 Infrastructure 层调用）"""
+    global _config_loader
+    _config_loader = loader
+
+
 def load_project_config(project_path: str) -> ConfigProtocol:
     """从项目目录加载配置。"""
+    if _config_loader is not None:
+        return _config_loader(project_path)
+    # 默认实现：延迟导入避免循环依赖
     from sprintcycle.infrastructure.config import RuntimeConfig
     return RuntimeConfig.from_project(project_path)
+
+
+from typing import Any, Callable, Dict, Optional

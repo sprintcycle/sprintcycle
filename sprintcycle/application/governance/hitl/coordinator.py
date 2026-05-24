@@ -1,4 +1,7 @@
-"""HITL 协调器：落库、事件、轮询等待决策（跨进程安全）。"""
+"""HITL 协调器：落库、事件、轮询等待决策（跨进程安全）。
+
+**分层**：HITL Store 通过工厂函数获取。
+"""
 
 from __future__ import annotations
 
@@ -14,11 +17,17 @@ from sprintcycle.domain.execution.core.events import Event, EventType, Execution
 from .context import build_replay_context, merge_correction_into_context, summarize_context_diff
 from .decision_normalize import normalize_hitl_decision_with_intent, validate_hitl_decision_for_submit
 from .events import HitlEventType
-from sprintcycle.infrastructure.governance.hitl_store import HitlSqliteStore, default_hitl_db_path
 from .types import HitlCorrection, HitlDecision, HitlGate, HitlReplayDirective, HitlRequestRecord, HitlRiskLevel
 
 if TYPE_CHECKING:
-    from ...infrastructure.config.runtime_config import RuntimeConfig
+    from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
+    from sprintcycle.infrastructure.governance.hitl_store import HitlSqliteStore
+
+
+def _create_hitl_store(project_path: str) -> "HitlSqliteStore":
+    """创建 HITL Store（延迟导入）"""
+    from sprintcycle.infrastructure.governance.hitl_store import HitlSqliteStore, default_hitl_db_path
+    return HitlSqliteStore(default_hitl_db_path(project_path))
 
 
 def _timeout_decision(config: "RuntimeConfig") -> HitlDecision:
@@ -275,7 +284,5 @@ def create_hitl_coordinator(
 ) -> Optional[HitlCoordinator]:
     if not getattr(config, "hitl_enabled", False):
         return None
-    raw = getattr(config, "hitl_db_path", None)
-    db_path = str(raw).strip() if isinstance(raw, str) and str(raw).strip() else default_hitl_db_path(project_root)
-    store = HitlSqliteStore(db_path)
+    store = _create_hitl_store(project_root)
     return HitlCoordinator(project_root=project_root, config=config, event_bus=event_bus, store=store)

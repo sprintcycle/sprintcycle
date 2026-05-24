@@ -2,16 +2,21 @@
 
 The service converts execution and contract evidence into promotion-ready
 artifacts and keeps the promotion contract explicit.
+
+**分层**：LifecycleEvolutionService 通过构造函数接收依赖。
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from sprintcycle.application.services.promotion_policy import PromotionPolicy
-from sprintcycle.infrastructure.config.runtime_registry import RuntimeRegistry
-from sprintcycle.infrastructure.observability.facade import ObservabilityFacade
+
+# TYPE_CHECKING: 仅用于类型提示
+if TYPE_CHECKING:
+    from sprintcycle.infrastructure.observability.facade import ObservabilityFacade
+    from sprintcycle.infrastructure.config.runtime_registry import RuntimeRegistry
 
 
 @dataclass

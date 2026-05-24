@@ -1,16 +1,21 @@
 """Repair orchestration service.
 
 Implements an explicit repair -> verify -> observe loop for lifecycle recovery.
+
+**分层**：RepairOrchestrationService 通过构造函数接收依赖。
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
-from sprintcycle.infrastructure.observability.facade import ObservabilityFacade
 from .lifecycle.lifecycle_contracts import build_lifecycle_contract, build_lifecycle_state_machine
 from .phase_workflow import build_diagnose_artifact, build_observe_artifact, build_repair_artifact
+
+# TYPE_CHECKING: 仅用于类型提示
+if TYPE_CHECKING:
+    from sprintcycle.infrastructure.observability.facade import ObservabilityFacade
 
 
 @dataclass

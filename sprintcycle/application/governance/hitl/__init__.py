@@ -1,4 +1,7 @@
-"""Human-in-the-loop（HITL）治理编排入口。"""
+"""Human-in-the-loop（HITL）治理编排入口。
+
+**分层**：HITL 相关类型和工厂函数由 Infrastructure 层实现，通过延迟导入获取。
+"""
 
 from .config import get_hitl_timeout_seconds, is_hitl_enabled
 from .context import (
@@ -25,7 +28,6 @@ from .session import (
     transition_session_status,
     validate_session_transition,
 )
-from sprintcycle.infrastructure.governance.hitl_store import HitlMemoryStore, HitlSqliteStore, default_hitl_db_path
 from .types import (
     CTX_HITL_ABORT_EXECUTION,
     CTX_HITL_CORRECTION,
@@ -53,9 +55,6 @@ __all__ = [
     "validate_hitl_decision_for_submit",
     "HitlCoordinator",
     "create_hitl_coordinator",
-    "HitlSqliteStore",
-    "HitlMemoryStore",
-    "default_hitl_db_path",
     "HitlSprintHooks",
     "HitlTaskHooks",
     "HitlDecision",

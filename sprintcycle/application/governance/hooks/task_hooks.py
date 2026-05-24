@@ -1,6 +1,8 @@
 """治理相关的任务级钩子。
 
 使用 Domain 定义的协议接口，打破 Governance → Execution 循环依赖。
+
+**分层**：GovernanceHooks 通过构造函数接收依赖。
 """
 
 from __future__ import annotations
