@@ -34,7 +34,7 @@ from sprintcycle.infrastructure.evolution.evolution_registry_access import creat
 from sprintcycle.infrastructure.knowledge_repository import KnowledgeCardRepository
 from sprintcycle.infrastructure.observability.facade import ObservabilityFacade
 from sprintcycle.infrastructure.config.runtime_registry import RuntimeRegistry
-from sprintcycle.hooks import HookRegistry
+from sprintcycle.domain.hooks import HookRegistry
 
 
 class HTTPServices:
@@ -248,7 +248,7 @@ class HTTPServices:
     def diagnose(self, execution_id: str = "") -> Any:
         """运行项目或执行诊断"""
         from sprintcycle.infrastructure.observability.diagnostics.provider import ProjectDiagnostic
-        from sprintcycle.results import DiagnoseResult
+        from sprintcycle.application.results import DiagnoseResult
 
         diag = ProjectDiagnostic(self.project_path)
         report = diag.diagnose(execution_id=execution_id)
@@ -276,7 +276,7 @@ class HTTPServices:
         """停止正在运行的执行"""
         from sprintcycle.execution.core.sprint_types import ExecutionStatus
         from sprintcycle.execution.state.state_store import get_state_store
-        from sprintcycle.results import StopResult
+        from sprintcycle.application.results import StopResult
 
         if execution_id:
             store = get_state_store()
@@ -306,7 +306,7 @@ class HTTPServices:
     def rollback(self, execution_id: str) -> Any:
         """回滚执行到执行前状态"""
         from sprintcycle.execution.state.state_store import get_state_store
-        from sprintcycle.results import RollbackResult
+        from sprintcycle.application.results import RollbackResult
 
         store = get_state_store()
         state = store.load(execution_id)

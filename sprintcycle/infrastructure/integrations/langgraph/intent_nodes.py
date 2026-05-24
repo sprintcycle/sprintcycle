@@ -8,7 +8,7 @@ from .states import IntentState
 
 
 async def _get_llm_response(prompt: str) -> Dict[str, Any]:
-    from sprintcycle.llm import get_llm  # type: ignore
+    from ...integrations.llm_interface import get_llm  # type: ignore
 
     llm = get_llm()
     response = await llm.ainvoke(prompt)

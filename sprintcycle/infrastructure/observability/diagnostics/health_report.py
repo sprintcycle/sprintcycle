@@ -9,7 +9,7 @@ ProjectHealthReport - 项目健康报告
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from sprintcycle.exceptions import Severity
+from sprintcycle.domain.exceptions import Severity
 
 
 @dataclass

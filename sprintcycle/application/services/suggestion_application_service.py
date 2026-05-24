@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional
 from ...governance.facade import GovernanceFacade
 from ...governance.suggestion import SuggestionFacade
 from ...governance.versioning.registry import VersionRegistry
-from ...hooks import (
+from ...domain.hooks import (
     SUGGESTION_APPROVAL_COMPLETED_EVENT,
     SUGGESTION_APPROVE_SUGGESTION,
     SUGGESTION_APPROVED_EVENT,

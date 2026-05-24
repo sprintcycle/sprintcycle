@@ -10,7 +10,7 @@ from sprintcycle.domain.intent import (
     ParsedIntent,
     RunnerHandler,
 )
-from sprintcycle.results import RunResult
+from sprintcycle.application.results import RunResult
 
 
 class TestActionType:

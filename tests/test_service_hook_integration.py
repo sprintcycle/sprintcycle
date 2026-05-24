@@ -5,7 +5,7 @@ from typing import Any, Dict
 
 import pytest
 
-from sprintcycle.hooks import HookContext, HookDefinition, HookPhase, HookPolicy, HookRegistry, HookResult, HookRunner, hook_action, hook_events
+from sprintcycle.domain.hooks import HookContext, HookDefinition, HookPhase, HookPolicy, HookRegistry, HookResult, HookRunner, hook_action, hook_events
 from sprintcycle.application.services.execution_lifecycle_service import ExecutionLifecycleService
 from sprintcycle.application.services.suggestion_application_service import SuggestionApplicationService
 from sprintcycle.application.services.governance_orchestration_service import GovernanceOrchestrationService

@@ -15,7 +15,7 @@ from typing import Any, Dict, Optional
 from loguru import logger
 
 from ...governance.facade import GovernanceFacade
-from ...hooks import (
+from ...domain.hooks import (
     GOVERNANCE_CHECK,
     GOVERNANCE_CHECK_FAILED_EVENT,
     GOVERNANCE_CHECKED_EVENT,

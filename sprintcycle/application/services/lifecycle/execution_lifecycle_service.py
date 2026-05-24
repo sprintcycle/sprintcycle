@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 
 from sprintcycle.execution.state.state_store import get_state_store
-from sprintcycle.hooks import EXECUTION_STARTED_EVENT, HookContext, HookPhase, HookRegistry, HookRunner
+from sprintcycle.domain.hooks import EXECUTION_STARTED_EVENT, HookContext, HookPhase, HookRegistry, HookRunner
 from sprintcycle.infrastructure.config.runtime_registry import RuntimeRegistry
 from sprintcycle.infrastructure.observability.facade import ObservabilityFacade
 

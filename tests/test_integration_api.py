@@ -12,7 +12,7 @@ from unittest.mock import patch, MagicMock, AsyncMock
 
 from sprintcycle.application.http_factories import HTTPServices
 from sprintcycle.application.sprint_orchestrator import SprintOrchestrator
-from sprintcycle.results import (
+from sprintcycle.application.results import (
     PlanResult, RunResult, DiagnoseResult,
     StatusResult, RollbackResult, StopResult,
 )

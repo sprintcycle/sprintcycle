@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, List, Optional
 
-from sprintcycle.exceptions import Severity
+from sprintcycle.domain.exceptions import Severity
 
 
 class ErrorCategory(str, Enum):

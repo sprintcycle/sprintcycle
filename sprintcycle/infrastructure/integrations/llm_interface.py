@@ -1,10 +1,10 @@
-"""LLM interface - re-exported from infrastructure for backwards compatibility."""
+"""LLM interface - Unified LLM wrapper."""
 
 from __future__ import annotations
 
 from typing import Any, Optional
 
-from sprintcycle.infrastructure.integrations.llm_provider import resolve_provider
+from .llm_provider import resolve_provider
 
 
 class LLMInterface:
@@ -37,3 +37,6 @@ def get_llm(provider: Optional[str] = None) -> LLMInterface:
     if _llm_instance is None or provider is not None:
         _llm_instance = LLMInterface(provider=provider)
     return _llm_instance
+
+
+__all__ = ["LLMInterface", "get_llm"]
