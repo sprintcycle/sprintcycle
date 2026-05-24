@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from loguru import logger
 
-from sprintcycle.execution.core.sprint_types import ExecutionStatus
+from sprintcycle.domain.interfaces import ExecutionStatus
 from .machine import ExecutionStateMachine
 
 if TYPE_CHECKING:

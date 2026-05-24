@@ -47,7 +47,7 @@ from .lifecycle_hooks import (
     ExecutionEventProtocol,
 )
 
-from .governance import (
+from sprintcycle.domain.governance.interfaces.governance import (
     GovernanceCheckResult,
     GovernanceCheckProtocol,
     ArchitectureCheckProtocol,

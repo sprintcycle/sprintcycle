@@ -104,7 +104,7 @@ class IntentHandler(ABC):
         sprint_results: List["SprintResult"],
         error: Optional[str] = None,
     ) -> IntentResult:
-        from ...execution.core.sprint_types import ExecutionStatus
+        from sprintcycle.domain.interfaces import ExecutionStatus
 
         completed_sprints = sum(
             1 for r in sprint_results if r.status in (ExecutionStatus.SUCCESS, ExecutionStatus.SKIPPED)

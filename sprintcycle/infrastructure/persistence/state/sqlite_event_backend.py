@@ -13,7 +13,7 @@ from typing import Any, Callable, Dict, List, Optional, Set
 
 from loguru import logger
 
-from sprintcycle.execution.core.events import Event, EventType
+from sprintcycle.domain.execution.core.events import Event, EventType
 from sprintcycle.infrastructure.mq import MQMessage
 from sprintcycle.infrastructure.mq.sqlite_mq import SQLiteMQ
 

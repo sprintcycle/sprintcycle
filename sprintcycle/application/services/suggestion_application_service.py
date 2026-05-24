@@ -10,10 +10,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
-from ...governance.core.facade import GovernanceFacade
-from ...governance.suggestion import SuggestionFacade
-from ...governance.versioning.registry import VersionRegistry
-from ...domain.hooks import (
+from sprintcycle.application.governance.core.facade import GovernanceFacade
+from sprintcycle.application.governance.suggestion import SuggestionFacade
+from sprintcycle.infrastructure.governance.versioning.registry import VersionRegistry
+from sprintcycle.domain.hooks import (
     SUGGESTION_APPROVAL_COMPLETED_EVENT,
     SUGGESTION_APPROVE_SUGGESTION,
     SUGGESTION_APPROVED_EVENT,

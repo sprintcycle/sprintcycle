@@ -29,7 +29,7 @@ class EvolutionVersionService:
             self.registry = create_evolution_registry(self.config)
 
     async def get_version(self, version_id: str) -> EvolutionVersionSummary:
-        from sprintcycle.governance.versioning.interface import get_version_manifest_summary
+        from sprintcycle.infrastructure.governance.versioning.interface import get_version_manifest_summary
 
         payload = await get_version_manifest_summary(self.registry, version_id)
         return EvolutionVersionSummary(

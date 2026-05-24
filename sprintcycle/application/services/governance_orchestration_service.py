@@ -13,8 +13,8 @@ from typing import Any, Dict, Optional
 
 from loguru import logger
 
-from ...governance.core.facade import GovernanceFacade
-from ...domain.hooks import (
+from sprintcycle.application.governance.core.facade import GovernanceFacade
+from sprintcycle.domain.hooks import (
     GOVERNANCE_CHECK,
     GOVERNANCE_CHECK_FAILED_EVENT,
     GOVERNANCE_CHECKED_EVENT,
@@ -32,9 +32,9 @@ class GovernanceOrchestrationService:
     hooks: HookRegistry | None = None
 
     async def governance_check(self, gate: str = "review", **kwargs: Any) -> Dict[str, Any]:
-        from ...governance.arch_guard.config import ArchGuardConfig
-        from ...governance.arch_guard.engine import ArchGuardEngine
-        from ...governance.arch_guard.reporter import GovernanceReportAdapter
+        from ...application.governance.arch_guard.config import ArchGuardConfig
+        from ...application.governance.arch_guard.engine import ArchGuardEngine
+        from ...application.governance.arch_guard.reporter import GovernanceReportAdapter
 
         start = time.time()
         hook_ctx = HookContext(

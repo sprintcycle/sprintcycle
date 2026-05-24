@@ -17,42 +17,42 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 from loguru import logger
 
-from ..domain.verification.hooks import VerificationSprintHooks
-from ..execution.core.events import (
+from sprintcycle.domain.verification.hooks import VerificationSprintHooks
+from sprintcycle.domain.execution.core.events import (
     Event,
     EventType,
     ExecutionEventBackend,
     create_event,
     get_execution_event_backend,
 )
-from ..execution.core.feedback import FeedbackLoop
-from ..execution.hooks.skill_hooks import SkillLifecycleHook
-from ..execution.hooks.sprint_hooks import (
+from sprintcycle.application.execution.core.feedback import FeedbackLoop
+from sprintcycle.application.execution.hooks.skill_hooks import SkillLifecycleHook
+from sprintcycle.application.execution.hooks.sprint_hooks import (
     ChainedSprintHooks,
     SprintLifecycleHooks,
     _measurement_run_metadata,
     _OrchestratorSprintHooks,
 )
-from ..execution.hooks.task_hooks import ChainedTaskHooks, TaskLifecycleHooks
-from ..execution.knowledge.knowledge_hook import KnowledgeInjectionHook
-from ..execution.planners.expand import expand_release_plan_for_execution
+from sprintcycle.application.execution.hooks.task_hooks import ChainedTaskHooks, TaskLifecycleHooks
+from sprintcycle.infrastructure.knowledge.knowledge_hook import KnowledgeInjectionHook
+from sprintcycle.application.execution.planners.expand import expand_release_plan_for_execution
 from sprintcycle.domain.models import ReleasePlan, SprintBacklogItem, SprintDefinition
-from ..execution.core.protocols import ExecutionContext
-from ..execution.agents.skill_store import SkillStore
-from ..execution.agents.skills import SkillOrchestrator
-from ..execution.orchestrator.sprint_executor import SprintExecutor
-from ..execution.core.sprint_types import ExecutionStatus, SprintResult, TaskResult
-from ..governance.hooks.sprint_hooks import GovernanceSprintHooks
-from ..governance.hooks.task_hooks import GovernanceTaskLifecycleHooks
-from ..infrastructure.config import RuntimeConfig
-from ..infrastructure.integrations.langgraph.compiler import compile_intent_graph, compile_sprint_graph
-from ..infrastructure.persistence.knowledge_repository import KnowledgeCardRepository
+from sprintcycle.domain.execution.core.protocols import ExecutionContext
+from sprintcycle.domain.execution.agents.skill_store import SkillStore
+from sprintcycle.domain.execution.agents.skills import SkillOrchestrator
+from sprintcycle.application.execution.orchestrator.sprint_executor import SprintExecutor
+from sprintcycle.domain.interfaces import ExecutionStatus, SprintResult, TaskResult
+from sprintcycle.application.governance.hooks.sprint_hooks import GovernanceSprintHooks
+from sprintcycle.application.governance.hooks.task_hooks import GovernanceTaskLifecycleHooks
+from sprintcycle.infrastructure.config import RuntimeConfig
+from sprintcycle.infrastructure.integrations.langgraph.compiler import compile_intent_graph, compile_sprint_graph
+from sprintcycle.infrastructure.persistence.knowledge_repository import KnowledgeCardRepository
 from sprintcycle.domain.evolution.intent_evolution_loop import UserIntentEvolutionLoop
 from sprintcycle.domain.evolution.measurement import MeasurementResult
 from .services.lifecycle.lifecycle_contracts import build_lifecycle_contract
 
 if TYPE_CHECKING:
-    from ..infrastructure.integrations.phoenix.trace_runtime import PhoenixTraceRuntime
+    from sprintcycle.infrastructure.integrations.phoenix.trace_runtime import PhoenixTraceRuntime
 
 
 class SprintOrchestrator:
@@ -87,8 +87,8 @@ class SprintOrchestrator:
         self._phoenix_runtime: Optional["PhoenixTraceRuntime"] = None
         if os.environ.get("PHOENIX_ENABLED"):
             try:
-                from ..infrastructure.integrations.phoenix.exporter import PhoenixExporterSpec
-                from ..infrastructure.integrations.phoenix.trace_runtime import PhoenixTraceRuntime
+                from sprintcycle.infrastructure.integrations.phoenix.exporter import PhoenixExporterSpec
+                from sprintcycle.infrastructure.integrations.phoenix.trace_runtime import PhoenixTraceRuntime
 
                 self._phoenix_runtime = PhoenixTraceRuntime(PhoenixExporterSpec(project_name=self._project_root))
             except ImportError:
@@ -130,7 +130,7 @@ class SprintOrchestrator:
         ):
             task_hooks = GovernanceTaskLifecycleHooks(self.config, self._project_root, self._get_event_bus())
         if self._hitl_coordinator is not None and getattr(self.config, "hitl_enabled", False):
-            from ..governance.hitl.hooks import HitlTaskHooks
+            from sprintcycle.application.governance.hitl.hooks import HitlTaskHooks
 
             hitl_th = HitlTaskHooks(self.config, self._hitl_coordinator)
             if task_hooks is not None:
@@ -151,7 +151,7 @@ class SprintOrchestrator:
         if getattr(self.config, "verification_enabled", False):
             parts.append(VerificationSprintHooks(self._project_root, self.config, self._get_event_bus()))
         if self._hitl_coordinator is not None:
-            from ..governance.hitl.hooks import HitlSprintHooks
+            from sprintcycle.application.governance.hitl.hooks import HitlSprintHooks
 
             parts.append(HitlSprintHooks(self.config, self._hitl_coordinator))
         parts.append(_OrchestratorSprintHooks(self, release_plan))
@@ -176,7 +176,7 @@ class SprintOrchestrator:
 
     def _persist_release_finalization(self, release_plan: ReleasePlan, finalize_result: Any) -> None:
         try:
-            from ..infrastructure.persistence.state import get_state_store
+            from sprintcycle.infrastructure.persistence.state import get_state_store
 
             eid = getattr(release_plan, "execution_id", None)
             if not eid:
@@ -200,7 +200,7 @@ class SprintOrchestrator:
         sprint: Optional[SprintDefinition] = None,
         sprint_result: Optional[SprintResult] = None,
     ) -> Optional[MeasurementResult]:
-        from ..infrastructure.config.quality import resolve_effective_quality_level, runs_pytest
+        from sprintcycle.infrastructure.config.quality import resolve_effective_quality_level, runs_pytest
         from sprintcycle.domain.evolution.measurement import MeasurementProvider
 
         quality_level = resolve_effective_quality_level(
@@ -316,7 +316,7 @@ class SprintOrchestrator:
 
         # Finalization
         try:
-            from ..execution.orchestrator.finalization import ReleaseFinalizationPolicy, ReleaseFinalizationRunner
+            from sprintcycle.application.execution.orchestrator.finalization import ReleaseFinalizationPolicy, ReleaseFinalizationRunner
 
             runner = ReleaseFinalizationRunner(
                 ReleaseFinalizationPolicy(), sprint_executor_factory=self._make_sprint_executor
@@ -375,7 +375,7 @@ class SprintOrchestrator:
         self._emit_trace_event(complete_event)
         # Persist state
         try:
-            from ..infrastructure.persistence.state import get_state_store
+            from sprintcycle.infrastructure.persistence.state import get_state_store
 
             if getattr(release_plan, "execution_id", None):
                 store = get_state_store()

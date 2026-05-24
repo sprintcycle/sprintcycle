@@ -16,7 +16,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from sprintcycle.application.release_plan.payload_keys import checkpoint_plan_yaml
-from sprintcycle.execution.core.sprint_types import ExecutionStatus
+from sprintcycle.domain.interfaces import ExecutionStatus
 from sprintcycle.infrastructure.persistence.base import BaseSqliteStore
 from sprintcycle.infrastructure.persistence.models import Base, ExecutionRow
 from .machine import validate_transition

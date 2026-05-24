@@ -9,10 +9,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict
 
-from ...domain.platform.overview import build_platform_overview_view
-from ...domain.platform.spec import build_platform_spec
-from ...infrastructure.persistence.state import summarize_state_machine
-from ...infrastructure.persistence.state import get_state_store
+from sprintcycle.domain.platform.overview import build_platform_overview_view
+from sprintcycle.domain.platform.spec import build_platform_spec
+from sprintcycle.infrastructure.persistence.state import summarize_state_machine
+from sprintcycle.infrastructure.persistence.state import get_state_store
 from .dashboard_view_service import DashboardViewService
 from .dashboard_workbench_service import DashboardWorkbenchService
 

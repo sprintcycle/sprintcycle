@@ -52,11 +52,11 @@ def create_default_evolution_facade(
         )
 
     if rollback_manager is None:
-        from sprintcycle.governance.versioning.rollback import DefaultVersionRollbackManager
+        from sprintcycle.infrastructure.governance.versioning.rollback import DefaultVersionRollbackManager
         rollback_manager = DefaultVersionRollbackManager()
 
     if release_plan_generator is None:
-        from sprintcycle.execution.planners.generator import IntentReleasePlanGenerator
+        from sprintcycle.application.execution.planners.generator import IntentReleasePlanGenerator
         release_plan_generator = IntentReleasePlanGenerator()
 
     if release_plan_validator is None:

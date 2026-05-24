@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Dict
 
-from sprintcycle.governance.suggestion import SuggestionFacade
+from sprintcycle.application.governance.suggestion import SuggestionFacade
 
 
 @dataclass

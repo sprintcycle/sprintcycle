@@ -26,9 +26,9 @@ from sprintcycle.application.release_plan.parser import ReleasePlanParser
 from sprintcycle.application.release_plan.validator import ReleasePlanValidator
 from sprintcycle.domain.fitness.evaluator import FitnessEvaluator
 from sprintcycle.infrastructure.persistence.state.state_store import get_state_store
-from sprintcycle.execution.core.events import get_execution_event_backend
-from sprintcycle.governance.core.facade import GovernanceFacade, create_governance_facade
-from sprintcycle.governance.suggestion import SuggestionFacade, create_suggestion_facade
+from sprintcycle.domain.execution.core.events import get_execution_event_backend
+from sprintcycle.application.governance.core.facade import GovernanceFacade, create_governance_facade
+from sprintcycle.application.governance.suggestion import SuggestionFacade, create_suggestion_facade
 from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
 from sprintcycle.infrastructure.evolution.evolution_registry_access import create_evolution_registry
 from sprintcycle.infrastructure.persistence.knowledge_repository import KnowledgeCardRepository
@@ -274,8 +274,8 @@ class HTTPServices:
 
     def stop(self, execution_id: str = "") -> Any:
         """停止正在运行的执行"""
-        from sprintcycle.execution.core.sprint_types import ExecutionStatus
-        from sprintcycle.execution.state.state_store import get_state_store
+        from sprintcycle.domain.interfaces import ExecutionStatus
+        from sprintcycle.infrastructure.persistence.state.state_store import get_state_store
         from sprintcycle.application.results import StopResult
 
         if execution_id:
@@ -305,7 +305,7 @@ class HTTPServices:
 
     def rollback(self, execution_id: str) -> Any:
         """回滚执行到执行前状态"""
-        from sprintcycle.execution.state.state_store import get_state_store
+        from sprintcycle.infrastructure.persistence.state.state_store import get_state_store
         from sprintcycle.application.results import RollbackResult
 
         store = get_state_store()
