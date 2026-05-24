@@ -4,8 +4,8 @@ ReleasePlan 验证器单元测试
 
 import pytest
 
-from sprintcycle.application.release_plan.validator import ReleasePlanValidator, ValidationResult
-from sprintcycle.domain.models import (
+from sprintcycle.domain.generic.models.release_plan.validator import ReleasePlanValidator, ValidationResult
+from sprintcycle.domain.generic.models import (
     ReleasePlan,
     ProductAnchor,
     SprintDefinition,

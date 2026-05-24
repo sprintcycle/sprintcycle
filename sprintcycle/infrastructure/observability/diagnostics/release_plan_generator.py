@@ -11,7 +11,7 @@ from typing import List, Optional
 
 from loguru import logger
 
-from sprintcycle.application.release_plan.builders import release_plan_from_diagnostic_slices
+from sprintcycle.domain.generic.models.release_plan.builders import release_plan_from_diagnostic_slices
 from sprintcycle.domain.generic.models import ReleasePlan
 from .health_report import ProjectHealthReport
 from .release_plan_rules import ReleasePlanRuleEngine

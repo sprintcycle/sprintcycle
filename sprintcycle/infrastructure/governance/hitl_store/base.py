@@ -5,7 +5,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from sprintcycle.application.governance.hitl.types import HitlCorrection, HitlReplayDirective, HitlRequestRecord
+from sprintcycle.domain.core.governance.hitl.types import HitlCorrection, HitlReplayDirective, HitlRequestRecord
 
 
 class HitlStore(ABC):

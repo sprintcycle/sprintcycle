@@ -15,7 +15,7 @@ from .domain.generic.models import (
     SprintBacklogItem,
     SprintDefinition,
 )
-from .application.release_plan.parser import ReleasePlanParser
+from .domain.generic.models.release_plan.parser import ReleasePlanParser
 from .application.sprint_orchestrator import SprintOrchestrator
 
 __all__ = [

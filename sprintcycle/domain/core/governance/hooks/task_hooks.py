@@ -16,7 +16,7 @@ from sprintcycle.domain.generic.models import SprintBacklogItem
 from sprintcycle.domain.generic.interfaces import TaskLifecycleHookProtocol, ExecutionEventProtocol
 from sprintcycle.domain.generic.interfaces import ExecutionStatus, TaskResult
 from ..hitl import HitlGate, HitlService, create_hitl_coordinator, evaluate_hitl_policy
-from sprintcycle.application.governance.arch_guard.model import GuardFinding as GovernanceViolation
+from sprintcycle.domain.core.governance.arch_guard.model import GuardFinding as GovernanceViolation
 from ..arch_guard.yaml_checks import checks_for_gate, filter_argv_items_by_governance_sources, run_argv_item
 from sprintcycle.domain.core.governance.core import load_merged_governance_data
 

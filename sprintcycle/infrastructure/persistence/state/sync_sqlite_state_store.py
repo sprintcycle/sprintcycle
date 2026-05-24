@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession, async_sessionmaker
 
-from sprintcycle.application.release_plan.payload_keys import checkpoint_plan_yaml
+from sprintcycle.domain.generic.models.release_plan.payload_keys import checkpoint_plan_yaml
 from sprintcycle.domain.generic.interfaces import ExecutionStatus
 from sprintcycle.infrastructure.persistence.base import SyncSqliteStore
 from sprintcycle.infrastructure.persistence.models import Base, ExecutionRow

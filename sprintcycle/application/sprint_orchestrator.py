@@ -27,24 +27,24 @@ from sprintcycle.domain.core.execution.core.events import (
     create_event,
     get_execution_event_backend,
 )
-from sprintcycle.application.execution.core.feedback import FeedbackLoop
-from sprintcycle.application.execution.hooks.skill_hooks import SkillLifecycleHook
-from sprintcycle.application.execution.hooks.sprint_hooks import (
+from sprintcycle.domain.core.execution.core.feedback import FeedbackLoop
+from sprintcycle.domain.core.execution.hooks.skill_hooks import SkillLifecycleHook
+from sprintcycle.domain.core.execution.hooks.sprint_hooks import (
     ChainedSprintHooks,
     SprintLifecycleHooks,
     _measurement_run_metadata,
     _OrchestratorSprintHooks,
 )
-from sprintcycle.application.execution.hooks.task_hooks import ChainedTaskHooks, TaskLifecycleHooks
-from sprintcycle.application.execution.planners.expand import expand_release_plan_for_execution
+from sprintcycle.domain.core.execution.hooks.task_hooks import ChainedTaskHooks, TaskLifecycleHooks
+from sprintcycle.domain.core.execution.planners.expand import expand_release_plan_for_execution
 from sprintcycle.domain.generic.models import ReleasePlan, SprintBacklogItem, SprintDefinition
 from sprintcycle.domain.core.execution.core.protocols import ExecutionContext
 from sprintcycle.domain.core.execution.agents.skill_store import SkillStore
 from sprintcycle.domain.core.execution.agents.skills import SkillOrchestrator
-from sprintcycle.application.execution.orchestrator.sprint_executor import SprintExecutor
+from sprintcycle.domain.core.execution.orchestrator.sprint_executor import SprintExecutor
 from sprintcycle.domain.generic.interfaces import ExecutionStatus, SprintResult, TaskResult
-from sprintcycle.application.governance.hooks.sprint_hooks import GovernanceSprintHooks
-from sprintcycle.application.governance.hooks.task_hooks import GovernanceTaskLifecycleHooks
+from sprintcycle.domain.core.governance.hooks.sprint_hooks import GovernanceSprintHooks
+from sprintcycle.domain.core.governance.hooks.task_hooks import GovernanceTaskLifecycleHooks
 from sprintcycle.domain.core.evolution.intent_evolution_loop import UserIntentEvolutionLoop
 from sprintcycle.domain.core.evolution.measurement import MeasurementResult
 from .services.lifecycle.lifecycle_contracts import build_lifecycle_contract
@@ -166,7 +166,7 @@ class SprintOrchestrator:
         ):
             task_hooks = GovernanceTaskLifecycleHooks(self.config, self._project_root, self._get_event_bus())
         if self._hitl_coordinator is not None and getattr(self.config, "hitl_enabled", False):
-            from sprintcycle.application.governance.hitl.hooks import HitlTaskHooks
+            from sprintcycle.domain.core.governance.hitl.hooks import HitlTaskHooks
 
             hitl_th = HitlTaskHooks(self.config, self._hitl_coordinator)
             if task_hooks is not None:
@@ -187,7 +187,7 @@ class SprintOrchestrator:
         if getattr(self.config, "verification_enabled", False):
             parts.append(VerificationSprintHooks(self._project_root, self.config, self._get_event_bus()))
         if self._hitl_coordinator is not None:
-            from sprintcycle.application.governance.hitl.hooks import HitlSprintHooks
+            from sprintcycle.domain.core.governance.hitl.hooks import HitlSprintHooks
 
             parts.append(HitlSprintHooks(self.config, self._hitl_coordinator))
         parts.append(_OrchestratorSprintHooks(self, release_plan))
@@ -352,7 +352,7 @@ class SprintOrchestrator:
 
         # Finalization
         try:
-            from sprintcycle.application.execution.orchestrator.finalization import ReleaseFinalizationPolicy, ReleaseFinalizationRunner
+            from sprintcycle.domain.core.execution.orchestrator.finalization import ReleaseFinalizationPolicy, ReleaseFinalizationRunner
 
             runner = ReleaseFinalizationRunner(
                 ReleaseFinalizationPolicy(), sprint_executor_factory=self._make_sprint_executor

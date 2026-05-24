@@ -1,20 +1,26 @@
-"""Execution core for SprintCycle domain layer.
+"""Execution core - Application 层。"""
 
-Domain primitives for execution:
-- ExecutionContext: 单次任务运行的执行上下文
-- ExecutionState: 执行状态标识符
-- ExecutionStateMachine: 轻量级状态机
-"""
-
-from sprintcycle.domain.core.execution.core.context import ExecutionContext
-from sprintcycle.domain.core.execution.core.events import Event as ExecutionEvent, EventBus as ExecutionEventBus, get_event_bus as create_default_event_bus
-from sprintcycle.domain.core.execution.core.state_machine import ExecutionState, ExecutionStateMachine
+from .error_handler import ErrorHandler, ErrorContext, FixResult, get_error_handler, reset_error_handler
+from .feedback import FeedbackLoop, ExecutionFeedback, FeedbackCategory, FeedbackLevel
+from .hooks import ExecutionHooks
+from .run_workspace import (
+    WRITE_POLICIES,
+    attach_workspace_metadata,
+    apply_policy_to_tasks,
+    build_workspace_prompt_section,
+    effective_write_policy,
+    ensure_project_layout,
+    normalize_reference_paths,
+    normalize_write_policy
+)
+from .static_analyzer import AnalysisConfig, StaticAnalyzer
 
 __all__ = [
-    "ExecutionContext",
-    "ExecutionEvent",
-    "ExecutionEventBus",
-    "ExecutionState",
-    "ExecutionStateMachine",
-    "create_default_event_bus",
+    "ErrorHandler", "ErrorContext", "FixResult", "get_error_handler", "reset_error_handler",
+    "FeedbackLoop", "ExecutionFeedback", "FeedbackCategory", "FeedbackLevel",
+    "ExecutionHooks",
+    "WRITE_POLICIES",
+    "attach_workspace_metadata", "apply_policy_to_tasks", "build_workspace_prompt_section",
+    "effective_write_policy", "ensure_project_layout", "normalize_reference_paths", "normalize_write_policy",
+    "AnalysisConfig", "StaticAnalyzer"
 ]

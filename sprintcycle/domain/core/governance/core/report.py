@@ -12,7 +12,7 @@ _GovernanceViolation = None
 def _get_governance_report():
     global _GovernanceReport
     if _GovernanceReport is None:
-        from sprintcycle.application.governance.arch_guard.model import GuardReport
+        from sprintcycle.domain.core.governance.arch_guard.model import GuardReport
         _GovernanceReport = GuardReport
     return _GovernanceReport
 
@@ -20,7 +20,7 @@ def _get_governance_report():
 def _get_governance_violation():
     global _GovernanceViolation
     if _GovernanceViolation is None:
-        from sprintcycle.application.governance.arch_guard.model import GuardFinding
+        from sprintcycle.domain.core.governance.arch_guard.model import GuardFinding
         _GovernanceViolation = GuardFinding
     return _GovernanceViolation
 

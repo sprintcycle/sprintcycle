@@ -18,7 +18,7 @@ from loguru import logger
 from sprintcycle.domain.core.governance.quality_spec.context import build_quality_context
 from sprintcycle.domain.core.governance.quality_spec.rules.planning_rules import default_planning_rules
 from sprintcycle.domain.core.governance.quality_spec.spec.task_spec import TaskSpec
-from sprintcycle.application.execution.core.static_analyzer import AnalysisConfig, StaticAnalyzer
+from sprintcycle.domain.core.execution.core.static_analyzer import AnalysisConfig, StaticAnalyzer
 from ..arch_guard.adr_check import check_adr_readme_index, check_adr_readme_strict_glob
 from ..arch_guard.argv_extensions import extend_argv_items_with_plugins
 from ..arch_guard.compose_hint import check_compose_hints, check_compose_supply_chain_hints

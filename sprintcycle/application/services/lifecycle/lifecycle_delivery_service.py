@@ -8,9 +8,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 
-from sprintcycle.application.services.governance_orchestration_service import GovernanceOrchestrationService
+from sprintcycle.application.services.governance.governance_orchestration_service import GovernanceOrchestrationService
 from sprintcycle.application.services.lifecycle.lifecycle_evolution_service import LifecycleEvolutionService
-from sprintcycle.application.services.repair_orchestration_service import RepairOrchestrationService
+from sprintcycle.application.services.governance.repair_orchestration_service import RepairOrchestrationService
 
 # TYPE_CHECKING: 仅用于类型提示
 if TYPE_CHECKING:

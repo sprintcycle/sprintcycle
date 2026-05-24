@@ -15,7 +15,7 @@ from loguru import logger
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from sprintcycle.application.release_plan.payload_keys import checkpoint_plan_yaml
+from sprintcycle.domain.generic.models.release_plan.payload_keys import checkpoint_plan_yaml
 from sprintcycle.domain.generic.interfaces import ExecutionStatus
 from sprintcycle.infrastructure.persistence.base import BaseSqliteStore
 from sprintcycle.infrastructure.persistence.models import Base, ExecutionRow

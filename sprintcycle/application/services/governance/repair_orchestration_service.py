@@ -10,8 +10,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
-from .lifecycle.lifecycle_contracts import build_lifecycle_contract, build_lifecycle_state_machine
-from .phase_workflow import build_diagnose_artifact, build_observe_artifact, build_repair_artifact
+from ..lifecycle.lifecycle_contracts import build_lifecycle_contract, build_lifecycle_state_machine
+from ..execution.phase_workflow import build_diagnose_artifact, build_observe_artifact, build_repair_artifact
 
 # TYPE_CHECKING: 仅用于类型提示
 if TYPE_CHECKING:

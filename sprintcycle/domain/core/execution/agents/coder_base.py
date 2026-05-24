@@ -158,7 +158,7 @@ class CoderAgent(AgentExecutor):
         return self.get_project_write_plan()
 
     def _build_generation_prompt(self, requirements: Dict[str, Any], context: AgentContext) -> str:
-        from sprintcycle.application.execution.core.run_workspace import build_workspace_prompt_section
+        from sprintcycle.domain.core.execution.core.run_workspace import build_workspace_prompt_section
 
         task = requirements.get("task", "")
         arch = requirements.get("architecture_design")

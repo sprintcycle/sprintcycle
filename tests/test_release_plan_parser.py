@@ -7,8 +7,8 @@ import tempfile
 import os
 from pathlib import Path
 
-from sprintcycle.application.release_plan.parser import ReleasePlanParser, ReleasePlanParseError, YAMLError
-from sprintcycle.domain.models import ReleasePlan, ExecutionMode
+from sprintcycle.domain.generic.models.release_plan.parser import ReleasePlanParser, ReleasePlanParseError, YAMLError
+from sprintcycle.domain.generic.models import ReleasePlan, ExecutionMode
 
 
 class TestReleasePlanParser:
@@ -179,7 +179,7 @@ class TestReleasePlanModels:
     
     def test_release_plan_total_tasks(self):
         """测试总任务数计算"""
-        from sprintcycle.domain.models import ProductAnchor, SprintDefinition, SprintBacklogItem
+        from sprintcycle.domain.generic.models import ProductAnchor, SprintDefinition, SprintBacklogItem
         
         plan = ReleasePlan(
             project=ProductAnchor(name="test", path="/root/test"),
@@ -204,7 +204,7 @@ class TestReleasePlanModels:
     
     def test_release_plan_to_dict(self):
         """测试 ReleasePlan 序列化"""
-        from sprintcycle.domain.models import ProductAnchor
+        from sprintcycle.domain.generic.models import ProductAnchor
         
         plan = ReleasePlan(
             project=ProductAnchor(name="test", path="/root/test"),

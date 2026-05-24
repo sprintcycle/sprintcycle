@@ -18,8 +18,8 @@ from sprintcycle.domain.generic.interfaces import SprintResult
 from ..arch_guard.config import ArchGuardConfig
 from ..arch_guard.engine import ArchGuardEngine
 from ..arch_guard.reporter import GovernanceReportAdapter
-from sprintcycle.application.governance.arch_guard.model import GuardReport as GovernanceReport
-from sprintcycle.application.governance.core import persist_planning_report, persist_report
+from sprintcycle.domain.core.governance.arch_guard.model import GuardReport as GovernanceReport
+from sprintcycle.domain.core.governance.core import persist_planning_report, persist_report
 
 if TYPE_CHECKING:
     from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig

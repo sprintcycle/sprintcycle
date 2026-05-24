@@ -12,7 +12,7 @@ from sprintcycle.execution.hooks.governance_context import (
 from sprintcycle.execution.hooks.task_hooks import TaskLifecycleHooks
 from sprintcycle.execution.sprint_executor import SprintExecutor
 from sprintcycle.execution.sprint_types import ExecutionStatus
-from sprintcycle.domain.models import SprintBacklogItem
+from sprintcycle.domain.generic.models import SprintBacklogItem
 
 
 class _BlockHook(TaskLifecycleHooks):

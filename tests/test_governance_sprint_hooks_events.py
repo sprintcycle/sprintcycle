@@ -8,7 +8,7 @@ from sprintcycle.infrastructure.config import RuntimeConfig
 from sprintcycle.execution.core.events import EventType, reset_event_bus
 from sprintcycle.governance.report import GovernanceReport, GovernanceViolation
 from sprintcycle.governance.sprint_hooks import GovernanceSprintHooks
-from sprintcycle.domain.models import SprintBacklogItem, SprintDefinition
+from sprintcycle.domain.generic.models import SprintBacklogItem, SprintDefinition
 
 
 @pytest.mark.asyncio

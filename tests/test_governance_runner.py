@@ -27,7 +27,7 @@ from sprintcycle.governance.runner import (
 )
 from sprintcycle.governance.task_hooks import GovernanceTaskLifecycleHooks
 from sprintcycle.governance.yaml_checks import filter_argv_items_by_governance_sources, run_argv_checks, run_argv_item
-from sprintcycle.domain.models import SprintBacklogItem
+from sprintcycle.domain.generic.models import SprintBacklogItem
 
 
 def test_governance_report_to_dict_and_should_block_ci():
@@ -419,7 +419,7 @@ def test_compose_supply_chain_latest_image_warning(tmp_path: Path) -> None:
 
 
 def test_planning_gate_spec_ref_missing_with_release_plan(tmp_path: Path) -> None:
-    from sprintcycle.domain.models import (
+    from sprintcycle.domain.generic.models import (
         ExecutionMode,
         ProductAnchor,
         ReleasePlan,

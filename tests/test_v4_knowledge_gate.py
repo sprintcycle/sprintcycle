@@ -45,7 +45,7 @@ sprints:
       - description: noop
         agent: coder
 """
-    from sprintcycle.application.release_plan.parser import ReleasePlanParser
+    from sprintcycle.domain.generic.models.release_plan.parser import ReleasePlanParser
     parser = ReleasePlanParser()
     plan = parser.parse_string(plan_yaml.strip())
     

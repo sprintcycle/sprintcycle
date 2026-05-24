@@ -13,7 +13,7 @@ from sprintcycle.domain.evolution.evolution_plan_source import (
     EvolutionPlanSourceType,
     ManualReleasePlanSource,
 )
-from sprintcycle.application.release_plan.builders import release_plan_from_diagnostic_slices
+from sprintcycle.domain.generic.models.release_plan.builders import release_plan_from_diagnostic_slices
 class TestManualReleasePlanSource:
     """ManualReleasePlanSource 测试类"""
 

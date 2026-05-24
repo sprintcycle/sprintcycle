@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import Dict, Optional
 
-from sprintcycle.application.governance.hitl.types import HitlCorrection, HitlReplayDirective, HitlRequestRecord
+from sprintcycle.domain.core.governance.hitl.types import HitlCorrection, HitlReplayDirective, HitlRequestRecord
 from .base import HitlStore
 
 

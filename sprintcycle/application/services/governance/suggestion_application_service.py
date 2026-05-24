@@ -10,10 +10,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
-from sprintcycle.application.governance.core.facade import GovernanceFacade
-from sprintcycle.application.governance.suggestion import SuggestionFacade
+from sprintcycle.domain.core.governance.core.facade import GovernanceFacade
+from sprintcycle.domain.core.governance.suggestion import SuggestionFacade
 from sprintcycle.infrastructure.governance.versioning.registry import VersionRegistry
-from sprintcycle.domain.hooks import (
+from sprintcycle.domain.generic.interfaces.hooks import (
     SUGGESTION_APPROVAL_COMPLETED_EVENT,
     SUGGESTION_APPROVE_SUGGESTION,
     SUGGESTION_APPROVED_EVENT,
@@ -37,8 +37,8 @@ from sprintcycle.domain.hooks import (
     HookRunner,
 )
 from sprintcycle.domain.core.evolution.models import VersionArtifact
-from .lifecycle.lifecycle_contracts import build_lifecycle_contract
-from .lifecycle.lifecycle_state_machine import build_default_correlation
+from ..lifecycle.lifecycle_contracts import build_lifecycle_contract
+from ..lifecycle.lifecycle_state_machine import build_default_correlation
 from .promotion_policy import PromotionPolicy
 
 

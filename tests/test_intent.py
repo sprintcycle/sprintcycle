@@ -277,7 +277,7 @@ class TestIntentResultFromRunResult:
     """IntentResult.from_run_result 与 RunnerHandler 弃用提示"""
 
     def test_from_run_result_success(self):
-        from sprintcycle.domain.models import (
+        from sprintcycle.domain.generic.models import (
             ExecutionMode,
             ProductAnchor,
             ReleasePlan,
@@ -310,7 +310,7 @@ class TestIntentResultFromRunResult:
         assert ir.sprint_results == []
 
     def test_from_run_result_pending_knowledge(self):
-        from sprintcycle.domain.models import (
+        from sprintcycle.domain.generic.models import (
             ExecutionMode,
             ProductAnchor,
             ReleasePlan,

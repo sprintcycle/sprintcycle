@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import List
 
-from sprintcycle.application.governance.arch_guard.model import GuardFinding
+from sprintcycle.domain.core.governance.arch_guard.model import GuardFinding
 
 
 class ArchonAdapter:

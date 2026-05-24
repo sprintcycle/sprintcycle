@@ -21,7 +21,7 @@ from sprintcycle.domain.generic.models import (
     SprintBacklogItem,
     SprintDefinition,
 )
-from .validator import ReleasePlanValidator
+from sprintcycle.domain.generic.models.release_plan.validator import ReleasePlanValidator
 
 
 class YAMLError(ValueError):

@@ -3,7 +3,7 @@
 from typing import Any, Dict
 
 from sprintcycle.domain.generic.models import SprintBacklogItem
-from sprintcycle.application.execution.core.policies.task_retry_policy import TaskRetryPolicy
+from sprintcycle.domain.core.execution.core.policies.task_retry_policy import TaskRetryPolicy
 from .base_strategy import AgentStrategy
 from ..constants import DRY_RUN_CODER_TEMPLATE
 

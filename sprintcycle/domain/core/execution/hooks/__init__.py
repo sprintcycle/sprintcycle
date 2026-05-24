@@ -4,7 +4,7 @@ from .governance_context import (
     CTX_GOVERNANCE_TASK_AFTER_FAILED,
     CTX_GOVERNANCE_TASK_AFTER_DETAIL,
 )
-from sprintcycle.domain.hooks import HookContext
+from sprintcycle.domain.generic.interfaces.hooks import HookContext
 from .quality_hooks import QualitySprintLifecycleHooks, QualityTaskLifecycleHooks, build_quality_lifecycle_report
 from .skill_hooks import SkillLifecycleHook
 from .sprint_hooks import (

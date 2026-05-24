@@ -11,7 +11,7 @@ import sqlite3
 from pathlib import Path
 from typing import List, Optional
 
-from sprintcycle.application.governance.suggestion.models import (
+from sprintcycle.domain.core.governance.suggestion.models import (
     Suggestion,
     SuggestionApprovalRecord,
     SuggestionReviewRecord,

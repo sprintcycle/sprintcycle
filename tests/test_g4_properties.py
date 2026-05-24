@@ -17,7 +17,7 @@ from sprintcycle.infrastructure.config.quality import (
     normalize_quality_profile,
     resolve_effective_quality_level,
 )
-from sprintcycle.application.release_plan.parser import ReleasePlanParser
+from sprintcycle.domain.generic.models.release_plan.parser import ReleasePlanParser
 
 
 @settings(max_examples=50)

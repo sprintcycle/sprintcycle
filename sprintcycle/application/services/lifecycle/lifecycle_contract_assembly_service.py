@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Dict
 
-from sprintcycle.application.services.governance_orchestration_service import GovernanceOrchestrationService
+from sprintcycle.application.services.governance.governance_orchestration_service import GovernanceOrchestrationService
 from sprintcycle.application.services.lifecycle.lifecycle_evolution_service import LifecycleEvolutionService
 from .web_lifecycle_orchestration_service import WebLifecycleOrchestrationService
 

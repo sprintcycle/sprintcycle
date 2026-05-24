@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
-from sprintcycle.application.services.promotion_policy import PromotionPolicy
+from sprintcycle.application.services.governance.promotion_policy import PromotionPolicy
 
 # TYPE_CHECKING: 仅用于类型提示
 if TYPE_CHECKING:

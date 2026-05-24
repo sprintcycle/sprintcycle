@@ -11,7 +11,7 @@ import pytest
 
 from sprintcycle.infrastructure.config import RuntimeConfig
 from sprintcycle.application.sprint_orchestrator import SprintOrchestrator
-from sprintcycle.domain.models import (
+from sprintcycle.domain.generic.models import (
     ExecutionMode,
     ProductAnchor,
     ReleasePlan,

@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Optional
 
-from .lifecycle.lifecycle_contracts import LifecycleContract, build_lifecycle_state_machine
+from sprintcycle.application.services.lifecycle.lifecycle_contracts import LifecycleContract, build_lifecycle_state_machine
 
 
 @dataclass

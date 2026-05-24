@@ -16,8 +16,8 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set
 from loguru import logger
 
 from sprintcycle.domain.generic.models import ReleasePlan, SprintBacklogItem, SprintDefinition
-from sprintcycle.application.release_plan.payload_keys import context_plan_id_name
-from sprintcycle.application.governance.hitl.types import CTX_HITL_ABORT_EXECUTION, CTX_HITL_SPRINT_ACTION
+from sprintcycle.domain.generic.models.release_plan.payload_keys import context_plan_id_name
+from sprintcycle.domain.core.governance.hitl.types import CTX_HITL_ABORT_EXECUTION, CTX_HITL_SPRINT_ACTION
 from .constants import (
     TASK_SPLIT_THRESHOLD,
     MAX_SUBTASKS,
@@ -47,7 +47,7 @@ from ..hooks.governance_context import (
 )
 from ..hooks.sprint_hooks import NoOpSprintLifecycleHooks, SprintLifecycleHooks
 from ..hooks.task_hooks import NoOpTaskLifecycleHooks, TaskLifecycleHooks
-from sprintcycle.application.execution.core.policies import SprintFeedbackPolicy, SprintRetryPolicy
+from sprintcycle.domain.core.execution.core.policies import SprintFeedbackPolicy, SprintRetryPolicy
 from sprintcycle.domain.core.execution.project_write import ProjectWritePlan
 from sprintcycle.domain.core.execution.core.protocols import ExecutionContext
 from sprintcycle.domain.generic.interfaces.types import ExecutionStatus, SprintResult, TaskResult

@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 from sprintcycle.infrastructure.governance.hitl_store.base import HitlStore
 from sprintcycle.infrastructure.persistence.base import BaseSqliteStore
-from sprintcycle.application.governance.hitl.types import HitlCorrection, HitlReplayDirective, HitlRequestRecord
+from sprintcycle.domain.core.governance.hitl.types import HitlCorrection, HitlReplayDirective, HitlRequestRecord
 
 
 def default_hitl_db_path(project_root: str) -> str:
