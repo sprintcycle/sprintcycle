@@ -458,7 +458,31 @@ sprintcycle/
 │       ├── platform/        # 平台视图
 │       ├── interfaces/      # 通用接口定义
 │       └── ports/           # 端口定义
-├── infrastructure/          # 适配器、存储、缓存、外部集成
+├── infrastructure/          # 适配器层（按 DDD 子域组织）
+│   ├── adapters/            # 子域适配器
+│   │   ├── core/           # 核心子域适配器
+│   │   │   ├── execution/  # 执行引擎适配器（状态存储、事件后端）
+│   │   │   ├── evolution/  # 版本演化适配器（版本存储、回滚存储）
+│   │   │   └── governance/ # 治理适配器（HITL、建议存储、架构防护）
+│   │   ├── supporting/     # 支撑子域适配器
+│   │   │   ├── verification/ # 验证提供者适配器
+│   │   │   ├── fitness/      # 健康度评估适配器
+│   │   │   └── intent/       # 意图解析适配器
+│   │   └── generic/        # 通用子域适配器
+│   │       ├── config/      # 配置实现
+│   │       ├── llm/         # LLM 调用实现
+│   │       ├── cache/       # 缓存实现
+│   │       ├── mq/          # 消息队列实现
+│   │       ├── sandbox/     # 沙箱管理实现
+│   │       ├── knowledge/   # 知识注入实现
+│   │       ├── observability/ # 可观测性实现
+│   │       ├── deploy/      # 部署实现
+│   │       └── integrations/ # 第三方集成（LangGraph、Phoenix 等）
+│   ├── shared/              # 共享基础设施（跨子域共享）
+│   │   ├── persistence/     # 持久化基础设施（SQLAlchemy、SQLite）
+│   │   ├── http/            # HTTP 基础设施
+│   │   └── utils/           # 工具函数
+│   └── factory.py           # 适配器创建工厂
 └── interfaces/              # HTTP 接口层（public / internal）
 ```
 

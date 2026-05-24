@@ -261,7 +261,31 @@ sprintcycle/
 │       ├── platform/         # Platform views
 │       ├── interfaces/       # Generic interface definitions
 │       └── ports/            # Port definitions
-├── infrastructure/           # Adapters, storage, cache, and external integrations
+├── infrastructure/          # Adapter layer (organized by DDD subdomains)
+│   ├── adapters/            # Subdomain adapters
+│   │   ├── core/           # Core subdomain adapters
+│   │   │   ├── execution/  # Execution engine adapters (state storage, event backend)
+│   │   │   ├── evolution/  # Version evolution adapters (version storage, rollback storage)
+│   │   │   └── governance/ # Governance adapters (HITL, suggestion storage, architecture guard)
+│   │   ├── supporting/     # Supporting subdomain adapters
+│   │   │   ├── verification/ # Verification provider adapters
+│   │   │   ├── fitness/      # Health evaluation adapters
+│   │   │   └── intent/       # Intent parsing adapters
+│   │   └── generic/        # Generic subdomain adapters
+│   │       ├── config/      # Configuration implementations
+│   │       ├── llm/         # LLM invocation implementations
+│   │       ├── cache/       # Cache implementations
+│   │       ├── mq/          # Message queue implementations
+│   │       ├── sandbox/     # Sandbox management implementations
+│   │       ├── knowledge/   # Knowledge injection implementations
+│   │       ├── observability/ # Observability implementations
+│   │       ├── deploy/      # Deployment implementations
+│   │       └── integrations/ # Third-party integrations (LangGraph, Phoenix, etc.)
+│   ├── shared/              # Shared infrastructure (cross-subdomain)
+│   │   ├── persistence/     # Persistence infrastructure (SQLAlchemy, SQLite)
+│   │   ├── http/            # HTTP infrastructure
+│   │   └── utils/           # Utility functions
+│   └── factory.py           # Adapter creation factory
 └── interfaces/               # HTTP interface layer (public / internal)
 ```
 
