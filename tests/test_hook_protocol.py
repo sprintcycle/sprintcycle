@@ -1,4 +1,4 @@
-from sprintcycle.domain.hooks import HookContext, HookDefinition, HookPhase, HookPolicy, HookRegistry, HookResult
+from sprintcycle.domain.generic.interfaces.hooks import HookContext, HookDefinition, HookPhase, HookPolicy, HookRegistry, HookResult
 
 
 def test_before_hook_can_block_main_flow():
@@ -106,7 +106,7 @@ def test_domain_event_handlers_are_called():
 
 
 def test_hook_event_map_is_consistent():
-    from sprintcycle.domain.hooks import HOOK_ACTIONS, HOOK_EVENTS, hook_action, hook_events
+    from sprintcycle.domain.generic.interfaces.hooks import HOOK_ACTIONS, HOOK_EVENTS, hook_action, hook_events
 
     for key, action in HOOK_ACTIONS.items():
         domain, name = key.split(".", 1)

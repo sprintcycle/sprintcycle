@@ -13,8 +13,8 @@ from typing import Any, Dict, Optional
 
 from loguru import logger
 
-from sprintcycle.application.governance.core.facade import GovernanceFacade
-from sprintcycle.domain.hooks import (
+from sprintcycle.domain.core.governance.core.facade import GovernanceFacade
+from sprintcycle.domain.generic.interfaces.hooks import (
     GOVERNANCE_CHECK,
     GOVERNANCE_CHECK_FAILED_EVENT,
     GOVERNANCE_CHECKED_EVENT,

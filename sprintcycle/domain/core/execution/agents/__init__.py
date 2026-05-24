@@ -33,7 +33,7 @@ result = await analyzer.execute("分析并修复 NameError", context)
 ```
 """
 
-from sprintcycle.application.release_plan.expand import EvolutionPath
+from sprintcycle.domain.core.execution.planners.expand import EvolutionPath
 from .analyzer import BugAnalyzerAgent
 from .architect import ArchitectureAgent
 from .base import AgentContext, AgentExecutor, AgentResult, AgentType
