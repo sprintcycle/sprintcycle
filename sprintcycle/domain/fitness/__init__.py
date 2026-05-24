@@ -3,6 +3,7 @@
 from sprintcycle.domain.fitness.aggregator import FitnessAggregator
 from sprintcycle.domain.fitness.evaluator import FitnessEvaluator
 from sprintcycle.domain.fitness.multi_dimension import DimensionScore, FitnessResult, MultiDimensionFitness
+from sprintcycle.domain.interfaces import EvaluatorAgentProtocol
 
 __all__ = [
     "DimensionScore",
@@ -10,4 +11,5 @@ __all__ = [
     "MultiDimensionFitness",
     "FitnessAggregator",
     "FitnessEvaluator",
+    "EvaluatorAgentProtocol",
 ]

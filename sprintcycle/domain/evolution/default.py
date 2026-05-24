@@ -83,7 +83,7 @@ def _create_default_evolution_facade_internal(project_path: str) -> EvolutionFac
     from sprintcycle.infrastructure.persistence import SQLiteVersionRegistry
     from sprintcycle.governance.versioning.rollback import DefaultVersionRollbackManager
     from sprintcycle.execution.planners.generator import IntentReleasePlanGenerator
-    from sprintcycle.domain.quality_spec.validator_protocol import ReleasePlanValidator
+    from sprintcycle.domain.quality_spec.plan import ReleasePlanValidator
     from sprintcycle.infrastructure.sandbox.default_manager import DefaultSandboxManager
     
     return create_evolution_facade(

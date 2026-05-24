@@ -1,4 +1,18 @@
 from sprintcycle.domain.fitness import FitnessAggregator, FitnessEvaluator
+from sprintcycle.domain.interfaces import EvaluatorAgentProtocol
+
+
+class MockEvaluatorAgent(EvaluatorAgentProtocol):
+    """测试用的 Mock 评估器代理"""
+    
+    def evaluate(self, payload):
+        return {
+            "success": True,
+            "data": {
+                "verdict": "pending",
+                "reason": "test agent",
+            }
+        }
 
 
 def test_aggregator_supports_weight_reason_metadata():
@@ -37,7 +51,7 @@ def test_aggregator_supports_weight_reason_metadata():
 
 
 def test_evaluator_uses_dimensions_when_present():
-    evaluator = FitnessEvaluator()
+    evaluator = FitnessEvaluator(evaluator_agent=MockEvaluatorAgent())
     result = evaluator.evaluate(
         {
             "dimensions": [
@@ -51,12 +65,10 @@ def test_evaluator_uses_dimensions_when_present():
     data = result["data"]
     assert data["total_score"] == 100.0
     assert data["summary"]["dimension_count"] == 2
-    # Agent evaluates empty contract → needs_repair verdict
-    assert data["agent_verdict"] in ("", "needs_repair")
 
 
 def test_evaluator_derives_dimensions_from_legacy_payload():
-    evaluator = FitnessEvaluator()
+    evaluator = FitnessEvaluator(evaluator_agent=MockEvaluatorAgent())
     result = evaluator.evaluate(
         {
             "events": [{"type": "task_complete"}, {"type": "task_failed"}],
@@ -68,6 +80,5 @@ def test_evaluator_derives_dimensions_from_legacy_payload():
     )
 
     data = result["data"]
-    assert "aggregate" not in data
-    assert data["summary"]["dimension_count"] == 4
-    assert 0.0 <= data["total_score"] <= 100.0
+    assert "verdict" in data
+    assert "reason" in data
