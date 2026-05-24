@@ -54,10 +54,8 @@ specs/20260519-api-layering-refactor/
 sprintcycle/
 ├── api.py                         # Public façade to thin out
 ├── application/services/          # Service-layer extractions and workflow helpers
-├── infrastructure/                # Access/registry/repository integration boundaries
-├── observability/                 # Observability façade and related helpers
+├── infrastructure/                # Access/registry/repository integration boundaries (包含 observability)
 ├── governance/                    # Governance façade and orchestration boundaries
-├── evolution/                     # Evolution-related state and versioning boundaries
 └── tests/                         # Focused tests for preserved behavior and boundaries
 ```
 

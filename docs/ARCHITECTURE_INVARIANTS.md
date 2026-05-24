@@ -20,9 +20,8 @@
 | `execution` | 78 | 执行引擎、状态管理、事件总线 |
 | `governance` | 77 | 治理、HITL、建议、版本控制 |
 | `domain` | 62 | 领域模型、质量规范、验证 |
-| `infrastructure` | 60 | 配置、持久化、集成、部署 |
+| `infrastructure` | 60+ | 配置、持久化、集成、部署、可观测性 |
 | `application` | 47 | 服务编排、API 封装 |
-| `observability` | 12 | 可观测性、诊断 |
 | `interfaces` | 4 | HTTP 接口层 |
 | `sprintcycle/` | 5 | 根模块（api.py, hooks.py 等） |
 
@@ -50,7 +49,8 @@
 │      (Policy: hitl, arch_guard, suggestion, versioning)    │
 ├─────────────────────────────────────────────────────────────┤
 │                    infrastructure/                          │
-│  (Config, persistence, integrations, deployment, sandbox)   │
+│  (Config, persistence, integrations, deployment, sandbox,   │
+│   observability: trace, replay, diagnostics, runtime)       │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -72,7 +72,7 @@ interfaces → application → domain
                          ↓
                    execution
                          ↓
-                   infrastructure
+                   infrastructure (包含 observability)
 
 governance → domain (仅读)
 governance → infrastructure (通过 runner)

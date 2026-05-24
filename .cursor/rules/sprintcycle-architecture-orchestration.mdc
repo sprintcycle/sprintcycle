@@ -31,11 +31,10 @@ You are working on SprintCycle, a contract-driven lifecycle platform with a stab
 ### Layer ownership
 - `api.py`: thin public facade for normalization, routing, delegation, and aggregation.（`api.py`：用于归一化、路由、委派和聚合的薄公共 facade。）
 - `application/`: use cases, orchestration, workflow coordination, and plan expansion.（`application/`：用例、编排、工作流协调和 plan 扩展。）
-- `execution/`: executor / engine / worker, state machine, planners, agents, rollback / retry / hooks.（`execution/`：执行器/引擎/worker、状态机、规划器、代理、回滚/重试/hook。）
+- `execution/`: executor / engine / worker, state machine, planners, agents, rollback / retry / hooks.（`execution/`：执行器/引擎/worker、状态机、规划器、代理、回滚/重试/hooks。）
 - `governance/`: policy, approval, audit, versioning, HITL, arch guard, suggestion / review / compliance.（`governance/`：策略、审批、审计、版本管理、HITL、架构守卫、建议/评审/合规。）
-- `observability/`: trace, replay, event, metrics, diagnostics, health reports.（`observability/`：trace、replay、事件、指标、诊断、健康报告。）
 - `domain/`: core business models, value objects, entities, protocols, and rules.（`domain/`：核心业务模型、值对象、实体、协议和规则。）
-- `infrastructure/`: DB, MQ, cache, config, logging, sandbox, SDK implementations, adapters, clients, repositories.（`infrastructure/`：数据库、消息队列、缓存、配置、日志、沙箱、SDK 实现、适配器、客户端、仓储。）
+- `infrastructure/`: DB, MQ, cache, config, logging, sandbox, SDK implementations, adapters, clients, repositories, observability (trace, replay, event, metrics, diagnostics, health reports).（`infrastructure/`：数据库、消息队列、缓存、配置、日志、沙箱、SDK 实现、适配器、客户端、仓储、可观测性（trace、replay、事件、指标、诊断、健康报告）。）
 - `interfaces/http/`: current HTTP entry-adaptation layer for public / internal routes.（`interfaces/http/`：当前用于 public / internal 路由的 HTTP 入口适配层。）
 - Service layer: workflow logic and orchestration of domain behavior.（Service 层：工作流逻辑和领域行为编排。）
 - Facade layer: stable domain-facing coordination and compatibility.（Facade 层：稳定的领域协调入口和兼容层。）
