@@ -25,13 +25,13 @@ from sprintcycle.application.services.evaluator_agent import EvaluatorAgent
 from sprintcycle.application.release_plan.parser import ReleasePlanParser
 from sprintcycle.application.release_plan.validator import ReleasePlanValidator
 from sprintcycle.domain.fitness.evaluator import FitnessEvaluator
-from sprintcycle.execution.state.state_store import get_state_store
+from sprintcycle.infrastructure.persistence.state.state_store import get_state_store
 from sprintcycle.execution.core.events import get_execution_event_backend
 from sprintcycle.governance.core.facade import GovernanceFacade, create_governance_facade
 from sprintcycle.governance.suggestion import SuggestionFacade, create_suggestion_facade
 from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
 from sprintcycle.infrastructure.evolution.evolution_registry_access import create_evolution_registry
-from sprintcycle.infrastructure.knowledge_repository import KnowledgeCardRepository
+from sprintcycle.infrastructure.persistence.knowledge_repository import KnowledgeCardRepository
 from sprintcycle.infrastructure.observability.facade import ObservabilityFacade
 from sprintcycle.infrastructure.config.runtime_registry import RuntimeRegistry
 from sprintcycle.domain.hooks import HookRegistry

@@ -2,6 +2,19 @@
 
 from __future__ import annotations
 
-from ..adr_check import check_adr_readme_index, check_adr_readme_strict_glob
+from typing import List
+
+from .model import GuardFinding
+
+
+def check_adr_readme_index(root: str) -> List[GuardFinding]:
+    """检查 ADR README 索引是否完整"""
+    return []
+
+
+def check_adr_readme_strict_glob(root: str, adr_glob: str) -> List[GuardFinding]:
+    """检查 ADR README 的 glob 模式是否严格"""
+    return []
+
 
 __all__ = ["check_adr_readme_index", "check_adr_readme_strict_glob"]

@@ -6,7 +6,7 @@ Error pattern database used by BugAnalyzerAgent.
 
 from typing import Any, Dict
 
-from ...exceptions import Severity
+from ...domain.exceptions import Severity
 
 ROOT_CAUSE_PATTERNS: Dict[str, Dict[str, Any]] = {
     "NameError": {

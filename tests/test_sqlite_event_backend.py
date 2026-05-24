@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from sprintcycle.execution.core.events import Event, EventType
-from sprintcycle.execution.state.sqlite_event_backend import SQLiteMQEventBackend, execution_events_sqlite_path
+from sprintcycle.infrastructure.persistence.state.sqlite_event_backend import SQLiteMQEventBackend, execution_events_sqlite_path
 
 
 @pytest.mark.asyncio

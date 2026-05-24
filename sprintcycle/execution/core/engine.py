@@ -12,22 +12,22 @@ from typing import Any, Dict, Optional
 from loguru import logger
 
 from .context import ExecutionContext
-from .events import ExecutionEvent, ExecutionEventBus, ExecutionEventType, create_default_event_bus
+from .events import Event, EventBus, EventType, get_event_bus as create_default_event_bus
 from .hooks import ExecutionHooks
 from .state_machine import ExecutionStateMachine
 
 
 @dataclass
 class ExecutionEngine:
-    event_bus: ExecutionEventBus
+    event_bus: EventBus
     state_machine: ExecutionStateMachine
     hooks: ExecutionHooks
 
     def create_context(self, run_id: str, task_id: str, project_path: str, **kwargs: Any) -> ExecutionContext:
         return ExecutionContext.create(run_id=run_id, task_id=task_id, project_path=project_path, **kwargs)
 
-    async def _emit(self, event_type: ExecutionEventType, context: ExecutionContext, **payload: Any) -> Dict[str, Any]:
-        event = ExecutionEvent(type=event_type, run_id=context.run_id, task_id=context.task_id, payload=payload)
+    async def _emit(self, event_type: EventType, context: ExecutionContext, **payload: Any) -> Dict[str, Any]:
+        event = Event(type=event_type, run_id=context.run_id, task_id=context.task_id, payload=payload)
         await self.event_bus.emit(event)
         return event.to_dict()
 

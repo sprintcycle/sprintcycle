@@ -9,13 +9,13 @@ from loguru import logger
 from sprintcycle.domain.models import ReleasePlan, SprintDefinition
 from ...infrastructure.config import RuntimeConfig
 from ..hooks.sprint_hooks import SprintLifecycleHooks
-from ..sprint_types import SprintResult
+from ..core.sprint_types import SprintResult
 from .knowledge_injector import KnowledgeInjector
 
 
 def resolve_knowledge_db_path(project_path: str, config: RuntimeConfig) -> str:
     """知识卡片与 sqlite 执行库默认共用同一文件路径。"""
-    from ..state.state_store import resolve_sqlite_database_path
+    from ...infrastructure.persistence.state.state_store import resolve_sqlite_database_path
 
     return resolve_sqlite_database_path(project_path, config)
 

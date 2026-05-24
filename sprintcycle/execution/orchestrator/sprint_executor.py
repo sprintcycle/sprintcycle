@@ -14,22 +14,22 @@ from typing import Any, Callable, Dict, List, Optional, Set
 from loguru import logger
 
 from sprintcycle.domain.models import ReleasePlan, SprintBacklogItem, SprintDefinition
-from ..application.release_plan.payload_keys import context_plan_id_name
-from ..governance.hitl.types import CTX_HITL_ABORT_EXECUTION, CTX_HITL_SPRINT_ACTION
-from .events import EventType, ExecutionEventBackend, create_event
-from .execution_planners import TaskContextBuilder
-from .hooks.governance_context import (
+from sprintcycle.application.release_plan.payload_keys import context_plan_id_name
+from sprintcycle.governance.hitl.types import CTX_HITL_ABORT_EXECUTION, CTX_HITL_SPRINT_ACTION
+from ..core.events import EventType, ExecutionEventBackend, create_event
+from ..planners.execution_planners import TaskContextBuilder
+from ..hooks.governance_context import (
     CTX_GOVERNANCE_TASK_AFTER_DETAIL,
     CTX_GOVERNANCE_TASK_AFTER_FAILED,
 )
-from .hooks.sprint_hooks import NoOpSprintLifecycleHooks, SprintLifecycleHooks
-from .hooks.task_hooks import NoOpTaskLifecycleHooks, TaskLifecycleHooks
-from .policies import SprintFeedbackPolicy, SprintRetryPolicy, TaskRetryPolicy
-from .project_write import ProjectWritePlan
-from .protocols import ExecutionContext
-from .sprint_types import ExecutionStatus, SprintResult, TaskResult
-from .state.checkpoint import CheckpointMixin
-from .state.state_store import StateStore, get_state_store
+from ..hooks.sprint_hooks import NoOpSprintLifecycleHooks, SprintLifecycleHooks
+from ..hooks.task_hooks import NoOpTaskLifecycleHooks, TaskLifecycleHooks
+from ..core.policies import SprintFeedbackPolicy, SprintRetryPolicy, TaskRetryPolicy
+from ..project_write import ProjectWritePlan
+from ..core.protocols import ExecutionContext
+from ..core.sprint_types import ExecutionStatus, SprintResult, TaskResult
+from ...infrastructure.persistence.state.checkpoint import CheckpointMixin
+from ...infrastructure.persistence.state.state_store import StateStore, get_state_store
 from ._feedback_stub import FeedbackReleasePlanStub
 
 

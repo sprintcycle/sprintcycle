@@ -9,7 +9,7 @@ from ...domain.quality_spec.context import build_quality_context
 from ...domain.quality_spec.hooks.lifecycle_report import LifecycleReport
 from ...domain.quality_spec.hooks.quality_hooks import QualityLifecycleHooks
 from ...domain.quality_spec.reports.report import Report
-from ..sprint_types import SprintResult, TaskResult
+from ..core.sprint_types import SprintResult, TaskResult
 from .sprint_hooks import SprintLifecycleHooks
 from .task_hooks import TaskLifecycleHooks
 

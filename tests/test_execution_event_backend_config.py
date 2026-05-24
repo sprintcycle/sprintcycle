@@ -8,7 +8,7 @@ from sprintcycle.execution.core.events import (
     ensure_default_execution_event_backend_for_project,
     get_execution_event_backend,
 )
-from sprintcycle.execution.state.sqlite_event_backend import SQLiteMQEventBackend
+from sprintcycle.infrastructure.persistence.state.sqlite_event_backend import SQLiteMQEventBackend
 
 
 @pytest.fixture

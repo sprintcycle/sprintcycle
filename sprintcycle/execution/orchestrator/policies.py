@@ -10,7 +10,7 @@ from typing import Any, Optional
 
 from ...domain.evolution.measurement import MeasurementResult
 from sprintcycle.domain.models import ReleasePlan, SprintDefinition
-from ..sprint_types import ExecutionStatus, SprintResult
+from ..core.sprint_types import ExecutionStatus, SprintResult
 
 
 @dataclass

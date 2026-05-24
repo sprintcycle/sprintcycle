@@ -19,8 +19,8 @@ from sprintcycle.domain.interfaces import EvaluatorAgentProtocol
 class FitnessEvaluator:
     """Fitness 评估器"""
     
-    aggregator: FitnessAggregator = field(default_factory=FitnessAggregator)
     evaluator_agent: EvaluatorAgentProtocol
+    aggregator: FitnessAggregator = field(default_factory=FitnessAggregator)
 
     def evaluate(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         dimensions: List[Dict[str, Any]] = list(payload.get("dimensions") or [])

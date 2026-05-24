@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional
 from loguru import logger
 
 from sprintcycle.domain.models import ReleasePlan, SprintBacklogItem, SprintDefinition
-from ..sprint_types import ExecutionStatus, SprintResult
+from ..core.sprint_types import ExecutionStatus, SprintResult
 
 
 @dataclass

@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from ...domain.evolution.measurement import MeasurementResult
     from sprintcycle.domain.models import ReleasePlan, SprintDefinition
     from ...infrastructure.config.runtime_config import RuntimeConfig
-    from ..sprint_types import SprintResult
+    from ..core.sprint_types import SprintResult
 
 
 def persist_sprint_outcome_card(

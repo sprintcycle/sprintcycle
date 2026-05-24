@@ -9,9 +9,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict
 
-from .context import SprintExecutionContext, TaskExecutionContext
+from ...infrastructure.persistence.state.context import SprintExecutionContext, TaskExecutionContext
 from sprintcycle.domain.models import ReleasePlan, SprintBacklogItem, SprintDefinition
-from .policies import SprintFeedbackPolicy, SprintRetryPolicy
+from ..core.policies import SprintFeedbackPolicy, SprintRetryPolicy
 
 
 class TaskContextBuilder:

@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from ...execution.events import Event, EventType, get_execution_event_backend
+from ...execution.core.events import Event, EventType, get_execution_event_backend
 from . import (
     HitlCorrection,
     HitlGate,

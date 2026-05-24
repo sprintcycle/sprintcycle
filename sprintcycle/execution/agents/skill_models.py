@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from .protocols import SkillChecklistItem, SkillLifecycleSnapshot
+from ..core.protocols import SkillChecklistItem, SkillLifecycleSnapshot
 
 
 @dataclass

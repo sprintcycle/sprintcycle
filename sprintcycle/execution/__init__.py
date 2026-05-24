@@ -20,14 +20,14 @@ from .agents import (
     TestResult,
     TestType,
 )
-from .cache import (
+from ..infrastructure.persistence.state.cache import (
     CacheEntry,
     ExecutionCache,
     configure_execution_cache_from_runtime,
     get_cache,
     set_cache,
 )
-from .error_handler import ErrorContext, ErrorHandler, FixResult, get_error_handler, reset_error_handler
+from .core.error_handler import ErrorContext, ErrorHandler, FixResult, get_error_handler, reset_error_handler
 
 # 错误处理组件 (新增)
 from ..domain.errors.error_knowledge import (
@@ -38,7 +38,7 @@ from ..domain.errors.error_knowledge import (
     reset_error_knowledge_base,
 )
 from ..domain.errors.error_router import ErrorRouter, RoutingContext, RoutingLevel, RoutingResult, get_error_router
-from .events import (
+from .core.events import (
     Event,
     EventBus,
     EventType,
@@ -48,21 +48,21 @@ from .events import (
     get_event_bus,
     get_execution_event_backend,
 )
-from .execution_orchestrator import ExecutionOrchestrator, ExecutionRunRequest, ExecutionRunResult
-from .feedback import ExecutionFeedback, FeedbackCategory, FeedbackLevel, FeedbackLoop
+from .orchestrator.execution_orchestrator import ExecutionOrchestrator, ExecutionRunRequest, ExecutionRunResult
+from .core.feedback import ExecutionFeedback, FeedbackCategory, FeedbackLevel, FeedbackLoop
 from .hooks.sprint_hooks import ChainedSprintHooks, NoOpSprintLifecycleHooks, SprintLifecycleHooks
-from .rollback import BackupRecord, RollbackConfig, RollbackManager, RollbackResult, get_rollback_manager
-from .sprint_executor import ExecutionStatus, SprintExecutor, SprintResult, TaskResult
-from .sqlite_event_backend import SQLiteMQEventBackend, execution_events_sqlite_path
-from .state.sqlite_state_store import SqliteExecutionStore
-from .state.state_store import (
+from ..infrastructure.persistence.state.rollback import BackupRecord, RollbackConfig, RollbackManager, RollbackResult, get_rollback_manager
+from .orchestrator.sprint_executor import ExecutionStatus, SprintExecutor, SprintResult, TaskResult
+from ..infrastructure.persistence.state.sqlite_event_backend import SQLiteMQEventBackend, execution_events_sqlite_path
+from ..infrastructure.persistence.state.sqlite_state_store import SqliteExecutionStore
+from ..infrastructure.persistence.state.state_store import (
     ExecutionState,
     StateStore,
     configure_default_store,
     get_state_store,
     reset_default_state_store,
 )
-from .strategies import ExecutionResult, ExecutionStrategy, NormalStrategy, get_strategy
+from .planners.strategies import ExecutionResult, ExecutionStrategy, NormalStrategy, get_strategy
 
 __all__ = [
     "ExecutionOrchestrator",

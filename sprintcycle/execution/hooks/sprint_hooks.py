@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional, Sequence
 from loguru import logger
 
 from sprintcycle.domain.models import ReleasePlan, SprintDefinition
-from ..sprint_types import SprintResult
+from ..core.sprint_types import SprintResult
 
 
 class SprintLifecycleHooks(ABC):

@@ -25,7 +25,7 @@ from ..execution.core.events import (
     create_event,
     get_execution_event_backend,
 )
-from ..execution.feedback import FeedbackLoop
+from ..execution.core.feedback import FeedbackLoop
 from ..execution.hooks.skill_hooks import SkillLifecycleHook
 from ..execution.hooks.sprint_hooks import (
     ChainedSprintHooks,
@@ -37,11 +37,11 @@ from ..execution.hooks.task_hooks import ChainedTaskHooks, TaskLifecycleHooks
 from ..execution.knowledge.knowledge_hook import KnowledgeInjectionHook
 from ..execution.planners.expand import expand_release_plan_for_execution
 from sprintcycle.domain.models import ReleasePlan, SprintBacklogItem, SprintDefinition
-from ..execution.protocols import ExecutionContext
-from ..execution.skill_store import SkillStore
-from ..execution.skills import SkillOrchestrator
-from ..execution.sprint_executor import SprintExecutor
-from ..execution.sprint_types import ExecutionStatus, SprintResult, TaskResult
+from ..execution.core.protocols import ExecutionContext
+from ..execution.agents.skill_store import SkillStore
+from ..execution.agents.skills import SkillOrchestrator
+from ..execution.orchestrator.sprint_executor import SprintExecutor
+from ..execution.core.sprint_types import ExecutionStatus, SprintResult, TaskResult
 from ..governance.hooks.sprint_hooks import GovernanceSprintHooks
 from ..governance.hooks.task_hooks import GovernanceTaskLifecycleHooks
 from ..infrastructure.config import RuntimeConfig
@@ -49,7 +49,7 @@ from ..infrastructure.integrations.langgraph.compiler import compile_intent_grap
 from ..infrastructure.persistence.knowledge_repository import KnowledgeCardRepository
 from sprintcycle.domain.evolution.intent_evolution_loop import UserIntentEvolutionLoop
 from sprintcycle.domain.evolution.measurement import MeasurementResult
-from .services.lifecycle_contracts import build_lifecycle_contract
+from .services.lifecycle.lifecycle_contracts import build_lifecycle_contract
 
 if TYPE_CHECKING:
     from ..infrastructure.integrations.phoenix.trace_runtime import PhoenixTraceRuntime
@@ -176,7 +176,7 @@ class SprintOrchestrator:
 
     def _persist_release_finalization(self, release_plan: ReleasePlan, finalize_result: Any) -> None:
         try:
-            from ..execution.state.state_store import get_state_store
+            from ..infrastructure.persistence.state import get_state_store
 
             eid = getattr(release_plan, "execution_id", None)
             if not eid:
@@ -375,7 +375,7 @@ class SprintOrchestrator:
         self._emit_trace_event(complete_event)
         # Persist state
         try:
-            from ..execution.state.state_store import get_state_store
+            from ..infrastructure.persistence.state import get_state_store
 
             if getattr(release_plan, "execution_id", None):
                 store = get_state_store()

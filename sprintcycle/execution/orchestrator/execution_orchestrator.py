@@ -9,9 +9,9 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from sprintcycle.domain.models import ReleasePlan, SprintDefinition
-from .protocols import ExecutionContext
+from ..core.protocols import ExecutionContext
 from .sprint_executor import SprintExecutor
-from .sprint_types import SprintResult
+from ..core.sprint_types import SprintResult
 
 
 @dataclass

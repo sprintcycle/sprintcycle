@@ -10,10 +10,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
-from ...execution.state.state_store import get_state_store
+from ...infrastructure.persistence.state import get_state_store
 from sprintcycle.infrastructure.observability.facade import ObservabilityFacade
-from .lifecycle_contracts import build_lifecycle_contract
-from .lifecycle_state_machine import build_default_correlation
+from .lifecycle.lifecycle_contracts import build_lifecycle_contract
+from .lifecycle.lifecycle_state_machine import build_default_correlation
 from .phase_workflow import build_observe_artifact
 
 

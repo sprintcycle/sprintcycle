@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional
 
 from .lifecycle_contracts import build_lifecycle_contract
-from .phase_workflow import build_decompose_artifact, build_plan_artifact, build_prepare_artifact
+from ..phase_workflow import build_decompose_artifact, build_plan_artifact, build_prepare_artifact
 
 
 @dataclass

@@ -12,7 +12,7 @@ from typing import Any, Dict, Sequence
 from loguru import logger
 
 from sprintcycle.domain.models import SprintBacklogItem
-from ..sprint_types import TaskResult
+from ..core.sprint_types import TaskResult
 
 
 class TaskLifecycleHooks(ABC):

@@ -8,7 +8,7 @@ from typing import Any, Callable, Dict
 
 from sprintcycle.application.services.governance_orchestration_service import GovernanceOrchestrationService
 from sprintcycle.application.services.lifecycle.lifecycle_evolution_service import LifecycleEvolutionService
-from sprintcycle.application.services.web_lifecycle_orchestration_service import WebLifecycleOrchestrationService
+from .web_lifecycle_orchestration_service import WebLifecycleOrchestrationService
 
 
 @dataclass

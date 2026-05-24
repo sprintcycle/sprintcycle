@@ -15,7 +15,7 @@ from loguru import logger
 from ...domain.quality_spec.context import build_quality_context
 from ...domain.quality_spec.rules.planning_rules import default_planning_rules
 from ...domain.quality_spec.spec.task_spec import TaskSpec
-from ...execution.static_analyzer import AnalysisConfig, StaticAnalyzer
+from ...execution.core.static_analyzer import AnalysisConfig, StaticAnalyzer
 from ...infrastructure.config.quality import runs_architecture_guard, runs_pytest, runs_static_gate
 from ..arch_guard.adr_check import check_adr_readme_index, check_adr_readme_strict_glob
 from ..arch_guard.argv_extensions import extend_argv_items_with_plugins

@@ -13,7 +13,7 @@ from sprintcycle.infrastructure.persistence.knowledge_repository import Knowledg
 
 @pytest.fixture(autouse=True)
 def _reset_store():
-    from sprintcycle.execution.state.state_store import reset_default_state_store
+    from sprintcycle.infrastructure.persistence.state.state_store import reset_default_state_store
 
     reset_default_state_store()
     yield

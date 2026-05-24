@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional
 from loguru import logger
 
 try:
-    from sprintcycle.execution.state.rollback import (
+    from sprintcycle.infrastructure.persistence.state.rollback import (
         GitRollbackMixin,
         RollbackConfig,
         RollbackError,

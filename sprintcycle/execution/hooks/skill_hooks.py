@@ -5,11 +5,11 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 
 from sprintcycle.domain.models import ReleasePlan, SprintDefinition
-from ..protocols import SkillChecklistItem, SkillTrace
-from ..skill_models import SkillArtifact, SkillExecutionRecord, SkillInjectionState
-from ..skill_store import SkillStore
-from ..skills import SkillOrchestrator
-from ..sprint_types import SprintResult
+from ..core.protocols import SkillChecklistItem, SkillTrace
+from ..agents.skill_models import SkillArtifact, SkillExecutionRecord, SkillInjectionState
+from ..agents.skill_store import SkillStore
+from ..agents.skills import SkillOrchestrator
+from ..core.sprint_types import SprintResult
 from .sprint_hooks import SprintLifecycleHooks
 
 

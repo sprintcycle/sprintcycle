@@ -37,8 +37,8 @@ from ...domain.hooks import (
     HookRunner,
 )
 from sprintcycle.domain.evolution.models import VersionArtifact
-from .lifecycle_contracts import build_lifecycle_contract
-from .lifecycle_state_machine import build_default_correlation
+from .lifecycle.lifecycle_contracts import build_lifecycle_contract
+from .lifecycle.lifecycle_state_machine import build_default_correlation
 from .promotion_policy import PromotionPolicy
 
 

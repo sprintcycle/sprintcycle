@@ -11,8 +11,8 @@ from typing import Any, Dict
 
 from ...domain.platform.overview import build_platform_overview_view
 from ...domain.platform.spec import build_platform_spec
-from ...execution.state import summarize_state_machine
-from ...execution.state.state_store import get_state_store
+from ...infrastructure.persistence.state import summarize_state_machine
+from ...infrastructure.persistence.state import get_state_store
 from .dashboard_view_service import DashboardViewService
 from .dashboard_workbench_service import DashboardWorkbenchService
 

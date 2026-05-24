@@ -7,7 +7,7 @@
 from .cache import ExecutionCache
 from .checkpoint import CheckpointMixin
 from .context import TaskExecutionContext
-from .machine import ExecutionStateMachine
+from .machine import ExecutionStateMachine, summarize_state_machine
 from .rollback import RollbackConfig, RollbackManager, get_rollback_manager
 from .rollback_types import BackupRecord, RollbackError, RollbackResult, VariantBranch
 from .sqlite_event_backend import SQLiteMQEventBackend as SqliteEventBackend
