@@ -76,6 +76,10 @@ from .config import (
     load_project_config,
 )
 
+from .evaluation import (
+    EvaluatorAgentProtocol,
+)
+
 __all__ = [
     # Version Registry
     "VersionRegistryProtocol",
@@ -126,4 +130,6 @@ __all__ = [
     # Config
     "ConfigProtocol",
     "load_project_config",
+    # Evaluation
+    "EvaluatorAgentProtocol",
 ]

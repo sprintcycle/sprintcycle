@@ -107,12 +107,38 @@ class EvaluatorAgent:
             score += 30
         return score
 
-    def evaluate(self, contract: Dict[str, Any], evidence: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        payload = dict(contract or {})
-        merged_evidence = dict(payload.get("evidence") or {})
-        if evidence:
-            merged_evidence.update(evidence)
+    def evaluate(self, payload: Dict[str, Any], evidence: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """兼容单参数和双参数的 evaluate 方法
+        
+        支持两种调用方式：
+        1. evaluator.evaluate(contract, evidence)  - 双参数（原来的方式）
+        2. evaluator.evaluate(payload)              - 单参数（协议要求）
+        """
+        # 处理单参数调用
+        if evidence is None:
+            # 如果只有一个参数，我们需要判断是单参数调用还是双参数调用
+            if isinstance(payload, dict):
+                # 尝试处理单参数调用
+                contract = payload
+                evidence_from_payload = payload.get("evidence")
+                merged_evidence = dict(evidence_from_payload or {})
+            else:
+                contract = {}
+                merged_evidence = {}
+        else:
+            # 双参数调用
+            contract = payload
+            merged_evidence = dict(contract.get("evidence") or {})
+            if evidence:
+                merged_evidence.update(evidence)
 
+        # 实际执行评估
+        return self._do_evaluate(contract, merged_evidence)
+    
+    def _do_evaluate(self, contract: Dict[str, Any], merged_evidence: Dict[str, Any]) -> Dict[str, Any]:
+        """实际的评估实现逻辑"""
+        payload = dict(contract or {})
+        
         functionality = self._score_functionality(payload)
         structure = self._score_structure(merged_evidence)
         evidence_score, missing = self._score_evidence(merged_evidence)
