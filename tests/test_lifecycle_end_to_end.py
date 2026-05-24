@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import AsyncMock, patch
 
-from sprintcycle.application.services.lifecycle_contracts import validate_lifecycle_evidence
+from sprintcycle.domain.core.lifecycle import validate_lifecycle_evidence
 
 
 @pytest.mark.asyncio

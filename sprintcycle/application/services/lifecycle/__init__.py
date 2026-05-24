@@ -9,14 +9,14 @@
 - web_orchestration: Web 编排
 """
 
-from .lifecycle_contracts import (
+from sprintcycle.domain.core.lifecycle import (
     LifecycleContract,
+    LifecycleStateMachine,
 )
 from .lifecycle_contract_assembly_service import LifecycleContractAssemblyService
 from .lifecycle_delivery_service import LifecycleDeliveryService
 from .lifecycle_evolution_service import LifecycleEvolutionService
 from .execution_lifecycle_service import ExecutionLifecycleService
-from .lifecycle_state_machine import LifecycleStateMachine
 from .web_lifecycle_orchestration_service import WebLifecycleOrchestrationService
 
 __all__ = [
