@@ -11,7 +11,7 @@ from sprintcycle import (
     SprintDefinition,
     ReleasePlanParser,
 )
-from sprintcycle.domain.generic.models.release_plan import models as rm
+from sprintcycle.domain.generic.models import release_plan_models as rm
 
 
 def test_root_package_matches_release_plan_models() -> None:

@@ -8,10 +8,10 @@ from pathlib import Path
 import pytest
 import yaml
 
-from sprintcycle.domain.evolution.evolution_plan_source import (
-    DiagnosticReleasePlanSource,
+from sprintcycle.domain.core.evolution.evolution_plan_source import (
     EvolutionPlanSourceType,
-    ManualReleasePlanSource,
+    EvolutionPlanSource,
+    ReleasePlanFileSource,
 )
 from sprintcycle.domain.generic.models.release_plan.builders import release_plan_from_diagnostic_slices
 class TestManualReleasePlanSource:
