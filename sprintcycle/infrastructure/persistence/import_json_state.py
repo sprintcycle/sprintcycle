@@ -19,14 +19,14 @@ def import_json_executions_to_sqlite(
     Returns:
         成功导入（写入）条数。
     """
-    from .state.sqlite_state_store import SqliteExecutionStore
+    from .state.sync_sqlite_state_store import SyncSqliteExecutionStore
     from .state.state_store import ExecutionState
 
     src = Path(json_state_dir).expanduser().resolve()
     if not src.is_dir():
         logger.warning("import_json: 不是目录: {}", src)
         return 0
-    store = SqliteExecutionStore(str(Path(sqlite_db).expanduser().resolve()))
+    store = SyncSqliteExecutionStore(str(Path(sqlite_db).expanduser().resolve()))
     n = 0
     for path in sorted(src.glob("*.json")):
         try:

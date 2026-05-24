@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Optional
 
@@ -52,10 +51,10 @@ class LifecycleDeliveryService:
             },
         }
 
-    def governance_lifecycle(self, execution_id: str = "") -> Dict[str, Any]:
-        summary = asyncio.run(self.governance_orchestration.summary(execution_id=execution_id, limit=50))
-        pending = asyncio.run(self.governance_orchestration.pending(execution_id=execution_id))
-        history = asyncio.run(self.governance_orchestration.history(execution_id=execution_id, limit=50))
+    async def governance_lifecycle(self, execution_id: str = "") -> Dict[str, Any]:
+        summary = await self.governance_orchestration.summary(execution_id=execution_id, limit=50)
+        pending = await self.governance_orchestration.pending(execution_id=execution_id)
+        history = await self.governance_orchestration.history(execution_id=execution_id, limit=50)
         summary_data = summary.get("data", {}) if isinstance(summary, dict) else {}
         pending_data = pending.get("data", []) if isinstance(pending, dict) else []
         history_data = history.get("data", []) if isinstance(history, dict) else []
@@ -79,7 +78,7 @@ class LifecycleDeliveryService:
             },
         }
 
-    def deliver_runtime_governance_promotion(
+    async def deliver_runtime_governance_promotion(
         self,
         execution_id: str,
         *,
@@ -89,7 +88,7 @@ class LifecycleDeliveryService:
         lifecycle_contract: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         runtime_bundle = self.runtime_lifecycle(execution_id)
-        governance_bundle = self.governance_lifecycle(execution_id)
+        governance_bundle = await self.governance_lifecycle(execution_id)
         promotion_bundle = self.evaluate_promotion(
             execution_id,
             project_path=project_path,
@@ -173,7 +172,7 @@ class LifecycleDeliveryService:
             },
         }
 
-    def lifecycle_recovery_and_promotion(
+    async def lifecycle_recovery_and_promotion(
         self,
         execution_id: str,
         *,
@@ -195,7 +194,7 @@ class LifecycleDeliveryService:
         promotion = self.evaluate_promotion(
             execution_id, project_path=project_path, suggestion=suggestion, governance=governance
         )
-        delivery_bundle = self.deliver_runtime_governance_promotion(
+        delivery_bundle = await self.deliver_runtime_governance_promotion(
             execution_id, project_path=project_path, suggestion=suggestion, governance=governance
         )
         return {
@@ -208,15 +207,16 @@ class LifecycleDeliveryService:
             },
         }
 
-    def deploy_lifecycle(self) -> Dict[str, Any]:
+    async def deploy_lifecycle(self) -> Dict[str, Any]:
         deployment = self.deploy_view()
         runtime = self.runtime_lifecycle()
         runtime_id = str((runtime.get("data", {}) or {}).get("runtime", {}).get("runtime_id", ""))
         contract = self.lifecycle_contract(runtime_id) if runtime_id else {"success": False, "data": {}}
+        governance_summary = await self.governance_lifecycle()
         promotion = self.evaluate_promotion(
             runtime_id or self.project_path,
             project_path=self.project_path,
-            governance=self.governance_lifecycle().get("data", {}).get("summary", {}),
+            governance=governance_summary.get("data", {}).get("summary", {}),
         )
         success = bool(deployment.get("success", False)) and bool(runtime.get("success", False))
         closure_score = 100.0 if success else 0.0

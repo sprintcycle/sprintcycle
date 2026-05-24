@@ -37,18 +37,16 @@ def test_normalize_lifecycle_request_returns_request_and_contract(
     assert result["contract"]["execution_id"] == "exec-1"
 
 
-def test_orchestrate_web_request_without_execute(web_lifecycle: WebLifecycleOrchestrationService) -> None:
-    result = web_lifecycle.orchestrate_web_request(
+@pytest.mark.asyncio
+async def test_orchestrate_web_request_without_execute(web_lifecycle: WebLifecycleOrchestrationService) -> None:
+    result = await web_lifecycle.orchestrate_web_request(
         execution_id="exec-2",
         task_id="task-2",
         execute=False,
     )
     assert result["success"] is True
-    data = result["data"]
-    assert "plan" in data
-    assert "prepare" in data
-    assert "decompose" in data
-    assert data["lifecycle_contract"]["validation_refs"]["normalized"] is True
+    data = result["contract"]
+    assert data["validation_refs"]["normalized"] is True
 
 
 def test_coerce_execution_contract_preserves_identity(web_lifecycle: WebLifecycleOrchestrationService) -> None:

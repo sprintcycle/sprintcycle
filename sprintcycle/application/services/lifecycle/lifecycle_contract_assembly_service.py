@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from dataclasses import dataclass
 from typing import Any, Callable, Dict
 
@@ -22,7 +21,7 @@ class LifecycleContractAssemblyService:
     web_lifecycle: WebLifecycleOrchestrationService
     deliver_runtime_governance_promotion: Callable[..., Dict[str, Any]]
 
-    def assemble(self, execution_id: str, *, limit: int = 200) -> Dict[str, Any]:
+    async def assemble(self, execution_id: str, *, limit: int = 200) -> Dict[str, Any]:
         detail = self.execution_detail(execution_id, limit=limit)
         data = detail.get("data", {}) if isinstance(detail, dict) else {}
         state = data.get("state", {}) if isinstance(data, dict) else {}
@@ -31,8 +30,8 @@ class LifecycleContractAssemblyService:
         lifecycle = trace_payload.get("lifecycle", {}) if isinstance(trace_payload, dict) else {}
         diagnostics = trace_payload.get("diagnostics", {}) if isinstance(trace_payload, dict) else {}
         runtime = self.runtime_lifecycle(str(state.get("execution_id") or execution_id))
-        suggestions = self.suggestion_overview_payload()
-        governance = asyncio.run(self.governance_orchestration.summary(execution_id=execution_id, limit=limit))
+        suggestions = await self.suggestion_overview_payload()
+        governance = await self.governance_orchestration.summary(execution_id=execution_id, limit=limit)
         suggestion_data = suggestions.get("data", {}) if isinstance(suggestions, dict) else {}
         promotion_overview = {
             "ready": int(suggestion_data.get("promotion_ready", 0) or 0),

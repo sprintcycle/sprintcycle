@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional
 
@@ -165,7 +164,7 @@ class WebLifecycleOrchestrationService:
             dependencies=dependencies,
         )
 
-    def bridge_execution_run(
+    async def bridge_execution_run(
         self,
         contract: Dict[str, Any],
         *,
@@ -187,16 +186,14 @@ class WebLifecycleOrchestrationService:
         if dependencies:
             execution_metadata.setdefault("dependencies", list(dependencies))
         execution_id = str(contract.get("execution_id") or contract.get("task_id") or "")
-        execution_result = asyncio.run(
-            self.start_execution_run(
-                str(contract.get("task_id") or execution_id),
-                run_id=execution_id,
-                suggestion_id=suggestion_id,
-                evolution_id=evolution_id,
-                metadata={**dict(contract.get("metadata") or {}), **execution_metadata},
-                stage=str(contract.get("stage") or "normalized"),
-                project_name=str(contract.get("project_path") or self.project_path),
-            )
+        execution_result = await self.start_execution_run(
+            str(contract.get("task_id") or execution_id),
+            run_id=execution_id,
+            suggestion_id=suggestion_id,
+            evolution_id=evolution_id,
+            metadata={**dict(contract.get("metadata") or {}), **execution_metadata},
+            stage=str(contract.get("stage") or "normalized"),
+            project_name=str(contract.get("project_path") or self.project_path),
         )
         runtime_linkage = self.runtime_lifecycle(execution_id)
         observability = self.observability_trace(execution_id)
@@ -207,7 +204,7 @@ class WebLifecycleOrchestrationService:
             "observability": observability.get("data", {}) if isinstance(observability, dict) else {},
         }
 
-    def orchestrate_web_request(
+    async def orchestrate_web_request(
         self,
         *,
         execution_id: str,
@@ -256,7 +253,7 @@ class WebLifecycleOrchestrationService:
             prepared_result.get("lifecycle_contract", contract), subtasks=subtasks
         )
         execution_bundle = (
-            self.bridge_execution_run(
+            await self.bridge_execution_run(
                 decomposed_result.get("lifecycle_contract", contract),
                 metadata=metadata,
                 suggestion_id=suggestion_id,
@@ -307,97 +304,21 @@ class WebLifecycleOrchestrationService:
                 "prepare_present": bool(prepared_result),
                 "decompose_present": bool(decomposed_result),
                 "execution_present": bool(execution_bundle),
-                "final_snapshot": True,
             },
             "evidence": {
                 **dict(lifecycle_contract.get("evidence") or {}),
-                "contract": {
-                    **dict((lifecycle_contract.get("evidence") or {}).get("contract") or {}),
-                    "normalized": True,
+                "contract": {"normalized": True},
+                "stages": {
+                    "normalized": {"normalized": True},
+                    "plan": plan_result.get("lifecycle_contract", {}),
+                    "prepare": prepared_result.get("lifecycle_contract", {}),
+                    "decompose": decomposed_result.get("lifecycle_contract", {}),
                 },
-            },
-        }
-        review = self.evaluate_sprint_contract(
-            {"contract": lifecycle_contract, "evidence": lifecycle_contract.get("evidence", {})}
-        )
-        lifecycle_contract["evaluation_refs"] = review.get("data", {})
-        lifecycle_contract["validation_refs"] = {
-            **dict(lifecycle_contract.get("validation_refs") or {}),
-            "evaluator_reviewed": True,
-            "evaluator_passed": bool(review.get("data", {}).get("score_card", {}).get("passed", False)),
-        }
-        lifecycle_contract["evidence"] = {
-            **dict(lifecycle_contract.get("evidence") or {}),
-            "promotion": {
-                **dict((lifecycle_contract.get("evidence") or {}).get("promotion") or {}),
-                "evaluation": review.get("data", {}),
             },
         }
         return {
             "success": True,
-            "data": {
-                "normalized_request": normalized["request"],
-                "lifecycle_contract": lifecycle_contract,
-                "evaluation": review.get("data", {}),
-                "final_snapshot": lifecycle_contract,
-                "plan": plan_result.get("plan", {}),
-                "prepare": prepared_result.get("prepare", {}),
-                "decompose": decomposed_result.get("decompose", {}),
-                "execution": execution_bundle,
-            },
+            "request": normalized["request"],
+            "contract": lifecycle_contract,
+            "execution": execution_bundle,
         }
-
-    def plan_task(
-        self,
-        execution_contract: Dict[str, Any],
-        *,
-        objective: str = "",
-        success_criteria: Optional[List[str]] = None,
-        risks: Optional[List[str]] = None,
-        dependencies: Optional[List[str]] = None,
-        version: str = "v1",
-    ) -> Dict[str, Any]:
-        contract_payload = self.coerce_execution_contract(execution_contract)
-        contract = build_lifecycle_contract(
-            execution_id=contract_payload["execution_id"],
-            task_id=contract_payload["task_id"],
-            project_path=contract_payload["project_path"],
-            stage=contract_payload["stage"],
-            status=contract_payload["status"],
-            metadata=contract_payload["metadata"],
-            input_refs=contract_payload["input_refs"],
-            output_refs=contract_payload["output_refs"],
-            validation_refs=contract_payload["validation_refs"],
-            trace=contract_payload["trace"],
-            diagnostics=contract_payload["diagnostics"],
-        )
-        return build_plan_artifact(
-            contract,
-            objective=objective,
-            success_criteria=success_criteria,
-            risks=risks,
-            dependencies=dependencies,
-            version=version,
-        )
-
-    def prepare_task(
-        self,
-        contract_payload: Dict[str, Any],
-        *,
-        checks: Optional[Dict[str, Any]] = None,
-        blockers: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
-        return build_prepare_artifact(
-            self.coerce_execution_contract(contract_payload), checks=checks, blockers=blockers
-        )
-
-    def decompose_task(
-        self,
-        contract_payload: Dict[str, Any],
-        *,
-        subtasks: Optional[List[Dict[str, Any]]] = None,
-    ) -> Dict[str, Any]:
-        return build_decompose_artifact(self.coerce_execution_contract(contract_payload), subtasks=subtasks)
-
-
-__all__ = ["WebLifecycleOrchestrationService"]

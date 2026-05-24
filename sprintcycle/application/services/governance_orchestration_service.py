@@ -7,7 +7,6 @@ check flow.
 
 from __future__ import annotations
 
-import asyncio
 import time
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
@@ -32,7 +31,7 @@ class GovernanceOrchestrationService:
     governance: Optional[GovernanceFacade] = None
     hooks: HookRegistry | None = None
 
-    def governance_check(self, gate: str = "review", **kwargs: Any) -> Dict[str, Any]:
+    async def governance_check(self, gate: str = "review", **kwargs: Any) -> Dict[str, Any]:
         from ...governance.arch_guard.config import ArchGuardConfig
         from ...governance.arch_guard.engine import ArchGuardEngine
         from ...governance.arch_guard.reporter import GovernanceReportAdapter
@@ -63,11 +62,9 @@ class GovernanceOrchestrationService:
                 release_plan = kwargs.get("release_plan")
                 if release_plan is None:
                     return {"success": False, "error": "planning gate requires release_plan"}
-                report = asyncio.run(
-                    engine.run_planning_gate(self.project_path, release_plan=release_plan, context=context)
-                )
+                report = await engine.run_planning_gate(self.project_path, release_plan=release_plan, context=context)
             else:
-                report = asyncio.run(engine.run_review_gate(self.project_path, context=context))
+                report = await engine.run_review_gate(self.project_path, context=context)
             gov = GovernanceReportAdapter.to_governance_report(report)
             payload = {"success": True, "gate": gate, "data": gov.to_dict(), "duration": time.time() - start}
             runner.after(GOVERNANCE_CHECK[0], GOVERNANCE_CHECK[1], hook_ctx)

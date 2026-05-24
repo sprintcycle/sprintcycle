@@ -153,13 +153,13 @@ class HTTPServices:
         return self._platform_summary.overview()
 
     def governance_view(self) -> Any:
-        return self._governance_orchestration.governance_view()
+        return self._dashboard_views.governance_view({})
 
-    def governance_history(self, limit: int = 50) -> Any:
-        return self._governance_orchestration.governance_history(limit)
+    async def governance_history(self, limit: int = 50) -> Any:
+        return await self._governance_orchestration.history(limit=limit)
 
-    def governance_lifecycle(self, execution_id: str = "") -> Any:
-        return self._governance_orchestration.lifecycle(execution_id)
+    async def governance_lifecycle(self, execution_id: str = "") -> Any:
+        return await self._governance_orchestration.summary(execution_id=execution_id)
 
     def lifecycle_contract(self, execution_id: str, limit: int = 200) -> Any:
         return self._lifecycle_contract.lifecycle_contract(execution_id, limit=limit)
@@ -168,10 +168,10 @@ class HTTPServices:
         return self._lifecycle_contract.evaluate_sprint_contract(payload)
 
     def deploy_view(self) -> Any:
-        return self._lifecycle_delivery.deploy_view()
+        return self._dashboard_views.deploy_view({})
 
-    def deploy_lifecycle(self) -> Any:
-        return self._lifecycle_delivery.lifecycle()
+    async def deploy_lifecycle(self) -> Any:
+        return await self._lifecycle_delivery.deploy_lifecycle()
 
     def fix_view(self) -> Any:
         return self._repair_orchestration.fix_view()
@@ -201,11 +201,11 @@ class HTTPServices:
             suggestion=self._suggestion,
         )
 
-    def suggestion_overview(self) -> Any:
-        return self._management_overview.suggestion_overview()
+    async def suggestion_overview(self) -> Any:
+        return await self._management_overview.suggestion_overview()
 
-    def management_overview(self) -> Any:
-        return self._management_overview.management_overview(self.project_path)
+    async def management_overview(self) -> Any:
+        return await self._management_overview.management_overview(self.project_path)
 
     def suggestion_board(self, execution_id: Optional[str] = None, limit: int = 20) -> Any:
         return self._dashboard_workbench.suggestion_board(self, execution_id=execution_id, limit=limit)

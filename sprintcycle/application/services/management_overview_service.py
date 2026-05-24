@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from dataclasses import dataclass
 from typing import Any, Callable, Dict
 
@@ -15,20 +14,20 @@ class ManagementOverviewService:
     evolution_dashboard: Callable[[], Dict[str, Any]]
     evolution_cli: Callable[[], str]
 
-    def suggestion_overview_raw(self) -> Any:
-        return asyncio.run(self.suggestion.overview())
+    async def suggestion_overview_raw(self) -> Any:
+        return await self.suggestion.overview()
 
-    def suggestion_overview(self) -> Dict[str, Any]:
-        return self.suggestion_overview_raw().to_dict()
+    async def suggestion_overview(self) -> Dict[str, Any]:
+        return (await self.suggestion_overview_raw()).to_dict()
 
-    def suggestion_overview_cli(self) -> str:
-        return self.suggestion_overview_raw().to_cli_text()
+    async def suggestion_overview_cli(self) -> str:
+        return (await self.suggestion_overview_raw()).to_cli_text()
 
-    def suggestion_overview_dashboard(self) -> Dict[str, Any]:
-        return self.suggestion_overview_raw().to_dashboard_payload()
+    async def suggestion_overview_dashboard(self) -> Dict[str, Any]:
+        return (await self.suggestion_overview_raw()).to_dashboard_payload()
 
-    def promotion_readiness(self) -> Dict[str, Any]:
-        overview = self.suggestion_overview_dashboard()
+    async def promotion_readiness(self) -> Dict[str, Any]:
+        overview = await self.suggestion_overview_dashboard()
         promotion = overview.get("promotion", {}) if isinstance(overview, dict) else {}
         ready = int(promotion.get("ready", 0)) if isinstance(promotion, dict) else 0
         blocked = int(promotion.get("blocked", 0)) if isinstance(promotion, dict) else 0
@@ -44,35 +43,35 @@ class ManagementOverviewService:
             },
         }
 
-    def suggestion_overview_payload(self) -> Dict[str, Any]:
-        overview = asyncio.run(self.suggestion.overview())
+    async def suggestion_overview_payload(self) -> Dict[str, Any]:
+        overview = await self.suggestion.overview()
         if hasattr(overview, "to_dashboard_payload"):
             return overview.to_dashboard_payload()
         return dict(overview or {})
 
-    def suggestion_list_payload(self, limit: int = 20) -> Dict[str, Any]:
-        suggestions = asyncio.run(self.suggestion.list_suggestions(limit=limit))
+    async def suggestion_list_payload(self, limit: int = 20) -> Dict[str, Any]:
+        suggestions = await self.suggestion.list_suggestions(limit=limit)
         if hasattr(suggestions, "to_dashboard_payload"):
             return suggestions.to_dashboard_payload()
         if isinstance(suggestions, dict):
             return dict(suggestions)
         return {"items": list(suggestions or [])}
 
-    def management_overview_payload(self) -> Dict[str, Any]:
+    async def management_overview_payload(self) -> Dict[str, Any]:
         return {
             "evolution": self.evolution_dashboard(),
-            "suggestion": self.suggestion_overview_dashboard(),
+            "suggestion": await self.suggestion_overview_dashboard(),
             "project_path": "",
         }
 
-    def management_overview(self, project_path: str) -> Dict[str, Any]:
-        payload = self.management_overview_payload()
+    async def management_overview(self, project_path: str) -> Dict[str, Any]:
+        payload = await self.management_overview_payload()
         payload["project_path"] = project_path
         return {"success": True, "data": payload}
 
-    def management_overview_cli(self, project_path: str) -> str:
+    async def management_overview_cli(self, project_path: str) -> str:
         evo_text = self.evolution_cli()
-        sug_text = self.suggestion_overview_cli()
+        sug_text = await self.suggestion_overview_cli()
         return "\n".join(["Management Overview", "", "[Evolution]", evo_text, "", "[Suggestion]", sug_text])
 
 
