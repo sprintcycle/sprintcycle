@@ -5,7 +5,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from sprintcycle.domain.evolution.models import EvolutionTarget, RollbackOutcome, VersionArtifact
+from sprintcycle.domain.core.evolution.models import EvolutionTarget, RollbackOutcome, VersionArtifact
 
 
 class VersionRegistry(ABC):

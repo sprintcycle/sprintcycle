@@ -440,14 +440,90 @@ result = await api.run("重构认证模块")
 ```
 sprintcycle/
 ├── api.py                    # 统一 API 入口
-├── application/              # 用例编排与服务层
-├── execution/                # 执行引擎与状态机
-├── governance/               # 治理、审计、版本与建议
-├── observability/            # 观测、回放与诊断
-├── domain/                   # 领域模型、规则与协议
-├── infrastructure/           # 适配器、存储、缓存、外部集成
-└── interfaces/               # HTTP 接口层（public / internal）
+├── application/              # 用例编排与服务层（保持三层架构不变）
+├── domain/                   # 领域模型（按 DDD 子域划分）
+│   ├── core/                # 核心子域（核心竞争力）
+│   │   ├── lifecycle/       # 生命周期契约与状态机
+│   │   ├── execution/       # 执行引擎与任务编排
+│   │   ├── evolution/       # 版本演化与晋升
+│   │   └── governance/      # 治理与建议处理
+│   ├── supporting/          # 支撑子域（业务支撑）
+│   │   ├── intent/          # 意图解析与归一化
+│   │   ├── verification/    # 验证引擎
+│   │   └── fitness/        # 健康度评估
+│   └── generic/             # 通用子域（基础设施）
+│       ├── errors/          # 错误处理
+│       ├── prompts/         # 提示词管理
+│       ├── models/          # 通用数据模型
+│       ├── platform/        # 平台视图
+│       ├── interfaces/      # 通用接口定义
+│       └── ports/           # 端口定义
+├── infrastructure/          # 适配器、存储、缓存、外部集成
+└── interfaces/              # HTTP 接口层（public / internal）
 ```
+
+---
+
+## DDD 子域划分
+
+SprintCycle 领域层（`domain/`）按照 DDD 洋葱结构进行子域划分，保持三层架构（`application/`、`infrastructure/`、`interfaces/`）不变。
+
+### 划分原则
+
+基于 SprintCycle 的价值流（意图驱动开发闭环、生命周期契约、修复交付闭环、治理建议处理、观测审计运行时、版本化演化），按照 **核心子域 → 支撑子域 → 通用子域** 的层次进行划分。
+
+### 子域划分方案
+
+#### 1. 核心子域（Core Domains）- 核心竞争力
+
+| 子域 | 职责定位 | 主要模块 |
+|------|---------|---------|
+| **lifecycle** | 生命周期契约与状态机，统一阶段迁移规则 | `core/lifecycle/` |
+| **execution** | 执行引擎与任务编排，Sprint 运行时核心 | `core/execution/`（含 agents、core） |
+| **evolution** | 版本演化与晋升，versioned evolution 能力 | `core/evolution/` |
+| **governance** | 治理与建议处理，HITL 审查与门禁 | `core/governance/`（含 quality_spec） |
+
+#### 2. 支撑子域（Supporting Domains）- 业务支撑
+
+| 子域 | 职责定位 | 主要模块 |
+|------|---------|---------|
+| **intent** | 意图解析与归一化，自然语言到结构化计划 | `supporting/intent/` |
+| **verification** | 验证引擎，各类验证插件与质量检查 | `supporting/verification/`（含 providers） |
+| **fitness** | 健康度评估，多维度质量评分 | `supporting/fitness/` |
+
+#### 3. 通用子域（Generic Domains）- 基础设施
+
+| 子域 | 职责定位 | 主要模块 |
+|------|---------|---------|
+| **errors** | 错误处理与知识路由 | `generic/errors/` |
+| **prompts** | 提示词管理与模板 | `generic/prompts/` |
+| **models** | 通用数据模型（ReleasePlan、SprintDefinition 等） | `generic/models/` |
+| **platform** | 平台视图与总览 | `generic/platform/` |
+| **interfaces** | 通用接口协议定义 | `generic/interfaces/` |
+| **ports** | 基础设施端口抽象 | `generic/ports/` |
+
+### 依赖关系约束
+
+```
+core/          ───────┐
+    │                 │ 依赖
+    ▼                 ▼
+supporting/    ───────┐
+    │                 │ 依赖
+    ▼                 ▼
+generic/       ───────┘
+```
+
+- **核心子域** 只能依赖 **支撑子域** 和 **通用子域**
+- **支撑子域** 只能依赖 **通用子域**
+- **通用子域** 不依赖任何其他子域
+
+### Skills 子系统定位
+
+Skills 子系统属于 **核心子域（core/execution）** 的执行引擎增强能力：
+- 场景识别、skill 匹配、skill 注入
+- 通过 `SprintOrchestrator` 的 hooks 接入主流程
+- 位于 [domain/core/execution/agents/](sprintcycle/domain/core/execution/agents/)
 
 ---
 

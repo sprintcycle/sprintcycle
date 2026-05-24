@@ -5,7 +5,7 @@ Application Release Plan - 发布计划应用层
 实际类型定义已移动到 sprintcycle.domain.models。
 """
 
-from sprintcycle.domain.models import (
+from sprintcycle.domain.generic.models import (
     ExecutionMode,
     EvolutionParams,
     ProductAnchor,

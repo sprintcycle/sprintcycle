@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, List, Optional
 from loguru import logger
 
 if TYPE_CHECKING:
-    from sprintcycle.domain.models import ReleasePlan, SprintDefinition
+    from sprintcycle.domain.generic.models import ReleasePlan, SprintDefinition
 
 
 RELEASE_PLAN_OVERLAY_FILENAME = "release_plan_overlay.yaml"

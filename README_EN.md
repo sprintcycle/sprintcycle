@@ -243,14 +243,90 @@ Common exports include:
 ```
 sprintcycle/
 ├── api.py                    # Unified API entrypoint
-├── application/              # Use cases and service orchestration
-├── execution/                # Execution engine and state machine
-├── governance/               # Governance, audit, versioning, and suggestions
-├── observability/            # Observability, replay, and diagnostics
-├── domain/                   # Domain models, rules, and protocols
+├── application/              # Use cases and service orchestration (3-tier unchanged)
+├── domain/                   # Domain models (DDD subdomain structure)
+│   ├── core/                # Core subdomains (core competency)
+│   │   ├── lifecycle/       # Lifecycle contracts and state machine
+│   │   ├── execution/       # Execution engine and task orchestration
+│   │   ├── evolution/       # Version evolution and promotion
+│   │   └── governance/      # Governance and suggestion handling
+│   ├── supporting/          # Supporting subdomains (business support)
+│   │   ├── intent/          # Intent parsing and normalization
+│   │   ├── verification/    # Verification engine
+│   │   └── fitness/         # Health evaluation
+│   └── generic/             # Generic subdomains (infrastructure)
+│       ├── errors/           # Error handling
+│       ├── prompts/          # Prompt management
+│       ├── models/           # Generic data models
+│       ├── platform/         # Platform views
+│       ├── interfaces/       # Generic interface definitions
+│       └── ports/            # Port definitions
 ├── infrastructure/           # Adapters, storage, cache, and external integrations
 └── interfaces/               # HTTP interface layer (public / internal)
 ```
+
+---
+
+## DDD Subdomain Architecture
+
+The domain layer (`domain/`) follows DDD onion architecture with subdomain partitioning, keeping the 3-tier architecture (`application/`, `infrastructure/`, `interfaces/`) unchanged.
+
+### Partitioning Principles
+
+Based on SprintCycle's value streams (intent-driven development loop, lifecycle contracts, repair delivery loop, governance and suggestion handling, observability audit and runtime, versioned evolution), subdomains are partitioned in the order of **Core Domains → Supporting Domains → Generic Domains**.
+
+### Subdomain Structure
+
+#### 1. Core Domains - Core Competency
+
+| Subdomain | Responsibility | Main Modules |
+|---------|---------------|--------------|
+| **lifecycle** | Lifecycle contracts and state machine, unified stage transitions | `core/lifecycle/` |
+| **execution** | Execution engine and task orchestration, Sprint runtime core | `core/execution/` (includes agents, core) |
+| **evolution** | Version evolution and promotion, versioned evolution capability | `core/evolution/` |
+| **governance** | Governance and suggestion handling, HITL review and gates | `core/governance/` (includes quality_spec) |
+
+#### 2. Supporting Domains - Business Support
+
+| Subdomain | Responsibility | Main Modules |
+|---------|---------------|--------------|
+| **intent** | Intent parsing and normalization, NL to structured plan | `supporting/intent/` |
+| **verification** | Verification engine, validation plugins and quality checks | `supporting/verification/` (includes providers) |
+| **fitness** | Health evaluation, multi-dimensional quality scoring | `supporting/fitness/` |
+
+#### 3. Generic Domains - Infrastructure
+
+| Subdomain | Responsibility | Main Modules |
+|---------|---------------|--------------|
+| **errors** | Error handling and knowledge routing | `generic/errors/` |
+| **prompts** | Prompt management and templates | `generic/prompts/` |
+| **models** | Generic data models (ReleasePlan, SprintDefinition, etc.) | `generic/models/` |
+| **platform** | Platform views and overview | `generic/platform/` |
+| **interfaces** | Generic interface protocol definitions | `generic/interfaces/` |
+| **ports** | Infrastructure port abstractions | `generic/ports/` |
+
+### Dependency Constraints
+
+```
+core/          ───────┐
+    │                 │ depends on
+    ▼                 ▼
+supporting/    ───────┐
+    │                 │ depends on
+    ▼                 ▼
+generic/       ───────┘
+```
+
+- **Core domains** can only depend on **Supporting domains** and **Generic domains**
+- **Supporting domains** can only depend on **Generic domains**
+- **Generic domains** do not depend on any other subdomains
+
+### Skills Subsystem Positioning
+
+The Skills subsystem belongs to the **Core domain (core/execution)** as an execution engine enhancement:
+- Scene recognition, skill matching, skill injection
+- Hooked into the main flow through `SprintOrchestrator` hooks
+- Located at [domain/core/execution/agents/](sprintcycle/domain/core/execution/agents/)
 
 ---
 

@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from sprintcycle.domain.models import SprintDefinition
+from sprintcycle.domain.generic.models import SprintDefinition
 
 
 @dataclass

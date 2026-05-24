@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from sprintcycle.domain.execution.core.events import Event, EventType, get_execution_event_backend
+from sprintcycle.domain.core.execution.core.events import Event, EventType, get_execution_event_backend
 from .coordinator import create_hitl_coordinator
 from .policy import evaluate_hitl_policy
 from .service import HitlService

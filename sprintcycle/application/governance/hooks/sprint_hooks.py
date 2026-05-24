@@ -12,9 +12,9 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from loguru import logger
 
-from sprintcycle.domain.models import ReleasePlan, SprintDefinition
-from sprintcycle.domain.interfaces import SprintLifecycleHookProtocol, ExecutionEventProtocol
-from sprintcycle.domain.interfaces import SprintResult
+from sprintcycle.domain.generic.models import ReleasePlan, SprintDefinition
+from sprintcycle.domain.generic.interfaces import SprintLifecycleHookProtocol, ExecutionEventProtocol
+from sprintcycle.domain.generic.interfaces import SprintResult
 from ..arch_guard.config import ArchGuardConfig
 from ..arch_guard.engine import ArchGuardEngine
 from ..arch_guard.reporter import GovernanceReportAdapter

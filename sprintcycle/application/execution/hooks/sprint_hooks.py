@@ -11,8 +11,8 @@ from typing import Any, Dict, List, Optional, Sequence
 
 from loguru import logger
 
-from sprintcycle.domain.models import ReleasePlan, SprintDefinition
-from sprintcycle.domain.interfaces import SprintResult
+from sprintcycle.domain.generic.models import ReleasePlan, SprintDefinition
+from sprintcycle.domain.generic.interfaces import SprintResult
 
 
 class SprintLifecycleHooks(ABC):
@@ -109,7 +109,7 @@ class _OrchestratorSprintHooks(SprintLifecycleHooks):
         release_plan: Optional[ReleasePlan],
     ) -> None:
         # 发射 sprint 开始事件
-        from sprintcycle.domain.execution.core.events import Event, EventType
+        from sprintcycle.domain.core.execution.core.events import Event, EventType
 
         event = Event(
             type=EventType.SPRINT_START,
@@ -133,7 +133,7 @@ class _OrchestratorSprintHooks(SprintLifecycleHooks):
         release_plan: Optional[ReleasePlan],
     ) -> None:
         # 发射 sprint 完成事件
-        from sprintcycle.domain.execution.core.events import Event, EventType
+        from sprintcycle.domain.core.execution.core.events import Event, EventType
 
         event = Event(
             type=EventType.SPRINT_COMPLETE if result.status.value == "success" else EventType.SPRINT_FAILED,
@@ -194,7 +194,7 @@ def _measurement_run_metadata(
     ).hexdigest()[:16]
 
     # Prompt sources fingerprint
-    from sprintcycle.domain.prompts.prompt_sources import compute_prompt_sources_fingerprint
+    from sprintcycle.domain.generic.prompts.prompt_sources import compute_prompt_sources_fingerprint
 
     prompt_fp = compute_prompt_sources_fingerprint()
 

@@ -2,7 +2,7 @@
 
 from typing import Any, Dict
 
-from sprintcycle.domain.models import SprintBacklogItem
+from sprintcycle.domain.generic.models import SprintBacklogItem
 from .base_strategy import AgentStrategy
 from ..constants import DRY_RUN_TESTER_TEMPLATE
 
@@ -20,7 +20,7 @@ class TesterStrategy(AgentStrategy):
         if self.dry_run:
             return DRY_RUN_TESTER_TEMPLATE.format(desc=task.description[:80])
 
-        from sprintcycle.domain.execution.agents.tester import TesterAgent
+        from sprintcycle.domain.core.execution.agents.tester import TesterAgent
 
         ctx = build_context_func(task, context.get("sprint_name", ""), context)
         agent = TesterAgent()

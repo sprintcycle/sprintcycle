@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from sprintcycle.domain.evolution.models import EvolutionRequest
+from sprintcycle.domain.core.evolution.models import EvolutionRequest
 from .analyzer import SuggestionAnalyzer
 from .approval import SuggestionApprovalService
 from .classifier import SuggestionClassifier

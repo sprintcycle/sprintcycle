@@ -2,7 +2,7 @@
 
 from typing import Any, Dict
 
-from sprintcycle.domain.models import SprintBacklogItem
+from sprintcycle.domain.generic.models import SprintBacklogItem
 from .base_strategy import AgentStrategy
 from ..constants import DRY_RUN_ARCHITECT_TEMPLATE
 
@@ -22,7 +22,7 @@ class ArchitectStrategy(AgentStrategy):
             context["architecture_design"] = summary
             return summary
 
-        from sprintcycle.domain.execution.agents.architect import ArchitectureAgent
+        from sprintcycle.domain.core.execution.agents.architect import ArchitectureAgent
 
         ctx = build_context_func(task, context.get("sprint_name", ""), context)
         agent = ArchitectureAgent()

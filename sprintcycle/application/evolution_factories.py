@@ -8,9 +8,9 @@ from __future__ import annotations
 
 from typing import Optional
 
-from sprintcycle.domain.evolution.default import create_evolution_facade
-from sprintcycle.domain.evolution.facade import EvolutionFacade
-from sprintcycle.domain.interfaces import (
+from sprintcycle.domain.core.evolution.default import create_evolution_facade
+from sprintcycle.domain.core.evolution.facade import EvolutionFacade
+from sprintcycle.domain.generic.interfaces import (
     VersionRegistryProtocol,
     RollbackManagerProtocol,
     ReleasePlanGeneratorProtocol,
@@ -60,7 +60,7 @@ def create_default_evolution_facade(
         release_plan_generator = IntentReleasePlanGenerator()
 
     if release_plan_validator is None:
-        from sprintcycle.domain.quality_spec.plan import ReleasePlanValidator
+        from sprintcycle.domain.core.governance.quality_spec.plan import ReleasePlanValidator
         release_plan_validator = ReleasePlanValidator()
 
     if sandbox_manager is None:

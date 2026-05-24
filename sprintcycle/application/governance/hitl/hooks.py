@@ -11,9 +11,9 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from loguru import logger
 
-from sprintcycle.domain.models import ReleasePlan, SprintBacklogItem, SprintDefinition
-from sprintcycle.domain.interfaces import SprintLifecycleHookProtocol, TaskLifecycleHookProtocol
-from sprintcycle.domain.interfaces import ExecutionStatus, TaskResult, SprintResult
+from sprintcycle.domain.generic.models import ReleasePlan, SprintBacklogItem, SprintDefinition
+from sprintcycle.domain.generic.interfaces import SprintLifecycleHookProtocol, TaskLifecycleHookProtocol
+from sprintcycle.domain.generic.interfaces import ExecutionStatus, TaskResult, SprintResult
 from .types import (
     CTX_HITL_ABORT_EXECUTION,
     HitlDecision,

@@ -12,8 +12,8 @@ from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
-from sprintcycle.domain.models import ReleasePlan, SprintBacklogItem, SprintDefinition
-from sprintcycle.domain.interfaces import ExecutionStatus, SprintResult
+from sprintcycle.domain.generic.models import ReleasePlan, SprintBacklogItem, SprintDefinition
+from sprintcycle.domain.generic.interfaces import ExecutionStatus, SprintResult
 
 
 @dataclass

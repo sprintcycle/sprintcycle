@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
-from sprintcycle.domain.models import ReleasePlan
+from sprintcycle.domain.generic.models import ReleasePlan
 
 
 @dataclass

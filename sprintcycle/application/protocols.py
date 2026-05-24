@@ -9,11 +9,11 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from sprintcycle.domain.models import ReleasePlan, SprintDefinition
-from sprintcycle.domain.interfaces import SprintResult, TaskResult, ExecutionStatus
+from sprintcycle.domain.generic.models import ReleasePlan, SprintDefinition
+from sprintcycle.domain.generic.interfaces import SprintResult, TaskResult, ExecutionStatus
 
 if TYPE_CHECKING:
-    from sprintcycle.domain.interfaces.config import ConfigProtocol
+    from sprintcycle.domain.generic.interfaces.config import ConfigProtocol
 
 
 class OrchestrationProtocol(ABC):

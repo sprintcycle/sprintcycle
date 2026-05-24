@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from loguru import logger
 
-from sprintcycle.domain.evolution.models import EvolutionTarget, RollbackOutcome
+from sprintcycle.domain.core.evolution.models import EvolutionTarget, RollbackOutcome
 from .git_backend import GitVersionBackend
 from .registry import VersionRegistry, VersionRollbackManager
 

@@ -15,7 +15,7 @@ from dataclasses import replace
 from enum import Enum
 from typing import List
 
-from sprintcycle.domain.models import ExecutionMode, ReleasePlan, SprintBacklogItem, SprintDefinition
+from sprintcycle.domain.generic.models import ExecutionMode, ReleasePlan, SprintBacklogItem, SprintDefinition
 
 
 class EvolutionPath(str, Enum):

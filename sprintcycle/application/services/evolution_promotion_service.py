@@ -36,7 +36,7 @@ def _run_async(coro: Any) -> Any:
     return loop.run_until_complete(coro)
 
 
-from sprintcycle.domain.evolution.models import VersionArtifact
+from sprintcycle.domain.core.evolution.models import VersionArtifact
 from sprintcycle.application.services.lifecycle.lifecycle_evolution_service import LifecycleEvolutionService
 
 

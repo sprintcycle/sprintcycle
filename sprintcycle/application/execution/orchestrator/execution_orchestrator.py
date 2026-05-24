@@ -8,10 +8,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from sprintcycle.domain.models import ReleasePlan, SprintDefinition
-from sprintcycle.domain.execution.core.protocols import ExecutionContext
+from sprintcycle.domain.generic.models import ReleasePlan, SprintDefinition
+from sprintcycle.domain.core.execution.core.protocols import ExecutionContext
 from .sprint_executor import SprintExecutor
-from sprintcycle.domain.interfaces import SprintResult
+from sprintcycle.domain.generic.interfaces import SprintResult
 
 
 @dataclass

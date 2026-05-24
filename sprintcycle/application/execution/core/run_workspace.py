@@ -13,7 +13,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
-from sprintcycle.domain.models import ReleasePlan
+from sprintcycle.domain.generic.models import ReleasePlan
 
 # 与 CLI / API / MCP / Dashboard 共用的合法取值
 WRITE_POLICIES = frozenset({"auto", "create", "incremental", "safe"})

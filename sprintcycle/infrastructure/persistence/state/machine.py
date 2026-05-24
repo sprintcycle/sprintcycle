@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
-from sprintcycle.domain.interfaces import ExecutionStatus
+from sprintcycle.domain.generic.interfaces import ExecutionStatus
 
 EXECUTION_TRANSITIONS: Dict[str, Tuple[str, ...]] = {
     ExecutionStatus.PENDING.value: (ExecutionStatus.RUNNING.value, ExecutionStatus.CANCELLED.value),

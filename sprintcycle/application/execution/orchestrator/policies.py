@@ -8,9 +8,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from sprintcycle.domain.evolution.measurement import MeasurementResult
-from sprintcycle.domain.models import ReleasePlan, SprintDefinition
-from sprintcycle.domain.interfaces import ExecutionStatus, SprintResult
+from sprintcycle.domain.core.evolution.measurement import MeasurementResult
+from sprintcycle.domain.generic.models import ReleasePlan, SprintDefinition
+from sprintcycle.domain.generic.interfaces import ExecutionStatus, SprintResult
 
 
 @dataclass

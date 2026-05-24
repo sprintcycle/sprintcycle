@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Protocol
 
-from sprintcycle.domain.evolution.runtime_state import ActivationReasonCode, RetryDecision, RetryPolicyConfig
+from sprintcycle.domain.core.evolution.runtime_state import ActivationReasonCode, RetryDecision, RetryPolicyConfig
 
 
 class RetryPolicyAdapter(Protocol):

@@ -59,7 +59,7 @@ def create_sqlite_event_backend(project_path: str, config: Any = None) -> "Sqlit
 
 def register_event_backend_factory() -> None:
     """注册 SQLite 事件后端工厂到 Domain 层。"""
-    from sprintcycle.domain.execution.core.events import register_event_backend_factory as _register
+    from sprintcycle.domain.core.execution.core.events import register_event_backend_factory as _register
 
     _register(create_sqlite_event_backend)
 
@@ -76,7 +76,7 @@ def register_rollback_implementations() -> None:
         RollbackError,
         VariantBranch,
     )
-    from sprintcycle.domain.evolution.rollback_manager import register_rollback_implementations as _register
+    from sprintcycle.domain.core.evolution.rollback_manager import register_rollback_implementations as _register
 
     _register({
         "GitRollbackMixin": GitRollbackMixin,

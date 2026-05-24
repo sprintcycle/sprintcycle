@@ -10,7 +10,7 @@ from typing import Optional
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
-from sprintcycle.domain.evolution.models import EvolutionTarget, VersionArtifact
+from sprintcycle.domain.core.evolution.models import EvolutionTarget, VersionArtifact
 from sprintcycle.infrastructure.governance.versioning.registry import VersionRegistry
 from sprintcycle.infrastructure.persistence.base import BaseSqliteStore
 

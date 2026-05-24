@@ -6,7 +6,7 @@ Execution Planners - 执行层计划模块
 本模块重新导出以保持向后兼容。
 """
 
-from sprintcycle.domain.models import (
+from sprintcycle.domain.generic.models import (
     EvolutionParams,
     ExecutionMode,
     ProductAnchor,

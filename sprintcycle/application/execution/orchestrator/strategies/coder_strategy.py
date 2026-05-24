@@ -2,7 +2,7 @@
 
 from typing import Any, Dict
 
-from sprintcycle.domain.models import SprintBacklogItem
+from sprintcycle.domain.generic.models import SprintBacklogItem
 from sprintcycle.application.execution.core.policies.task_retry_policy import TaskRetryPolicy
 from .base_strategy import AgentStrategy
 from ..constants import DRY_RUN_CODER_TEMPLATE
@@ -31,7 +31,7 @@ class CoderStrategy(AgentStrategy):
         if self.dry_run:
             return DRY_RUN_CODER_TEMPLATE.format(desc=task.description[:120])
 
-        from sprintcycle.domain.execution.agents.coder_base import CoderAgent
+        from sprintcycle.domain.core.execution.agents.coder_base import CoderAgent
 
         work = dict(context)
         last_msg = "CoderAgent 执行失败"

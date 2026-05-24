@@ -19,8 +19,8 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 from loguru import logger
 
-from sprintcycle.domain.verification.hooks import VerificationSprintHooks
-from sprintcycle.domain.execution.core.events import (
+from sprintcycle.domain.supporting.verification.hooks import VerificationSprintHooks
+from sprintcycle.domain.core.execution.core.events import (
     Event,
     EventType,
     ExecutionEventBackend,
@@ -37,16 +37,16 @@ from sprintcycle.application.execution.hooks.sprint_hooks import (
 )
 from sprintcycle.application.execution.hooks.task_hooks import ChainedTaskHooks, TaskLifecycleHooks
 from sprintcycle.application.execution.planners.expand import expand_release_plan_for_execution
-from sprintcycle.domain.models import ReleasePlan, SprintBacklogItem, SprintDefinition
-from sprintcycle.domain.execution.core.protocols import ExecutionContext
-from sprintcycle.domain.execution.agents.skill_store import SkillStore
-from sprintcycle.domain.execution.agents.skills import SkillOrchestrator
+from sprintcycle.domain.generic.models import ReleasePlan, SprintBacklogItem, SprintDefinition
+from sprintcycle.domain.core.execution.core.protocols import ExecutionContext
+from sprintcycle.domain.core.execution.agents.skill_store import SkillStore
+from sprintcycle.domain.core.execution.agents.skills import SkillOrchestrator
 from sprintcycle.application.execution.orchestrator.sprint_executor import SprintExecutor
-from sprintcycle.domain.interfaces import ExecutionStatus, SprintResult, TaskResult
+from sprintcycle.domain.generic.interfaces import ExecutionStatus, SprintResult, TaskResult
 from sprintcycle.application.governance.hooks.sprint_hooks import GovernanceSprintHooks
 from sprintcycle.application.governance.hooks.task_hooks import GovernanceTaskLifecycleHooks
-from sprintcycle.domain.evolution.intent_evolution_loop import UserIntentEvolutionLoop
-from sprintcycle.domain.evolution.measurement import MeasurementResult
+from sprintcycle.domain.core.evolution.intent_evolution_loop import UserIntentEvolutionLoop
+from sprintcycle.domain.core.evolution.measurement import MeasurementResult
 from .services.lifecycle.lifecycle_contracts import build_lifecycle_contract
 
 # TYPE_CHECKING: 仅用于类型提示，不在运行时导入 Infrastructure
@@ -237,7 +237,7 @@ class SprintOrchestrator:
         sprint_result: Optional[SprintResult] = None,
     ) -> Optional[MeasurementResult]:
         from sprintcycle.infrastructure.config.quality import resolve_effective_quality_level, runs_pytest
-        from sprintcycle.domain.evolution.measurement import MeasurementProvider
+        from sprintcycle.domain.core.evolution.measurement import MeasurementProvider
 
         quality_level = resolve_effective_quality_level(
             getattr(self.config, "quality_profile", ""),

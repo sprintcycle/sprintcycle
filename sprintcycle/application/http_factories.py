@@ -24,9 +24,9 @@ from sprintcycle.application.services.suggestion_application_service import Sugg
 from sprintcycle.application.services.evaluator_agent import EvaluatorAgent
 from sprintcycle.application.release_plan.parser import ReleasePlanParser
 from sprintcycle.application.release_plan.validator import ReleasePlanValidator
-from sprintcycle.domain.fitness.evaluator import FitnessEvaluator
+from sprintcycle.domain.supporting.fitness.evaluator import FitnessEvaluator
 from sprintcycle.infrastructure.persistence.state.state_store import get_state_store
-from sprintcycle.domain.execution.core.events import get_execution_event_backend
+from sprintcycle.domain.core.execution.core.events import get_execution_event_backend
 from sprintcycle.application.governance.core.facade import GovernanceFacade, create_governance_facade
 from sprintcycle.application.governance.suggestion import SuggestionFacade, create_suggestion_facade
 from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
@@ -289,7 +289,7 @@ class HTTPServices:
 
     def stop(self, execution_id: str = "") -> Any:
         """停止正在运行的执行"""
-        from sprintcycle.domain.interfaces import ExecutionStatus
+        from sprintcycle.domain.generic.interfaces import ExecutionStatus
         from sprintcycle.infrastructure.persistence.state.state_store import get_state_store
         from sprintcycle.application.results import StopResult
 

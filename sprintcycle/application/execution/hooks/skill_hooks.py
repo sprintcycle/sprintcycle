@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from sprintcycle.domain.models import ReleasePlan, SprintDefinition
-from sprintcycle.domain.execution.core.protocols import SkillChecklistItem, SkillTrace
-from sprintcycle.domain.execution.agents.skill_models import SkillArtifact, SkillExecutionRecord, SkillInjectionState
-from sprintcycle.domain.execution.agents.skill_store import SkillStore
-from sprintcycle.domain.execution.agents.skills import SkillOrchestrator
-from sprintcycle.domain.interfaces import SprintResult
+from sprintcycle.domain.generic.models import ReleasePlan, SprintDefinition
+from sprintcycle.domain.core.execution.core.protocols import SkillChecklistItem, SkillTrace
+from sprintcycle.domain.core.execution.agents.skill_models import SkillArtifact, SkillExecutionRecord, SkillInjectionState
+from sprintcycle.domain.core.execution.agents.skill_store import SkillStore
+from sprintcycle.domain.core.execution.agents.skills import SkillOrchestrator
+from sprintcycle.domain.generic.interfaces import SprintResult
 from .sprint_hooks import SprintLifecycleHooks
 
 

@@ -15,9 +15,9 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 import yaml
 from loguru import logger
 
-from sprintcycle.domain.quality_spec.context import build_quality_context
-from sprintcycle.domain.quality_spec.rules.planning_rules import default_planning_rules
-from sprintcycle.domain.quality_spec.spec.task_spec import TaskSpec
+from sprintcycle.domain.core.governance.quality_spec.context import build_quality_context
+from sprintcycle.domain.core.governance.quality_spec.rules.planning_rules import default_planning_rules
+from sprintcycle.domain.core.governance.quality_spec.spec.task_spec import TaskSpec
 from sprintcycle.application.execution.core.static_analyzer import AnalysisConfig, StaticAnalyzer
 from ..arch_guard.adr_check import check_adr_readme_index, check_adr_readme_strict_glob
 from ..arch_guard.argv_extensions import extend_argv_items_with_plugins
@@ -60,7 +60,7 @@ def create_observability_facade(project_path: str, cfg: "RuntimeConfig") -> Hitl
     return create_hitl_facade(project_path, cfg)
 
 
-from sprintcycle.domain.governance.core.yaml_merge import load_merged_governance_data
+from sprintcycle.domain.core.governance.core.yaml_merge import load_merged_governance_data
 
 if TYPE_CHECKING:
     from ...infrastructure.config.runtime_config import RuntimeConfig
@@ -191,7 +191,7 @@ class GovernanceRunner:
         rp = (extra_context or {}).get("release_plan")
         task_specs: List[TaskSpec] = []
         if rp is not None and getattr(self._cfg, "governance_planning_validate_release_plan", True):
-            from sprintcycle.domain.models import ReleasePlan
+            from sprintcycle.domain.generic.models import ReleasePlan
 
             if isinstance(rp, ReleasePlan):
                 task_specs = rp.to_task_specs()
@@ -584,7 +584,7 @@ def emit_governance_gate_cli_sync(
     """``sprintcycle governance check`` 可选：向执行事件后端派发 ``GOVERNANCE_GATE``（与 Dashboard SSE 对齐）。"""
     if not bool(getattr(runtime_config, "governance_cli_emit_events", False)):
         return
-    from sprintcycle.domain.execution.core.events import (
+    from sprintcycle.domain.core.execution.core.events import (
         Event,
         EventType,
         ensure_default_execution_event_backend_for_project,

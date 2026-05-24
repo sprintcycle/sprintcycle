@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import List
 
-from sprintcycle.domain.models import ReleasePlan
+from sprintcycle.domain.generic.models import ReleasePlan
 
 from .model import GuardFinding
 

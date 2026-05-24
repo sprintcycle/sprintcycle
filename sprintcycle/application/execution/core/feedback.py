@@ -39,7 +39,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from loguru import logger
 
-from sprintcycle.domain.errors.error_knowledge import ErrorPattern
+from sprintcycle.domain.generic.errors.error_knowledge import ErrorPattern
 
 
 class FeedbackLevel(Enum):

@@ -7,7 +7,7 @@ __author__ = "SprintCycle Team"
 
 VERSION = __version__
 
-from .domain.models import (
+from .domain.generic.models import (
     EvolutionParams,
     ExecutionMode,
     ProductAnchor,
@@ -16,6 +16,7 @@ from .domain.models import (
     SprintDefinition,
 )
 from .application.release_plan.parser import ReleasePlanParser
+from .application.sprint_orchestrator import SprintOrchestrator
 
 __all__ = [
     "__version__",
@@ -28,4 +29,5 @@ __all__ = [
     "SprintBacklogItem",
     "SprintDefinition",
     "ReleasePlanParser",
+    "SprintOrchestrator",
 ]

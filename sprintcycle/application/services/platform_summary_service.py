@@ -11,8 +11,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict
 
-from sprintcycle.domain.platform.overview import build_platform_overview_view
-from sprintcycle.domain.platform.spec import build_platform_spec
+from sprintcycle.domain.generic.platform.overview import build_platform_overview_view
+from sprintcycle.domain.generic.platform.spec import build_platform_spec
 from .dashboard_view_service import DashboardViewService
 from .dashboard_workbench_service import DashboardWorkbenchService
 

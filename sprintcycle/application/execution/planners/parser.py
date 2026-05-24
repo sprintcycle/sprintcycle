@@ -13,7 +13,7 @@ from typing import Any, Dict, Optional, Union
 import yaml
 from loguru import logger
 
-from sprintcycle.domain.models import (
+from sprintcycle.domain.generic.models import (
     EvolutionParams,
     ExecutionMode,
     ProductAnchor,

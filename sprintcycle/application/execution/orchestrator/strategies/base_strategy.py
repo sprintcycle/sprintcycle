@@ -3,8 +3,8 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional
 
-from sprintcycle.domain.models import SprintBacklogItem
-from sprintcycle.domain.execution.project_write import ProjectWritePlan
+from sprintcycle.domain.generic.models import SprintBacklogItem
+from sprintcycle.domain.core.execution.project_write import ProjectWritePlan
 
 
 class AgentStrategy(ABC):

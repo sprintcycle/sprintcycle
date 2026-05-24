@@ -7,10 +7,10 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from loguru import logger
 
 if TYPE_CHECKING:
-    from sprintcycle.domain.evolution.measurement import MeasurementResult
-    from sprintcycle.domain.models import ReleasePlan, SprintDefinition
+    from sprintcycle.domain.core.evolution.measurement import MeasurementResult
+    from sprintcycle.domain.generic.models import ReleasePlan, SprintDefinition
     from sprintcycle.infrastructure.config.runtime_config import RuntimeConfig
-    from sprintcycle.domain.interfaces import SprintResult
+    from sprintcycle.domain.generic.interfaces import SprintResult
 
 
 def persist_sprint_outcome_card(

@@ -3,7 +3,7 @@
 import asyncio
 from typing import Any, Dict
 
-from sprintcycle.domain.models import SprintBacklogItem
+from sprintcycle.domain.generic.models import SprintBacklogItem
 from .base_strategy import AgentStrategy
 from ..constants import DRY_RUN_REGRESSION_TESTER_TEMPLATE
 

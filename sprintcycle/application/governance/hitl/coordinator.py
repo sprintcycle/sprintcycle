@@ -13,7 +13,7 @@ from uuid import uuid4
 
 from loguru import logger
 
-from sprintcycle.domain.execution.core.events import Event, EventType, ExecutionEventBackend
+from sprintcycle.domain.core.execution.core.events import Event, EventType, ExecutionEventBackend
 from .context import build_replay_context, merge_correction_into_context, summarize_context_diff
 from .decision_normalize import normalize_hitl_decision_with_intent, validate_hitl_decision_for_submit
 from .events import HitlEventType

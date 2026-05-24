@@ -11,8 +11,8 @@ from typing import Any, Dict, Sequence
 
 from loguru import logger
 
-from sprintcycle.domain.models import SprintBacklogItem
-from sprintcycle.domain.interfaces import TaskResult
+from sprintcycle.domain.generic.models import SprintBacklogItem
+from sprintcycle.domain.generic.interfaces import TaskResult
 
 
 class TaskLifecycleHooks(ABC):
