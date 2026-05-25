@@ -19,7 +19,6 @@ from .release_plan_models import (
     ReleasePlan,
     SprintBacklogItem,
     SprintDefinition,
-    ExecutionMode,
     EvolutionParams,
 )
 

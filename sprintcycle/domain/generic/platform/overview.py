@@ -43,7 +43,7 @@ class PlatformOverview:
 def build_platform_overview(project_name: str = "sprintcycle") -> PlatformOverview:
     platform = build_platform_spec(project_name).to_dict()
     compose = build_default_compose_spec(project_name).to_dict()
-    
+
     intent_compiled = compile_intent_graph()
     sprint_compiled = compile_sprint_graph()
     intent_graph = {

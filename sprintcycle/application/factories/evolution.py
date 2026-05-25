@@ -32,7 +32,7 @@ def create_default_evolution_facade(
     创建默认配置的 EvolutionFacade。
 
     新代码建议直接使用 create_evolution_facade 并显式注入所有依赖项。
-    
+
     Args:
         project_path: 项目路径
         version_registry: 可选的版本注册表实现
@@ -40,7 +40,7 @@ def create_default_evolution_facade(
         release_plan_generator: 可选的发布计划生成器实现
         release_plan_validator: 可选的发布计划验证器实现
         sandbox_manager: 可选的沙箱管理器实现
-    
+
     Returns:
         配置好的 EvolutionFacade 实例
     """

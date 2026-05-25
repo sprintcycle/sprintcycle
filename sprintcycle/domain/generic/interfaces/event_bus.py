@@ -29,7 +29,7 @@ class Event:
 
 class EventSubscriber(ABC):
     """事件订阅者接口"""
-    
+
     @abstractmethod
     def handle(self, event: Event) -> None:
         """处理事件"""
@@ -38,17 +38,17 @@ class EventSubscriber(ABC):
 
 class EventBusProtocol(ABC):
     """事件总线接口"""
-    
+
     @abstractmethod
     def publish(self, event: Event) -> None:
         """发布事件"""
         ...
-    
+
     @abstractmethod
     def subscribe(self, event_type: EventType, subscriber: EventSubscriber) -> None:
         """订阅事件"""
         ...
-    
+
     @abstractmethod
     def unsubscribe(self, event_type: EventType, subscriber: EventSubscriber) -> None:
         """取消订阅"""
@@ -58,12 +58,12 @@ class EventBusProtocol(ABC):
 
 class ExecutionEventBackendProtocol(ABC):
     """执行事件后端接口"""
-    
+
     @abstractmethod
     def publish(self, event: Event) -> None:
         """发布事件"""
         ...
-    
+
     @abstractmethod
     def get_events(self, execution_id: str, limit: int = 100) -> List[Event]:
         """获取事件"""

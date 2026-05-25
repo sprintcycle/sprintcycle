@@ -20,6 +20,6 @@ class RegressionTesterStrategy(AgentStrategy):
         """Execute regression tester task."""
         if self.dry_run:
             return DRY_RUN_REGRESSION_TESTER_TEMPLATE.format(desc=task.description[:80])
-            
+
         await asyncio.sleep(0.05)
         return f"回归测试完成: {task.description[:80]}"

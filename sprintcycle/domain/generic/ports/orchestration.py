@@ -124,7 +124,7 @@ class QualityConfigPort(Protocol):
 class OrchestrationDependencies:
     """
     Container for orchestration dependencies.
-    
+
     This class aggregates all infrastructure dependencies needed by the orchestrator,
     allowing them to be injected as a unit.
     """

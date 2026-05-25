@@ -8,12 +8,12 @@ from sprintcycle.domain.generic.models import SprintDefinition, SprintBacklogIte
 
 class ExecutionPlannerProtocol(ABC):
     """执行规划器接口"""
-    
+
     @abstractmethod
     def plan_sprint(self, sprint: SprintDefinition) -> List[SprintBacklogItem]:
         """规划 Sprint"""
         ...
-    
+
     @abstractmethod
     def estimate_effort(self, item: SprintBacklogItem) -> float:
         """估算工作量"""
@@ -22,7 +22,7 @@ class ExecutionPlannerProtocol(ABC):
 
 class TaskExecutorProtocol(ABC):
     """任务执行器接口"""
-    
+
     @abstractmethod
     def execute(self, task: SprintBacklogItem, context: Dict[str, Any]) -> "TaskResult":
         """执行任务"""

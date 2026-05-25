@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 
 class HitlSprintHooks(SprintLifecycleHookProtocol):
     """HITL Sprint 钩子 - 实现协议接口"""
-    
+
     def __init__(self, config: RuntimeConfigProtocol, observability: "ObservabilityFacadeProtocol") -> None:
         self._config = config
         self._observability = observability
@@ -44,7 +44,7 @@ class HitlSprintHooks(SprintLifecycleHookProtocol):
         sprint_index = kwargs.get("sprint_index", 0)
         context = kwargs.get("context", {})
         release_plan = kwargs.get("release_plan")
-        
+
         if not hitl_gate_enabled(self._config, HitlGate.BEFORE_SPRINT):
             return
         eid = str(context.get("execution_id") or "").strip()
@@ -82,7 +82,7 @@ class HitlSprintHooks(SprintLifecycleHookProtocol):
         sprint_index = kwargs.get("sprint_index", 0)
         context = kwargs.get("context", {})
         release_plan = kwargs.get("release_plan")
-        
+
         if not hitl_gate_enabled(self._config, HitlGate.AFTER_SPRINT):
             return
         if result.status == ExecutionStatus.SKIPPED:
@@ -115,7 +115,7 @@ class HitlSprintHooks(SprintLifecycleHookProtocol):
 
 class HitlTaskHooks(TaskLifecycleHookProtocol):
     """HITL Task 钩子 - 实现协议接口"""
-    
+
     def __init__(self, config: RuntimeConfigProtocol, observability: "ObservabilityFacadeProtocol") -> None:
         self._config = config
         self._observability = observability
@@ -130,10 +130,10 @@ class HitlTaskHooks(TaskLifecycleHookProtocol):
         task_result = kwargs.get("task_result")
         if task_result is None:
             return
-            
+
         sprint_name = kwargs.get("sprint_name", "")
         context = kwargs.get("context", {})
-        
+
         if not hitl_gate_enabled(self._config, HitlGate.AFTER_TASK):
             return
         on_failure_only = getattr(self._config, "hitl_after_task_on_failure", True)

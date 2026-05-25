@@ -59,7 +59,7 @@ class ReleasePlanFileSource(EvolutionPlanSource):
     def load(self) -> List[ReleasePlan]:
         if not self._plan_dir.exists():
             return []
-        
+
         plans = []
         for yaml_file in self._plan_dir.glob("*.yaml"):
             try:
@@ -68,7 +68,7 @@ class ReleasePlanFileSource(EvolutionPlanSource):
                 plans.append(plan)
             except Exception as e:
                 logger.warning(f"Failed to parse {yaml_file}: {e}")
-        
+
         return plans
 
 

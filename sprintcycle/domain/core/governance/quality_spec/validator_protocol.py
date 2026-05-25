@@ -20,7 +20,7 @@ class ValidationResult:
     warnings: List[str] = field(default_factory=list)
     success: bool = True
     metadata: dict = field(default_factory=dict)
-    
+
     def to_dict(self) -> dict:
         return {
             "is_valid": self.is_valid,
@@ -33,7 +33,7 @@ class ValidationResult:
 
 class ValidatorProtocol:
     """验证器抽象基类"""
-    
+
     def validate(self, plan: "ReleasePlan") -> ValidationResult:
         """验证执行计划"""
         raise NotImplementedError

@@ -24,13 +24,13 @@ class TesterStrategy(AgentStrategy):
 
         ctx = build_context_func(task, context.get("sprint_name", ""), context)
         agent = TesterAgent()
-        
+
         if self.project_write_plan is not None:
             agent.set_project_write_plan(self.project_write_plan)
-            
+
         res = await agent.execute(task.description, ctx)
-        
+
         if not res.success:
             raise RuntimeError(res.error or "TesterAgent 执行失败")
-            
+
         return res.output or ""

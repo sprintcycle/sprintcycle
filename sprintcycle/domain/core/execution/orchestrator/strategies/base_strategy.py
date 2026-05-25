@@ -27,15 +27,15 @@ class AgentStrategy(ABC):
     ) -> str:
         """
         Execute a task using this strategy.
-        
+
         Args:
             task: The task to execute
             context: Execution context
             build_context_func: Function to build agent-specific context
-            
+
         Returns:
             The execution output as a string
-            
+
         Raises:
             RuntimeError: If execution fails
         """

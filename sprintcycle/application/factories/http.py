@@ -219,7 +219,6 @@ class HTTPServices:
         )
 
         def create_knowledge_repository(db_path: Optional[str] = None):
-            from sprintcycle.infrastructure.adapters.generic.knowledge.knowledge_repository import KnowledgeCardRepository
             path = db_path or ".sprintcycle/knowledge.db"
             return KnowledgeCardRepository(path)
 
@@ -285,36 +284,36 @@ class HTTPServices:
         # 获取状态存储
         from sprintcycle.domain.generic.ports.state_store import get_state_store
         self._state_store = get_state_store()
-        
+
         # 初始化 config service（通过端口工厂注入）
         self._config_service = ConfigService(self.project_path)
-        
+
         # 初始化 governance facade
         self._governance = create_governance_facade(
             project_path=self.project_path,
             config=self.config,
         )
-        
+
         # 初始化 suggestion facade
         self._suggestion = create_suggestion_facade(
             project_path=self.project_path,
             config=self.config,
             evolution_facade=None,
         )
-        
+
         # 初始化 Platform Launch Service
         from sprintcycle.domain.generic.ports.deploy import create_platform_launch_service
         self._platform_launch = create_platform_launch_service()
-        
+
         # 初始化 Dashboard 服务
         self._dashboard_views = DashboardViewService(project_path=self.project_path)
         self._dashboard_workbench = DashboardWorkbenchService(view_service=self._dashboard_views)
-        
+
         # 初始化 Repair Orchestration（需要先于 LifecycleDelivery）
         self._repair_orchestration = RepairOrchestrationService(
             observability=self._observability,
         )
-        
+
         # 初始化 application 服务
         self._execution_lifecycle = ExecutionLifecycleService(
             project_path=self.project_path,
@@ -324,39 +323,39 @@ class HTTPServices:
             state_store=self._state_store,
             hooks=self._hooks,
         )
-        
+
         self._observability_service = ObservabilityService(
             observability=self._observability,
             state_store=self._state_store,
         )
-        
+
         self._platform_summary = PlatformSummaryService(
             project_path=self.project_path,
             dashboard_views=self._dashboard_views,
             dashboard_workbench=self._dashboard_workbench,
             state_store=self._state_store,
         )
-        
+
         self._governance_orchestration = GovernanceOrchestrationService(
             project_path=self.project_path,
             config=self.config,
             governance=self._governance,
             hooks=self._hooks,
         )
-        
+
         self._suggestion_application = SuggestionApplicationService(
             suggestion=self._suggestion,
             governance=self._governance,
             version_registry=self._evolution_registry,
         )
-        
+
         from sprintcycle.domain.core.governance.promotion_policy import PromotionPolicy
         self._lifecycle_evolution = LifecycleEvolutionService(
             observability=self._observability,
             runtime_registry=self._runtime_registry,
             promotion_policy=PromotionPolicy(),
         )
-        
+
         # 初始化 Web Lifecycle Orchestration（需要先于 LifecycleContractAssembly）
         from sprintcycle.application.services.lifecycle.web_lifecycle_orchestration_service import WebLifecycleOrchestrationService
         self._web_lifecycle = WebLifecycleOrchestrationService(
@@ -366,7 +365,7 @@ class HTTPServices:
             observability_trace=lambda eid: self._observability_service.trace(eid),
             evaluate_sprint_contract=lambda payload: self._lifecycle_contract.evaluate_sprint_contract(payload),
         )
-        
+
         # 初始化 Lifecycle Contract（需要先于 LifecycleDelivery）
         self._lifecycle_contract = LifecycleContractAssemblyService(
             project_path=self.project_path,
@@ -378,7 +377,7 @@ class HTTPServices:
             web_lifecycle=self._web_lifecycle,
             deliver_runtime_governance_promotion=lambda eid, **kwargs: self._lifecycle_delivery.deliver_runtime_governance_promotion(eid, **kwargs),
         )
-        
+
         # 需要在 LifecycleContractAssembly 之后初始化，因为它引用了 lifecycle_contract
         self._lifecycle_delivery = LifecycleDeliveryService(
             project_path=self.project_path,
@@ -394,12 +393,12 @@ class HTTPServices:
             lifecycle_contract=lambda rid: self._lifecycle_contract.assemble(rid),
             evaluate_promotion=lambda eid, **kwargs: self._lifecycle_evolution.promote(eid, **kwargs),
         )
-        
+
         self._evolution_version = EvolutionVersionService(
             config=self.config,
             registry=self._evolution_registry,
         )
-        
+
         self._management_overview = ManagementOverviewService(
             suggestion=self._suggestion,
             evolution_dashboard=lambda: self.evolution_overview(),
@@ -522,21 +521,21 @@ class HTTPServices:
 
     def get_evolution_version(self, version_id: str) -> Any:
         return self._evolution_version.get_version(version_id)
-    
+
     # ===== Configuration Service Methods =====
-    
+
     def load_config(self) -> Dict[str, Any]:
         return self._config_service.load_config()
-    
+
     def save_config(self, config: Dict[str, Any]) -> None:
         return self._config_service.save_config(config)
-    
+
     def add_config_history(self, updates: Dict[str, Any], source: str = "api") -> None:
         return self._config_service.add_to_history(updates, source)
-    
+
     def get_config_history(self) -> List[Dict[str, Any]]:
         return self._config_service.get_history()
-    
+
     def get_config_schema(self) -> Dict[str, Any]:
         return ConfigService.get_schema()
 
@@ -572,7 +571,6 @@ class HTTPServices:
     def stop(self, execution_id: str = "") -> Any:
         """停止正在运行的执行"""
         from sprintcycle.domain.generic.interfaces import ExecutionStatus
-        from sprintcycle.infrastructure.adapters.core.execution.state_store.state_store import get_state_store
         from sprintcycle.application.dto.results import StopResult
 
         if execution_id:
@@ -602,7 +600,6 @@ class HTTPServices:
 
     def rollback(self, execution_id: str) -> Any:
         """回滚执行到执行前状态"""
-        from sprintcycle.infrastructure.adapters.core.execution.state_store.state_store import get_state_store
         from sprintcycle.application.results import RollbackResult
 
         store = get_state_store()

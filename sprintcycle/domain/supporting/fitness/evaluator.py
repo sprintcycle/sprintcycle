@@ -18,7 +18,7 @@ from sprintcycle.domain.generic.interfaces import EvaluatorAgentProtocol
 @dataclass
 class FitnessEvaluator:
     """Fitness 评估器"""
-    
+
     evaluator_agent: EvaluatorAgentProtocol
     aggregator: FitnessAggregator = field(default_factory=FitnessAggregator)
 

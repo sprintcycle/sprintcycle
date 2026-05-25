@@ -14,7 +14,7 @@ from .reporter import VerificationReportAdapter
 
 class VerificationSprintHooks:
     """验证钩子 - 使用协议接口"""
-    
+
     def __init__(self, project_path: str, config: Any, event_bus: Optional[ExecutionEventBackendProtocol] = None):
         self._project_path = project_path
         self._config = config
@@ -59,7 +59,7 @@ class VerificationSprintHooks:
         )
         engine = VerificationEngine(config=self._config)
         report = engine.verify(context)
-        
+
         adapter = VerificationReportAdapter()
         adapter.adapt(report)
 

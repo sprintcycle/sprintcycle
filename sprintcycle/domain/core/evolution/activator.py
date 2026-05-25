@@ -26,7 +26,7 @@ GuardEvaluator = Callable[[], ActivationGuardResult]
 @dataclass(slots=True)
 class EvolutionActivator:
     """演化激活器 - 使用协议接口"""
-    
+
     guard_evaluator: GuardEvaluator
     loop_starter: LoopStarter
     health_check: HealthCheckAdapterProtocol = field(default_factory=lambda: DefaultHealthCheckAdapter())
@@ -39,14 +39,14 @@ class EvolutionActivator:
 # 默认实现（从 Infrastructure 层导入）
 class DefaultHealthCheckAdapter:
     """默认健康检查适配器"""
-    
+
     def check(self) -> bool:
         return True
 
 
 class DefaultRetryPolicyAdapter:
     """默认重试策略适配器"""
-    
+
     def execute_with_retry(self, func: Callable, max_retries: int = 3) -> Any:
         last_error = None
         for attempt in range(max_retries):

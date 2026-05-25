@@ -206,7 +206,7 @@ def create_app(project_path: str = ".") -> FastAPI:
 
     app.include_router(build_health_router())
     app.include_router(build_public_execution_router(http_services, project_path))
-    
+
     app.include_router(build_execution_router(http_services, project_path))
     app.include_router(build_governance_router(http_services, project_path))
     app.include_router(build_lifecycle_router(http_services, project_path))

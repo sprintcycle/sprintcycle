@@ -10,11 +10,11 @@ if TYPE_CHECKING:
 
 class SprintLifecycleHookProtocol(ABC):
     """Sprint 生命周期钩子接口"""
-    
+
     def on_sprint_start(self, sprint: "SprintDefinition", **kwargs: Any) -> None:
         """Sprint 开始钩子"""
         ...
-    
+
     def on_sprint_complete(
         self,
         sprint: "SprintDefinition",
@@ -23,7 +23,7 @@ class SprintLifecycleHookProtocol(ABC):
     ) -> None:
         """Sprint 完成钩子"""
         ...
-    
+
     def on_sprint_error(
         self,
         sprint: "SprintDefinition",
@@ -36,11 +36,11 @@ class SprintLifecycleHookProtocol(ABC):
 
 class TaskLifecycleHookProtocol(ABC):
     """任务生命周期钩子接口"""
-    
+
     def on_task_start(self, task: "SprintBacklogItem", **kwargs: Any) -> None:
         """任务开始钩子"""
         ...
-    
+
     def on_task_complete(
         self,
         task: "SprintBacklogItem",
@@ -49,7 +49,7 @@ class TaskLifecycleHookProtocol(ABC):
     ) -> None:
         """任务完成钩子"""
         ...
-    
+
     def on_task_error(
         self,
         task: "SprintBacklogItem",
@@ -62,25 +62,25 @@ class TaskLifecycleHookProtocol(ABC):
 
 class ExecutionEventProtocol(ABC):
     """执行事件协议"""
-    
+
     @property
     @abstractmethod
     def event_type(self) -> str:
         """事件类型"""
         ...
-    
+
     @property
     @abstractmethod
     def execution_id(self) -> Optional[str]:
         """执行ID"""
         ...
-    
+
     @property
     @abstractmethod
     def timestamp(self) -> datetime:
         """时间戳"""
         ...
-    
+
     @property
     @abstractmethod
     def data(self) -> Dict[str, Any]:

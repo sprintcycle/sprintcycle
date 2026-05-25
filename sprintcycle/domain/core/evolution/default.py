@@ -44,11 +44,11 @@ def create_evolution_facade(
     sandbox_manager: SandboxManagerProtocol,
 ) -> EvolutionFacade:
     """Create evolution facade with injected dependencies."""
-    
+
     # Create workflow adapters
     code_adapter = DefaultCodeEvolutionAdapter()
     req_adapter = DefaultRequirementEvolutionAdapter()
-    
+
     # Create controller with injected dependencies
     controller = DefaultEvolutionController(
         project_path=project_path,
@@ -59,13 +59,13 @@ def create_evolution_facade(
         code_evolution_adapter=code_adapter,
         requirement_evolution_adapter=req_adapter,
     )
-    
+
     # Create service with rollback manager
     service = DefaultEvolutionService(
         controller=controller,
         rollback_manager=rollback_manager,
     )
-    
+
     return service
 
 

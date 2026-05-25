@@ -26,17 +26,17 @@ class ArchitectStrategy(AgentStrategy):
 
         ctx = build_context_func(task, context.get("sprint_name", ""), context)
         agent = ArchitectureAgent()
-        
+
         if self.project_write_plan is not None:
             agent.set_project_write_plan(self.project_write_plan)
-            
+
         res = await agent.execute(task.description, ctx)
-        
+
         if not res.success:
             raise RuntimeError(res.error or "ArchitectureAgent 执行失败")
-            
+
         arch = ctx.codebase_context.get("architecture_design") or res.output or ""
         if arch:
             context["architecture_design"] = arch
-            
+
         return str(arch)

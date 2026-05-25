@@ -166,35 +166,35 @@ def create_orchestration_dependencies(
 ) -> OrchestrationDependencies:
     """
     创建编排器依赖容器。
-    
+
     此工厂函数负责：
     1. 创建所有基础设施适配器
     2. 将它们封装到 OrchestrationDependencies 容器中
     3. 返回给调用者进行依赖注入
-    
+
     Args:
         project_root: 项目根目录路径
         db_path: 知识库数据库路径（可选）
-    
+
     Returns:
         OrchestrationDependencies: 包含所有依赖的容器
     """
     runtime_config = RuntimeConfigAdapter()
     graph_compiler = GraphCompilerAdapter()
-    
+
     knowledge_repo = KnowledgeRepositoryAdapter(db_path or ".sprintcycle/knowledge.db")
     knowledge_injection_hook = KnowledgeInjectionHookAdapter(project_root, runtime_config)
-    
+
     trace_runtime: Optional[TraceRuntimeAdapter] = None
     if os.environ.get("PHOENIX_ENABLED"):
         try:
             trace_runtime = TraceRuntimeAdapter(project_name=project_root)
         except ImportError:
             logger.debug("Phoenix not available")
-    
+
     state_store = StateStoreAdapter()
     quality_config = QualityConfigAdapter()
-    
+
     return OrchestrationDependencies(
         runtime_config=runtime_config,
         graph_compiler=graph_compiler,

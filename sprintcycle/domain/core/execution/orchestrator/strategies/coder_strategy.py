@@ -35,28 +35,28 @@ class CoderStrategy(AgentStrategy):
 
         work = dict(context)
         last_msg = "CoderAgent 执行失败"
-        
+
         for attempt in range(self.max_verify_fix_rounds):
             ctx = build_context_func(task, work.get("sprint_name", ""), work)
             agent = CoderAgent()
-            
+
             if self.project_write_plan is not None:
                 agent.set_project_write_plan(self.project_write_plan)
-                
+
             res = await agent.execute(task.description, ctx)
-            
+
             if res.success:
                 return res.output or ""
-                
+
             last_msg = res.error or last_msg
             decision = self.task_retry_policy.should_retry(attempt, last_msg)
-            
+
             if not decision.should_retry:
                 raise RuntimeError(last_msg)
-                
+
             prev = (work.get("verify_fix_notes") or "").strip()
             work["verify_fix_notes"] = (
                 prev + f"\n[attempt {decision.attempt}/{decision.max_attempts}] {last_msg}"
             ).strip()
-            
+
         raise RuntimeError(last_msg)
