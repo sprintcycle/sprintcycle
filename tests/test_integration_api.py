@@ -10,8 +10,8 @@ import shutil
 from pathlib import Path
 from unittest.mock import patch, MagicMock, AsyncMock
 
-from sprintcycle.application.http_factories import HTTPServices
-from sprintcycle.application.sprint_orchestrator import SprintOrchestrator
+from sprintcycle.application.factories.http import HTTPServices
+from sprintcycle.application.orchestration.sprint_orchestrator import SprintOrchestrator
 from sprintcycle.application.results import (
     PlanResult, RunResult, DiagnoseResult,
     StatusResult, RollbackResult, StopResult,

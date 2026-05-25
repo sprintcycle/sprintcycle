@@ -9,9 +9,9 @@ from typing import Any, Dict
 
 from fastapi import APIRouter, Request
 
-from sprintcycle.application.http_factories import HTTPServices
-from sprintcycle.application.request_context import RequestContext
-from sprintcycle.application.sprint_orchestrator import SprintOrchestrator
+from sprintcycle.application.factories.http import HTTPServices
+from sprintcycle.interfaces.http.request_context import RequestContext
+from sprintcycle.application.orchestration.sprint_orchestrator import SprintOrchestrator
 from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
 from sprintcycle.infrastructure.adapters.generic.config.rate_limit import check_rate_limit
 from sprintcycle.infrastructure.adapters.generic.integrations.audit import record_audit_event

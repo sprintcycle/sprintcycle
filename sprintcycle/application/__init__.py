@@ -19,10 +19,9 @@ from sprintcycle.application.protocols import (
     LifecycleProtocol,
     OrchestrationProtocol,
 )
-from sprintcycle.application.http_factories import HTTPServices, create_http_services
-from sprintcycle.application.request_context import RequestContext
-from sprintcycle.application.sprint_orchestrator import SprintOrchestrator
-from sprintcycle.application.evolution_factories import create_default_evolution_facade
+from sprintcycle.application.factories.http import HTTPServices, create_http_services
+from sprintcycle.application.orchestration.sprint_orchestrator import SprintOrchestrator
+from sprintcycle.application.factories.evolution import create_default_evolution_facade
 
 __all__ = [
     # Core
@@ -32,8 +31,6 @@ __all__ = [
     "create_http_services",
     # Evolution Factories
     "create_default_evolution_facade",
-    # Context
-    "RequestContext",
     # Protocols
     "OrchestrationProtocol",
     "LifecycleProtocol",

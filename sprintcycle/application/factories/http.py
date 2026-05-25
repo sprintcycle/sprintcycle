@@ -13,6 +13,7 @@ from sprintcycle.application.services.dashboard.platform_summary_service import 
 from sprintcycle.application.services.dashboard.management_overview_service import ManagementOverviewService
 from sprintcycle.application.services.dashboard.dashboard_view_service import DashboardViewService
 from sprintcycle.application.services.dashboard.dashboard_workbench_service import DashboardWorkbenchService
+from sprintcycle.application.services.config_service import ConfigService
 from sprintcycle.application.services.lifecycle.lifecycle_delivery_service import LifecycleDeliveryService
 from sprintcycle.application.services.lifecycle.lifecycle_evolution_service import LifecycleEvolutionService
 from sprintcycle.application.services.lifecycle.lifecycle_contract_assembly_service import LifecycleContractAssemblyService
@@ -65,26 +66,29 @@ class HTTPServices:
 
         register_rollback_implementations()
         
+        # 初始化 config service
+        self._config_service = ConfigService(self.project_path)
+        
         # 初始化 governance facade
         self._governance = create_governance_facade(
-            project_path=project_path,
+            project_path=self.project_path,
             config=self.config,
         )
         
         # 初始化 suggestion facade
         self._suggestion = create_suggestion_facade(
-            project_path=project_path,
+            project_path=self.project_path,
             config=self.config,
             evolution_facade=None,
         )
         
         # 初始化 Dashboard 服务
-        self._dashboard_views = DashboardViewService(project_path=project_path)
+        self._dashboard_views = DashboardViewService(project_path=self.project_path)
         self._dashboard_workbench = DashboardWorkbenchService(view_service=self._dashboard_views)
         
         # 初始化 application 服务
         self._execution_lifecycle = ExecutionLifecycleService(
-            project_path=project_path,
+            project_path=self.project_path,
             config=self.config,
             observability=self._observability,
             runtime_registry=self._runtime_registry,
@@ -94,13 +98,13 @@ class HTTPServices:
         self._observability_service = ObservabilityService(observability=self._observability)
         
         self._platform_summary = PlatformSummaryService(
-            project_path=project_path,
+            project_path=self.project_path,
             dashboard_views=self._dashboard_views,
             dashboard_workbench=self._dashboard_workbench,
         )
         
         self._governance_orchestration = GovernanceOrchestrationService(
-            project_path=project_path,
+            project_path=self.project_path,
             config=self.config,
             governance=self._governance,
             hooks=self._hooks,
@@ -112,23 +116,23 @@ class HTTPServices:
         )
         
         self._lifecycle_evolution = LifecycleEvolutionService(
-            project_path=project_path,
+            project_path=self.project_path,
             config=self.config,
             evolution_registry=self._evolution_registry,
         )
         
         self._lifecycle_delivery = LifecycleDeliveryService(
-            project_path=project_path,
+            project_path=self.project_path,
             config=self.config,
         )
         
         self._lifecycle_contract = LifecycleContractAssemblyService(
-            project_path=project_path,
+            project_path=self.project_path,
             config=self.config,
         )
         
         self._repair_orchestration = RepairOrchestrationService(
-            project_path=project_path,
+            project_path=self.project_path,
             config=self.config,
             observability=self._observability,
         )
@@ -257,6 +261,23 @@ class HTTPServices:
 
     def get_evolution_version(self, version_id: str) -> Any:
         return self._evolution_version.get_version(version_id)
+    
+    # ===== Configuration Service Methods =====
+    
+    def load_config(self) -> Dict[str, Any]:
+        return self._config_service.load_config()
+    
+    def save_config(self, config: Dict[str, Any]) -> None:
+        return self._config_service.save_config(config)
+    
+    def add_config_history(self, updates: Dict[str, Any], source: str = "api") -> None:
+        return self._config_service.add_to_history(updates, source)
+    
+    def get_config_history(self) -> List[Dict[str, Any]]:
+        return self._config_service.get_history()
+    
+    def get_config_schema(self) -> Dict[str, Any]:
+        return ConfigService.get_schema()
 
     # ===== Public API 方法 =====
 

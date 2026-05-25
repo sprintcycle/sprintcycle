@@ -47,7 +47,7 @@ from sprintcycle.domain.core.governance.hooks.sprint_hooks import GovernanceSpri
 from sprintcycle.domain.core.governance.hooks.task_hooks import GovernanceTaskLifecycleHooks
 from sprintcycle.domain.core.evolution.intent_evolution_loop import UserIntentEvolutionLoop
 from sprintcycle.domain.core.evolution.measurement import MeasurementResult
-from .services.lifecycle.lifecycle_contracts import build_lifecycle_contract
+from sprintcycle.application.services.lifecycle.lifecycle_contracts import build_lifecycle_contract
 
 # TYPE_CHECKING: 仅用于类型提示，不在运行时导入 Infrastructure
 if TYPE_CHECKING:

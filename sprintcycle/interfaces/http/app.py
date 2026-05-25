@@ -7,7 +7,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from sprintcycle.application.http_factories import create_http_services
+from sprintcycle.application.factories.http import create_http_services
 
 from .dashboard import (
     build_governance_router,

@@ -16,7 +16,7 @@ from .domain.generic.models import (
     SprintDefinition,
 )
 from .domain.generic.models.release_plan.parser import ReleasePlanParser
-from .application.sprint_orchestrator import SprintOrchestrator
+from .application.orchestration.sprint_orchestrator import SprintOrchestrator
 
 __all__ = [
     "__version__",

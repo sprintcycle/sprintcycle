@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from sprintcycle.infrastructure.adapters.generic.config import RuntimeConfig
-from sprintcycle.application.sprint_orchestrator import SprintOrchestrator
+from sprintcycle.application.orchestration.sprint_orchestrator import SprintOrchestrator
 from sprintcycle.domain.generic.models import (
     ExecutionMode,
     ProductAnchor,

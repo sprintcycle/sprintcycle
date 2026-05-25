@@ -10,8 +10,8 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 # 使用 TYPE_CHECKING 避免循环导入
 if TYPE_CHECKING:
     from sprintcycle.domain.generic.models import ReleasePlan
-    from ...application.sprint_orchestrator import SprintResult
-    from ...results import RunResult
+    from ...application.orchestration.sprint_orchestrator import SprintResult
+    from ...application.results import RunResult
 
 
 @dataclass

@@ -11,8 +11,8 @@ from typing import Any, Dict
 from fastapi import APIRouter, Request, Response
 from fastapi.responses import HTMLResponse, StreamingResponse
 
-from sprintcycle.application.http_factories import HTTPServices
-from sprintcycle.application.request_context import RequestContext
+from sprintcycle.application.factories.http import HTTPServices
+from sprintcycle.interfaces.http.request_context import RequestContext
 from sprintcycle.infrastructure.adapters.generic.config.rate_limit import check_rate_limit
 from sprintcycle.infrastructure.adapters.generic.integrations.audit import record_audit_event
 
