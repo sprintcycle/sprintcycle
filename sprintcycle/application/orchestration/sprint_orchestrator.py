@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List
 
 from loguru import logger
 
@@ -45,10 +45,7 @@ from sprintcycle.domain.core.evolution.intent_evolution_loop import UserIntentEv
 from sprintcycle.domain.core.evolution.measurement import MeasurementResult
 from sprintcycle.domain.generic.interfaces.protocols import OrchestrationProtocol
 from sprintcycle.application.services.lifecycle.lifecycle_contracts import build_lifecycle_contract
-from sprintcycle.domain.generic.ports.orchestration import (
-    OrchestrationDependencies,
-    RuntimeConfigPort,
-)
+from sprintcycle.domain.generic.ports.orchestration import OrchestrationDependencies
 
 
 class SprintOrchestrator:
@@ -56,18 +53,22 @@ class SprintOrchestrator:
 
     def __init__(
         self,
-        dependencies: Optional[OrchestrationDependencies] = None,
-        event_bus: Optional[ExecutionEventBackend] = None,
-        project_path: Optional[str] = None,
-        hitl_coordinator: Optional[Any] = None,
-        evolution_loop: Optional[UserIntentEvolutionLoop] = None,
+        dependencies: OrchestrationDependencies,
+        event_bus: ExecutionEventBackend | None = None,
+        project_path: str | None = None,
+        hitl_coordinator: Any | None = None,
+        evolution_loop: UserIntentEvolutionLoop | None = None,
     ):
         self._dependencies = dependencies
-        self.config: RuntimeConfigPort = dependencies.runtime_config if dependencies else self._create_default_config()
+        self.config = dependencies.runtime_config
         self._project_root = os.path.abspath(project_path or ".")
         self.event_bus = event_bus
         self._hitl_coordinator = hitl_coordinator
-        self._evolution_loop = evolution_loop or self._create_evolution_loop()
+        self._evolution_loop = evolution_loop or UserIntentEvolutionLoop(
+            memory_store=None,
+            feedback_loop=FeedbackLoop(),
+            knowledge_repo=dependencies.knowledge_repository,
+        )
         self._callbacks: Dict[str, Callable] = {
             "on_task_start": self._default_on_task_start,
             "on_task_end": self._default_on_task_end,
@@ -76,24 +77,7 @@ class SprintOrchestrator:
         }
         self._skill_store = SkillStore()
         self._skill_orchestrator = SkillOrchestrator()
-        self._last_release_finalization_result: Optional[Dict[str, Any]] = None
-
-    def _create_default_config(self) -> RuntimeConfigPort:
-        """创建默认配置（仅在未提供依赖时使用）"""
-        from sprintcycle.application.factories.orchestration import RuntimeConfigAdapter
-        return RuntimeConfigAdapter()
-
-    def _create_evolution_loop(self) -> UserIntentEvolutionLoop:
-        """创建演化循环"""
-        knowledge_repo = self._dependencies.knowledge_repository if self._dependencies else None
-        if knowledge_repo is None:
-            from sprintcycle.application.factories.orchestration import KnowledgeRepositoryAdapter
-            knowledge_repo = KnowledgeRepositoryAdapter(".sprintcycle/knowledge.db")
-        return UserIntentEvolutionLoop(
-            memory_store=None,
-            feedback_loop=FeedbackLoop(),
-            knowledge_repo=knowledge_repo,
-        )
+        self._last_release_finalization_result: Dict[str, Any] | None = None
 
     def _get_event_bus(self) -> ExecutionEventBackend:
         if self.event_bus is None:
@@ -107,15 +91,14 @@ class SprintOrchestrator:
             logger.warning(f"Failed to emit event: {e}")
 
     def _emit_trace_event(self, event: Event) -> None:
-        trace_runtime = self._dependencies.trace_runtime if self._dependencies else None
-        if trace_runtime is not None:
+        if self._dependencies.trace_runtime is not None:
             try:
-                trace_runtime.emit_trace([event.to_dict()])
+                self._dependencies.trace_runtime.emit_trace([event.to_dict()])
             except Exception as e:
                 logger.debug("Failed to emit trace event: {}", e)
 
     def _make_sprint_executor(self, max_concurrent: int) -> SprintExecutor:
-        feedback_loop: Optional[FeedbackLoop] = None
+        feedback_loop: FeedbackLoop | None = None
         if not getattr(self.config, "dry_run", False):
             feedback_loop = FeedbackLoop()
         ex = SprintExecutor(
@@ -126,7 +109,7 @@ class SprintOrchestrator:
             evolution_loop=self._evolution_loop,
         )
         ex.set_event_bus(self._get_event_bus())
-        task_hooks: Optional[TaskLifecycleHooks] = None
+        task_hooks: TaskLifecycleHooks | None = None
         if getattr(self.config, "governance_enabled", False) and getattr(
             self.config, "governance_task_hooks_enabled", False
         ):
@@ -144,13 +127,8 @@ class SprintOrchestrator:
         return ex
 
     def _build_sprint_hooks(self, release_plan: ReleasePlan) -> SprintLifecycleHooks:
-        knowledge_hook = self._dependencies.knowledge_injection_hook if self._dependencies else None
-        if knowledge_hook is None:
-            from sprintcycle.application.factories.orchestration import KnowledgeInjectionHookAdapter
-            knowledge_hook = KnowledgeInjectionHookAdapter(self._project_root, self.config)
-
         parts: List[SprintLifecycleHooks] = [
-            knowledge_hook,
+            self._dependencies.knowledge_injection_hook,
             SkillLifecycleHook(self._skill_orchestrator, self._skill_store),
         ]
         if getattr(self.config, "governance_enabled", False):
@@ -183,21 +161,16 @@ class SprintOrchestrator:
 
     def _persist_release_finalization(self, release_plan: ReleasePlan, finalize_result: Any) -> None:
         try:
-            state_store = self._dependencies.state_store if self._dependencies else None
-            if state_store is None:
-                from sprintcycle.application.factories.orchestration import StateStoreAdapter
-                state_store = StateStoreAdapter()
-
             eid = getattr(release_plan, "execution_id", None)
             if not eid:
                 return
-            state = state_store.load(eid)
+            state = self._dependencies.state_store.load(eid)
             if state is None:
                 return
             state.metadata["release_finalization"] = (
                 finalize_result.to_dict() if hasattr(finalize_result, "to_dict") else {}
             )
-            state_store.save(state)
+            self._dependencies.state_store.save(state)
         except Exception as e:
             logger.debug("persist release finalization failed: {}", e)
 
@@ -206,13 +179,16 @@ class SprintOrchestrator:
         release_plan: ReleasePlan,
         *,
         sprint_index: int = 0,
-        sprint: Optional[SprintDefinition] = None,
-        sprint_result: Optional[SprintResult] = None,
-    ) -> Optional[MeasurementResult]:
+        sprint: SprintDefinition | None = None,
+        sprint_result: SprintResult | None = None,
+    ) -> MeasurementResult | None:
         from sprintcycle.domain.core.evolution.measurement import MeasurementProvider
 
-        quality_level = self._resolve_effective_quality_level()
-        if not self._runs_pytest(quality_level):
+        quality_level = self._dependencies.quality_config.resolve_effective_quality_level(
+            getattr(self.config, "quality_profile", ""),
+            getattr(self.config, "quality_level", "") or "L2",
+        )
+        if not self._dependencies.quality_config.runs_pytest(quality_level):
             return None
         raw_root = release_plan.project.path or self._project_root
         try:
@@ -236,40 +212,11 @@ class SprintOrchestrator:
             )
         return m
 
-    def _resolve_effective_quality_level(self) -> str:
-        """解析有效质量级别（通过依赖注入）"""
-        quality_config = self._dependencies.quality_config if self._dependencies else None
-        if quality_config is None:
-            from sprintcycle.application.factories.orchestration import QualityConfigAdapter
-            quality_config = QualityConfigAdapter()
-        return quality_config.resolve_effective_quality_level(
-            getattr(self.config, "quality_profile", ""),
-            getattr(self.config, "quality_level", "") or "L2",
-        )
-
-    def _runs_pytest(self, quality_level: str) -> bool:
-        """检查是否需要运行 pytest（通过依赖注入）"""
-        quality_config = self._dependencies.quality_config if self._dependencies else None
-        if quality_config is None:
-            from sprintcycle.application.factories.orchestration import QualityConfigAdapter
-            quality_config = QualityConfigAdapter()
-        return quality_config.runs_pytest(quality_level)
-
     def _compile_intent_graph(self, **kwargs: Any) -> Any:
-        """编译意图图（通过依赖注入）"""
-        graph_compiler = self._dependencies.graph_compiler if self._dependencies else None
-        if graph_compiler is None:
-            from sprintcycle.application.factories.orchestration import GraphCompilerAdapter
-            graph_compiler = GraphCompilerAdapter()
-        return graph_compiler.compile_intent_graph(**kwargs)
+        return self._dependencies.graph_compiler.compile_intent_graph(**kwargs)
 
     def _compile_sprint_graph(self, **kwargs: Any) -> Any:
-        """编译 Sprint 图（通过依赖注入）"""
-        graph_compiler = self._dependencies.graph_compiler if self._dependencies else None
-        if graph_compiler is None:
-            from sprintcycle.application.factories.orchestration import GraphCompilerAdapter
-            graph_compiler = GraphCompilerAdapter()
-        return graph_compiler.compile_sprint_graph(**kwargs)
+        return self._dependencies.graph_compiler.compile_sprint_graph(**kwargs)
 
     async def execute_release_plan(self, release_plan: ReleasePlan, max_concurrent: int = 3) -> List[SprintResult]:
         to_run = expand_release_plan_for_execution(release_plan)
@@ -413,18 +360,13 @@ class SprintOrchestrator:
         await self._emit(complete_event)
         self._emit_trace_event(complete_event)
         try:
-            state_store = self._dependencies.state_store if self._dependencies else None
-            if state_store is None:
-                from sprintcycle.application.factories.orchestration import StateStoreAdapter
-                state_store = StateStoreAdapter()
-
             if getattr(release_plan, "execution_id", None):
-                state = state_store.load(getattr(release_plan, "execution_id", None))
+                state = self._dependencies.state_store.load(getattr(release_plan, "execution_id", None))
                 if state is not None:
                     state.metadata["release_finalization"] = completion_summary
                     state.metadata["lifecycle_contract"] = contract.to_dict()
                     state.status = "success" if success else "failed"
-                    state_store.save(state)
+                    self._dependencies.state_store.save(state)
         except Exception as e:
             logger.debug("persist sprint orchestration lifecycle failed: {}", e)
         self._last_release_finalization_result = {
@@ -516,7 +458,6 @@ class SprintOrchestrator:
         return results
 
     async def _execute_via_sprint_executor(self, release_plan: ReleasePlan, max_concurrent: int) -> List[SprintResult]:
-        """通过 SprintExecutor 直接执行（无 intent graph）"""
         ex = self._make_sprint_executor(max_concurrent)
         ex.set_release_plan(release_plan)
         ex.set_sprint_hooks(self._build_sprint_hooks(release_plan))
