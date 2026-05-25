@@ -67,10 +67,10 @@ def get_cache_backend(runtime: Optional[Any] = None, project_path: str = ".") ->
     """获取缓存后端实例"""
     if _cache_backend_factory is not None:
         return _cache_backend_factory(runtime, project_path)
-    from sprintcycle.infrastructure.adapters.generic.cache import build_cache_backend as _get
-    from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
-    effective_runtime = runtime or RuntimeConfig()
-    return _get(effective_runtime, project_path)
+    raise RuntimeError(
+        "Cache backend factory not registered. "
+        "Please call register_cache_backend_factory() from Infrastructure layer before using."
+    )
 
 
 __all__ = ["CacheBackendProtocol", "register_cache_backend_factory", "get_cache_backend"]

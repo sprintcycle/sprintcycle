@@ -32,8 +32,10 @@ def create_platform_launch_service() -> PlatformLaunchServiceProtocol:
     """创建平台启动服务实例"""
     if _platform_launch_factory is not None:
         return _platform_launch_factory()
-    from sprintcycle.infrastructure.adapters.generic.deploy.platform_launch_service import PlatformLaunchService
-    return PlatformLaunchService()
+    raise RuntimeError(
+        "Platform launch factory not registered. "
+        "Please call register_platform_launch_factory() from Infrastructure layer before using."
+    )
 
 
 __all__ = [

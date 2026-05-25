@@ -80,8 +80,10 @@ def get_observability_facade(project_path: Optional[str] = None, config: Any = N
     """获取 Observability facade 实例"""
     if _observability_facade_factory is not None:
         return _observability_facade_factory(project_path, config)
-    from sprintcycle.infrastructure.adapters.generic.observability.facade import ObservabilityFacade
-    return ObservabilityFacade()
+    raise RuntimeError(
+        "Observability facade factory not registered. "
+        "Please call register_observability_facade_factory() from Infrastructure layer before using."
+    )
 
 
 __all__ = [

@@ -90,9 +90,10 @@ def get_suggestion_store(store_root: Optional[str] = None) -> SuggestionStorePro
     """获取 Suggestion store 实例"""
     if _suggestion_store_factory is not None:
         return _suggestion_store_factory(store_root)
-    from sprintcycle.infrastructure.adapters.core.governance.suggestion_store import SuggestionStore
-    root = store_root or ".sprintcycle/governance/suggestion"
-    return SuggestionStore(root)
+    raise RuntimeError(
+        "Suggestion store factory not registered. "
+        "Please call register_suggestion_store_factory() from Infrastructure layer before using."
+    )
 
 
 __all__ = [

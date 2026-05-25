@@ -108,17 +108,20 @@ def get_knowledge_repository(db_path: Optional[str] = None) -> KnowledgeReposito
     """获取知识仓库实例"""
     if _knowledge_repository_factory is not None:
         return _knowledge_repository_factory(db_path)
-    from sprintcycle.infrastructure.adapters.generic.knowledge.knowledge_repository import KnowledgeCardRepository
-    path = db_path or ".sprintcycle/knowledge.db"
-    return KnowledgeCardRepository(path)
+    raise RuntimeError(
+        "Knowledge repository factory not registered. "
+        "Please call register_knowledge_repository_factory() from Infrastructure layer before using."
+    )
 
 
 def get_sprint_outcome_card_persister() -> SprintOutcomeCardProtocol:
     """获取 Sprint outcome card 持久化实例"""
     if _sprint_outcome_card_factory is not None:
         return _sprint_outcome_card_factory()
-    from sprintcycle.infrastructure.adapters.generic.knowledge.sprint_knowledge_card import persist_sprint_outcome_card
-    return SprintOutcomeCardAdapter(persist_sprint_outcome_card)
+    raise RuntimeError(
+        "Sprint outcome card factory not registered. "
+        "Please call register_sprint_outcome_card_factory() from Infrastructure layer before using."
+    )
 
 
 class SprintOutcomeCardAdapter(SprintOutcomeCardProtocol):

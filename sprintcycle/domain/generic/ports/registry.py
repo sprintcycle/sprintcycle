@@ -42,8 +42,10 @@ def create_runtime_registry(config: Any) -> RuntimeRegistryProtocol:
     """创建运行时注册表实例"""
     if _runtime_registry_factory is not None:
         return _runtime_registry_factory(config)
-    from sprintcycle.infrastructure.adapters.generic.config.runtime_registry import RuntimeRegistry
-    return RuntimeRegistry(config)
+    raise RuntimeError(
+        "Runtime registry factory not registered. "
+        "Please call register_runtime_registry_factory() from Infrastructure layer before using."
+    )
 
 
 __all__ = [

@@ -85,8 +85,10 @@ def get_hitl_store(project_path: Optional[str] = None) -> HitlStoreProtocol:
     """获取 HITL store 实例"""
     if _hitl_store_factory is not None:
         return _hitl_store_factory(project_path)
-    from sprintcycle.infrastructure.adapters.core.governance.hitl_store import HitlSqliteStore, default_hitl_db_path
-    return HitlSqliteStore(default_hitl_db_path(project_path))
+    raise RuntimeError(
+        "HITL store factory not registered. "
+        "Please call register_hitl_store_factory() from Infrastructure layer before using."
+    )
 
 
 __all__ = [

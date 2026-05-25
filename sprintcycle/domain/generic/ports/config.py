@@ -48,10 +48,10 @@ def get_runtime_config(project_path: Optional[str] = None) -> RuntimeConfigProto
     """获取运行时配置实例"""
     if _runtime_config_factory is not None:
         return _runtime_config_factory(project_path)
-    from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
-    if project_path:
-        return RuntimeConfig.from_project(project_path)
-    return RuntimeConfig()
+    raise RuntimeError(
+        "Runtime config factory not registered. "
+        "Please call register_runtime_config_factory() from Infrastructure layer before using."
+    )
 
 
 __all__ = ["RuntimeConfigProtocol", "register_runtime_config_factory", "get_runtime_config"]

@@ -5,7 +5,6 @@ HTTP endpoints for governance-related operations.
 
 from __future__ import annotations
 
-import asyncio
 from pathlib import Path
 from typing import Any, Dict
 
@@ -13,9 +12,8 @@ from fastapi import APIRouter, Request
 
 from sprintcycle.application.factories.http import HTTPServices
 from sprintcycle.interfaces.http.request_context import RequestContext
-from sprintcycle.domain.core.governance.core.runner import run_governance_check_and_persist
-from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
 from sprintcycle.infrastructure.adapters.generic.config.rate_limit import check_rate_limit
+from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
 from sprintcycle.infrastructure.adapters.generic.integrations.audit import record_audit_event
 
 
@@ -75,18 +73,7 @@ def build_governance_router(services: HTTPServices, project_path: str) -> APIRou
     async def governance_check(request: Request, body: dict) -> dict:
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/governance/check", context=ctx)
-        cfg = RuntimeConfig.from_project(project_path)
-        planning_report, review_report, fail = await asyncio.to_thread(
-            run_governance_check_and_persist,
-            project_path,
-            cfg,
-            body.get("gate", "review"),
-        )
-        out = {"should_fail_ci": fail, "gate": body.get("gate", "review")}
-        if planning_report is not None:
-            out["planning"] = planning_report.to_dict()
-        if review_report is not None:
-            out["review"] = review_report.to_dict()
+        result = await services.governance_check(gate=body.get("gate", "review"))
         record_audit_event(
             request_id=ctx.request_id,
             actor=ctx.caller,
@@ -94,7 +81,7 @@ def build_governance_router(services: HTTPServices, project_path: str) -> APIRou
             resource="/api/governance/check",
             outcome="success",
         )
-        return out
+        return result
 
     @router.get("/api/governance/lifecycle")
     async def governance_lifecycle(request: Request, execution_id: str = "") -> dict:

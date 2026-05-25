@@ -224,8 +224,10 @@ def get_state_store(store_dir: Optional[str] = None) -> StateStoreProtocol:
     """获取状态存储实例"""
     if _state_store_factory is not None:
         return _state_store_factory(store_dir)
-    from sprintcycle.infrastructure.adapters.core.execution.state_store import get_state_store as _get
-    return _get(store_dir)
+    raise RuntimeError(
+        "State store factory not registered. "
+        "Please call register_state_store_factory() from Infrastructure layer before using."
+    )
 
 
 __all__ = [

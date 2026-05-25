@@ -98,36 +98,46 @@ def register_typecheck_adapter_factory(factory: callable) -> None:
 def get_archguard_adapter() -> ArchGuardAdapterProtocol:
     if _archguard_adapter_factory is not None:
         return _archguard_adapter_factory()
-    from sprintcycle.infrastructure.adapters.core.governance.arch_guard import ArchonAdapter
-    return ArchonAdapter()
+    raise RuntimeError(
+        "ArchGuard adapter factory not registered. "
+        "Please call register_archguard_adapter_factory() from Infrastructure layer before using."
+    )
 
 
 def get_grimp_adapter() -> GrimpAdapterProtocol:
     if _grimp_adapter_factory is not None:
         return _grimp_adapter_factory()
-    from sprintcycle.infrastructure.adapters.core.governance.arch_guard import GrimpAdapter
-    return GrimpAdapter()
+    raise RuntimeError(
+        "Grimp adapter factory not registered. "
+        "Please call register_grimp_adapter_factory() from Infrastructure layer before using."
+    )
 
 
 def get_import_linter_adapter() -> ImportLinterAdapterProtocol:
     if _import_linter_adapter_factory is not None:
         return _import_linter_adapter_factory()
-    from sprintcycle.infrastructure.adapters.core.governance.arch_guard import ImportLinterAdapter
-    return ImportLinterAdapter()
+    raise RuntimeError(
+        "Import Linter adapter factory not registered. "
+        "Please call register_import_linter_adapter_factory() from Infrastructure layer before using."
+    )
 
 
 def get_ruff_adapter() -> RuffAdapterProtocol:
     if _ruff_adapter_factory is not None:
         return _ruff_adapter_factory()
-    from sprintcycle.infrastructure.adapters.core.governance.arch_guard import RuffAdapter
-    return RuffAdapter()
+    raise RuntimeError(
+        "Ruff adapter factory not registered. "
+        "Please call register_ruff_adapter_factory() from Infrastructure layer before using."
+    )
 
 
 def get_typecheck_adapter() -> TypeCheckAdapterProtocol:
     if _typecheck_adapter_factory is not None:
         return _typecheck_adapter_factory()
-    from sprintcycle.infrastructure.adapters.core.governance.arch_guard import TypeCheckAdapter
-    return TypeCheckAdapter()
+    raise RuntimeError(
+        "TypeCheck adapter factory not registered. "
+        "Please call register_typecheck_adapter_factory() from Infrastructure layer before using."
+    )
 
 
 __all__ = [

@@ -62,13 +62,15 @@ class HTTPServices:
         register_event_backend_factory()
 
         # 注册回滚实现
-        from sprintcycle.infrastructure.adapters.core.evolution.rollback_store.rollback_types import (
+        from sprintcycle.infrastructure.adapters.core.evolution.rollback_store.rollback import (
             GitRollbackMixin,
             RollbackConfig,
-            RollbackError,
-            VariantBranch,
             _is_git_repo,
             _run_git,
+        )
+        from sprintcycle.infrastructure.adapters.core.evolution.rollback_store.rollback_types import (
+            RollbackError,
+            VariantBranch,
         )
         from sprintcycle.domain.generic.ports.state_store import register_rollback_implementations
 
@@ -81,50 +83,53 @@ class HTTPServices:
             run_git=_run_git,
         )
 
-        # 注册 HITL 存储工厂
-        from sprintcycle.infrastructure.adapters.core.governance.hitl_store import HitlSqliteStore
-        from sprintcycle.domain.generic.ports.hitl import register_hitl_store_factory
+        # 注册状态存储工厂
+        from sprintcycle.domain.generic.ports.state_store import register_state_store_factory
 
-        def create_hitl_store(project_path: str):
-            return HitlSqliteStore(project_path)
+        def create_state_store(store_dir: Optional[str] = None):
+            from sprintcycle.infrastructure.adapters.core.execution.state_store import get_state_store as _get
+            return _get(store_dir)
 
-        register_hitl_store_factory(create_hitl_store)
+        register_state_store_factory(create_state_store)
 
-        # 注册 Suggestion 存储工厂
-        from sprintcycle.infrastructure.adapters.core.governance.suggestion_store import SuggestionSqliteStore
-        from sprintcycle.domain.generic.ports.suggestion import register_suggestion_store_factory
+        # 注册 Cache 后端工厂
+        from sprintcycle.domain.generic.ports.cache import register_cache_backend_factory
 
-        def create_suggestion_store(project_path: str):
-            return SuggestionSqliteStore(project_path)
+        def create_cache_backend(runtime: Any = None, project_path: str = "."):
+            from sprintcycle.infrastructure.adapters.generic.cache import build_cache_backend as _get
+            effective_runtime = runtime or RuntimeConfig()
+            return _get(effective_runtime, project_path)
 
-        register_suggestion_store_factory(create_suggestion_store)
+        register_cache_backend_factory(create_cache_backend)
 
-        # 注册 Observability 门面工厂
-        from sprintcycle.domain.generic.ports.observability import register_observability_facade_factory
+        # 注册 RuntimeConfig 工厂（DDD 依赖倒置）
+        from sprintcycle.domain.generic.ports.config import register_runtime_config_factory
 
-        def create_observability_facade():
-            from sprintcycle.infrastructure.adapters.generic.observability.facade import ObservabilityFacade
-            return ObservabilityFacade()
+        def create_runtime_config(project_path: Optional[str] = None):
+            if project_path:
+                return RuntimeConfig.from_project(project_path)
+            return RuntimeConfig()
 
-        register_observability_facade_factory(create_observability_facade)
-
-        # 注册 Knowledge 持久化工厂
-        from sprintcycle.domain.generic.ports.knowledge import register_knowledge_repository_factory
-
-        def create_knowledge_repository(project_path: str):
-            from sprintcycle.infrastructure.adapters.generic.knowledge.knowledge_repository import KnowledgeCardRepository
-            return KnowledgeCardRepository(project_path)
-
-        register_knowledge_repository_factory(create_knowledge_repository)
+        register_runtime_config_factory(create_runtime_config)
 
         # 注册 Runtime Registry 工厂
         from sprintcycle.domain.generic.ports.registry import register_runtime_registry_factory
 
         def create_runtime_registry(config: Any):
             from sprintcycle.infrastructure.adapters.generic.config.runtime_registry import RuntimeRegistry
-            return RuntimeRegistry()
+            return RuntimeRegistry(config)
 
         register_runtime_registry_factory(create_runtime_registry)
+
+        # 注册 Platform Launch 工厂
+        from sprintcycle.domain.generic.ports.deploy import register_platform_launch_factory
+
+        def create_platform_launch_service():
+            from sprintcycle.infrastructure.adapters.generic.deploy.platform_launch_service import PlatformLaunchService
+            from sprintcycle.infrastructure.adapters.generic.deploy.deployment_spec_service import DeploymentSpecService
+            return PlatformLaunchService(spec_service=DeploymentSpecService())
+
+        register_platform_launch_factory(create_platform_launch_service)
 
         # 注册 Evolution 注册表工厂
         from sprintcycle.domain.generic.ports.evolution import (
@@ -138,37 +143,148 @@ class HTTPServices:
 
         register_version_manifest_factory(get_version_manifest_summary)
 
+        # 注册 Governance adapters
+        from sprintcycle.domain.generic.ports.governance import (
+            register_archguard_adapter_factory,
+            register_grimp_adapter_factory,
+            register_import_linter_adapter_factory,
+            register_ruff_adapter_factory,
+            register_typecheck_adapter_factory,
+        )
+        from sprintcycle.infrastructure.adapters.core.governance.arch_guard import (
+            ArchonAdapter,
+            GrimpAdapter,
+            ImportLinterAdapter,
+            RuffAdapter,
+            TypeCheckAdapter,
+        )
+
+        register_archguard_adapter_factory(lambda: ArchonAdapter())
+        register_grimp_adapter_factory(lambda: GrimpAdapter())
+        register_import_linter_adapter_factory(lambda: ImportLinterAdapter())
+        register_ruff_adapter_factory(lambda: RuffAdapter())
+        register_typecheck_adapter_factory(lambda: TypeCheckAdapter())
+
+        # 注册 HITL 存储工厂
+        from sprintcycle.infrastructure.adapters.core.governance.hitl_store import HitlSqliteStore
+        from sprintcycle.domain.generic.ports.hitl import register_hitl_store_factory
+
+        def create_hitl_store(project_path: Optional[str] = None):
+            from sprintcycle.infrastructure.adapters.core.governance.hitl_store import default_hitl_db_path
+            return HitlSqliteStore(default_hitl_db_path(project_path))
+
+        register_hitl_store_factory(create_hitl_store)
+
+        # 注册 Suggestion 存储工厂
+        from sprintcycle.infrastructure.adapters.core.governance.suggestion_store import SuggestionStore
+        from sprintcycle.domain.generic.ports.suggestion import register_suggestion_store_factory
+
+        def create_suggestion_store(store_root: Optional[str] = None):
+            root = store_root or ".sprintcycle/governance/suggestion"
+            return SuggestionStore(root)
+
+        register_suggestion_store_factory(create_suggestion_store)
+
+        # 注册 LLM Engine 适配器工厂
+        from sprintcycle.domain.generic.ports.llm import register_engine_adapter_factory
+
+        def create_engine_adapter(engine: str, config: Any):
+            from sprintcycle.infrastructure.adapters.generic.llm.engine_adapters import resolve_engine_adapter as _resolve
+            from sprintcycle.infrastructure.adapters.generic.llm.engine_adapters import EngineAdapterConfig as InfraConfig
+
+            return _resolve(
+                engine,
+                InfraConfig(
+                    timeout_seconds=config.timeout_seconds,
+                    cwd=config.cwd,
+                    max_output_chars=config.max_output_chars,
+                ),
+            )
+
+        register_engine_adapter_factory(create_engine_adapter)
+
+        # 注册 Observability 门面工厂
+        from sprintcycle.domain.generic.ports.observability import register_observability_facade_factory
+
+        def create_observability_facade(project_path: Optional[str] = None, config: Any = None):
+            from sprintcycle.infrastructure.adapters.generic.observability.facade import ObservabilityFacade
+            return ObservabilityFacade()
+
+        register_observability_facade_factory(create_observability_facade)
+
+        # 注册 Knowledge 持久化工厂
+        from sprintcycle.domain.generic.ports.knowledge import (
+            register_knowledge_repository_factory,
+            register_sprint_outcome_card_factory,
+        )
+
+        def create_knowledge_repository(db_path: Optional[str] = None):
+            from sprintcycle.infrastructure.adapters.generic.knowledge.knowledge_repository import KnowledgeCardRepository
+            path = db_path or ".sprintcycle/knowledge.db"
+            return KnowledgeCardRepository(path)
+
+        register_knowledge_repository_factory(create_knowledge_repository)
+
+        def create_sprint_outcome_card_persister():
+            from sprintcycle.infrastructure.adapters.generic.knowledge.sprint_knowledge_card import persist_sprint_outcome_card
+            from sprintcycle.domain.generic.ports.knowledge import SprintOutcomeCardAdapter
+            return SprintOutcomeCardAdapter(persist_sprint_outcome_card)
+
+        register_sprint_outcome_card_factory(create_sprint_outcome_card_persister)
+
         # 注册 Integrations 工厂
         from sprintcycle.domain.generic.ports.integrations import (
-            register_compile_intent_graph_factory,
-            register_compile_sprint_graph_factory,
+            register_autogpt_compose_factory,
+            register_autogpt_runtime_factory,
+            register_langgraph_adapter_factory,
+            register_compiled_graph_runtime_factory,
+            register_compiled_sprint_graph_factory,
             register_plan_runtime_factory,
+            register_phoenix_exporter_factory,
+            register_phoenix_trace_factory,
         )
         from sprintcycle.infrastructure.adapters.generic.integrations.langgraph.compiler import (
             compile_intent_graph,
             compile_sprint_graph,
-            PlanRuntime,
         )
+        from sprintcycle.infrastructure.adapters.generic.integrations.langgraph.plan_runtime import PlanRuntime
 
-        register_compile_intent_graph_factory(compile_intent_graph)
-        register_compile_sprint_graph_factory(compile_sprint_graph)
+        def create_autogpt_compose_spec(project_name: str):
+            from sprintcycle.infrastructure.adapters.generic.integrations.autogpt.compose import build_default_compose_spec
+            return build_default_compose_spec(project_name)
+
+        def create_autogpt_runtime_spec(project_name: str):
+            from sprintcycle.infrastructure.adapters.generic.integrations.autogpt.runtime import AutoGPTRuntimeSpec
+            return AutoGPTRuntimeSpec(project_name=project_name)
+
+        def create_langgraph_adapter(graph_name: str):
+            from sprintcycle.infrastructure.adapters.generic.integrations.langgraph.adapter import LangGraphExecutionAdapter
+            return LangGraphExecutionAdapter(graph_name=graph_name)
+
+        def create_phoenix_exporter_spec(project_name: str):
+            from sprintcycle.infrastructure.adapters.generic.integrations.phoenix.exporter import PhoenixExporterSpec
+            return PhoenixExporterSpec(project_name=project_name)
+
+        def create_phoenix_trace_runtime(exporter_spec: Any):
+            from sprintcycle.infrastructure.adapters.generic.integrations.phoenix.trace_runtime import PhoenixTraceRuntime
+            return PhoenixTraceRuntime(exporter_spec)
+
+        register_autogpt_compose_factory(create_autogpt_compose_spec)
+        register_autogpt_runtime_factory(create_autogpt_runtime_spec)
+        register_langgraph_adapter_factory(create_langgraph_adapter)
+        register_compiled_graph_runtime_factory(compile_intent_graph)
+        register_compiled_sprint_graph_factory(compile_sprint_graph)
 
         def create_plan_runtime(**kwargs):
             return PlanRuntime(**kwargs)
 
         register_plan_runtime_factory(create_plan_runtime)
+        register_phoenix_exporter_factory(create_phoenix_exporter_spec)
+        register_phoenix_trace_factory(create_phoenix_trace_runtime)
 
         # 获取状态存储
         from sprintcycle.domain.generic.ports.state_store import get_state_store
         self._state_store = get_state_store()
-        
-        # 注册 RuntimeConfig 工厂（DDD 依赖倒置）
-        from sprintcycle.domain.generic.ports.config import register_runtime_config_factory
-        
-        def create_runtime_config(project_path: str):
-            return RuntimeConfig.from_project(project_path)
-        
-        register_runtime_config_factory(create_runtime_config)
         
         # 初始化 config service（通过端口工厂注入）
         self._config_service = ConfigService(self.project_path)
@@ -197,12 +313,6 @@ class HTTPServices:
         # 初始化 Repair Orchestration（需要先于 LifecycleDelivery）
         self._repair_orchestration = RepairOrchestrationService(
             observability=self._observability,
-        )
-        
-        # 初始化 Lifecycle Contract（需要先于 LifecycleDelivery）
-        self._lifecycle_contract = LifecycleContractAssemblyService(
-            project_path=self.project_path,
-            config=self.config,
         )
         
         # 初始化 application 服务
@@ -247,6 +357,29 @@ class HTTPServices:
             promotion_policy=PromotionPolicy(),
         )
         
+        # 初始化 Web Lifecycle Orchestration（需要先于 LifecycleContractAssembly）
+        from sprintcycle.application.services.lifecycle.web_lifecycle_orchestration_service import WebLifecycleOrchestrationService
+        self._web_lifecycle = WebLifecycleOrchestrationService(
+            project_path=self.project_path,
+            start_execution_run=lambda *args, **kwargs: self._execution_lifecycle.start_execution_run(*args, **kwargs),
+            runtime_lifecycle=lambda eid: self._execution_lifecycle.status(eid),
+            observability_trace=lambda eid: self._observability_service.trace(eid),
+            evaluate_sprint_contract=lambda payload: self._lifecycle_contract.evaluate_sprint_contract(payload),
+        )
+        
+        # 初始化 Lifecycle Contract（需要先于 LifecycleDelivery）
+        self._lifecycle_contract = LifecycleContractAssemblyService(
+            project_path=self.project_path,
+            execution_detail=lambda eid, limit: self._execution_lifecycle.execution_detail(eid, limit=limit),
+            runtime_lifecycle=lambda eid: self._execution_lifecycle.status(eid),
+            suggestion_overview_payload=lambda: self._management_overview.suggestion_overview(),
+            governance_orchestration=self._governance_orchestration,
+            lifecycle_evolution=self._lifecycle_evolution,
+            web_lifecycle=self._web_lifecycle,
+            deliver_runtime_governance_promotion=lambda eid, **kwargs: self._lifecycle_delivery.deliver_runtime_governance_promotion(eid, **kwargs),
+        )
+        
+        # 需要在 LifecycleContractAssembly 之后初始化，因为它引用了 lifecycle_contract
         self._lifecycle_delivery = LifecycleDeliveryService(
             project_path=self.project_path,
             runtime_registry=self._runtime_registry,
@@ -258,7 +391,7 @@ class HTTPServices:
             observability_trace=lambda eid: self._observability_service.trace(eid),
             observe_execution=lambda eid: self._execution_lifecycle.execution_detail(eid),
             deploy_view=lambda: self._dashboard_views.deploy_view({}),
-            lifecycle_contract=lambda rid: self._lifecycle_contract.assembly(rid),
+            lifecycle_contract=lambda rid: self._lifecycle_contract.assemble(rid),
             evaluate_promotion=lambda eid, **kwargs: self._lifecycle_evolution.promote(eid, **kwargs),
         )
         
@@ -374,6 +507,9 @@ class HTTPServices:
 
     def architecture_check(self) -> Any:
         return self._governance_orchestration.architecture_check()
+
+    async def governance_check(self, gate: str = "review") -> Any:
+        return await self._governance_orchestration.check_and_persist(gate=gate)
 
     def evolution_overview(self) -> Any:
         return self._lifecycle_evolution.overview()

@@ -55,19 +55,12 @@ def resolve_engine_adapter(
     engine: str,
     config: EngineAdapterConfig,
 ) -> EngineAdapterProtocol:
-    """解析引擎适配器（延迟导入避免循环依赖）"""
+    """解析引擎适配器"""
     if _engine_adapter_factory is not None:
         return _engine_adapter_factory(engine, config)
-    from sprintcycle.infrastructure.adapters.generic.llm.engine_adapters import resolve_engine_adapter as _resolve
-    from sprintcycle.infrastructure.adapters.generic.llm.engine_adapters import EngineAdapterConfig as InfraConfig
-
-    return _resolve(
-        engine,
-        InfraConfig(
-            timeout_seconds=config.timeout_seconds,
-            cwd=config.cwd,
-            max_output_chars=config.max_output_chars,
-        ),
+    raise RuntimeError(
+        "Engine adapter factory not registered. "
+        "Please call register_engine_adapter_factory() from Infrastructure layer before using."
     )
 
 
