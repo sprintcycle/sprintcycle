@@ -14,13 +14,13 @@ from uuid import uuid4
 from loguru import logger
 
 from sprintcycle.domain.core.execution.core.events import Event, EventType, ExecutionEventBackend
+from sprintcycle.domain.generic.ports.config import RuntimeConfigProtocol
 from .context import build_replay_context, merge_correction_into_context, summarize_context_diff
 from .decision_normalize import normalize_hitl_decision_with_intent, validate_hitl_decision_for_submit
 from .events import HitlEventType
 from .types import HitlCorrection, HitlDecision, HitlGate, HitlReplayDirective, HitlRequestRecord, HitlRiskLevel
 
 if TYPE_CHECKING:
-    from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
     from sprintcycle.domain.generic.ports.hitl import HitlStoreProtocol
 
 
@@ -30,7 +30,7 @@ def _create_hitl_store(project_path: str) -> "HitlStoreProtocol":
     return get_hitl_store(project_path)
 
 
-def _timeout_decision(config: "RuntimeConfig") -> HitlDecision:
+def _timeout_decision(config: RuntimeConfigProtocol) -> HitlDecision:
     b = (getattr(config, "hitl_timeout_behavior", None) or "approve").strip().lower()
     if b in ("abort_execution", "abort"):
         return HitlDecision.ABORT_EXECUTION
@@ -50,7 +50,7 @@ class HitlCoordinator:
         self,
         *,
         project_root: str,
-        config: "RuntimeConfig",
+        config: RuntimeConfigProtocol,
         event_bus: ExecutionEventBackend,
         store: "HitlStoreProtocol",
     ) -> None:
@@ -279,7 +279,7 @@ class HitlCoordinator:
 
 def create_hitl_coordinator(
     project_root: str,
-    config: "RuntimeConfig",
+    config: RuntimeConfigProtocol,
     event_bus: ExecutionEventBackend,
 ) -> Optional[HitlCoordinator]:
     if not getattr(config, "hitl_enabled", False):

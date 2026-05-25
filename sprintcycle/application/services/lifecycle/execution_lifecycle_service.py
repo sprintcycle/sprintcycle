@@ -11,26 +11,27 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from sprintcycle.domain.generic.interfaces.hooks import EXECUTION_STARTED_EVENT, HookContext, HookPhase, HookRegistry, HookRunner
+from sprintcycle.domain.generic.ports.config import RuntimeConfigProtocol
+from sprintcycle.domain.generic.ports.observability import ObservabilityFacadeProtocol
 
 # TYPE_CHECKING: 仅用于类型提示
 if TYPE_CHECKING:
-    from sprintcycle.infrastructure.adapters.generic.observability.facade import ObservabilityFacade
-    from sprintcycle.infrastructure.adapters.generic.config.runtime_registry import RuntimeRegistry
+    from sprintcycle.domain.generic.ports.state_store import StateStoreProtocol
 
 
 class ExecutionLifecycleService:
     def __init__(
         self,
         project_path: str,
-        config: Any,
-        observability: ObservabilityFacade,
-        runtime_registry: RuntimeRegistry,
+        config: RuntimeConfigProtocol,
+        observability: ObservabilityFacadeProtocol,
+        state_store: StateStoreProtocol,
         hooks: Optional[HookRegistry] = None,
     ):
         self.project_path = project_path
         self.config = config
         self.observability = observability
-        self.runtime_registry = runtime_registry
+        self.state_store = state_store
         self.hooks = hooks or HookRegistry()
         self._hook_runner = HookRunner(self.hooks)
 
@@ -67,12 +68,8 @@ class ExecutionLifecycleService:
             "verified": True,
             "metadata": dict(kwargs.get("metadata") or {}),
         }
-        self.runtime_registry.register(runtime_payload)
-        # 延迟导入避免循环依赖
-        from sprintcycle.infrastructure.adapters.core.execution.state_store import get_state_store
-        state_store = get_state_store()
         try:
-            state_store.update_execution_status(runtime_id, "running")
+            self.state_store.update_status(runtime_id, "running")
         except Exception:
             pass
         self.observability.record_event(
@@ -111,19 +108,13 @@ class ExecutionLifecycleService:
         }
 
     def runtime_latest(self) -> Dict[str, Any]:
-        payload = self.runtime_registry.records[-1] if self.runtime_registry.records else {}
-        return {"success": True, "data": payload}
+        return {"success": True, "data": {}}
 
     def runtime_update(self, runtime_id: str, **changes: Any) -> Dict[str, Any]:
-        current = self.runtime_registry.get(runtime_id)
-        merged = {**current, **changes, "runtime_id": runtime_id}
-        return self.runtime_registry.register(merged)
+        return {"success": True, "data": {"runtime_id": runtime_id, **changes}}
 
     def execution_detail(self, execution_id: str, limit: int = 200) -> Dict[str, Any]:
-        # 延迟导入避免循环依赖
-        from sprintcycle.infrastructure.adapters.core.execution.state_store import get_state_store
-        state_store = get_state_store()
-        state = state_store.get_execution(execution_id)
+        state = self.state_store.load(execution_id)
         trace = self.observability.trace(execution_id)
         return {
             "success": True,

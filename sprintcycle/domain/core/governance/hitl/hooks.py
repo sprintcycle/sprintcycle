@@ -14,6 +14,7 @@ from loguru import logger
 from sprintcycle.domain.generic.models import ReleasePlan, SprintBacklogItem, SprintDefinition
 from sprintcycle.domain.generic.interfaces import SprintLifecycleHookProtocol, TaskLifecycleHookProtocol
 from sprintcycle.domain.generic.interfaces import ExecutionStatus, TaskResult, SprintResult
+from sprintcycle.domain.generic.ports.config import RuntimeConfigProtocol
 from .types import (
     CTX_HITL_ABORT_EXECUTION,
     HitlDecision,
@@ -24,14 +25,13 @@ from .types import (
 )
 
 if TYPE_CHECKING:
-    from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
     from sprintcycle.domain.generic.ports.observability import ObservabilityFacadeProtocol
 
 
 class HitlSprintHooks(SprintLifecycleHookProtocol):
     """HITL Sprint 钩子 - 实现协议接口"""
     
-    def __init__(self, config: "RuntimeConfig", observability: "ObservabilityFacadeProtocol") -> None:
+    def __init__(self, config: RuntimeConfigProtocol, observability: "ObservabilityFacadeProtocol") -> None:
         self._config = config
         self._observability = observability
 
@@ -116,7 +116,7 @@ class HitlSprintHooks(SprintLifecycleHookProtocol):
 class HitlTaskHooks(TaskLifecycleHookProtocol):
     """HITL Task 钩子 - 实现协议接口"""
     
-    def __init__(self, config: "RuntimeConfig", observability: "ObservabilityFacadeProtocol") -> None:
+    def __init__(self, config: RuntimeConfigProtocol, observability: "ObservabilityFacadeProtocol") -> None:
         self._config = config
         self._observability = observability
 

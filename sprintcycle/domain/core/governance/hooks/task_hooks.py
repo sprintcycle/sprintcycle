@@ -15,13 +15,11 @@ from loguru import logger
 from sprintcycle.domain.generic.models import SprintBacklogItem
 from sprintcycle.domain.generic.interfaces import TaskLifecycleHookProtocol, ExecutionEventProtocol
 from sprintcycle.domain.generic.interfaces import ExecutionStatus, TaskResult
+from sprintcycle.domain.generic.ports.config import RuntimeConfigProtocol
 from ..hitl import HitlGate, HitlService, create_hitl_coordinator, evaluate_hitl_policy
 from sprintcycle.domain.core.governance.arch_guard.model import GuardFinding as GovernanceViolation
 from ..arch_guard.yaml_checks import checks_for_gate, filter_argv_items_by_governance_sources, run_argv_item
 from sprintcycle.domain.core.governance.core import load_merged_governance_data
-
-if TYPE_CHECKING:
-    from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
 
 
 class GovernanceTaskLifecycleHooks(TaskLifecycleHookProtocol):
@@ -29,7 +27,7 @@ class GovernanceTaskLifecycleHooks(TaskLifecycleHookProtocol):
 
     def __init__(
         self,
-        config: "RuntimeConfig",
+        config: RuntimeConfigProtocol,
         project_root: str,
     ):
         self._config = config

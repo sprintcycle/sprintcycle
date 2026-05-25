@@ -19,6 +19,14 @@ from sprintcycle.domain.core.governance.quality_spec.context import build_qualit
 from sprintcycle.domain.core.governance.quality_spec.rules.planning_rules import default_planning_rules
 from sprintcycle.domain.core.governance.quality_spec.spec.task_spec import TaskSpec
 from sprintcycle.domain.core.execution.core.static_analyzer import AnalysisConfig, StaticAnalyzer
+from sprintcycle.domain.generic.ports.config import RuntimeConfigProtocol
+from sprintcycle.domain.generic.ports.governance import (
+    get_archguard_adapter,
+    get_grimp_adapter,
+    get_import_linter_adapter,
+    get_ruff_adapter,
+    get_typecheck_adapter,
+)
 from ..arch_guard.adr_check import check_adr_readme_index, check_adr_readme_strict_glob
 from ..arch_guard.argv_extensions import extend_argv_items_with_plugins
 from ..arch_guard.compose_hint import check_compose_hints, check_compose_supply_chain_hints
@@ -33,40 +41,34 @@ from ..arch_guard.yaml_checks import checks_for_gate, filter_argv_items_by_gover
 from ..hitl import HitlDecision, HitlGate, HitlPolicyResult, evaluate_hitl_policy
 from ..hitl.facade import HitlFacade, create_hitl_facade
 
-if TYPE_CHECKING:
-    from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
-
 
 def _runs_architecture_guard(project_path: str) -> bool:
-    """检查是否运行架构守卫（延迟导入）"""
-    from sprintcycle.infrastructure.adapters.generic.config.quality import runs_architecture_guard
+    """检查是否运行架构守卫（通过 Port 接口）"""
+    from sprintcycle.domain.generic.ports.governance import runs_architecture_guard
     return runs_architecture_guard(project_path)
 
 
 def _runs_pytest(project_path: str) -> bool:
-    """检查是否运行 pytest（延迟导入）"""
-    from sprintcycle.infrastructure.adapters.generic.config.quality import runs_pytest
+    """检查是否运行 pytest（通过 Port 接口）"""
+    from sprintcycle.domain.generic.ports.governance import runs_pytest
     return runs_pytest(project_path)
 
 
 def _runs_static_gate(project_path: str) -> bool:
-    """检查是否运行静态门检查（延迟导入）"""
-    from sprintcycle.infrastructure.adapters.generic.config.quality import runs_static_gate
+    """检查是否运行静态门检查（通过 Port 接口）"""
+    from sprintcycle.domain.generic.ports.governance import runs_static_gate
     return runs_static_gate(project_path)
 
 
-def create_observability_facade(project_path: str, cfg: "RuntimeConfig") -> HitlFacade:
+def create_observability_facade(project_path: str, cfg: RuntimeConfigProtocol) -> HitlFacade:
     """Compatibility alias: governance runner HITL path uses the hitl facade."""
     return create_hitl_facade(project_path, cfg)
 
 
 from sprintcycle.domain.core.governance.core.yaml_merge import load_merged_governance_data
 
-if TYPE_CHECKING:
-    from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
 
-
-def _maybe_downgrade_errors_to_warnings(cfg: "RuntimeConfig", findings: List[GuardFinding]) -> None:
+def _maybe_downgrade_errors_to_warnings(cfg: RuntimeConfigProtocol, findings: List[GuardFinding]) -> None:
     """保守「仅观察」：将 error 降为 warning，避免 has_error_severity / 阻断语义误伤。"""
     if not getattr(cfg, "governance_downgrade_errors_to_warnings", False):
         return
@@ -101,7 +103,7 @@ def _truncate(s: str, max_len: int = 4000) -> str:
 class GovernanceRunner:
     """对项目根目录执行 Planning / Review 治理检查。"""
 
-    def __init__(self, runtime_config: "RuntimeConfig"):
+    def __init__(self, runtime_config: RuntimeConfigProtocol):
         self._cfg = runtime_config
         self._observability: Optional[HitlFacade] = None
 
@@ -524,17 +526,17 @@ class GovernanceRunner:
 
 def run_planning_gate_sync(
     project_path: str,
-    runtime_config: "RuntimeConfig",
+    runtime_config: RuntimeConfigProtocol,
     extra_context: Optional[Dict[str, Any]] = None,
 ) -> GuardReport:
     return asyncio.run(GovernanceRunner(runtime_config).run_planning_gate(project_path, extra_context=extra_context))
 
 
-def run_review_gate_sync(project_path: str, runtime_config: "RuntimeConfig") -> GuardReport:
+def run_review_gate_sync(project_path: str, runtime_config: RuntimeConfigProtocol) -> GuardReport:
     return asyncio.run(GovernanceRunner(runtime_config).run_review_gate(project_path))
 
 
-def persist_report(report: GuardReport, project_path: str, runtime_config: "RuntimeConfig") -> Optional[Path]:
+def persist_report(report: GuardReport, project_path: str, runtime_config: RuntimeConfigProtocol) -> Optional[Path]:
     """将最近一次报告写入 ``<report_dir>/governance_last.json``。"""
     rel = getattr(runtime_config, "governance_report_dir", None) or ".sprintcycle"
     root = Path(project_path).expanduser().resolve()
@@ -555,7 +557,7 @@ def persist_report(report: GuardReport, project_path: str, runtime_config: "Runt
         return None
 
 
-def persist_planning_report(report: GuardReport, project_path: str, runtime_config: "RuntimeConfig") -> Optional[Path]:
+def persist_planning_report(report: GuardReport, project_path: str, runtime_config: RuntimeConfigProtocol) -> Optional[Path]:
     """将 Planning 门报告写入 ``<report_dir>/governance_planning_last.json``（与 Sprint 钩子路径一致）。"""
     rel = getattr(runtime_config, "governance_report_dir", None) or ".sprintcycle"
     root = Path(project_path).expanduser().resolve()
@@ -577,7 +579,7 @@ def persist_planning_report(report: GuardReport, project_path: str, runtime_conf
 
 def emit_governance_gate_cli_sync(
     project_path: str,
-    runtime_config: "RuntimeConfig",
+    runtime_config: RuntimeConfigProtocol,
     gate: str,
     report: GuardReport,
 ) -> None:
@@ -623,7 +625,7 @@ def emit_governance_gate_cli_sync(
 
 def run_governance_check_and_persist(
     project_path: str,
-    runtime_config: "RuntimeConfig",
+    runtime_config: RuntimeConfigProtocol,
     gate: str,
 ) -> Tuple[Optional[GuardReport], Optional[GuardReport], bool]:
     """执行 Planning/Review 门禁、落盘、可选 CLI 事件；返回报告与是否应按 block_on 视为失败。"""

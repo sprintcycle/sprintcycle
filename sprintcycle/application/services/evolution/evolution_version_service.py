@@ -5,10 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
-from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
-from sprintcycle.infrastructure.adapters.core.evolution.evolution_registry_access import (
+from sprintcycle.domain.generic.ports.config import RuntimeConfigProtocol
+from sprintcycle.domain.generic.ports.evolution import (
+    EvolutionRegistryProtocol,
     create_evolution_registry,
     evolution_sandbox_status,
+    get_version_manifest_summary,
 )
 from sprintcycle.application.dto.results import (
     EvolutionIndexResult,
@@ -21,16 +23,14 @@ from sprintcycle.application.dto.results import (
 
 @dataclass
 class EvolutionVersionService:
-    config: RuntimeConfig
-    registry: Any = None
+    config: RuntimeConfigProtocol
+    registry: EvolutionRegistryProtocol = None
 
     def __post_init__(self) -> None:
         if self.registry is None:
             self.registry = create_evolution_registry(self.config)
 
     async def get_version(self, version_id: str) -> EvolutionVersionSummary:
-        from sprintcycle.infrastructure.adapters.core.evolution.version_store.interface import get_version_manifest_summary
-
         payload = await get_version_manifest_summary(self.registry, version_id)
         return EvolutionVersionSummary(
             success=bool(payload.get("success")),

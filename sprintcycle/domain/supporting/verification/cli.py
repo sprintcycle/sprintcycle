@@ -7,7 +7,7 @@ from typing import Optional
 
 import click
 
-from sprintcycle.infrastructure.adapters.generic.config import RuntimeConfig
+from sprintcycle.domain.generic.ports.config import get_runtime_config
 from .config import VerificationConfig
 from .engine import VerificationEngine
 from .reporter import VerificationReportAdapter
@@ -32,7 +32,7 @@ def verification() -> None:
 def verification_check(
     project: Path, gate: str, json_output: bool, pytest_command: Optional[str], cli_command: Optional[str]
 ) -> None:
-    runtime_config = RuntimeConfig.from_project(str(project))
+    runtime_config = get_runtime_config(str(project))
     cfg = VerificationConfig.from_runtime_config(runtime_config, str(project))
     engine = VerificationEngine(cfg)
     context = {"project_path": str(project)}

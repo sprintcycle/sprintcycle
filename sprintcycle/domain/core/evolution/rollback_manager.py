@@ -15,11 +15,16 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 from loguru import logger
 
-if TYPE_CHECKING:
-    from sprintcycle.infrastructure.adapters.core.evolution.rollback_store.rollback_types import (
-        RollbackConfig as InfraRollbackConfig,
-        VariantBranch as InfraVariantBranch,
-    )
+from sprintcycle.domain.generic.ports.state_store import (
+    get_git_rollback_mixin,
+    get_rollback_config_cls,
+    get_rollback_error_cls,
+    get_variant_branch_cls,
+    get_is_git_repo_func,
+    get_run_git_func,
+    has_git_rollback,
+    register_rollback_implementations,
+)
 
 
 # 回滚相关类型的默认值（由 Infrastructure 层注入）
@@ -32,36 +37,18 @@ _run_git: Optional[Callable[..., Any]] = None
 HAS_GIT_ROLLBACK: bool = False
 
 
-def register_rollback_implementations(
-    implementations: Dict[str, Any],
-) -> None:
-    """注册回滚实现（由 Infrastructure 层调用）。
-
-    Args:
-        implementations: 包含以下键的字典:
-            - GitRollbackMixin: Git 回滚 mixin 类
-            - RollbackConfig: 回滚配置类
-            - RollbackError: 回滚错误异常类
-            - VariantBranch: 分支记录数据类
-            - _is_git_repo: 判断是否为 git 仓库的函数
-            - _run_git: 执行 git 命令的函数
-    """
+def _sync_rollback_implementations() -> None:
+    """同步回滚实现（从 Port 层获取）"""
     global GitRollbackMixin, RollbackConfig, RollbackError, VariantBranch
     global _is_git_repo, _run_git, HAS_GIT_ROLLBACK
 
-    GitRollbackMixin = implementations.get("GitRollbackMixin", object)
-    RollbackConfig = implementations.get("RollbackConfig")
-    RollbackError = implementations.get("RollbackError", Exception)
-    VariantBranch = implementations.get("VariantBranch")
-    _is_git_repo = implementations.get("_is_git_repo")
-    _run_git = implementations.get("_run_git")
-    HAS_GIT_ROLLBACK = all([
-        GitRollbackMixin is not object,
-        RollbackConfig is not None,
-        VariantBranch is not None,
-        _is_git_repo is not None,
-        _run_git is not None,
-    ])
+    GitRollbackMixin = get_git_rollback_mixin()
+    RollbackConfig = get_rollback_config_cls()
+    RollbackError = get_rollback_error_cls()
+    VariantBranch = get_variant_branch_cls()
+    _is_git_repo = get_is_git_repo_func()
+    _run_git = get_run_git_func()
+    HAS_GIT_ROLLBACK = has_git_rollback()
 
 
 def _default_is_git_repo(repo_path: str) -> bool:

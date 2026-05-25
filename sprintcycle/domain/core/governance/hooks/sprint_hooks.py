@@ -15,6 +15,7 @@ from loguru import logger
 from sprintcycle.domain.generic.models import ReleasePlan, SprintDefinition
 from sprintcycle.domain.generic.interfaces import SprintLifecycleHookProtocol, ExecutionEventProtocol
 from sprintcycle.domain.generic.interfaces import SprintResult
+from sprintcycle.domain.generic.ports.config import RuntimeConfigProtocol
 from ..arch_guard.config import ArchGuardConfig
 from ..arch_guard.engine import ArchGuardEngine
 from ..arch_guard.reporter import GovernanceReportAdapter
@@ -22,7 +23,6 @@ from sprintcycle.domain.core.governance.arch_guard.model import GuardReport as G
 from sprintcycle.domain.core.governance.core import persist_planning_report, persist_report
 
 if TYPE_CHECKING:
-    from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
     from sprintcycle.domain.generic.ports.observability import ObservabilityFacadeProtocol
 
 
@@ -32,7 +32,7 @@ class GovernanceSprintHooks(SprintLifecycleHookProtocol):
     def __init__(
         self,
         project_path: str,
-        config: "RuntimeConfig",
+        config: RuntimeConfigProtocol,
         observability: Optional["ObservabilityFacadeProtocol"] = None,
     ):
         self._project_path = project_path
