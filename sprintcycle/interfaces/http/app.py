@@ -8,10 +8,16 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from sprintcycle.application.http_factories import create_http_services
-from sprintcycle.infrastructure.adapters.generic.config.runtime_config import DashboardPortDefaults
 
-from .internal import build_internal_router
-from .public import build_public_router
+from .dashboard import (
+    build_governance_router,
+    build_execution_router,
+    build_platform_router,
+    build_config_router,
+    build_overview_router,
+)
+from .public.execution import build_public_execution_router
+from .public.health import build_health_router
 
 _DASHBOARD_DEV = os.environ.get("SPRINTCYCLE_ENV", "production") == "development"
 
@@ -22,7 +28,8 @@ def create_app(project_path: str = ".") -> FastAPI:
     app = FastAPI(title="SprintCycle Console", version="0.9.2")
 
     if _DASHBOARD_DEV:
-        _p = DashboardPortDefaults.dev_port
+        # 常见的前端开发端口
+        _p = 5173
         app.add_middleware(
             CORSMiddleware,
             allow_origins=[f"http://127.0.0.1:{_p}", f"http://localhost:{_p}"],
@@ -31,8 +38,15 @@ def create_app(project_path: str = ".") -> FastAPI:
             allow_headers=["*"],
         )
 
-    # 注册路由
-    app.include_router(build_public_router(http_services, project_path))
-    app.include_router(build_internal_router(http_services, project_path))
+    # 注册路由 - 先注册 health 检查
+    app.include_router(build_health_router())
+    # 然后注册 public API
+    app.include_router(build_public_execution_router(http_services, project_path))
+    # 最后注册 dashboard 路由
+    app.include_router(build_governance_router(http_services, project_path))
+    app.include_router(build_execution_router(http_services, project_path))
+    app.include_router(build_platform_router(http_services, project_path))
+    app.include_router(build_config_router(http_services, project_path))
+    app.include_router(build_overview_router(http_services, project_path))
 
     return app

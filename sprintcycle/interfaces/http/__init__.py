@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from .app import create_app
-from .internal import build_internal_router
-from .public import build_public_router
+from .internal_compat import build_internal_router
+from .public_compat import build_public_router
 
 __all__ = ["build_internal_router", "build_public_router", "create_app"]
+

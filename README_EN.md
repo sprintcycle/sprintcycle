@@ -287,6 +287,21 @@ sprintcycle/
 │   │   └── utils/           # Utility functions
 │   └── factory.py           # Adapter creation factory
 └── interfaces/               # HTTP interface layer (public / internal)
+    ├── app.py               # FastAPI application factory
+    ├── __init__.py          # Package exports
+    ├── internal_compat.py    # Backward compatibility for internal routes
+    ├── public_compat.py     # Backward compatibility for public routes
+    ├── dashboard/           # Dashboard-specific HTTP routes (Frontend control surface)
+    │   ├── __init__.py      # Module exports
+    │   ├── config.py        # Configuration management endpoints
+    │   ├── execution.py     # Execution detail and lifecycle endpoints
+    │   ├── governance.py    # Governance check and history endpoints
+    │   ├── overview.py      # Console overview and home endpoints
+    │   └── platform.py      # Platform workspace and summary endpoints
+    └── public/              # Public API endpoints (External integrations)
+        ├── __init__.py      # Module exports
+        ├── execution.py     # Plan, run, status, rollback, stop endpoints
+        └── health.py        # Health check endpoint
 ```
 
 ---

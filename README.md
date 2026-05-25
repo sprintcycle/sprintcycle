@@ -484,6 +484,21 @@ sprintcycle/
 │   │   └── utils/           # 工具函数
 │   └── factory.py           # 适配器创建工厂
 └── interfaces/              # HTTP 接口层（public / internal）
+    ├── app.py               # FastAPI 应用工厂
+    ├── __init__.py          # 包导出
+    ├── internal_compat.py    # 内部路由向后兼容
+    ├── public_compat.py     # 公共路由向后兼容
+    ├── dashboard/           # Dashboard 专用 HTTP 路由（前端控制台）
+    │   ├── __init__.py      # 模块导出
+    │   ├── config.py        # 配置管理端点
+    │   ├── execution.py     # 执行详情与生命周期端点
+    │   ├── governance.py    # 治理检查与历史端点
+    │   ├── overview.py      # 控制台概览与首页端点
+    │   └── platform.py      # 平台工作区与摘要端点
+    └── public/              # 公共 API 端点（外部集成）
+        ├── __init__.py      # 模块导出
+        ├── execution.py     # Plan、run、status、rollback、stop 端点
+        └── health.py        # 健康检查端点
 ```
 
 ---

@@ -1,0 +1,156 @@
+"""Governance dashboard routes.
+
+HTTP endpoints for governance-related dashboard pages.
+"""
+
+from __future__ import annotations
+
+import asyncio
+from pathlib import Path
+from typing import Any, Dict
+
+from fastapi import APIRouter, Request
+
+from sprintcycle.application.http_factories import HTTPServices
+from sprintcycle.application.request_context import RequestContext
+from sprintcycle.domain.core.governance.core.runner import run_governance_check_and_persist
+from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
+from sprintcycle.infrastructure.adapters.generic.config.rate_limit import check_rate_limit
+from sprintcycle.infrastructure.adapters.generic.integrations.audit import record_audit_event
+
+
+def build_governance_router(services: HTTPServices, project_path: str) -> APIRouter:
+    """Build governance dashboard router.
+
+    Args:
+        services: HTTP services instance.
+        project_path: Project root path.
+
+    Returns:
+        APIRouter: Governance routes router.
+    """
+    router = APIRouter()
+
+    def _ctx(request: Request) -> RequestContext:
+        return RequestContext(
+            request_id=request.headers.get("x-request-id", ""),
+            trace_id=request.headers.get("x-trace-id", ""),
+            caller=request.client.host if request.client else "",
+            project_path=project_path,
+            client_type=request.headers.get("x-client-type", "dashboard"),
+        )
+
+    @router.get("/api/governance/latest")
+    async def governance_latest(request: Request) -> dict:
+        """Get latest governance reports.
+
+        Args:
+            request: FastAPI request object.
+
+        Returns:
+            dict: Latest planning and review governance reports.
+        """
+        ctx = _ctx(request)
+        check_rate_limit(request, route="/api/governance/latest", context=ctx)
+        cfg = RuntimeConfig.from_project(project_path)
+        root = Path(project_path).expanduser().resolve()
+        rel = (cfg.governance_report_dir or ".sprintcycle").strip() or ".sprintcycle"
+        out_dir = (root / rel).resolve() if not Path(rel).is_absolute() else Path(rel)
+        last = out_dir / "governance_last.json"
+        planning = out_dir / "governance_planning_last.json"
+        if not last.is_file() and not planning.is_file():
+            raise FileNotFoundError("未找到治理报告")
+        payload: Dict[str, Any] = {}
+        if planning.is_file():
+            payload["planning"] = planning.read_text(encoding="utf-8")
+        if last.is_file():
+            payload["review"] = last.read_text(encoding="utf-8")
+        record_audit_event(
+            request_id=ctx.request_id,
+            actor=ctx.caller,
+            action="internal.governance_reports",
+            resource="/api/governance/latest",
+            outcome="success",
+        )
+        return payload
+
+    @router.get("/api/governance/history")
+    async def governance_history(request: Request, limit: int = 50) -> dict:
+        """Get governance history.
+
+        Args:
+            request: FastAPI request object.
+            limit: Maximum number of history items.
+
+        Returns:
+            dict: Governance history.
+        """
+        ctx = _ctx(request)
+        check_rate_limit(request, route="/api/governance/history", context=ctx)
+        result = await services.governance_history(limit=limit)
+        record_audit_event(
+            request_id=ctx.request_id,
+            actor=ctx.caller,
+            action="internal.governance_history",
+            resource="/api/governance/history",
+            outcome="success",
+        )
+        return result
+
+    @router.post("/api/governance/check")
+    async def governance_check(request: Request, body: dict) -> dict:
+        """Run governance check.
+
+        Args:
+            request: FastAPI request object.
+            body: Request body with gate type.
+
+        Returns:
+            dict: Governance check results.
+        """
+        ctx = _ctx(request)
+        check_rate_limit(request, route="/api/governance/check", context=ctx)
+        cfg = RuntimeConfig.from_project(project_path)
+        planning_report, review_report, fail = await asyncio.to_thread(
+            run_governance_check_and_persist,
+            project_path,
+            cfg,
+            body.get("gate", "review"),
+        )
+        out = {"should_fail_ci": fail, "gate": body.get("gate", "review")}
+        if planning_report is not None:
+            out["planning"] = planning_report.to_dict()
+        if review_report is not None:
+            out["review"] = review_report.to_dict()
+        record_audit_event(
+            request_id=ctx.request_id,
+            actor=ctx.caller,
+            action="internal.governance_check",
+            resource="/api/governance/check",
+            outcome="success",
+        )
+        return out
+
+    @router.get("/api/dashboard/governance")
+    async def dashboard_governance(request: Request) -> dict:
+        """Get dashboard governance view.
+
+        Args:
+            request: FastAPI request object.
+
+        Returns:
+            dict: Governance view data.
+        """
+        ctx = _ctx(request)
+        check_rate_limit(request, route="/api/dashboard/governance", context=ctx)
+        result = services.governance_view()
+        record_audit_event(
+            request_id=ctx.request_id,
+            actor=ctx.caller,
+            action="internal.governance_view",
+            resource="/api/dashboard/governance",
+            outcome="success",
+        )
+        return result
+
+    return router

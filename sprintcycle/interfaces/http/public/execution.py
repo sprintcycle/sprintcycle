@@ -1,46 +1,58 @@
-"""Public HTTP routes for external integrations."""
+"""Public execution API routes.
+
+HTTP endpoints for external execution API.
+"""
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 from fastapi import APIRouter, Request
 
 from sprintcycle.application.http_factories import HTTPServices
 from sprintcycle.application.request_context import RequestContext
-from sprintcycle.infrastructure.adapters.generic.integrations.audit import record_audit_event
+from sprintcycle.application.sprint_orchestrator import SprintOrchestrator
+from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
 from sprintcycle.infrastructure.adapters.generic.config.rate_limit import check_rate_limit
+from sprintcycle.infrastructure.adapters.generic.integrations.audit import record_audit_event
 
 
-class _PublicRouteDeps:
-    def __init__(self, services: HTTPServices, project_path: str):
-        self.services = services
-        self.project_path = project_path
+def build_public_execution_router(services: HTTPServices, project_path: str) -> APIRouter:
+    """Build public execution router.
 
+    Args:
+        services: HTTP services instance.
+        project_path: Project root path.
 
-def build_public_router(services: HTTPServices, project_path: str) -> APIRouter:
+    Returns:
+        APIRouter: Public execution routes router.
+    """
     router = APIRouter(prefix="/api/v1")
-    deps = _PublicRouteDeps(services, project_path)
 
     def _ctx(request: Request) -> RequestContext:
         return RequestContext(
             request_id=request.headers.get("x-request-id", ""),
             trace_id=request.headers.get("x-trace-id", ""),
             caller=request.client.host if request.client else "",
-            project_path=deps.project_path,
+            project_path=project_path,
             client_type=request.headers.get("x-client-type", "public"),
         )
 
     @router.post("/plan")
     async def plan(request: Request, payload: dict) -> dict:
+        """Plan an execution.
+
+        Args:
+            request: FastAPI request object.
+            payload: Plan request data.
+
+        Returns:
+            dict: Plan result.
+        """
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/v1/plan", context=ctx)
-        from sprintcycle.application.sprint_orchestrator import SprintOrchestrator
-        from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
-        
-        config = RuntimeConfig.from_project(deps.project_path)
-        orchestrator = SprintOrchestrator(project_path=deps.project_path, config=config)
-        
+        config = RuntimeConfig.from_project(project_path)
+        orchestrator = SprintOrchestrator(project_path=project_path, config=config)
         result = orchestrator.plan(
             intent=payload.get("intent", ""),
             mode=payload.get("mode", "auto"),
@@ -51,7 +63,6 @@ def build_public_router(services: HTTPServices, project_path: str) -> APIRouter:
             reference_paths=payload.get("reference_paths"),
             write_policy=payload.get("write_policy", "auto"),
         )
-        
         record_audit_event(
             request_id=ctx.request_id,
             actor=ctx.caller,
@@ -63,14 +74,19 @@ def build_public_router(services: HTTPServices, project_path: str) -> APIRouter:
 
     @router.post("/run")
     async def run(request: Request, payload: dict) -> dict:
+        """Run an execution.
+
+        Args:
+            request: FastAPI request object.
+            payload: Run request data.
+
+        Returns:
+            dict: Run result.
+        """
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/v1/run", context=ctx)
-        from sprintcycle.application.sprint_orchestrator import SprintOrchestrator
-        from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
-        
-        config = RuntimeConfig.from_project(deps.project_path)
-        orchestrator = SprintOrchestrator(project_path=deps.project_path, config=config)
-        
+        config = RuntimeConfig.from_project(project_path)
+        orchestrator = SprintOrchestrator(project_path=project_path, config=config)
         result = orchestrator.run(
             intent=payload.get("intent"),
             mode=payload.get("mode", "auto"),
@@ -83,17 +99,28 @@ def build_public_router(services: HTTPServices, project_path: str) -> APIRouter:
             reference_paths=payload.get("reference_paths"),
             write_policy=payload.get("write_policy", "auto"),
         )
-        
         record_audit_event(
-            request_id=ctx.request_id, actor=ctx.caller, action="public.run", resource="/api/v1/run", outcome="success"
+            request_id=ctx.request_id,
+            actor=ctx.caller,
+            action="public.run",
+            resource="/api/v1/run",
+            outcome="success",
         )
         return result.to_dict() if hasattr(result, "to_dict") else dict(result)
 
     @router.get("/diagnose")
     async def diagnose(request: Request) -> dict:
+        """Diagnose execution.
+
+        Args:
+            request: FastAPI request object.
+
+        Returns:
+            dict: Diagnosis result.
+        """
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/v1/diagnose", context=ctx)
-        result = deps.services.diagnose()
+        result = services.diagnose()
         record_audit_event(
             request_id=ctx.request_id,
             actor=ctx.caller,
@@ -105,9 +132,18 @@ def build_public_router(services: HTTPServices, project_path: str) -> APIRouter:
 
     @router.post("/status")
     async def status(request: Request, payload: dict) -> dict:
+        """Get execution status.
+
+        Args:
+            request: FastAPI request object.
+            payload: Status request data with execution_id.
+
+        Returns:
+            dict: Status result.
+        """
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/v1/status", context=ctx)
-        result = deps.services.status(execution_id=payload.get("execution_id", ""))
+        result = services.status(execution_id=payload.get("execution_id", ""))
         record_audit_event(
             request_id=ctx.request_id,
             actor=ctx.caller,
@@ -119,9 +155,18 @@ def build_public_router(services: HTTPServices, project_path: str) -> APIRouter:
 
     @router.post("/rollback")
     async def rollback(request: Request, payload: dict) -> dict:
+        """Rollback an execution.
+
+        Args:
+            request: FastAPI request object.
+            payload: Rollback request data with execution_id.
+
+        Returns:
+            dict: Rollback result.
+        """
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/v1/rollback", context=ctx)
-        result = deps.services.rollback(execution_id=payload.get("execution_id", ""))
+        result = services.rollback(execution_id=payload.get("execution_id", ""))
         record_audit_event(
             request_id=ctx.request_id,
             actor=ctx.caller,
@@ -133,9 +178,18 @@ def build_public_router(services: HTTPServices, project_path: str) -> APIRouter:
 
     @router.post("/stop")
     async def stop(request: Request, payload: dict) -> dict:
+        """Stop an execution.
+
+        Args:
+            request: FastAPI request object.
+            payload: Stop request data with execution_id.
+
+        Returns:
+            dict: Stop result.
+        """
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/v1/stop", context=ctx)
-        result = deps.services.stop(execution_id=payload.get("execution_id", ""))
+        result = services.stop(execution_id=payload.get("execution_id", ""))
         record_audit_event(
             request_id=ctx.request_id,
             actor=ctx.caller,
