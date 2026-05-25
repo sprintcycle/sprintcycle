@@ -3,12 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from sprintcycle.infrastructure.adapters.core.governance.arch_guard import (
-    ArchonAdapter,
-    GrimpAdapter,
-    ImportLinterAdapter,
-    RuffAdapter,
-    TypeCheckAdapter,
+from sprintcycle.domain.generic.ports.governance import (
+    get_archguard_adapter,
+    get_grimp_adapter,
+    get_import_linter_adapter,
+    get_ruff_adapter,
+    get_typecheck_adapter,
 )
 from .config import ArchGuardConfig
 from .invariants import (
@@ -30,11 +30,11 @@ class ArchGuardEngine:
     def __init__(self, config: ArchGuardConfig):
         self.config = config
         self.registry = GuardRegistry()
-        self._import_linter = ImportLinterAdapter()
-        self._grimp = GrimpAdapter()
-        self._archon = ArchonAdapter()
-        self._ruff = RuffAdapter()
-        self._typecheck = TypeCheckAdapter()
+        self._import_linter = get_import_linter_adapter()
+        self._grimp = get_grimp_adapter()
+        self._archon = get_archguard_adapter()
+        self._ruff = get_ruff_adapter()
+        self._typecheck = get_typecheck_adapter()
         self._register_builtin_rules()
         self._register_pack_rules()
 

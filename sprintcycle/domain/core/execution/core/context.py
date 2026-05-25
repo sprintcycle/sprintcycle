@@ -1,58 +1,107 @@
-"""Execution context for a single task run."""
+"""执行上下文类型。
+
+用于替代 SprintExecutor / SprintOrchestrator 中散落的 dict context，
+保留兼容字段，同时给 task / sprint 两层循环提供更明确的结构化输入。
+"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from typing import Any, Dict, Optional
-from uuid import uuid4
+
+from sprintcycle.domain.generic.models import ReleasePlan
 
 
 @dataclass
-class ExecutionContext:
-    run_id: str
-    task_id: str
-    project_path: str
-    suggestion_id: str = ""
-    evolution_id: str = ""
-    stage: str = "created"
-    step: str = ""
-    status: str = "created"
+class TaskExecutionContext:
+    project_path: str = "."
+    sprint_name: str = ""
+    sprint_index: int = 0
+    coding_engine: str = "cursor"
+    quality_level: str = "L1"
+    release_plan: Optional[ReleasePlan] = None
+    release_plan_name: str = ""
+    release_plan_id: str = ""
+    architecture_design: Optional[str] = None
+    dependencies: Dict[str, Any] = field(default_factory=dict)
+    codebase_context: Dict[str, Any] = field(default_factory=dict)
+    task_guidance: str = ""
+    verify_fix_notes: str = ""
+    improvement_suggestions: list[str] = field(default_factory=list)
+    retry_from_failure: bool = False
     metadata: Dict[str, Any] = field(default_factory=dict)
-    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-    updated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-    error: Optional[str] = None
+    config: Dict[str, Any] = field(default_factory=dict)
 
-    @classmethod
-    def create(cls, task_id: str, project_path: str, **kwargs: Any) -> "ExecutionContext":
-        run_id = str(kwargs.get("run_id") or task_id or uuid4())
-        return cls(
-            run_id=run_id,
-            task_id=task_id,
-            project_path=project_path,
-            suggestion_id=str(kwargs.get("suggestion_id") or ""),
-            evolution_id=str(kwargs.get("evolution_id") or ""),
-            stage=str(kwargs.get("stage") or "created"),
-            step=str(kwargs.get("step") or ""),
-            status=str(kwargs.get("status") or "created"),
-            metadata=dict(kwargs.get("metadata") or {}),
-        )
+    def to_agent_context_dict(self) -> Dict[str, Any]:
+        data: Dict[str, Any] = {
+            "project_path": self.project_path,
+            "sprint_name": self.sprint_name,
+            "sprint_index": self.sprint_index,
+            "coding_engine": self.coding_engine,
+            "quality_level": self.quality_level,
+            "release_plan": self.release_plan,
+            "release_plan_name": self.release_plan_name,
+            "release_plan_id": self.release_plan_id,
+            "architecture_design": self.architecture_design,
+            "dependencies": self.dependencies,
+            "task_guidance": self.task_guidance,
+            "verify_fix_notes": self.verify_fix_notes,
+            "improvement_suggestions": self.improvement_suggestions,
+            "retry_from_failure": self.retry_from_failure,
+            "config": self.config,
+            "metadata": self.metadata,
+        }
+        data.update(self.codebase_context)
+        return data
 
-    def touch(self) -> None:
-        self.updated_at = datetime.now(timezone.utc).isoformat()
+    def copy_with(self, **kwargs: Any) -> "TaskExecutionContext":
+        data = self.__dict__.copy()
+        data.update(kwargs)
+        return TaskExecutionContext(**data)
+
+
+@dataclass
+class SprintExecutionContext:
+    project_path: str = "."
+    release_plan: Optional[ReleasePlan] = None
+    release_plan_name: str = ""
+    release_plan_id: str = ""
+    coding_engine: str = "aider"
+    quality_level: str = "L1"
+    execution_id: str = ""
+    sprint_name: str = ""
+    sprint_index: int = 0
+    project_goals: str = ""
+    previous_feedback: Dict[str, Any] = field(default_factory=dict)
+    improvement_suggestions: list[str] = field(default_factory=list)
+    retry_feedback: Dict[str, Any] = field(default_factory=dict)
+    retry_from_failure: bool = False
+    extra: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
-            "run_id": self.run_id,
-            "task_id": self.task_id,
+        data: Dict[str, Any] = {
             "project_path": self.project_path,
-            "suggestion_id": self.suggestion_id,
-            "evolution_id": self.evolution_id,
-            "stage": self.stage,
-            "step": self.step,
-            "status": self.status,
-            "metadata": dict(self.metadata),
-            "created_at": self.created_at,
-            "updated_at": self.updated_at,
-            "error": self.error,
+            "release_plan": self.release_plan,
+            "release_plan_name": self.release_plan_name,
+            "release_plan_id": self.release_plan_id,
+            "coding_engine": self.coding_engine,
+            "quality_level": self.quality_level,
+            "execution_id": self.execution_id,
+            "sprint_name": self.sprint_name,
+            "sprint_index": self.sprint_index,
+            "project_goals": self.project_goals,
+            "previous_feedback": self.previous_feedback,
+            "improvement_suggestions": self.improvement_suggestions,
+            "retry_feedback": self.retry_feedback,
+            "retry_from_failure": self.retry_from_failure,
         }
+        data.update(self.extra)
+        return data
+
+    def copy_with(self, **kwargs: Any) -> "SprintExecutionContext":
+        data = self.__dict__.copy()
+        data.update(kwargs)
+        return SprintExecutionContext(**data)
+
+
+__all__ = ["TaskExecutionContext", "SprintExecutionContext"]

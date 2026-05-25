@@ -5,18 +5,23 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict
 
-from sprintcycle.infrastructure.adapters.generic.integrations.autogpt.deploy import AutoGPTDeploymentSpec
-from sprintcycle.infrastructure.adapters.generic.integrations.langgraph.adapter import LangGraphExecutionAdapter
-from sprintcycle.infrastructure.adapters.generic.integrations.phoenix.adapter import PhoenixObservabilityAdapter
+from sprintcycle.domain.generic.ports.integrations import (
+    AutoGPTRuntimeSpecProtocol,
+    LangGraphRuntimeAdapterProtocol,
+    PhoenixExporterSpecProtocol,
+    create_autogpt_runtime_spec,
+    create_langgraph_adapter,
+    create_phoenix_exporter_spec,
+)
 
 
 @dataclass
 class PlatformSpec:
     """Aggregated platform spec for deployment, execution and observability."""
 
-    deployment: AutoGPTDeploymentSpec = field(default_factory=AutoGPTDeploymentSpec)
-    execution: LangGraphExecutionAdapter = field(default_factory=LangGraphExecutionAdapter)
-    observability: PhoenixObservabilityAdapter = field(default_factory=PhoenixObservabilityAdapter)
+    deployment: AutoGPTRuntimeSpecProtocol
+    execution: LangGraphRuntimeAdapterProtocol
+    observability: PhoenixExporterSpecProtocol
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -27,9 +32,9 @@ class PlatformSpec:
 
 
 def build_platform_spec(project_name: str = "sprintcycle") -> PlatformSpec:
-    deployment = AutoGPTDeploymentSpec(project_name=project_name)
-    execution = LangGraphExecutionAdapter(graph_name=f"{project_name}-execution")
-    observability = PhoenixObservabilityAdapter(project_name=project_name)
+    deployment = create_autogpt_runtime_spec(project_name)
+    execution = create_langgraph_adapter(f"{project_name}-execution")
+    observability = create_phoenix_exporter_spec(project_name)
     return PlatformSpec(deployment=deployment, execution=execution, observability=observability)
 
 

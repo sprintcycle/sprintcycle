@@ -5,13 +5,17 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict
 
-from sprintcycle.infrastructure.adapters.generic.integrations.autogpt.compose import build_default_compose_spec
-from sprintcycle.infrastructure.adapters.generic.integrations.autogpt.runtime import AutoGPTRuntimeSpec
-from sprintcycle.infrastructure.adapters.generic.integrations.langgraph import LangGraphRuntimeAdapter, LangGraphRuntimeSpec
-from sprintcycle.infrastructure.adapters.generic.integrations.langgraph.compiler import compile_intent_graph, compile_sprint_graph
-from sprintcycle.infrastructure.adapters.generic.integrations.langgraph.plan_runtime import PlanRuntime
-from sprintcycle.infrastructure.adapters.generic.integrations.phoenix.exporter import PhoenixExporterSpec
-from sprintcycle.infrastructure.adapters.generic.integrations.phoenix.trace_runtime import PhoenixTraceRuntime
+from sprintcycle.domain.generic.ports.integrations import (
+    AutoGPTComposeSpecProtocol,
+    AutoGPTRuntimeSpecProtocol,
+    PhoenixExporterSpecProtocol,
+    PhoenixTraceRuntimeProtocol,
+    build_default_compose_spec,
+    create_autogpt_runtime_spec,
+    create_langgraph_adapter,
+    create_phoenix_exporter_spec,
+    create_phoenix_trace_runtime,
+)
 from .spec import build_platform_spec
 
 
@@ -36,6 +40,13 @@ class PlatformOverview:
 def build_platform_overview(project_name: str = "sprintcycle") -> PlatformOverview:
     platform = build_platform_spec(project_name).to_dict()
     compose = build_default_compose_spec(project_name).to_dict()
+    
+    from sprintcycle.infrastructure.adapters.generic.integrations.langgraph.compiler import (
+        compile_intent_graph,
+        compile_sprint_graph,
+    )
+    from sprintcycle.infrastructure.adapters.generic.integrations.langgraph.plan_runtime import PlanRuntime
+    
     intent_compiled = compile_intent_graph()
     sprint_compiled = compile_sprint_graph()
     intent_graph = {
@@ -50,13 +61,14 @@ def build_platform_overview(project_name: str = "sprintcycle") -> PlatformOvervi
     }
     plan_runtime = PlanRuntime(project_name=project_name).build()
     runtime = {
-        "autogpt": AutoGPTRuntimeSpec(project_name=project_name).to_dict(),
+        "autogpt": create_autogpt_runtime_spec(project_name).to_dict(),
         "plan_runtime": plan_runtime,
         "intent_graph": intent_graph,
         "sprint_graph": sprint_graph,
-        "langgraph": LangGraphRuntimeAdapter(spec=LangGraphRuntimeSpec(project_name=project_name)).build_graph(),
+        "langgraph": create_langgraph_adapter(project_name).build_graph(),
     }
-    trace_runtime = PhoenixTraceRuntime(PhoenixExporterSpec(project_name=project_name))
+    exporter_spec = create_phoenix_exporter_spec(project_name)
+    trace_runtime = create_phoenix_trace_runtime(exporter_spec)
     trace = {
         "phoenix": trace_runtime.build(),
         "phoenix_events": trace_runtime.emit_trace([]),

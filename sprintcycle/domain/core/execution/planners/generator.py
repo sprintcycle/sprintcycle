@@ -13,7 +13,7 @@ from typing import Any, Optional
 
 from sprintcycle.domain.core.evolution.context import EvolutionContext
 from sprintcycle.domain.supporting.intent.parser import ActionType, ParsedIntent
-from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
+from sprintcycle.domain.generic.ports.config import RuntimeConfigProtocol as RuntimeConfig
 from sprintcycle.domain.generic.models import (
     EvolutionParams,
     ExecutionMode,

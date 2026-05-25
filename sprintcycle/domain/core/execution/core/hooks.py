@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Callable, List
 
-from sprintcycle.domain.core.execution.core.context import ExecutionContext
+from sprintcycle.domain.core.execution.core.protocols import ExecutionContext
 
 Hook = Callable[[ExecutionContext], None]
 

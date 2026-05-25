@@ -5,14 +5,17 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict
 
-from sprintcycle.infrastructure.adapters.generic.integrations.autogpt.compose import ComposeSpec, build_default_compose_spec
+from sprintcycle.domain.generic.ports.integrations import (
+    AutoGPTComposeSpecProtocol,
+    build_default_compose_spec,
+)
 from .spec import PlatformSpec, build_platform_spec
 
 
 @dataclass
 class PlatformComposeBundle:
     platform: PlatformSpec
-    compose: ComposeSpec
+    compose: AutoGPTComposeSpecProtocol
 
     def to_dict(self) -> Dict[str, Any]:
         return {
