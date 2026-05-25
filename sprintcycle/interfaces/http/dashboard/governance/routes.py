@@ -10,14 +10,14 @@ from typing import Any, Dict
 
 from fastapi import APIRouter, Request
 
-from sprintcycle.application.factories.http import HTTPServices
+from sprintcycle.interfaces.http.handlers.governance import GovernanceHandler
 from sprintcycle.interfaces.http.request_context import RequestContext
 from sprintcycle.infrastructure.adapters.generic.config.rate_limit import check_rate_limit
 from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
 from sprintcycle.infrastructure.adapters.generic.integrations.audit import record_audit_event
 
 
-def build_governance_router(services: HTTPServices, project_path: str) -> APIRouter:
+def build_governance_router(handler: GovernanceHandler, project_path: str) -> APIRouter:
     router = APIRouter()
 
     def _ctx(request: Request) -> RequestContext:
@@ -59,7 +59,7 @@ def build_governance_router(services: HTTPServices, project_path: str) -> APIRou
     async def governance_history(request: Request, limit: int = 50) -> dict:
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/governance/history", context=ctx)
-        result = await services.governance_history(limit=limit)
+        result = await handler.governance_history(limit=limit)
         record_audit_event(
             request_id=ctx.request_id,
             actor=ctx.caller,
@@ -73,7 +73,7 @@ def build_governance_router(services: HTTPServices, project_path: str) -> APIRou
     async def governance_check(request: Request, body: dict) -> dict:
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/governance/check", context=ctx)
-        result = await services.governance_check(gate=body.get("gate", "review"))
+        result = await handler.governance_check(gate=body.get("gate", "review"))
         record_audit_event(
             request_id=ctx.request_id,
             actor=ctx.caller,
@@ -87,7 +87,7 @@ def build_governance_router(services: HTTPServices, project_path: str) -> APIRou
     async def governance_lifecycle(request: Request, execution_id: str = "") -> dict:
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/governance/lifecycle", context=ctx)
-        result = await services.governance_lifecycle(execution_id=execution_id)
+        result = await handler.governance_lifecycle(execution_id=execution_id)
         record_audit_event(
             request_id=ctx.request_id,
             actor=ctx.caller,

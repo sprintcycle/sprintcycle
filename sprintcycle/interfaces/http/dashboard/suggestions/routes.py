@@ -7,13 +7,13 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Request
 
-from sprintcycle.application.factories.http import HTTPServices
+from sprintcycle.interfaces.http.handlers.suggestions import SuggestionsHandler
 from sprintcycle.interfaces.http.request_context import RequestContext
 from sprintcycle.infrastructure.adapters.generic.config.rate_limit import check_rate_limit
 from sprintcycle.infrastructure.adapters.generic.integrations.audit import record_audit_event
 
 
-def build_suggestions_router(services: HTTPServices, project_path: str) -> APIRouter:
+def build_suggestions_router(handler: SuggestionsHandler, project_path: str) -> APIRouter:
     router = APIRouter()
 
     def _ctx(request: Request) -> RequestContext:
@@ -29,7 +29,7 @@ def build_suggestions_router(services: HTTPServices, project_path: str) -> APIRo
     async def suggestion_approve(request: Request, suggestion_id: str, body: dict) -> dict:
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/suggestions/{suggestion_id}/approve", context=ctx)
-        result = services.approve_suggestion(
+        result = handler.approve_suggestion(
             suggestion_id,
             body.get("approver", "dashboard"),
             body.get("notes"),
@@ -47,7 +47,7 @@ def build_suggestions_router(services: HTTPServices, project_path: str) -> APIRo
     async def suggestion_reject(request: Request, suggestion_id: str, body: dict) -> dict:
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/suggestions/{suggestion_id}/reject", context=ctx)
-        result = services.reject_suggestion(
+        result = handler.reject_suggestion(
             suggestion_id,
             body.get("approver", "dashboard"),
             body.get("notes"),
@@ -65,7 +65,7 @@ def build_suggestions_router(services: HTTPServices, project_path: str) -> APIRo
     async def suggestion_review(request: Request, suggestion_id: str) -> dict:
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/suggestions/{suggestion_id}/review", context=ctx)
-        result = services.review_suggestion(suggestion_id, suggestion_id)
+        result = handler.review_suggestion(suggestion_id, suggestion_id)
         record_audit_event(
             request_id=ctx.request_id,
             actor=ctx.caller,
@@ -79,7 +79,7 @@ def build_suggestions_router(services: HTTPServices, project_path: str) -> APIRo
     async def suggestion_archive(request: Request, suggestion_id: str) -> dict:
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/suggestions/{suggestion_id}/archive", context=ctx)
-        result = services.suggestion_archive(suggestion_id)
+        result = handler.suggestion_archive(suggestion_id)
         record_audit_event(
             request_id=ctx.request_id,
             actor=ctx.caller,
@@ -93,7 +93,7 @@ def build_suggestions_router(services: HTTPServices, project_path: str) -> APIRo
     async def suggestions_overview(request: Request) -> dict:
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/suggestions/overview", context=ctx)
-        result = await services.suggestion_overview()
+        result = await handler.suggestion_overview()
         record_audit_event(
             request_id=ctx.request_id,
             actor=ctx.caller,
@@ -107,7 +107,7 @@ def build_suggestions_router(services: HTTPServices, project_path: str) -> APIRo
     async def suggestions_board(request: Request, execution_id: str = "", limit: int = 20) -> dict:
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/suggestions/board", context=ctx)
-        result = services.suggestion_board(execution_id if execution_id else None, limit=limit)
+        result = handler.suggestion_board(execution_id if execution_id else None, limit=limit)
         record_audit_event(
             request_id=ctx.request_id,
             actor=ctx.caller,

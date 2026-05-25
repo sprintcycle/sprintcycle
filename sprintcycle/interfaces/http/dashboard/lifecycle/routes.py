@@ -7,13 +7,13 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Request
 
-from sprintcycle.application.factories.http import HTTPServices
+from sprintcycle.interfaces.http.handlers.lifecycle import LifecycleHandler
 from sprintcycle.interfaces.http.request_context import RequestContext
 from sprintcycle.infrastructure.adapters.generic.config.rate_limit import check_rate_limit
 from sprintcycle.infrastructure.adapters.generic.integrations.audit import record_audit_event
 
 
-def build_lifecycle_router(services: HTTPServices, project_path: str) -> APIRouter:
+def build_lifecycle_router(handler: LifecycleHandler, project_path: str) -> APIRouter:
     router = APIRouter()
 
     def _ctx(request: Request) -> RequestContext:
@@ -29,7 +29,7 @@ def build_lifecycle_router(services: HTTPServices, project_path: str) -> APIRout
     async def lifecycle_contract(request: Request, execution_id: str, limit: int = 200) -> dict:
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/lifecycle/contract", context=ctx)
-        result = services.lifecycle_contract(execution_id, limit=limit)
+        result = handler.lifecycle_contract(execution_id, limit=limit)
         record_audit_event(
             request_id=ctx.request_id,
             actor=ctx.caller,
@@ -43,10 +43,10 @@ def build_lifecycle_router(services: HTTPServices, project_path: str) -> APIRout
     async def lifecycle_contract_review(request: Request, execution_id: str, body: dict) -> dict:
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/lifecycle/contract/{execution_id}/review", context=ctx)
-        contract = services.lifecycle_contract(execution_id)
+        contract = handler.lifecycle_contract(execution_id)
         payload = dict(body or {})
         payload.setdefault("contract", contract.get("data", {}))
-        result = services.evaluate_sprint_contract(payload)
+        result = handler.evaluate_sprint_contract(payload)
         record_audit_event(
             request_id=ctx.request_id,
             actor=ctx.caller,
@@ -60,7 +60,7 @@ def build_lifecycle_router(services: HTTPServices, project_path: str) -> APIRout
     async def lifecycle_delivery(request: Request) -> dict:
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/lifecycle/delivery", context=ctx)
-        result = await services.deploy_lifecycle()
+        result = await handler.deploy_lifecycle()
         record_audit_event(
             request_id=ctx.request_id,
             actor=ctx.caller,

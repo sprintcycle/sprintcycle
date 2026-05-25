@@ -11,16 +11,16 @@ from fastapi import APIRouter, FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, StreamingResponse
 
-from sprintcycle.application.factories.http import create_http_services
-
-from .dashboard.execution import build_execution_router
-from .dashboard.governance import build_governance_router
-from .dashboard.lifecycle import build_lifecycle_router
-from .dashboard.hitl import build_hitl_router
-from .dashboard.suggestions import build_suggestions_router
-from .public.execution import build_public_execution_router
-from .public.health import build_health_router
-from sprintcycle.application.factories.http import HTTPServices
+from sprintcycle.application.factories.http import initialize_http_infrastructure
+from sprintcycle.interfaces.http.handlers import (
+    ServiceAggregator,
+    ExecutionHandler,
+    GovernanceHandler,
+    LifecycleHandler,
+    HitlHandler,
+    SuggestionsHandler,
+    ConfigHandler,
+)
 from sprintcycle.interfaces.http.request_context import RequestContext
 from sprintcycle.infrastructure.adapters.generic.config.rate_limit import check_rate_limit
 from sprintcycle.infrastructure.adapters.generic.integrations.audit import record_audit_event
@@ -41,7 +41,7 @@ class ReloadRequest(BaseModel):
     pass
 
 
-def build_config_router(services: HTTPServices, project_path: str) -> APIRouter:
+def build_config_router(config_handler: ConfigHandler, project_path: str) -> APIRouter:
     router = APIRouter()
 
     def _ctx(request: Request) -> RequestContext:
@@ -57,7 +57,7 @@ def build_config_router(services: HTTPServices, project_path: str) -> APIRouter:
     async def get_config(request: Request) -> Dict[str, Any]:
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/config", context=ctx)
-        result = {"success": True, "data": services.load_config()}
+        result = {"success": True, "data": config_handler.load_config()}
         record_audit_event(
             request_id=ctx.request_id,
             actor=ctx.caller,
@@ -71,10 +71,10 @@ def build_config_router(services: HTTPServices, project_path: str) -> APIRouter:
     async def put_config(request: Request, body: ConfigUpdateRequest) -> Dict[str, Any]:
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/config", context=ctx)
-        cfg = services.load_config()
+        cfg = config_handler.load_config()
         cfg.update(body.updates)
-        services.save_config(cfg)
-        services.add_config_history(body.updates, source="api_put")
+        config_handler.save_config(cfg)
+        config_handler.add_config_history(body.updates, source="api_put")
         record_audit_event(
             request_id=ctx.request_id,
             actor=ctx.caller,
@@ -90,7 +90,7 @@ def build_config_router(services: HTTPServices, project_path: str) -> APIRouter:
         check_rate_limit(request, route="/api/config/schema", context=ctx)
         result = {
             "success": True,
-            "data": services.get_config_schema(),
+            "data": config_handler.get_config_schema(),
         }
         record_audit_event(
             request_id=ctx.request_id,
@@ -105,7 +105,7 @@ def build_config_router(services: HTTPServices, project_path: str) -> APIRouter:
     async def get_config_history(request: Request) -> Dict[str, Any]:
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/config/history", context=ctx)
-        result = {"success": True, "data": services.get_config_history()}
+        result = {"success": True, "data": config_handler.get_config_history()}
         record_audit_event(
             request_id=ctx.request_id,
             actor=ctx.caller,
@@ -119,7 +119,7 @@ def build_config_router(services: HTTPServices, project_path: str) -> APIRouter:
     async def reload_config(request: Request, _body: ReloadRequest) -> Dict[str, Any]:
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/config/reload", context=ctx)
-        result = {"success": True, "data": services.load_config()}
+        result = {"success": True, "data": config_handler.load_config()}
         record_audit_event(
             request_id=ctx.request_id,
             actor=ctx.caller,
@@ -133,10 +133,10 @@ def build_config_router(services: HTTPServices, project_path: str) -> APIRouter:
     async def import_config(request: Request, body: ConfigImportRequest) -> Dict[str, Any]:
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/config/import", context=ctx)
-        cfg = services.load_config()
+        cfg = config_handler.load_config()
         cfg.update(body.config)
-        services.save_config(cfg)
-        services.add_config_history(body.config, source="api_import")
+        config_handler.save_config(cfg)
+        config_handler.add_config_history(body.config, source="api_import")
         record_audit_event(
             request_id=ctx.request_id,
             actor=ctx.caller,
@@ -191,7 +191,16 @@ def build_overview_router() -> APIRouter:
 
 
 def create_app(project_path: str = ".") -> FastAPI:
-    http_services = create_http_services(project_path)
+    initialize_http_infrastructure(project_path)
+    services = ServiceAggregator(project_path)
+    
+    execution_handler = ExecutionHandler(services)
+    governance_handler = GovernanceHandler(services)
+    lifecycle_handler = LifecycleHandler(services)
+    hitl_handler = HitlHandler(services)
+    suggestions_handler = SuggestionsHandler(services)
+    config_handler = ConfigHandler(services)
+
     app = FastAPI(title="SprintCycle Console", version="0.9.2")
 
     if _DASHBOARD_DEV:
@@ -204,15 +213,23 @@ def create_app(project_path: str = ".") -> FastAPI:
             allow_headers=["*"],
         )
 
-    app.include_router(build_health_router())
-    app.include_router(build_public_execution_router(http_services, project_path))
+    from .dashboard.execution import build_execution_router
+    from .dashboard.governance import build_governance_router
+    from .dashboard.lifecycle import build_lifecycle_router
+    from .dashboard.hitl import build_hitl_router
+    from .dashboard.suggestions import build_suggestions_router
+    from .public.execution import build_public_execution_router
+    from .public.health import build_health_router
 
-    app.include_router(build_execution_router(http_services, project_path))
-    app.include_router(build_governance_router(http_services, project_path))
-    app.include_router(build_lifecycle_router(http_services, project_path))
-    app.include_router(build_hitl_router(http_services, project_path))
-    app.include_router(build_suggestions_router(http_services, project_path))
-    app.include_router(build_config_router(http_services, project_path))
+    app.include_router(build_health_router())
+    app.include_router(build_public_execution_router(execution_handler, project_path))
+
+    app.include_router(build_execution_router(execution_handler, project_path))
+    app.include_router(build_governance_router(governance_handler, project_path))
+    app.include_router(build_lifecycle_router(lifecycle_handler, project_path))
+    app.include_router(build_hitl_router(hitl_handler, project_path))
+    app.include_router(build_suggestions_router(suggestions_handler, project_path))
+    app.include_router(build_config_router(config_handler, project_path))
     app.include_router(build_overview_router())
 
     return app

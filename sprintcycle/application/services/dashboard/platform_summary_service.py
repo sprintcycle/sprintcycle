@@ -27,7 +27,7 @@ class PlatformSummaryService:
 
     def _get_state_machine_summary(self) -> Dict[str, Any]:
         """获取状态机摘要（延迟导入避免循环依赖）"""
-        from sprintcycle.domain.generic.ports.state_store import summarize_state_machine
+        from sprintcycle.infrastructure.adapters.core.execution.state_store.machine import summarize_state_machine
         return summarize_state_machine()
 
     def platform_overview(self) -> Dict[str, Any]:

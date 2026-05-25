@@ -9,7 +9,7 @@ from typing import Any, Dict
 
 from fastapi import APIRouter, Request
 
-from sprintcycle.application.factories.http import HTTPServices
+from sprintcycle.interfaces.http.handlers.execution import ExecutionHandler
 from sprintcycle.interfaces.http.request_context import RequestContext
 from sprintcycle.application.orchestration.sprint_orchestrator import SprintOrchestrator
 from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
@@ -17,11 +17,11 @@ from sprintcycle.infrastructure.adapters.generic.config.rate_limit import check_
 from sprintcycle.infrastructure.adapters.generic.integrations.audit import record_audit_event
 
 
-def build_public_execution_router(services: HTTPServices, project_path: str) -> APIRouter:
+def build_public_execution_router(handler: ExecutionHandler, project_path: str) -> APIRouter:
     """Build public execution router.
 
     Args:
-        services: HTTP services instance.
+        handler: Execution handler instance.
         project_path: Project root path.
 
     Returns:
@@ -120,7 +120,7 @@ def build_public_execution_router(services: HTTPServices, project_path: str) -> 
         """
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/v1/diagnose", context=ctx)
-        result = services.diagnose()
+        result = handler.diagnose()
         record_audit_event(
             request_id=ctx.request_id,
             actor=ctx.caller,
@@ -143,7 +143,7 @@ def build_public_execution_router(services: HTTPServices, project_path: str) -> 
         """
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/v1/status", context=ctx)
-        result = services.status(execution_id=payload.get("execution_id", ""))
+        result = handler.status(execution_id=payload.get("execution_id", ""))
         record_audit_event(
             request_id=ctx.request_id,
             actor=ctx.caller,
@@ -166,7 +166,7 @@ def build_public_execution_router(services: HTTPServices, project_path: str) -> 
         """
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/v1/rollback", context=ctx)
-        result = services.rollback(execution_id=payload.get("execution_id", ""))
+        result = handler.rollback(execution_id=payload.get("execution_id", ""))
         record_audit_event(
             request_id=ctx.request_id,
             actor=ctx.caller,
@@ -189,7 +189,7 @@ def build_public_execution_router(services: HTTPServices, project_path: str) -> 
         """
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/v1/stop", context=ctx)
-        result = services.stop(execution_id=payload.get("execution_id", ""))
+        result = handler.stop_execution(execution_id=payload.get("execution_id", ""))
         record_audit_event(
             request_id=ctx.request_id,
             actor=ctx.caller,

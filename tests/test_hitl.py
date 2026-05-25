@@ -7,15 +7,15 @@ import asyncio
 import pytest
 
 from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
-from sprintcycle.execution.core.events import EventBus, configure_execution_event_backend, get_execution_event_backend
-from sprintcycle.infrastructure.adapters.core.execution.event_backend.sqlite_event_backend import fetch_execution_events_for_replay
-from sprintcycle.governance.hitl.coordinator import HitlCoordinator
-from sprintcycle.governance.hitl.decision_normalize import (
+from sprintcycle.domain.core.execution.core.events import EventBus, configure_execution_event_backend, get_execution_event_backend
+from sprintcycle.infrastructure.adapters.core.execution.state_store.sqlite_event_backend import fetch_execution_events_for_replay
+from sprintcycle.domain.core.governance.hitl.coordinator import HitlCoordinator
+from sprintcycle.domain.core.governance.hitl.decision_normalize import (
     normalize_hitl_decision,
     validate_hitl_decision_for_submit,
 )
-from sprintcycle.governance.hitl.store import HitlSqliteStore, default_hitl_db_path
-from sprintcycle.governance.hitl.types import HitlDecision, HitlGate, HitlRequestRecord, parse_hitl_gates
+from sprintcycle.domain.core.governance.hitl.store import HitlSqliteStore, default_hitl_db_path
+from sprintcycle.domain.core.governance.hitl.types import HitlDecision, HitlGate, HitlRequestRecord, parse_hitl_gates
 from sprintcycle.infrastructure.adapters.generic.mq.sqlite_mq import SQLiteMQ
 
 
@@ -158,9 +158,15 @@ async def test_hitl_submit_unblocks_waiter(tmp_path) -> None:
 
 @pytest.mark.asyncio
 async def test_hitl_show_reads_db_without_hitl_enabled(tmp_path, monkeypatch) -> None:
-    from sprintcycle.application.http_factories import HTTPServices
+    from sprintcycle.application.factories.http import initialize_http_infrastructure
+    from sprintcycle.interfaces.http.handlers.services import create_service_aggregator
+    from sprintcycle.interfaces.http.handlers.hitl import HitlHandler
 
     monkeypatch.chdir(tmp_path)
+    initialize_http_infrastructure(str(tmp_path.resolve()))
+    services = create_service_aggregator(str(tmp_path.resolve()))
+    hitl_handler = HitlHandler(services)
+    
     db = default_hitl_db_path(str(tmp_path.resolve()))
     store = HitlSqliteStore(db)
     rid = "req-show-1"
@@ -177,9 +183,7 @@ async def test_hitl_show_reads_db_without_hitl_enabled(tmp_path, monkeypatch) ->
             timeout_seconds=60,
         )
     )
-    services = HTTPServices(project_path=str(tmp_path.resolve()))
-    assert services.config.hitl_enabled is False
-    out = await services.hitl_show(rid)
+    out = await hitl_handler.hitl_show(rid)
     assert out["success"] is True
     assert isinstance(out.get("data"), dict)
     assert out["data"]["request_id"] == rid
@@ -187,12 +191,17 @@ async def test_hitl_show_reads_db_without_hitl_enabled(tmp_path, monkeypatch) ->
 
 @pytest.mark.asyncio
 async def test_hitl_submit_rejects_invalid_decision(tmp_path, monkeypatch) -> None:
-    from sprintcycle.application.http_factories import HTTPServices
+    from sprintcycle.application.factories.http import initialize_http_infrastructure
+    from sprintcycle.interfaces.http.handlers.services import create_service_aggregator
+    from sprintcycle.interfaces.http.handlers.hitl import HitlHandler
 
     monkeypatch.chdir(tmp_path)
+    initialize_http_infrastructure(str(tmp_path.resolve()))
+    services = create_service_aggregator(str(tmp_path.resolve()))
+    hitl_handler = HitlHandler(services)
+    
     cfg = RuntimeConfig.merge({"hitl_enabled": True}, RuntimeConfig())
-    services = HTTPServices(project_path=str(tmp_path.resolve()))
-    services.config = cfg
-    out = await services.hitl_submit("no-such-id", "regen", None)
+    services._config = cfg
+    out = await hitl_handler.hitl_submit("no-such-id", "regen", None)
     assert out["success"] is False
     assert "Invalid" in (out.get("error") or "")
