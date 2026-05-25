@@ -1,7 +1,6 @@
-"""
-RegressionTestAgent - 负责回归测试步骤
+"""Regression Test Agent - 负责回归测试步骤。
 
-在 Sprint 内部执行循环中，RegressionTestAgent 在 TesterAgent 之后执行，
+在 Sprint 内部执行循环中，Regression Test Agent 在 Tester Agent 之后执行，
 确保代码修改没有破坏已有功能。比对修改前后的测试结果，识别回归问题。
 """
 
@@ -11,11 +10,11 @@ from loguru import logger
 
 from sprintcycle.domain.generic.prompts.prompt_sources import REGRESSION_REPORT_HEADER
 
-from .base import AgentContext, AgentExecutor, AgentResult, AgentType
+from ..base import AgentContext, AgentExecutor, AgentResult, AgentType
 
 
 class RegressionTestAgent(AgentExecutor):
-    """RegressionTest Agent 执行器 - 负责回归测试"""
+    """Regression Test Agent 执行器 - 负责回归测试"""
 
     def __init__(self, config=None):
         super().__init__(config)
@@ -26,7 +25,7 @@ class RegressionTestAgent(AgentExecutor):
 
     async def _do_execute(self, task: str, context: AgentContext) -> AgentResult:
         """执行回归测试任务"""
-        logger.info(f"🔄 RegressionTester 执行: {task[:50]}...")
+        logger.info("🔄 RegressionTester 执行: {}", task[:50])
 
         # 1. 获取基准测试结果（修改前的快照）
         baseline = self._get_baseline_results(context)
@@ -65,7 +64,7 @@ class RegressionTestAgent(AgentExecutor):
 
     def _run_regression_tests(self, context: AgentContext) -> Dict[str, Any]:
         """运行回归测试套件"""
-        # 获取 TesterAgent 的结果作为当前测试状态
+        # 获取 Tester Agent 的结果作为当前测试状态
         test_result = context.get_dependency("test_results")
         if test_result:
             return test_result
@@ -173,3 +172,6 @@ class RegressionTestAgent(AgentExecutor):
                 lines.append(f"- {n['detail']}")
 
         return "\n".join(lines)
+
+
+__all__ = ["RegressionTestAgent"]

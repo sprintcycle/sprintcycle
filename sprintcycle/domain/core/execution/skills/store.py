@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from .skill_models import SkillArtifact, SkillExecutionRecord, SkillInjectionState, TaskSkillTrace
+from .models import SkillArtifact, SkillExecutionRecord, SkillInjectionState, TaskSkillTrace
 
 
 class SkillStore:

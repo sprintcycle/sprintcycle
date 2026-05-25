@@ -1,9 +1,8 @@
-"""
-ArchitectureAgent - 负责架构设计步骤
+"""Architecture Agent - 负责架构设计步骤。
 
-在 Sprint 内部执行循环中，ArchitectureAgent 在 CoderAgent 之前执行，
+在 Sprint 内部执行循环中，Architecture Agent 在 Coder Agent 之前执行，
 分析需求、评估现有架构、设计解决方案，并将架构设计文档注入 context
-供后续 CoderAgent 读取。
+供后续 Coder Agent 读取。
 """
 
 from typing import Any, Dict
@@ -12,7 +11,7 @@ from loguru import logger
 
 from sprintcycle.domain.generic.prompts.prompt_sources import ARCHITECT_DOC_SECTION_MARKERS
 
-from .base import AgentContext, AgentExecutor, AgentResult, AgentType
+from ..base import AgentContext, AgentExecutor, AgentResult, AgentType
 
 
 class ArchitectureAgent(AgentExecutor):
@@ -27,7 +26,7 @@ class ArchitectureAgent(AgentExecutor):
 
     async def _do_execute(self, task: str, context: AgentContext) -> AgentResult:
         """执行架构设计任务"""
-        logger.info(f"🏗️ Architect 执行: {task[:50]}...")
+        logger.info("🏗️ Architect 执行: {}", task[:50])
 
         # 1. 分析需求
         requirements = self._analyze_requirements(task, context)
@@ -38,7 +37,7 @@ class ArchitectureAgent(AgentExecutor):
         # 4. 生成架构文档
         arch_doc = self._generate_architecture_document(design)
 
-        # 将架构设计注入 context，供 CoderAgent 读取
+        # 将架构设计注入 context，供 Coder Agent 读取
         context.dependencies["architecture_design"] = arch_doc
         context.codebase_context["architecture_design"] = arch_doc
 
@@ -152,3 +151,6 @@ class ArchitectureAgent(AgentExecutor):
                 lines.append(f"- {comp}")
 
         return "\n".join(lines)
+
+
+__all__ = ["ArchitectureAgent"]

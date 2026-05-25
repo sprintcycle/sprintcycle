@@ -1,12 +1,10 @@
-"""
-Coder Agent Types - 数据类型定义
-"""
+"""Coder Agent 数据类型。"""
 
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 if TYPE_CHECKING:
-    from .base import AgentContext
+    from ..base import AgentContext
 
 
 @dataclass
@@ -53,3 +51,6 @@ class CodeResult:
     feedback: str = ""
     errors: List[str] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+__all__ = ["BatchTask", "BatchConfig", "CodeRequirements", "CodeResult"]

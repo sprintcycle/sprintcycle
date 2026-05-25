@@ -15,14 +15,10 @@ import tempfile
 import shutil
 from pathlib import Path
 
-from sprintcycle.execution.agents.analyzer import (
-    parse_traceback,
-    BugAnalyzerAgent,
-    ParsedTraceback,
-    PatternMatch,
-    ROOT_CAUSE_PATTERNS,
-)
-from sprintcycle.execution.agents.bug_models import (
+from sprintcycle.domain.core.execution.agents.analyzer.agent import BugAnalyzerAgent, PatternMatch
+from sprintcycle.domain.core.execution.agents.analyzer.traceback_parser import parse_traceback, ParsedTraceback
+from sprintcycle.domain.core.execution.agents.analyzer.patterns import ROOT_CAUSE_PATTERNS
+from sprintcycle.domain.core.execution.agents.analyzer.models import (
     BugReport,
     Severity,
     ErrorCategory,
@@ -31,7 +27,7 @@ from sprintcycle.execution.agents.bug_models import (
     FixResult,
     AnalysisRequest,
 )
-from sprintcycle.execution.agents.base import AgentContext
+from sprintcycle.domain.core.execution.agents.base import AgentContext
 
 
 class TestBugAnalyzerAgent:

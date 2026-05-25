@@ -1,6 +1,4 @@
-"""
-Bug Analyzer Agent - Bug 分析执行器
-"""
+"""Bug Analyzer Agent - Bug 分析执行器。"""
 
 import json
 import re
@@ -12,29 +10,51 @@ from loguru import logger
 
 from sprintcycle.domain.generic.prompts.prompt_sources import format_analyzer_bug_llm_prompt
 
-from .base import AgentConfig, AgentContext, AgentExecutor, AgentResult, AgentType
-from .bug_models import (
+from ..base import AgentConfig, AgentContext, AgentExecutor, AgentResult, AgentType
+from .models import (
     AnalysisRequest,
     AnalysisResult,
     BugReport,
     ErrorCategory,
-    FixResult,
     FixSuggestion,
+    FixResult,
     Location,
-    ParsedTraceback,
     PatternMatch,
     Severity,
-    StackFrame,
 )
 from .patterns import ROOT_CAUSE_PATTERNS
 from .traceback_parser import parse_traceback
+
+
+def dataclass_to_dict(obj: Any) -> Dict[str, Any]:
+    """将 dataclass 对象转换为字典"""
+    if hasattr(obj, "__dataclass_fields__"):
+        result: Dict[str, Any] = {}
+        for name in obj.__dataclass_fields__:
+            value = getattr(obj, name)
+            if isinstance(value, (list, tuple)):
+                result[name] = [
+                    dataclass_to_dict(v) if hasattr(v, "__dataclass_fields__") else v
+                    for v in value
+                ]
+            elif isinstance(value, dict):
+                result[name] = {
+                    k: dataclass_to_dict(v) if hasattr(v, "__dataclass_fields__") else v
+                    for k, v in value.items()
+                }
+            elif hasattr(value, "__dataclass_fields__"):
+                result[name] = dataclass_to_dict(value)
+            elif value is not None:
+                result[name] = value
+        return result
+    return obj
 
 
 class BugAnalyzerAgent(AgentExecutor):
     """Bug 分析 Agent"""
 
     def __init__(self, config=None, llm_client=None):
-        super().__init__()
+        super().__init__(config)
         self._llm_client = llm_client
         self._config = config if config is not None else AgentConfig()
 
@@ -86,7 +106,7 @@ class BugAnalyzerAgent(AgentExecutor):
             )
 
         except Exception as e:
-            logger.error(f"BugAnalyzer 分析失败: {e}")
+            logger.error("BugAnalyzer 分析失败: {}", e)
             return AgentResult.from_error(str(e), self.agent_type)
 
     def _extract_error_log(self, task: str, context: AgentContext) -> Optional[str]:
@@ -185,8 +205,6 @@ class BugAnalyzerAgent(AgentExecutor):
             "IndentationError": ErrorCategory.SYNTAX,
             "ValueError": ErrorCategory.VALUE,
             "ZeroDivisionError": ErrorCategory.VALUE,
-            "RecursionError": ErrorCategory.RUNTIME,
-            "MemoryError": ErrorCategory.MEMORY,
         }
         return mapping.get(error_type, ErrorCategory.UNKNOWN)
 
@@ -205,7 +223,10 @@ class BugAnalyzerAgent(AgentExecutor):
                 error_type=data.get("error_type", "Unknown"),
                 error_message=error_log[:200],
                 category=self._type_to_category(data.get("error_type", "")),
-                location=Location(file_path=data.get("file_path"), line_number=data.get("line_number")),
+                location=Location(
+                    file_path=data.get("file_path"),
+                    line_number=data.get("line_number"),
+                ),
                 severity=Severity(data.get("severity", "medium")),
                 root_cause=data.get("root_cause", ""),
                 suggestions=data.get("suggestions", []),
@@ -214,7 +235,7 @@ class BugAnalyzerAgent(AgentExecutor):
             )
 
         except Exception as e:
-            logger.warning(f"LLM 分析失败: {e}")
+            logger.warning("LLM 分析失败: {}", e)
             return None
 
     async def locate(self, report: BugReport, file_paths: List[str]) -> List[Location]:
@@ -241,7 +262,7 @@ class BugAnalyzerAgent(AgentExecutor):
                         )
 
             except Exception as e:
-                logger.warning(f"定位文件 {file_path} 失败: {e}")
+                logger.warning("定位文件 {} 失败: {}", file_path, e)
 
         return locations
 
@@ -450,37 +471,4 @@ class BugAnalyzerAgent(AgentExecutor):
             return FixResult(success=False, file_path=str(file_path), error=str(e))
 
 
-def dataclass_to_dict(obj: Any) -> Dict[str, Any]:
-    """将 dataclass 对象转换为字典"""
-    if hasattr(obj, "__dataclass_fields__"):
-        result: Dict[str, Any] = {}
-        for name in obj.__dataclass_fields__:
-            value = getattr(obj, name)
-            if isinstance(value, (list, tuple)):
-                result[name] = [dataclass_to_dict(v) if hasattr(v, "__dataclass_fields__") else v for v in value]
-            elif isinstance(value, dict):
-                result[name] = {
-                    k: dataclass_to_dict(v) if hasattr(v, "__dataclass_fields__") else v for k, v in value.items()
-                }
-            elif hasattr(value, "__dataclass_fields__"):
-                result[name] = dataclass_to_dict(value)
-            elif value is not None:
-                result[name] = value
-        return result
-    return obj
-
-
-__all__ = [
-    "BugAnalyzerAgent",
-    "BugReport",
-    "Severity",
-    "ErrorCategory",
-    "Location",
-    "FixSuggestion",
-    "FixResult",
-    "AnalysisRequest",
-    "AnalysisResult",
-    "StackFrame",
-    "ParsedTraceback",
-    "PatternMatch",
-]
+__all__ = ["BugAnalyzerAgent"]

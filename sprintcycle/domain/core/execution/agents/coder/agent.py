@@ -1,7 +1,6 @@
-"""
-Coder Agent Base - 核心执行逻辑
+"""Coder Agent 核心执行逻辑。
 
-**分层**：LLM 引擎和缓存由 Infrastructure 层实现，通过工厂函数注入 Domain 层。
+分层设计：LLM 引擎和缓存由 Infrastructure 层实现，通过工厂函数注入 Domain 层。
 """
 
 from dataclasses import dataclass
@@ -13,8 +12,8 @@ from loguru import logger
 from sprintcycle.domain.generic.prompts.prompt_sources import format_coder_generation_prompt
 
 from sprintcycle.domain.core.execution.project_write import ProjectWritePlan
-from .base import AgentContext, AgentExecutor, AgentResult, AgentType
-from .coder_types import BatchConfig
+from ..base import AgentContext, AgentExecutor, AgentResult, AgentType
+from .types import BatchConfig
 
 if TYPE_CHECKING:
     from sprintcycle.domain.generic.ports.cache import CacheBackendProtocol as CacheBackend
@@ -32,6 +31,7 @@ class EngineAdapterProtocol(Protocol):
 @dataclass
 class EngineResult:
     """引擎执行结果"""
+
     success: bool
     output: Optional[str] = None
     error: Optional[str] = None
@@ -44,6 +44,7 @@ class EngineResult:
 @dataclass
 class EngineAdapterConfig:
     """引擎适配器配置"""
+
     timeout_seconds: int = 900
     cwd: str = "."
     max_output_chars: int = 20000
@@ -345,3 +346,13 @@ class CoderAgent(AgentExecutor):
     def _get_task_hash(self, task: str, context: AgentContext) -> str:
         key = f"{task}:{context.release_plan_id}:{context.sprint_index}"
         return hashlib.md5(key.encode()).hexdigest()
+
+
+__all__ = [
+    "CoderAgent",
+    "EngineAdapterProtocol",
+    "EngineResult",
+    "EngineAdapterConfig",
+    "register_cache_backend_factory",
+    "register_engine_adapter_factory",
+]

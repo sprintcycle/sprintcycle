@@ -1,5 +1,4 @@
-"""
-Root Cause Patterns for Bug Analysis
+"""Root Cause Patterns for Bug Analysis。
 
 Error pattern database used by BugAnalyzerAgent.
 """
@@ -7,6 +6,7 @@ Error pattern database used by BugAnalyzerAgent.
 from typing import Any, Dict
 
 from sprintcycle.domain.generic.errors.exceptions import Severity
+
 
 ROOT_CAUSE_PATTERNS: Dict[str, Dict[str, Any]] = {
     "NameError": {
@@ -94,3 +94,6 @@ ROOT_CAUSE_PATTERNS: Dict[str, Dict[str, Any]] = {
         "severity": Severity.HIGH,
     },
 }
+
+
+__all__ = ["ROOT_CAUSE_PATTERNS"]

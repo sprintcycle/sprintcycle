@@ -2,23 +2,23 @@
 Tests for Agent Base, Bug Models, Patterns, and Traceback Parser modules.
 
 Coverage targets:
-- sprintcycle/execution/agents/base.py
-- sprintcycle/execution/agents/bug_models.py
-- sprintcycle/execution/agents/patterns.py
-- sprintcycle/execution/agents/traceback_parser.py
+- sprintcycle/domain/core/execution/agents/base/base.py
+- sprintcycle/domain/core/execution/agents/analyzer/models.py
+- sprintcycle/domain/core/execution/agents/analyzer/patterns.py
+- sprintcycle/domain/core/execution/agents/analyzer/traceback_parser.py
 """
 
 import pytest
 from datetime import datetime
 
-from sprintcycle.execution.agents.base import (
+from sprintcycle.domain.core.execution.agents.base import (
     AgentType,
     AgentConfig,
     AgentContext,
     AgentResult,
     AgentExecutor,
 )
-from sprintcycle.execution.agents.bug_models import (
+from sprintcycle.domain.core.execution.agents.analyzer.models import (
     BugReport,
     Severity,
     ErrorCategory,
@@ -29,7 +29,7 @@ from sprintcycle.execution.agents.bug_models import (
     StackFrame,
     ParsedTraceback,
 )
-from sprintcycle.execution.agents.patterns import ROOT_CAUSE_PATTERNS
+from sprintcycle.domain.core.execution.agents.analyzer.patterns import ROOT_CAUSE_PATTERNS
 
 
 class TestAgentContext:

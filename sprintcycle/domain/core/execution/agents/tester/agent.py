@@ -1,56 +1,14 @@
-"""
-Tester Agent 执行器 - 负责测试验证
-"""
+"""Tester Agent 执行器 - 负责测试验证。"""
 
 import re
-from dataclasses import dataclass, field
-from enum import Enum
 from typing import Any, Dict, List
 
 from loguru import logger
 
 from sprintcycle.domain.generic.prompts.prompt_sources import TESTER_UNITTEST_STUB_PREFIX
 
-from .base import AgentContext, AgentExecutor, AgentResult, AgentType
-
-
-class TestType(Enum):
-    """测试类型枚举"""
-
-    UNIT = "unit"
-    INTEGRATION = "integration"
-    E2E = "e2e"
-    PERFORMANCE = "performance"
-    SECURITY = "security"
-
-
-class TestResult(Enum):
-    """测试结果枚举"""
-
-    PASS = "pass"
-    FAIL = "fail"
-    SKIP = "skip"
-    ERROR = "error"
-
-
-@dataclass
-class TestCase:
-    """测试用例"""
-
-    name: str
-    type: str = "unit"
-    input: Dict[str, Any] = field(default_factory=dict)
-    expected: Dict[str, Any] = field(default_factory=dict)
-    priority: int = 1
-
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "name": self.name,
-            "type": self.type,
-            "input": self.input,
-            "expected": self.expected,
-            "priority": self.priority,
-        }
+from ..base import AgentContext, AgentExecutor, AgentResult, AgentType
+from .types import TestCase, TestType, TestResult
 
 
 class TesterAgent(AgentExecutor):
@@ -70,12 +28,15 @@ class TesterAgent(AgentExecutor):
 
     async def _do_execute(self, task: str, context: AgentContext) -> AgentResult:
         """执行测试任务"""
-        logger.info(f"🧪 Tester 执行: {task[:50]}...")
+        logger.info("🧪 Tester 执行: {}", task[:50])
 
         code_to_test = context.get_dependency("code") or context.codebase_context.get("code", "")
 
         if not code_to_test:
-            return AgentResult.from_error("Tester 需要待测试的代码，请通过 context.dependencies 提供", self.agent_type)
+            return AgentResult.from_error(
+                "Tester 需要待测试的代码，请通过 context.dependencies 提供",
+                self.agent_type,
+            )
 
         # 生成测试用例
         test_cases = self._generate_test_cases(task, code_to_test, context)
@@ -113,6 +74,7 @@ class TesterAgent(AgentExecutor):
                 "coverage": coverage.get("line_coverage", 0),
             },
             feedback=feedback,
+            agent_type=self.agent_type,
         )
 
     def _generate_test_cases(self, task: str, code: str, context: AgentContext) -> List[TestCase]:
@@ -202,7 +164,8 @@ class TesterAgent(AgentExecutor):
             "skipped": 0,
             "pass_rate": round(passed / max(total, 1) * 100, 1),
             "results": [
-                {"name": tc.name, "status": "pass" if i < passed else "fail"} for i, tc in enumerate(test_cases)
+                {"name": tc.name, "status": "pass" if i < passed else "fail"}
+                for i, tc in enumerate(test_cases)
             ],
         }
 
@@ -221,7 +184,10 @@ class TesterAgent(AgentExecutor):
         }
 
     def _generate_report(
-        self, test_results: Dict[str, Any], coverage: Dict[str, Any], context: AgentContext
+        self,
+        test_results: Dict[str, Any],
+        coverage: Dict[str, Any],
+        context: AgentContext,
     ) -> Dict[str, Any]:
         """生成报告"""
         recommendations = []
@@ -273,4 +239,4 @@ class TesterAgent(AgentExecutor):
         return feedback
 
 
-__all__ = ["TesterAgent", "TestCase", "TestType", "TestResult"]
+__all__ = ["TesterAgent"]

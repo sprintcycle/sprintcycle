@@ -1,15 +1,4 @@
-"""
-Bug 分析数据模型
-
-定义 Bug 分析过程中使用的数据结构和类型：
-- BugReport: Bug 分析报告
-- FixSuggestion: 修复建议
-- FixResult: 修复结果
-- Severity: 严重程度枚举
-- Location: 问题位置
-
-v0.9.1: 从 Pydantic 迁移到 dataclass，消除 type 警告
-"""
+"""Bug 分析数据模型。"""
 
 from dataclasses import dataclass, field
 from enum import Enum
@@ -224,3 +213,18 @@ class PatternMatch:
     fixes: List[str] = field(default_factory=list)
     confidence: float = 0.0
     matched_patterns: List[str] = field(default_factory=list)
+
+
+__all__ = [
+    "ErrorCategory",
+    "Location",
+    "BugReport",
+    "FixSuggestion",
+    "FixResult",
+    "AnalysisRequest",
+    "AnalysisResult",
+    "StackFrame",
+    "ParsedTraceback",
+    "PatternMatch",
+    "Severity",
+]

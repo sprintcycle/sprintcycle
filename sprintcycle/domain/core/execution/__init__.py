@@ -2,8 +2,10 @@
 
 from . import agents
 from . import core
+from . import skills
 
 __all__ = [
     "agents",
     "core",
+    "skills",
 ]

@@ -35,8 +35,8 @@ from sprintcycle.domain.core.execution.hooks.task_hooks import ChainedTaskHooks,
 from sprintcycle.domain.core.execution.planners.expand import expand_release_plan_for_execution
 from sprintcycle.domain.generic.models import ReleasePlan, SprintBacklogItem, SprintDefinition
 from sprintcycle.domain.core.execution.core.protocols import ExecutionContext
-from sprintcycle.domain.core.execution.agents.skill_store import SkillStore
-from sprintcycle.domain.core.execution.agents.skills import SkillOrchestrator
+from sprintcycle.domain.core.execution.skills.store import SkillStore
+from sprintcycle.domain.core.execution.skills.orchestrator import SkillOrchestrator
 from sprintcycle.domain.core.execution.orchestrator.sprint_executor import SprintExecutor
 from sprintcycle.domain.generic.interfaces import ExecutionStatus, SprintResult, TaskResult
 from sprintcycle.domain.core.governance.hooks.sprint_hooks import GovernanceSprintHooks

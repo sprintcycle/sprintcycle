@@ -6,9 +6,9 @@ from typing import Any, Dict, Optional
 
 from sprintcycle.domain.generic.models import ReleasePlan, SprintDefinition
 from sprintcycle.domain.core.execution.core.protocols import SkillChecklistItem, SkillTrace
-from sprintcycle.domain.core.execution.agents.skill_models import SkillArtifact, SkillExecutionRecord, SkillInjectionState
-from sprintcycle.domain.core.execution.agents.skill_store import SkillStore
-from sprintcycle.domain.core.execution.agents.skills import SkillOrchestrator
+from sprintcycle.domain.core.execution.skills.models import SkillArtifact, SkillExecutionRecord, SkillInjectionState
+from sprintcycle.domain.core.execution.skills.store import SkillStore
+from sprintcycle.domain.core.execution.skills.orchestrator import SkillOrchestrator
 from sprintcycle.domain.generic.interfaces import SprintResult
 from .sprint_hooks import SprintLifecycleHooks
 

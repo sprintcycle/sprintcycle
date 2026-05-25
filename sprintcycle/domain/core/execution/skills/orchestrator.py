@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 
 from .marketplace import OpenClawMarketplaceClient
 from sprintcycle.domain.core.execution.core.protocols import SkillLifecycleSnapshot
-from .skill_store import SkillStore
+from .store import SkillStore
 
 
 @dataclass
