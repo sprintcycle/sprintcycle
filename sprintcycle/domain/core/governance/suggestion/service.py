@@ -19,11 +19,11 @@ from .models import (
 from .reviewer import SuggestionReviewer
 
 if TYPE_CHECKING:
-    from sprintcycle.infrastructure.adapters.core.governance.suggestion_store import SuggestionStore
+    from sprintcycle.domain.generic.ports.suggestion import SuggestionStoreProtocol
 
 
 class SuggestionService:
-    def __init__(self, store: SuggestionStore, *, evolution_facade: Any = None) -> None:
+    def __init__(self, store: SuggestionStoreProtocol, *, evolution_facade: Any = None) -> None:
         self._store = store
         self._classifier = SuggestionClassifier()
         self._reviewer = SuggestionReviewer(store)

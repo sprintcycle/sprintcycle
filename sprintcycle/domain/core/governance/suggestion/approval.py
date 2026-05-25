@@ -8,11 +8,11 @@ from typing import TYPE_CHECKING
 from .models import SuggestionApprovalRecord, SuggestionReviewRecord
 
 if TYPE_CHECKING:
-    from sprintcycle.infrastructure.adapters.core.governance.suggestion_store import SuggestionStore
+    from sprintcycle.domain.generic.ports.suggestion import SuggestionStoreProtocol
 
 
 class SuggestionApprovalService:
-    def __init__(self, store: SuggestionStore) -> None:
+    def __init__(self, store: SuggestionStoreProtocol) -> None:
         self._store = store
 
     async def approve(self, suggestion_id: str, approver: str, notes: str = "") -> SuggestionApprovalRecord:

@@ -11,10 +11,13 @@ from sprintcycle.domain.generic.ports.integrations import (
     PhoenixExporterSpecProtocol,
     PhoenixTraceRuntimeProtocol,
     build_default_compose_spec,
+    compile_intent_graph,
+    compile_sprint_graph,
     create_autogpt_runtime_spec,
     create_langgraph_adapter,
     create_phoenix_exporter_spec,
     create_phoenix_trace_runtime,
+    create_plan_runtime,
 )
 from .spec import build_platform_spec
 
@@ -41,12 +44,6 @@ def build_platform_overview(project_name: str = "sprintcycle") -> PlatformOvervi
     platform = build_platform_spec(project_name).to_dict()
     compose = build_default_compose_spec(project_name).to_dict()
     
-    from sprintcycle.infrastructure.adapters.generic.integrations.langgraph.compiler import (
-        compile_intent_graph,
-        compile_sprint_graph,
-    )
-    from sprintcycle.infrastructure.adapters.generic.integrations.langgraph.plan_runtime import PlanRuntime
-    
     intent_compiled = compile_intent_graph()
     sprint_compiled = compile_sprint_graph()
     intent_graph = {
@@ -59,10 +56,10 @@ def build_platform_overview(project_name: str = "sprintcycle") -> PlatformOvervi
         "nodes": list(sprint_compiled.nodes),
         "edges": list(sprint_compiled.edges),
     }
-    plan_runtime = PlanRuntime(project_name=project_name).build()
+    plan_runtime = create_plan_runtime(project_name=project_name).build_release_plan_from_intent("", {})
     runtime = {
         "autogpt": create_autogpt_runtime_spec(project_name).to_dict(),
-        "plan_runtime": plan_runtime,
+        "plan_runtime": plan_runtime.to_dict() if hasattr(plan_runtime, "to_dict") else plan_runtime,
         "intent_graph": intent_graph,
         "sprint_graph": sprint_graph,
         "langgraph": create_langgraph_adapter(project_name).build_graph(),

@@ -25,13 +25,13 @@ from .types import (
 
 if TYPE_CHECKING:
     from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
-    from sprintcycle.infrastructure.adapters.generic.observability import ObservabilityFacade
+    from sprintcycle.domain.generic.ports.observability import ObservabilityFacadeProtocol
 
 
 class HitlSprintHooks(SprintLifecycleHookProtocol):
     """HITL Sprint 钩子 - 实现协议接口"""
     
-    def __init__(self, config: "RuntimeConfig", observability: ObservabilityFacade) -> None:
+    def __init__(self, config: "RuntimeConfig", observability: "ObservabilityFacadeProtocol") -> None:
         self._config = config
         self._observability = observability
 
@@ -116,7 +116,7 @@ class HitlSprintHooks(SprintLifecycleHookProtocol):
 class HitlTaskHooks(TaskLifecycleHookProtocol):
     """HITL Task 钩子 - 实现协议接口"""
     
-    def __init__(self, config: "RuntimeConfig", observability: ObservabilityFacade) -> None:
+    def __init__(self, config: "RuntimeConfig", observability: "ObservabilityFacadeProtocol") -> None:
         self._config = config
         self._observability = observability
 

@@ -23,7 +23,7 @@ from sprintcycle.domain.core.governance.core import persist_planning_report, per
 
 if TYPE_CHECKING:
     from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
-    from sprintcycle.infrastructure.adapters.generic.observability import ObservabilityFacade
+    from sprintcycle.domain.generic.ports.observability import ObservabilityFacadeProtocol
 
 
 class GovernanceSprintHooks(SprintLifecycleHookProtocol):
@@ -33,7 +33,7 @@ class GovernanceSprintHooks(SprintLifecycleHookProtocol):
         self,
         project_path: str,
         config: "RuntimeConfig",
-        observability: Optional[ObservabilityFacade] = None,
+        observability: Optional["ObservabilityFacadeProtocol"] = None,
     ):
         self._project_path = project_path
         self._config = config

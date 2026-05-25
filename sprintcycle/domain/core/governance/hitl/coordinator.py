@@ -21,13 +21,13 @@ from .types import HitlCorrection, HitlDecision, HitlGate, HitlReplayDirective, 
 
 if TYPE_CHECKING:
     from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
-    from sprintcycle.infrastructure.adapters.core.governance.hitl_store import HitlSqliteStore
+    from sprintcycle.domain.generic.ports.hitl import HitlStoreProtocol
 
 
-def _create_hitl_store(project_path: str) -> "HitlSqliteStore":
-    """创建 HITL Store（延迟导入）"""
-    from sprintcycle.infrastructure.adapters.core.governance.hitl_store import HitlSqliteStore, default_hitl_db_path
-    return HitlSqliteStore(default_hitl_db_path(project_path))
+def _create_hitl_store(project_path: str) -> "HitlStoreProtocol":
+    """创建 HITL Store（使用 Port 接口）"""
+    from sprintcycle.domain.generic.ports.hitl import get_hitl_store
+    return get_hitl_store(project_path)
 
 
 def _timeout_decision(config: "RuntimeConfig") -> HitlDecision:
@@ -52,7 +52,7 @@ class HitlCoordinator:
         project_root: str,
         config: "RuntimeConfig",
         event_bus: ExecutionEventBackend,
-        store: HitlSqliteStore,
+        store: "HitlStoreProtocol",
     ) -> None:
         self._project_root = project_root
         self._config = config
@@ -61,7 +61,7 @@ class HitlCoordinator:
         self._poll_interval = 0.25
 
     @property
-    def store(self) -> HitlSqliteStore:
+    def store(self) -> "HitlStoreProtocol":
         return self._store
 
     async def create_request(

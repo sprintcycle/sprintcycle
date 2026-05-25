@@ -14,7 +14,7 @@ from .models import (
 from .service import SuggestionService
 
 if TYPE_CHECKING:
-    from sprintcycle.infrastructure.adapters.core.governance.suggestion_store import SuggestionStore
+    from sprintcycle.domain.generic.ports.suggestion import SuggestionStoreProtocol
 
 
 class SuggestionFacade:
@@ -59,10 +59,10 @@ class SuggestionFacade:
 
 
 def create_suggestion_facade(project_path: str, config: Any, evolution_facade: Any = None) -> SuggestionFacade:
-    from sprintcycle.infrastructure.adapters.core.governance.suggestion_store import SuggestionStore
+    from sprintcycle.domain.generic.ports.suggestion import get_suggestion_store
     store_root = (
         getattr(getattr(config, "governance_suggestion", None), "root_dir", None)
         or ".sprintcycle/governance/suggestion"
     )
-    service = SuggestionService(SuggestionStore(store_root), evolution_facade=evolution_facade)
+    service = SuggestionService(get_suggestion_store(store_root), evolution_facade=evolution_facade)
     return SuggestionFacade(service)

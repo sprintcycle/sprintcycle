@@ -8,9 +8,9 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
-from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
+from sprintcycle.domain.generic.ports.config import RuntimeConfigProtocol
 
 
 class ConfigService:
@@ -19,10 +19,18 @@ class ConfigService:
     Handles loading, saving, and tracking history of configuration changes.
     """
 
-    def __init__(self, project_path: str):
+    def __init__(self, project_path: str, config: Optional[RuntimeConfigProtocol] = None):
         self.project_path = Path(project_path).expanduser().resolve()
         self.config_history: List[Dict[str, Any]] = []
         self.runtime_yaml = self.project_path / "sprintcycle.runtime.yaml"
+        self._config = config
+
+    def _get_runtime_config(self) -> RuntimeConfigProtocol:
+        """获取运行时配置（延迟导入）"""
+        if self._config is not None:
+            return self._config
+        from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
+        return RuntimeConfig.from_project(str(self.project_path))
 
     def load_config(self) -> Dict[str, Any]:
         """Load and normalize runtime configuration.
@@ -31,7 +39,7 @@ class ConfigService:
             Dict[str, Any]: Normalized configuration dictionary with lowercase keys.
         """
         try:
-            cfg = RuntimeConfig.from_project(str(self.project_path))
+            cfg = self._get_runtime_config()
             raw = cfg.to_dict()
             if isinstance(raw, dict) and "PROJECT" in raw and isinstance(raw["PROJECT"], dict):
                 flat = {k.lower(): v for k, v in raw["PROJECT"].items()}

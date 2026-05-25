@@ -36,6 +36,29 @@ class LangGraphRuntimeAdapterProtocol(ABC):
         ...
 
 
+class CompiledGraphRuntimeProtocol(ABC):
+    """编译后的 LangGraph 运行时协议"""
+
+    @abstractmethod
+    def compile_intent_graph(self, **kwargs: Any) -> Any:
+        """编译 intent graph"""
+        ...
+
+    @abstractmethod
+    def compile_sprint_graph(self, **kwargs: Any) -> Any:
+        """编译 sprint graph"""
+        ...
+
+
+class PlanRuntimeProtocol(ABC):
+    """Plan Runtime 协议"""
+
+    @abstractmethod
+    def build_release_plan_from_intent(self, intent: str, context: Dict[str, Any]) -> Any:
+        """从意图构建发布计划"""
+        ...
+
+
 class PhoenixExporterSpecProtocol(ABC):
     """Phoenix Exporter 规格协议"""
 
@@ -63,6 +86,8 @@ class PhoenixTraceRuntimeProtocol(ABC):
 _autogpt_compose_factory: Optional[callable] = None
 _autogpt_runtime_factory: Optional[callable] = None
 _langgraph_adapter_factory: Optional[callable] = None
+_compiled_graph_runtime_factory: Optional[callable] = None
+_plan_runtime_factory: Optional[callable] = None
 _phoenix_exporter_factory: Optional[callable] = None
 _phoenix_trace_factory: Optional[callable] = None
 
@@ -80,6 +105,16 @@ def register_autogpt_runtime_factory(factory: callable) -> None:
 def register_langgraph_adapter_factory(factory: callable) -> None:
     global _langgraph_adapter_factory
     _langgraph_adapter_factory = factory
+
+
+def register_compiled_graph_runtime_factory(factory: callable) -> None:
+    global _compiled_graph_runtime_factory
+    _compiled_graph_runtime_factory = factory
+
+
+def register_plan_runtime_factory(factory: callable) -> None:
+    global _plan_runtime_factory
+    _plan_runtime_factory = factory
 
 
 def register_phoenix_exporter_factory(factory: callable) -> None:
@@ -113,6 +148,28 @@ def create_langgraph_adapter(graph_name: str) -> LangGraphRuntimeAdapterProtocol
     return LangGraphExecutionAdapter(graph_name=graph_name)
 
 
+def compile_intent_graph(**kwargs: Any) -> Any:
+    """编译 intent graph 并返回运行时对象"""
+    if _compiled_graph_runtime_factory is not None:
+        return _compiled_graph_runtime_factory(**kwargs)
+    from sprintcycle.infrastructure.adapters.generic.integrations.langgraph.compiler import compile_intent_graph as _compile
+    return _compile(**kwargs)
+
+
+def compile_sprint_graph(**kwargs: Any) -> Any:
+    """编译 sprint graph 并返回运行时对象"""
+    from sprintcycle.infrastructure.adapters.generic.integrations.langgraph.compiler import compile_sprint_graph as _compile
+    return _compile(**kwargs)
+
+
+def create_plan_runtime(project_name: str = "sprintcycle") -> PlanRuntimeProtocol:
+    """创建 Plan Runtime 实例"""
+    if _plan_runtime_factory is not None:
+        return _plan_runtime_factory(project_name)
+    from sprintcycle.infrastructure.adapters.generic.integrations.langgraph.plan_runtime import PlanRuntime
+    return PlanRuntime(project_name=project_name)
+
+
 def create_phoenix_exporter_spec(project_name: str = "sprintcycle") -> PhoenixExporterSpecProtocol:
     if _phoenix_exporter_factory is not None:
         return _phoenix_exporter_factory(project_name)
@@ -131,16 +188,23 @@ __all__ = [
     "AutoGPTComposeSpecProtocol",
     "AutoGPTRuntimeSpecProtocol",
     "LangGraphRuntimeAdapterProtocol",
+    "CompiledGraphRuntimeProtocol",
+    "PlanRuntimeProtocol",
     "PhoenixExporterSpecProtocol",
     "PhoenixTraceRuntimeProtocol",
     "register_autogpt_compose_factory",
     "register_autogpt_runtime_factory",
     "register_langgraph_adapter_factory",
+    "register_compiled_graph_runtime_factory",
+    "register_plan_runtime_factory",
     "register_phoenix_exporter_factory",
     "register_phoenix_trace_factory",
     "build_default_compose_spec",
     "create_autogpt_runtime_spec",
     "create_langgraph_adapter",
+    "compile_intent_graph",
+    "compile_sprint_graph",
+    "create_plan_runtime",
     "create_phoenix_exporter_spec",
     "create_phoenix_trace_runtime",
 ]
