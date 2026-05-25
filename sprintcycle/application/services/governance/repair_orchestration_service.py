@@ -8,19 +8,16 @@ Implements an explicit repair -> verify -> observe loop for lifecycle recovery.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import Any, Dict, Optional
 
+from sprintcycle.domain.generic.ports.observability import ObservabilityFacadeProtocol
 from ..lifecycle.lifecycle_contracts import build_lifecycle_contract, build_lifecycle_state_machine
 from ..execution.phase_workflow import build_diagnose_artifact, build_observe_artifact, build_repair_artifact
-
-# TYPE_CHECKING: 仅用于类型提示
-if TYPE_CHECKING:
-    from sprintcycle.infrastructure.adapters.generic.observability.facade import ObservabilityFacade
 
 
 @dataclass
 class RepairOrchestrationService:
-    observability: ObservabilityFacade
+    observability: ObservabilityFacadeProtocol
 
     def diagnose(self, execution_id: str, trace_payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         trace = dict(trace_payload or self.observability.to_trace_payload(execution_id) or {})

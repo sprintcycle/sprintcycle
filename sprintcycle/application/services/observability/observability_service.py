@@ -10,20 +10,19 @@ for failure classification and repair analysis.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import Any, Dict, Optional
 
+from sprintcycle.domain.generic.ports.observability import ObservabilityFacadeProtocol
+from sprintcycle.domain.generic.ports.state_store import StateStoreProtocol
 from ..lifecycle.lifecycle_contracts import build_lifecycle_contract
 from ..lifecycle.lifecycle_state_machine import build_default_correlation
 from ..execution.phase_workflow import build_observe_artifact
 
-# TYPE_CHECKING: 仅用于类型提示
-if TYPE_CHECKING:
-    from sprintcycle.infrastructure.adapters.generic.observability.facade import ObservabilityFacade
-
 
 @dataclass
 class ObservabilityService:
-    observability: ObservabilityFacade
+    observability: ObservabilityFacadeProtocol
+    state_store: StateStoreProtocol
 
     def record_event(self, event: Dict[str, Any]) -> Dict[str, Any]:
         return self.observability.record(event)
@@ -166,10 +165,7 @@ class ObservabilityService:
         eid = (execution_id or "").strip()
         if not eid:
             return {"success": False, "error": "execution_id required"}
-        # 延迟导入避免循环依赖
-        from sprintcycle.infrastructure.adapters.core.execution.state_store import get_state_store
-        store = get_state_store()
-        state = store.load(eid)
+        state = self.state_store.load(eid)
         if state is None:
             return {"success": False, "error": f"未找到执行记录: {eid}"}
         return {

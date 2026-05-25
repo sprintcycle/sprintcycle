@@ -9,20 +9,17 @@ artifacts and keeps the promotion contract explicit.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import Any, Dict, Optional
 
 from sprintcycle.domain.core.governance import PromotionPolicy
-
-# TYPE_CHECKING: 仅用于类型提示
-if TYPE_CHECKING:
-    from sprintcycle.infrastructure.adapters.generic.observability.facade import ObservabilityFacade
-    from sprintcycle.infrastructure.adapters.generic.config.runtime_registry import RuntimeRegistry
+from sprintcycle.domain.generic.ports.observability import ObservabilityFacadeProtocol
+from sprintcycle.domain.generic.ports.registry import RuntimeRegistryProtocol
 
 
 @dataclass
 class LifecycleEvolutionService:
-    observability: ObservabilityFacade
-    runtime_registry: RuntimeRegistry
+    observability: ObservabilityFacadeProtocol
+    runtime_registry: RuntimeRegistryProtocol
     promotion_policy: PromotionPolicy
 
     def build_contract(

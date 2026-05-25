@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 
 from sprintcycle.domain.core.governance.core.facade import GovernanceFacade
 from sprintcycle.domain.core.governance.suggestion import SuggestionFacade
-from sprintcycle.infrastructure.adapters.core.evolution.version_store.registry import VersionRegistry
+from sprintcycle.domain.generic.ports.evolution import EvolutionRegistryProtocol
 from sprintcycle.domain.generic.interfaces.hooks import (
     SUGGESTION_APPROVAL_COMPLETED_EVENT,
     SUGGESTION_APPROVE_SUGGESTION,
@@ -46,7 +46,7 @@ from .promotion_policy import PromotionPolicy
 class SuggestionApplicationService:
     suggestion: SuggestionFacade
     governance: Optional[GovernanceFacade] = None
-    version_registry: Optional[VersionRegistry] = None
+    version_registry: Optional[EvolutionRegistryProtocol] = None
     promotion_policy: Optional[PromotionPolicy] = None
     hooks: Optional[HookRegistry] = None
 

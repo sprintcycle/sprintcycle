@@ -6,26 +6,23 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 from sprintcycle.application.services.governance.governance_orchestration_service import GovernanceOrchestrationService
 from sprintcycle.application.services.lifecycle.lifecycle_evolution_service import LifecycleEvolutionService
 from sprintcycle.application.services.governance.repair_orchestration_service import RepairOrchestrationService
-
-# TYPE_CHECKING: 仅用于类型提示
-if TYPE_CHECKING:
-    from sprintcycle.infrastructure.adapters.generic.deploy.platform_launch_service import PlatformLaunchService
-    from sprintcycle.infrastructure.adapters.generic.config.runtime_registry import RuntimeRegistry
+from sprintcycle.domain.generic.ports.deploy import PlatformLaunchServiceProtocol
+from sprintcycle.domain.generic.ports.registry import RuntimeRegistryProtocol
 
 
 @dataclass
 class LifecycleDeliveryService:
     project_path: str
-    runtime_registry: RuntimeRegistry
+    runtime_registry: RuntimeRegistryProtocol
     governance_orchestration: GovernanceOrchestrationService
     lifecycle_evolution: LifecycleEvolutionService
     repair_orchestration: RepairOrchestrationService
-    platform_launch: PlatformLaunchService
+    platform_launch: PlatformLaunchServiceProtocol
     runtime_latest: Callable[[], Dict[str, Any]]
     observability_trace: Callable[[str], Dict[str, Any]]
     observe_execution: Callable[[str], Dict[str, Any]]

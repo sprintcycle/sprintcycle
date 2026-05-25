@@ -178,9 +178,24 @@ class HTTPServices:
             evolution_facade=None,
         )
         
+        # 初始化 Platform Launch Service
+        from sprintcycle.domain.generic.ports.deploy import create_platform_launch_service
+        self._platform_launch = create_platform_launch_service()
+        
         # 初始化 Dashboard 服务
         self._dashboard_views = DashboardViewService(project_path=self.project_path)
         self._dashboard_workbench = DashboardWorkbenchService(view_service=self._dashboard_views)
+        
+        # 初始化 Repair Orchestration（需要先于 LifecycleDelivery）
+        self._repair_orchestration = RepairOrchestrationService(
+            observability=self._observability,
+        )
+        
+        # 初始化 Lifecycle Contract（需要先于 LifecycleDelivery）
+        self._lifecycle_contract = LifecycleContractAssemblyService(
+            project_path=self.project_path,
+            config=self.config,
+        )
         
         # 初始化 application 服务
         self._execution_lifecycle = ExecutionLifecycleService(
@@ -192,12 +207,16 @@ class HTTPServices:
             hooks=self._hooks,
         )
         
-        self._observability_service = ObservabilityService(observability=self._observability)
+        self._observability_service = ObservabilityService(
+            observability=self._observability,
+            state_store=self._state_store,
+        )
         
         self._platform_summary = PlatformSummaryService(
             project_path=self.project_path,
             dashboard_views=self._dashboard_views,
             dashboard_workbench=self._dashboard_workbench,
+            state_store=self._state_store,
         )
         
         self._governance_orchestration = GovernanceOrchestrationService(
@@ -210,6 +229,7 @@ class HTTPServices:
         self._suggestion_application = SuggestionApplicationService(
             suggestion=self._suggestion,
             governance=self._governance,
+            version_registry=self._evolution_registry,
         )
         
         from sprintcycle.domain.core.governance.promotion_policy import PromotionPolicy
@@ -221,18 +241,17 @@ class HTTPServices:
         
         self._lifecycle_delivery = LifecycleDeliveryService(
             project_path=self.project_path,
-            config=self.config,
-        )
-        
-        self._lifecycle_contract = LifecycleContractAssemblyService(
-            project_path=self.project_path,
-            config=self.config,
-        )
-        
-        self._repair_orchestration = RepairOrchestrationService(
-            project_path=self.project_path,
-            config=self.config,
-            observability=self._observability,
+            runtime_registry=self._runtime_registry,
+            governance_orchestration=self._governance_orchestration,
+            lifecycle_evolution=self._lifecycle_evolution,
+            repair_orchestration=self._repair_orchestration,
+            platform_launch=self._platform_launch,
+            runtime_latest=lambda: self._execution_lifecycle.runtime_latest(),
+            observability_trace=lambda eid: self._observability_service.trace(eid),
+            observe_execution=lambda eid: self._execution_lifecycle.execution_detail(eid),
+            deploy_view=lambda: self._dashboard_views.deploy_view({}),
+            lifecycle_contract=lambda rid: self._lifecycle_contract.assembly(rid),
+            evaluate_promotion=lambda eid, **kwargs: self._lifecycle_evolution.promote(eid, **kwargs),
         )
         
         self._evolution_version = EvolutionVersionService(

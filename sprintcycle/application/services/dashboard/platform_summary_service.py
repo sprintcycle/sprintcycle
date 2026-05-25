@@ -9,16 +9,13 @@ logic in the underlying facades and query services.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict
+from typing import Any, Dict
 
 from sprintcycle.domain.generic.platform.overview import build_platform_overview_view
 from sprintcycle.domain.generic.platform.spec import build_platform_spec
+from sprintcycle.domain.generic.ports.state_store import StateStoreProtocol
 from .dashboard_view_service import DashboardViewService
 from .dashboard_workbench_service import DashboardWorkbenchService
-
-# TYPE_CHECKING: 仅用于类型提示
-if TYPE_CHECKING:
-    from sprintcycle.infrastructure.adapters.core.execution.state_store import ExecutionState
 
 
 @dataclass
@@ -26,10 +23,11 @@ class PlatformSummaryService:
     project_path: str
     dashboard_views: DashboardViewService
     dashboard_workbench: DashboardWorkbenchService
+    state_store: StateStoreProtocol
 
     def _get_state_machine_summary(self) -> Dict[str, Any]:
         """获取状态机摘要（延迟导入避免循环依赖）"""
-        from sprintcycle.infrastructure.adapters.core.execution.state_store import summarize_state_machine
+        from sprintcycle.domain.generic.ports.state_store import summarize_state_machine
         return summarize_state_machine()
 
     def platform_overview(self) -> Dict[str, Any]:
@@ -106,10 +104,7 @@ class PlatformSummaryService:
         return self.dashboard_views.fix_view(payload)
 
     def console_overview(self, trace_payload: Dict[str, Any] | None = None, limit: int = 20) -> Dict[str, Any]:
-        # 延迟导入避免循环依赖
-        from sprintcycle.infrastructure.adapters.core.execution.state_store import get_state_store
-        store = get_state_store()
-        states = store.list_executions(limit=max(1, int(limit)))
+        states = self.state_store.list_executions(limit=max(1, int(limit)))
         executions = [s.to_dict() for s in states]
         running = [s.to_dict() for s in states if str(s.status.value) == "running"]
         latest = executions[0] if executions else None
