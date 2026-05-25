@@ -2,7 +2,7 @@
 
 [中文](README.md)
 
-**SprintCycle** is a contract-driven lifecycle orchestration platform for Dashboard / REST API / Python SDK（一个面向 Dashboard / REST API / Python SDK 的契约驱动生命周期编排平台）. It uses a single `LifecycleContract` to connect intent normalization, planning, preparation, decomposition, execution, observation, diagnosis, repair, delivery, runtime linkage, governance, and versioned evolution, producing a traceable, replayable, and promotable `final snapshot` and `versioned evolution`（它通过单一 `LifecycleContract` 串联意图归一化、计划、准备、拆解、执行、观测、诊断、修复、交付、运行时联动、治理和版本化演化，最终产出可追溯、可回放、可晋升的 `final snapshot` 与 `versioned evolution`）.
+**SprintCycle** is a contract-driven lifecycle orchestration platform for Dashboard / REST API / Python SDK. It uses a single `LifecycleContract` to connect intent normalization, planning, preparation, decomposition, execution, observation, diagnosis, repair, delivery, runtime linkage, governance, and versioned evolution, producing a traceable, replayable, and promotable `final snapshot` and `versioned evolution`.
 
 Current Version: **0.9.2** (matches `sprintcycle.__version__`)
 
@@ -12,7 +12,7 @@ Current Version: **0.9.2** (matches `sprintcycle.__version__`)
 
 SprintCycle is not a single-purpose task runner. It is an end-to-end **contract-driven lifecycle platform** that keeps one authoritative `LifecycleContract` across the entire flow and uses a unified state machine, recovery path, promotion gate, and version registry to make Dashboard / REST API / Python SDK-initiated work stable and auditable.
 
-Its current code structure is closer to a thin-entry + application-orchestration + execution + governance/observability/infrastructure composition than to a single large facade or a multi-entry parallel surface. `SprintCycle` remains the unified entry, but it primarily coordinates, routes, and aggregates.
+Its current code structure is closer to a thin-entry + application-orchestration + execution + governance/observability/infrastructure composition. `SprintCycle` remains the unified entry, but it primarily coordinates, routes, and aggregates.
 
 ### End-to-end lifecycle
 
@@ -40,14 +40,14 @@ Web Request → Normalize → Plan → Prepare → Decompose → Execute → Obs
 - Support sprint orchestration, checkpoint resume, and recovery
 - Support normalized lifecycle stage transitions
 - Primary entry surfaces are Dashboard, REST API, and Python SDK; CLI / MCP are no longer primary paths
-- Planning and execution are now primarily coordinated through `application/release_plan/`, `application/orchestration/`, `execution/`, and `application/services/`
+- Planning and execution are now primarily coordinated through `application/services/execution/`, `application/services/lifecycle/`, and `domain/core/execution/orchestrator/`
 
 ### 2. Standard lifecycle contract
 - `LifecycleStateMachine` owns the canonical stage transition rules
 - `LifecycleContract` carries cross-service state facts
 - A unified correlation model links `execution_id`, `task_id`, `suggestion_id`, `runtime_id`, `version_id`, and `trace_id`
 - `final_snapshot` aggregates execution, observation, governance, repair, delivery, runtime, and promotion evidence
-- Contract assembly and aggregation are primarily handled by services such as `application/services/lifecycle_contracts.py` and `application/services/lifecycle_contract_assembly_service.py`
+- Contract assembly and aggregation are primarily handled by services such as `application/services/lifecycle/lifecycle_contracts.py` and `application/services/lifecycle/lifecycle_contract_assembly_service.py`
 
 ### 3. Repair and delivery loop
 - Explicitly supports `diagnosed → repairing → verifying → observing`
@@ -66,14 +66,14 @@ Web Request → Normalize → Plan → Prepare → Decompose → Execute → Obs
 - Observability traces write audit payloads into the lifecycle contract
 - Runtime registry and deployment linkage
 - `lifecycle_contract(...)` and `evolution_overview(...)` can query final snapshots, active versions, and promotion guards directly
-- Observability and runtime reads are primarily provided by `application/services/observability_service.py`, `observability/`, and `infrastructure/integrations/phoenix/`
+- Observability and runtime reads are primarily provided by `application/services/observability/observability_service.py`, `infrastructure/adapters/generic/observability/`, and `infrastructure/adapters/generic/integrations/phoenix/`
 
 ### 6. Versioned evolution
 - Successful promotion writes to the SQLite version registry
 - Active version pointers are linked to final snapshots
 - `EvolutionOverviewResult` shows recent versions, active versions, and final snapshot versions together
 - Version artifacts keep a final-snapshot contract reference for auditability and rollback
-- Versioning and evolution are primarily provided by `application/services/lifecycle_evolution_service.py`, `application/services/evolution_version_service.py`, and `governance/versioning/`
+- Versioning and evolution are primarily provided by `application/services/lifecycle/lifecycle_evolution_service.py`, `application/services/evolution/evolution_version_service.py`, and `infrastructure/adapters/core/evolution/version_store/`
 
 ### 7. Dashboard and integrations
 - Vue 3 + Element Plus web dashboard
@@ -81,14 +81,13 @@ Web Request → Normalize → Plan → Prepare → Decompose → Execute → Obs
 - Dashboard, REST API, and Python SDK share the same core contract entry
 - Quality decisions are made explicit through an independent Evaluator Agent and a Sprint Contract
 - HTTP entry adaptation is handled by `interfaces/http/` for public / internal routes
-- The Dashboard is implemented on top of `interfaces/http/` plus the frontend app
+- The Dashboard is implemented on top of `interfaces/http/dashboard/` plus the frontend app
 
 ### 8. Skills subsystem
 - Scene recognition, skill matching, skill injection, review checklist enrichment, and retro cleanup
-- Hooked into the main flow through `SprintOrchestrator`
+- Hooked into the main flow through `SprintOrchestrator` sprint hooks
 - Skill artifacts and execution traces are persistable and auditable
-- This logic is mainly spread across `execution/skills.py`, `execution/hooks/skill_hooks.py`, `execution/skill_store.py`, and `execution/orchestrator/sprint_orchestrator.py`
-
+- This logic is mainly spread across `domain/core/execution/agents/skills.py` and `domain/core/execution/hooks/skill_hooks.py`
 
 ---
 
@@ -247,18 +246,18 @@ sprintcycle/
 │   ├── services/            # Core business services (organized by domain)
 │   │   ├── execution/       # Execution-related services (phase_workflow, evaluator_agent)
 │   │   ├── governance/      # Governance-related services (governance_orchestration, promotion_policy)
-│   │   ├── lifecycle/       # Lifecycle-related services (state_machine, contracts, evolution)
+│   │   ├── lifecycle/       # Lifecycle-related services (state_machine, contracts, evolution, delivery)
 │   │   ├── evolution/       # Version evolution services (promotion_service, version_service)
-│   │   ├── dashboard/       # Dashboard view services (platform_summary, view_service)
+│   │   ├── dashboard/       # Dashboard view services (platform_summary, view_service, workbench)
 │   │   ├── observability/   # Observability services (observability_service)
 │   │   └── release/         # Release orchestration services (orchestrator)
 │   ├── orchestration/       # Orchestration layer (sprint_orchestrator)
-│   ├── factories/           # Factory layer (http.py, evolution.py)
+│   ├── factories/           # Factory layer (http.py - composition root)
 │   └── dto/                 # Data transfer objects (results.py)
 ├── domain/                   # Domain models (DDD Domain Layer - organized by subdomain)
 │   ├── core/                # Core subdomains (core competency)
 │   │   ├── lifecycle/       # Lifecycle contracts and state machine
-│   │   ├── execution/       # Execution engine and task orchestration (agents, core, hooks, orchestrator, planners)
+│   │   ├── execution/       # Execution engine and task orchestration (agents, core, hooks, orchestrator)
 │   │   ├── evolution/       # Version evolution and promotion
 │   │   └── governance/      # Governance and suggestion handling (arch_guard, hitl, quality_spec, suggestion)
 │   ├── supporting/          # Supporting subdomains (business support)
@@ -266,13 +265,14 @@ sprintcycle/
 │   │   ├── verification/    # Verification engine (providers)
 │   │   └── fitness/         # Health evaluation
 │   └── generic/             # Generic subdomains (infrastructure abstractions)
-│       ├── errors/           # Error handling and knowledge routing
-│       ├── prompts/          # Prompt management and templates
-│       ├── models/           # Generic data models (release_plan, sprint_models)
-│       ├── platform/         # Platform views and overview
-│       ├── interfaces/       # Generic interface protocol definitions
-│       └── ports/            # Infrastructure port abstractions
+│       ├── errors/          # Error handling and knowledge routing
+│       ├── prompts/         # Prompt management and templates
+│       ├── models/          # Generic data models (release_plan, sprint_models)
+│       ├── platform/        # Platform views and overview
+│       ├── interfaces/      # Generic interface protocol definitions
+│       └── ports/           # Infrastructure port abstractions (dependency injection factory registration)
 ├── infrastructure/          # Adapter layer (DDD Infrastructure Layer - organized by subdomain)
+│   ├── shared/              # Shared infrastructure (persistence)
 │   └── adapters/            # Subdomain adapter implementations
 │       ├── core/           # Core subdomain adapters
 │       │   ├── execution/  # Execution engine adapters (state_store, event_backend)
@@ -283,7 +283,7 @@ sprintcycle/
 │           ├── cache/       # Cache implementations (redis_backend, disk_backend)
 │           ├── deploy/      # Deployment implementations (compose_manager, runtime_registry)
 │           └── integrations/ # Third-party integrations (langgraph, phoenix, autogpt)
-└── interfaces/               # HTTP interface layer (DDD Interface Adapter Layer)
+└── interfaces/              # HTTP interface layer (DDD Interface Adapter Layer)
     └── http/                # HTTP adaptation layer
         ├── app.py           # FastAPI application factory
         ├── request_context.py # Request context
@@ -315,9 +315,9 @@ Based on SprintCycle's value streams (intent-driven development loop, lifecycle 
 | Subdomain | Responsibility | Main Modules |
 |---------|---------------|--------------|
 | **lifecycle** | Lifecycle contracts and state machine, unified stage transitions | `core/lifecycle/` |
-| **execution** | Execution engine and task orchestration, Sprint runtime core | `core/execution/` (includes agents, core) |
+| **execution** | Execution engine and task orchestration, Sprint runtime core | `core/execution/` (includes agents, core, hooks, orchestrator) |
 | **evolution** | Version evolution and promotion, versioned evolution capability | `core/evolution/` |
-| **governance** | Governance and suggestion handling, HITL review and gates | `core/governance/` (includes quality_spec) |
+| **governance** | Governance and suggestion handling, HITL review and gates | `core/governance/` (includes quality_spec, hitl, suggestion) |
 
 #### 2. Supporting Domains - Business Support
 
@@ -336,7 +336,7 @@ Based on SprintCycle's value streams (intent-driven development loop, lifecycle 
 | **models** | Generic data models (ReleasePlan, SprintDefinition, etc.) | `generic/models/` |
 | **platform** | Platform views and overview | `generic/platform/` |
 | **interfaces** | Generic interface protocol definitions | `generic/interfaces/` |
-| **ports** | Infrastructure port abstractions | `generic/ports/` |
+| **ports** | Infrastructure port abstractions (dependency injection factory registration) | `generic/ports/` |
 
 ### Dependency Constraints
 
@@ -359,81 +359,68 @@ generic/       ───────┘
 The Skills subsystem belongs to the **Core domain (core/execution)** as an execution engine enhancement:
 - Scene recognition, skill matching, skill injection
 - Hooked into the main flow through `SprintOrchestrator` hooks
-- Located at [domain/core/execution/agents/](sprintcycle/domain/core/execution/agents/)
+- Located at `domain/core/execution/agents/`
 
 ---
 
-## Key Services in the Latest Code
+## Core Services Architecture
 
 ### Lifecycle Core
 
-- `sprintcycle/application/services/lifecycle_state_machine.py`
+- `application/services/lifecycle/lifecycle_state_machine.py`
   - Defines the canonical stages: `new → normalized → planned → prepared → decomposed → executing → observing → diagnosed → repairing → verifying → delivering → runtime_linked → governing → promotion_ready → promoted`
   - Provides stage transitions, event building, and correlation helpers
 
-- `sprintcycle/application/services/lifecycle_contracts.py`
+- `application/services/lifecycle/lifecycle_contracts.py`
   - Defines `LifecycleContract`
   - Carries execution, task, project, trace, diagnostics, runtime, suggestion, governance, evolution, recovery, validation_refs, and final snapshot evidence
   - Provides evidence validation and final snapshot construction helpers
 
-- `sprintcycle/application/services/phase_workflow.py`
+- `application/services/execution/phase_workflow.py`
   - Provides structured artifacts for plan / prepare / decompose / observe / diagnose / repair / deliver phases
 
 ### Runtime Lifecycle
 
-- `sprintcycle/application/services/execution_lifecycle_service.py`
+- `application/services/lifecycle/execution_lifecycle_service.py`
   - Handles execution bootstrap, normalization, runtime registration, observation event emission, and execution detail reads
 
-- `sprintcycle/orchestration/sprint_orchestrator.py`
+- `domain/core/execution/orchestrator/sprint_orchestrator.py`
   - Handles Release Plan expansion, sprint orchestration, task execution, and runtime event coordination
 
 ### Recovery, Governance, and Evolution
 
-- `sprintcycle/application/services/repair_orchestration_service.py`
+- `application/services/governance/repair_orchestration_service.py`
   - Provides a unified recovery route, supporting the `diagnose → repair → verify → observe` loop
 
-- `sprintcycle/application/services/promotion_policy.py`
+- `application/services/governance/promotion_policy.py`
   - Provides the promotion gate, only allowing evidence-complete contracts with a correct stage and final snapshot to move forward
 
-- `sprintcycle/application/services/lifecycle_evolution_service.py`
+- `application/services/lifecycle/lifecycle_evolution_service.py`
   - Builds lifecycle contracts, evaluates promotion, performs promotion, and registers version artifacts
 
-- `sprintcycle/versioning/sqlite_registry.py`
+- `infrastructure/adapters/core/evolution/version_store/registry.py`
   - Manages version registration, active version pointers, and manifest indexing
 
 ### Observability, Governance, and Suggestions
 
-- `sprintcycle/application/services/observability_service.py`
+- `application/services/observability/observability_service.py`
   - Handles trace, replay, execution detail assembly, and observability read models
   - Writes audit payloads into the lifecycle contract
 
-- `sprintcycle/application/services/governance_orchestration_service.py`
+- `application/services/governance/governance_orchestration_service.py`
   - Handles governance checks and governance read workflows
 
-- `sprintcycle/application/services/suggestion_application_service.py`
+- `application/services/governance/suggestion_application_service.py`
   - Handles suggestion review, approval, rejection, archival, and HITL promotion
 
 ### Dashboard / Overview / Views
 
-- `sprintcycle/application/services/platform_summary_service.py`
+- `application/services/dashboard/platform_summary_service.py`
   - Handles dashboard/platform-facing summary payloads
 
-- `sprintcycle/results.py`
+- `application/dto/results.py`
   - Unified result models
   - Includes `FinalSnapshotResult`, `FinalSnapshotVersionSummary`, and `EvolutionOverviewResult`
-
-### Skills Subsystem
-
-- `sprintcycle/execution/skills.py`
-  - Handles scene recognition, skill matching, pre-injection preparation, review checklist enrichment, and retro cleanup
-
-- `sprintcycle/execution/hooks/skill_hooks.py`
-  - Hooks skill orchestration into sprint lifecycle nodes such as before/after/before_review/after_retro
-
-- `sprintcycle/execution/skill_store.py`
-  - Persists skill artifacts, injection state, execution records, and task traces
-
-The skills subsystem is connected through `SprintOrchestrator._build_sprint_hooks()` and participates in the main flow after planning, before execution, before review, and after retro. It is not a side executor; it is an execution-time capability layer on the main lifecycle.
 
 ---
 
@@ -466,6 +453,7 @@ The skills subsystem is connected through `SprintOrchestrator._build_sprint_hook
 - `docs/SYSTEM_OVERVIEW.md` — System overview and target mature architecture
 - `docs/RELEASE_CHECKLIST.md` — Release checklist
 - `docs/GOVERNANCE_HEAVY_CHECKS.md` — Heavy governance checks documentation
+- `docs/ARCHITECTURE_INVARIANTS.md` — Architecture invariants documentation
 
 ---
 

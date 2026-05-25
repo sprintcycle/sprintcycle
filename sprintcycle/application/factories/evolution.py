@@ -53,7 +53,7 @@ def create_default_evolution_facade(
 
     if rollback_manager is None:
         from sprintcycle.infrastructure.adapters.core.evolution.version_store.rollback import DefaultVersionRollbackManager
-        rollback_manager = DefaultVersionRollbackManager()
+        rollback_manager = DefaultVersionRollbackManager(registry=version_registry, repo_path=project_path)
 
     if release_plan_generator is None:
         from sprintcycle.domain.core.execution.planners.generator import IntentReleasePlanGenerator
@@ -65,7 +65,8 @@ def create_default_evolution_facade(
 
     if sandbox_manager is None:
         from sprintcycle.infrastructure.adapters.generic.sandbox.default_manager import DefaultSandboxManager
-        sandbox_manager = DefaultSandboxManager()
+        from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
+        sandbox_manager = DefaultSandboxManager(project_path=project_path, config=RuntimeConfig())
 
     return create_evolution_facade(
         project_path=project_path,

@@ -9,17 +9,16 @@
 
 | 指标 | 数值 |
 |------|------|
-| Python 文件总数 | 345 |
-| 总代码行数 | 35,170 |
+| Python 文件总数 | 345+ |
+| 总代码行数 | 35,170+ |
 | 顶层模块数 | 5 |
 
 ### 1.1 模块分布
 
 | 模块 | 文件数 | 说明 |
 |------|--------|------|
-| `domain/core/execution` | 78 | 执行引擎、状态管理、事件总线、agents、hooks |
+| `domain/core/execution` | 78 | 执行引擎、状态管理、事件总线、agents、hooks、orchestrator |
 | `domain/core/governance` | 77 | 治理、HITL、建议、版本控制、arch_guard |
-| `domain` | 62 | 领域模型（core、supporting、generic 子域） |
 | `infrastructure` | 60+ | 配置、持久化、集成、部署、可观测性适配器 |
 | `application` | 47 | 服务编排（按领域组织：lifecycle、governance、evolution、dashboard） |
 | `interfaces/http` | 14 | HTTP 接口层（dashboard 按领域划分路由） |
@@ -43,7 +42,7 @@
 ├─────────────────────────────────────────────────────────────┤
 │                     application/                            │
 │    (Services: execution, governance, lifecycle, evolution, │
-│     dashboard - organized by domain)                       │
+│     dashboard, observability - organized by domain)        │
 │                       ↓                                    │
 │              ┌─────────────────────┐                       │
 │              │  用例编排与服务层   │                       │
@@ -59,8 +58,7 @@
 │              └─────────────────────┘                       │
 ├─────────────────────────────────────────────────────────────┤
 │                  infrastructure/                            │
-│  (Config, persistence, integrations, deployment, sandbox,   │
-│   observability: trace, replay, diagnostics, runtime)       │
+│  (shared/persistence, adapters/core, adapters/generic)      │
 │                       ↓                                    │
 │              ┌─────────────────────┐                       │
 │              │   基础设施适配层    │                       │
@@ -127,43 +125,43 @@ SprintCycle 不可替代的核心功能：
 
 | 能力 | 位置 | 说明 |
 |------|------|------|
-| 阶段编排 | `application/services/phase_workflow.py` | 统一执行流程编排 |
-| 状态机 | `application/services/lifecycle_state_machine.py` | 16 个生命周期阶段定义 |
-| 恢复机制 | `application/services/repair_orchestration_service.py` | 失败自动恢复路由 |
-| 证据收集 | `application/services/lifecycle_contracts.py` | 阶段证据 schema |
+| 阶段编排 | `application/services/execution/phase_workflow.py` | 统一执行流程编排 |
+| 状态机 | `application/services/lifecycle/lifecycle_state_machine.py` | 16 个生命周期阶段定义 |
+| 恢复机制 | `application/services/governance/repair_orchestration_service.py` | 失败自动恢复路由 |
+| 证据收集 | `application/services/lifecycle/lifecycle_contracts.py` | 阶段证据 schema |
 
 ### 3.2 质量治理
 
 | 能力 | 位置 | 说明 |
 |------|------|------|
-| 规则引擎 | `domain/quality_spec/rules/rule.py` | 规则定义与匹配 |
-| 架构守卫 | `governance/arch_guard/` | 架构约束检查 |
-| 适配器系统 | `domain/quality_spec/adapters/` | 外部工具集成 |
-| 插件协议 | `domain/quality_spec/plugin_protocols.py` | 可扩展质量规则 |
+| 规则引擎 | `domain/core/governance/quality_spec/rules/rule.py` | 规则定义与匹配 |
+| 架构守卫 | `domain/core/governance/arch_guard/` | 架构约束检查 |
+| 适配器系统 | `domain/core/governance/quality_spec/adapters/` | 外部工具集成 |
+| 插件协议 | `domain/core/governance/quality_spec/plugin_protocols.py` | 可扩展质量规则 |
 
 ### 3.3 人类在环（HITL）
 
 | 能力 | 位置 | 说明 |
 |------|------|------|
-| 决策请求 | `governance/hitl/coordinator.py` | 人工决策协调 |
-| 会话管理 | `governance/hitl/session.py` | 决策上下文 |
-| 策略评估 | `governance/hitl/policy.py` | 自动决策策略 |
+| 决策请求 | `domain/core/governance/hitl/coordinator.py` | 人工决策协调 |
+| 会话管理 | `domain/core/governance/hitl/session.py` | 决策上下文 |
+| 策略评估 | `domain/core/governance/hitl/policy.py` | 自动决策策略 |
 
 ### 3.4 建议系统
 
 | 能力 | 位置 | 说明 |
 |------|------|------|
-| 建议生成 | `governance/suggestion/service.py` | 从执行事件生成建议 |
-| 审批流程 | `governance/suggestion/approval.py` | 建议审核 |
-| HITL 提升 | `governance/suggestion/bridge.py` | 建议转 HITL |
+| 建议生成 | `domain/core/governance/suggestion/service.py` | 从执行事件生成建议 |
+| 审批流程 | `domain/core/governance/suggestion/approval.py` | 建议审核 |
+| HITL 提升 | `domain/core/governance/suggestion/bridge.py` | 建议转 HITL |
 
 ### 3.5 可观测性
 
 | 能力 | 位置 | 说明 |
 |------|------|------|
-| 事件总线 | `execution/events.py` | 发布-订阅事件 |
-| 追踪 | `observability/facade.py` | 运行追踪 |
-| 诊断 | `observability/diagnostics/` | 健康报告 |
+| 事件总线 | `domain/core/execution/core/events.py` | 发布-订阅事件 |
+| 追踪 | `infrastructure/adapters/generic/observability/facade.py` | 运行追踪 |
+| 诊断 | `infrastructure/adapters/generic/observability/diagnostics/` | 健康报告 |
 
 ---
 
@@ -173,27 +171,27 @@ SprintCycle 不可替代的核心功能：
 
 | 扩展点 | 协议/接口 | 位置 |
 |--------|-----------|------|
-| 质量规则插件 | `QualityPlugin` | `domain/quality_spec/plugin_protocols.py` |
-| 治理 argv 插件 | `pluggy` | `governance/pluggy_host.py` |
-| 执行 hooks | `HookDefinition` | `execution/hooks/` |
-| 治理 hooks | `GovernanceHook` | `governance/task_hooks.py`, `sprint_hooks.py` |
+| 质量规则插件 | `QualityPlugin` | `domain/core/governance/quality_spec/plugin_protocols.py` |
+| 治理 argv 插件 | `pluggy` | `domain/core/governance/pluggy_host.py` |
+| 执行 hooks | `HookDefinition` | `domain/core/execution/hooks/` |
+| 治理 hooks | `GovernanceHook` | `domain/core/governance/task_hooks.py`, `sprint_hooks.py` |
 
 ### 4.2 适配器扩展
 
 | 扩展点 | 说明 | 位置 |
 |--------|------|------|
-| 质量适配器 | 集成 Bandit, Arch, Deal 等 | `domain/quality_spec/adapters/` |
-| 验证提供者 | Playwright, 视觉对比等 | `domain/verification/providers/` |
-| LLM 提供者 | 模型调用抽象 | `infrastructure/llm_provider.py` |
-| 事件后端 | SQLite, Memory 等 | `execution/events.py` |
+| 质量适配器 | 集成 Bandit, Arch, Deal 等 | `domain/core/governance/quality_spec/adapters/` |
+| 验证提供者 | Playwright, 视觉对比等 | `domain/supporting/verification/providers/` |
+| LLM 提供者 | 模型调用抽象 | `infrastructure/adapters/generic/llm_provider.py` |
+| 事件后端 | SQLite, Memory 等 | `infrastructure/adapters/core/execution/state_store/sqlite_event_backend.py` |
 
 ### 4.3 可配置扩展
 
 | 扩展点 | 配置项 | 位置 |
 |--------|--------|------|
-| 事件后端 | `SPRINTCYCLE_EXECUTION_EVENT_BACKEND` | `execution/events.py` |
-| 状态存储 | `RuntimeConfig.state_store` | `execution/state/` |
-| 治理规则 | `sprintcycle.toml` | `governance/runner.py` |
+| 事件后端 | `SPRINTCYCLE_EXECUTION_EVENT_BACKEND` | `infrastructure/adapters/core/execution/state_store/state_store.py` |
+| 状态存储 | `RuntimeConfig.state_store` | `infrastructure/adapters/core/execution/state_store/` |
+| 治理规则 | `sprintcycle.toml` | `domain/core/governance/runner.py` |
 
 ---
 
@@ -204,18 +202,18 @@ SprintCycle 不可替代的核心功能：
 ```python
 # 阶段序列（不可更改顺序）
 REQUIRED_STAGE_SEQUENCE = (
-    "normalized", "plan", "prepare", "decompose",
-    "execute", "observe", "diagnose", "repair",
-    "verify", "deliver", "runtime", "governance",
-    "promotion", "evolution"
+    "new", "normalized", "planned", "prepared", "decomposed",
+    "executing", "observing", "diagnosed", "repairing", "verifying",
+    "delivering", "runtime_linked", "governing", "promotion_ready", "promoted"
 )
 
 # 阶段证据 schema
 STAGE_EVIDENCE_SCHEMA = {
     "normalized": ("normalized",),
-    "plan": ("objective", "present"),
-    "execute": ("trace", "present"),
-    "diagnose": ("root_causes", "repair_ready", "confidence", "recommendations", "present"),
+    "planned": ("plan",),
+    "prepared": ("prepared",),
+    "executing": ("trace",),
+    "diagnosed": ("root_causes", "repair_ready", "confidence", "recommendations"),
     ...
 }
 ```
@@ -325,11 +323,9 @@ LAYER_NAMES = (
 # 允许的跨层依赖
 ALLOWED_DEPENDENCIES = {
     "interfaces": ["application"],
-    "application": ["domain", "execution", "governance"],
+    "application": ["domain"],
     "domain": [],  # 无外部依赖
-    "execution": ["domain", "infrastructure"],
-    "governance": ["domain"],
-    "infrastructure": ["domain"],
+    "infrastructure": [],  # 无外部依赖（被其他层依赖）
 }
 ```
 
@@ -348,7 +344,7 @@ ALLOWED_DEPENDENCIES = {
 
 ### 7.1 观察者模式（Event-Driven）
 
-**位置**：`execution/events.py`
+**位置**：`domain/core/execution/core/events.py`
 
 ```python
 # 发布-订阅契约
@@ -368,7 +364,7 @@ class ExecutionEventBackend(Protocol):
 
 ### 7.2 契约式设计（Contracts）
 
-**位置**：`domain/quality_spec/`
+**位置**：`domain/core/governance/quality_spec/`
 
 ```python
 # 规则契约
@@ -389,10 +385,9 @@ class QualityAdapter(Protocol):
 
 | 策略 | 位置 | 说明 |
 |------|------|------|
-| `PromotionPolicy` | `application/services/promotion_policy.py` | 晋升策略 |
-| `HitlPolicy` | `governance/hitl/policy.py` | HITL 决策策略 |
-| `TaskRetryPolicy` | `execution/policies.py` | 重试策略 |
-| `HookPolicy` | `hooks.py` | Hook 失败策略 |
+| `PromotionPolicy` | `application/services/governance/promotion_policy.py` | 晋升策略 |
+| `HitlPolicy` | `domain/core/governance/hitl/policy.py` | HITL 决策策略 |
+| `TaskRetryPolicy` | `domain/core/execution/policies.py` | 重试策略 |
 
 ### 7.4 委托模式（Delegation）
 
@@ -400,42 +395,25 @@ class QualityAdapter(Protocol):
 
 ```
 SprintCycle (api.py)
-    ├── _execution_service (ExecutionLifecycleService)
+    ├── _execution_lifecycle (ExecutionLifecycleService)
     ├── _governance_orchestration (GovernanceOrchestrationService)
     ├── _lifecycle_delivery (LifecycleDeliveryService)
     ├── _lifecycle_assembly (LifecycleContractAssemblyService)
-    ├── _evolution_promotion (EvolutionPromotionService)
     └── _suggestion_application (SuggestionApplicationService)
-```
-
-**接口层委托**：
-
-```
-build_internal_router()
-    └── InternalAPIService
-            ├── governance_*
-            ├── dashboard_*
-            └── execution_*
-
-build_public_router()
-    └── PublicAPIService
-            ├── plan()
-            ├── run()
-            └── diagnose()
 ```
 
 ### 7.5 门面模式（Facade）
 
 | Facade | 位置 | 封装 |
 |--------|------|------|
-| `GovernanceFacade` | `governance/facade.py` | HITL/Runner/Suggestion |
-| `ObservabilityFacade` | `observability/facade.py` | Phoenix/Events |
-| `SuggestionFacade` | `governance/suggestion/facade.py` | 建议操作 |
-| `HitlFacade` | `governance/hitl/facade.py` | HITL 协调 |
+| `GovernanceFacade` | `domain/core/governance/facade.py` | HITL/Runner/Suggestion |
+| `ObservabilityFacade` | `infrastructure/adapters/generic/observability/facade.py` | Phoenix/Events |
+| `SuggestionFacade` | `domain/core/governance/suggestion/facade.py` | 建议操作 |
+| `HitlFacade` | `domain/core/governance/hitl/facade.py` | HITL 协调 |
 
 ### 7.6 状态机模式
 
-**位置**：`application/services/lifecycle_state_machine.py`
+**位置**：`application/services/lifecycle/lifecycle_state_machine.py`
 
 ```python
 class LifecycleStateMachine:
@@ -474,13 +452,13 @@ class LifecycleStateMachine:
 
 ### 8.2 接口层规范
 
-**Internal API** (`interfaces/http/internal.py`)：
+**Internal API** (`interfaces/http/dashboard/`)：
 - 仪表盘专用
 - 审计日志
 - 速率限制
 - 请求上下文传递
 
-**Public API** (`interfaces/http/public.py`)：
+**Public API** (`interfaces/http/public/`)：
 - 外部集成
 - `/api/v1` 前缀
 - 标准化请求/响应
@@ -658,14 +636,15 @@ event_backend = "sqlite"
 | 功能 | 关键文件 |
 |------|----------|
 | 主入口 | `sprintcycle/api.py` |
-| 状态机 | `sprintcycle/application/services/lifecycle_state_machine.py` |
-| 事件总线 | `sprintcycle/execution/events.py` |
-| 治理运行器 | `sprintcycle/governance/runner.py` |
-| 质量规则 | `sprintcycle/domain/quality_spec/rules/rule.py` |
-| Hook 系统 | `sprintcycle/hooks.py` |
-| 插件协议 | `sprintcycle/domain/quality_spec/plugin_protocols.py` |
-| HITL 协调 | `sprintcycle/governance/hitl/coordinator.py` |
-| 建议服务 | `sprintcycle/governance/suggestion/service.py` |
+| 状态机 | `sprintcycle/application/services/lifecycle/lifecycle_state_machine.py` |
+| 事件总线 | `sprintcycle/domain/core/execution/core/events.py` |
+| 治理运行器 | `sprintcycle/domain/core/governance/runner.py` |
+| 质量规则 | `sprintcycle/domain/core/governance/quality_spec/rules/rule.py` |
+| Hook 系统 | `sprintcycle/domain/core/execution/hooks/` |
+| 插件协议 | `sprintcycle/domain/core/governance/quality_spec/plugin_protocols.py` |
+| HITL 协调 | `sprintcycle/domain/core/governance/hitl/coordinator.py` |
+| 建议服务 | `sprintcycle/domain/core/governance/suggestion/service.py` |
+| 组合根 | `sprintcycle/application/factories/http.py` |
 
 ---
 
@@ -694,4 +673,4 @@ event_backend = "sqlite"
 > **版本**：v2.0  
 > **更新日期**：2026-05-25  
 > **维护者**：架构团队  
-> **变更说明**：重构为 DDD 领域划分架构，Dashboard HTTP 路由按领域拆分（execution、governance、lifecycle、hitl、suggestions）
+> **变更说明**：重构为 DDD 领域划分架构，Dashboard HTTP 路由按领域拆分（execution、governance、lifecycle、hitl、suggestions），引入组合根模式（factories/http.py）

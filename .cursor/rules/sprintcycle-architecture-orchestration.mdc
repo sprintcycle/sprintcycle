@@ -7,41 +7,44 @@ alwaysApply: true
 
 ## English
 
-You are working on SprintCycle, a contract-driven lifecycle platform with a stable layered architecture.
+You are working on SprintCycle, a contract-driven lifecycle platform with a stable layered architecture following DDD Onion principles.
 
 ### Core principles
 - Preserve the current architecture and core skeleton.
-- Keep the public facade thin: it may normalize, route, delegate, and aggregate, but it must not own workflow logic.（保持公共 facade 薄：可以负责归一化、路由、委派和聚合，但不能承载工作流逻辑。）
-- Keep execution, governance, observability, suggestion handling, deployment/runtime, and evolution strictly separated.（执行、治理、可观测性、建议处理、部署/运行时和自进化必须严格分离。）
-- Prefer existing services, facades, hooks, registries, adapters, and event backends over introducing parallel paths.（优先复用现有的 service、facade、hook、registry、adapter 和 event backend，不要引入平行路径。）
-- During refactoring or folder adjustments, do not lose existing code or break required call chains and dependencies.（在重构或文件夹调整过程中，不要丢失现有代码，也不要破坏必要的调用链和依赖关系。）
-- Any new feature must land in the correct layer and use the smallest possible change.（任何新功能都必须落到正确的层，并采用最小改动。）
-- The platform is contract-driven, with a clear split between entry, orchestration, and governance.（平台是契约驱动的，并且在入口、编排和治理之间有清晰分工。）
-- Finalized architecture must favor a thin facade, explicit internal/public API separation, and a single lifecycle contract across surfaces.（定稿架构必须优先保证薄 facade、显式的 internal/public API 分离，以及跨界面统一的 lifecycle contract。）
+- Keep the public facade thin: it may normalize, route, delegate, and aggregate, but it must not own workflow logic.
+- Keep execution, governance, observability, suggestion handling, deployment/runtime, and evolution strictly separated.
+- Prefer existing services, facades, hooks, registries, adapters, and event backends over introducing parallel paths.
+- During refactoring or folder adjustments, do not lose existing code or break required call chains and dependencies.
+- Any new feature must land in the correct layer and use the smallest possible change.
+- The platform is contract-driven, with a clear split between entry, orchestration, and governance.
+- Finalized architecture must favor a thin facade, explicit internal/public API separation, and a single lifecycle contract across surfaces.
+- Follow the Composition Root pattern: `application/factories/http.py` is the designated composition root for HTTP services.
 
 ### Non-negotiable boundaries
-- Do not move domain rules into the public facade or any UI-oriented layer.（不要把领域规则塞进公共 facade 或任何面向 UI 的层。）
-- Do not bypass hooks when lifecycle interception, compensation, or policy control is needed.（当需要生命周期拦截、补偿或策略控制时，不要绕过 hook。）
-- Do not bypass facades when domain coordination already exists.（当已有 domain coordination 存在时，不要绕过 facade。）
-- Do not duplicate observability, governance, or suggestion logic inside execution code.（不要在执行代码里重复实现可观测性、治理或建议逻辑。）
-- Do not mutate suggestion or governance state outside their designated workflows.（不要在建议或治理流程之外修改它们的状态。）
-- Do not introduce competing pipelines that weaken the current skeleton.（不要引入会破坏当前骨架的竞争性流程或平行流水线。）
-- Do not treat legacy compatibility surfaces as primary architecture.（不要把遗留兼容层当成主架构。）
+- Do not move domain rules into the public facade or any UI-oriented layer.
+- Do not bypass hooks when lifecycle interception, compensation, or policy control is needed.
+- Do not bypass facades when domain coordination already exists.
+- Do not duplicate observability, governance, or suggestion logic inside execution code.
+- Do not mutate suggestion or governance state outside their designated workflows.
+- Do not introduce competing pipelines that weaken the current skeleton.
+- Do not treat legacy compatibility surfaces as primary architecture.
+- Do not bypass the composition root pattern; infrastructure dependencies must be injected through factory registration.
 
 ### Layer ownership (DDD Onion Architecture - from outer to inner)
-- **`api.py`**: thin public facade for normalization, routing, delegation, and aggregation.（`api.py`：用于归一化、路由、委派和聚合的薄公共 facade。）
-- **`interfaces/http/`**: HTTP interface adapter layer (outermost layer) - routes, request context, audit logging.（`interfaces/http/`：HTTP 接口适配器层（最外层）- 路由、请求上下文、审计日志。）
+- **`api.py`**: thin public facade for normalization, routing, delegation, and aggregation.
+- **`interfaces/http/`**: HTTP interface adapter layer (outermost layer) - routes, request context, audit logging.
   - `dashboard/`: domain-based HTTP routes - execution/, governance/, lifecycle/, hitl/, suggestions/
   - `public/`: minimal stable public API for external integrations
-- **`application/`**: application services layer - use cases, orchestration, workflow coordination, organized by domain.（`application/`：应用服务层 - 用例、编排、工作流协调，按领域组织。）
-  - `services/`: domain-organized services (execution, governance, lifecycle, evolution, dashboard, observability, release)
+- **`application/`**: application services layer - use cases, orchestration, workflow coordination, organized by domain.
+  - `services/`: domain-organized services (execution, governance, lifecycle, evolution, dashboard, observability)
   - `orchestration/`: sprint orchestrator
-  - `factories/`: factory implementations
-- **`domain/`**: domain layer (core business logic) - no external dependencies.（`domain/`：领域层（核心业务逻辑）- 无外部依赖。）
+  - `factories/`: factory implementations (composition root)
+- **`domain/`**: domain layer (core business logic) - no external dependencies.
   - `core/`: core subdomains (lifecycle, execution, evolution, governance)
   - `supporting/`: supporting subdomains (intent, verification, fitness)
   - `generic/`: generic subdomains (errors, prompts, models, platform, ports)
-- **`infrastructure/`**: infrastructure layer (innermost layer) - adapters, config, persistence, integrations.（`infrastructure/`：基础设施层（最内层）- 适配器、配置、持久化、集成。）
+- **`infrastructure/`**: infrastructure layer (innermost layer) - adapters, config, persistence, integrations.
+  - `shared/`: shared infrastructure (persistence)
   - `adapters/core/`: core subdomain adapters (execution, evolution, governance)
   - `adapters/generic/`: generic adapters (config, cache, deploy, integrations)
 
@@ -49,87 +52,99 @@ You are working on SprintCycle, a contract-driven lifecycle platform with a stab
 - `interfaces` → `application` → `domain` → `infrastructure` (outer to inner)
 - Domain layer has no external dependencies
 - Infrastructure is depended on by all other layers but depends on nothing
+- The composition root (`application/factories/http.py`) is the only place where infrastructure implementations should be directly imported and registered
 
 ### Lifecycle and entrypoint rules
-- For any task initiated from the Web platform, the system must be able to complete the full lifecycle stably.（对于任何从 Web 平台发起的任务，系统都必须能够稳定完成完整生命周期。）
-- The core chain is: request normalization / intent entry → plan and execution preparation → sprint orchestration and decomposition → SprintOrchestrator execution → execution observation and repair → result delivery and summary generation → deployment / runtime coordination → suggestion capture and governance → self-evolution and version evolution.（核心链路是：请求归一化 / 意图入口 → 计划与执行准备 → Sprint 编排与拆分 → SprintOrchestrator 执行 → 执行观测与修复 → 结果交付与摘要生成 → 部署 / 运行时联动 → 建议捕获与治理 → 自进化与版本演化。）
-- `SprintCycle` is the public coordination layer and must remain thin.（`SprintCycle` 是公共协调层，只负责归一化、路由、委派和结果汇总，不承载核心工作流逻辑。）
-- The execution backbone centers on `ReleasePlan → SprintOrchestrator.execute_release_plan → SprintExecutor`.（执行主干当前以 `ReleasePlan → SprintOrchestrator.execute_release_plan → SprintExecutor` 为核心。）
-- Suggestions, governance, observability, and evolution are coordinated capabilities around the execution backbone and must be integrated through existing services, facades, hooks, registries, and orchestrators.（建议、治理、可观测性和自进化是围绕执行主干协同工作的系统能力，应通过现有 service、facade、hook、registry 和 orchestrator 接入。）
-- Finalized architecture centers on a contract-driven lifecycle, with Dashboard / REST API as the primary human and external entry surfaces.（定稿架构以契约驱动生命周期为中心，Dashboard / REST API 是主要的人机与外部入口。）
-- Internal API serves Dashboard with richer control-plane data, while Public API exposes a minimal stable integration surface.（Internal API 为 Dashboard 提供更丰富的控制面数据，而 Public API 暴露最小且稳定的集成面。）
-- `interfaces/http/` owns HTTP route adaptation for public and internal routes.（`interfaces/http/` 负责 public 和 internal 路由的 HTTP 适配。）
-- CLI and MCP are not the primary product paths in the finalized architecture.（CLI 和 MCP 不是定稿架构中的主产品路径。）
+- For any task initiated from the Web platform, the system must be able to complete the full lifecycle stably.
+- The core chain is: request normalization / intent entry → plan and execution preparation → sprint orchestration and decomposition → SprintOrchestrator execution → execution observation and repair → result delivery and summary generation → deployment / runtime coordination → suggestion capture and governance → self-evolution and version evolution.
+- `SprintCycle` is the public coordination layer and must remain thin.
+- The execution backbone centers on `ReleasePlan → SprintOrchestrator.execute_release_plan → SprintExecutor`.
+- Suggestions, governance, observability, and evolution are coordinated capabilities around the execution backbone and must be integrated through existing services, facades, hooks, registries, and orchestrators.
+- Finalized architecture centers on a contract-driven lifecycle, with Dashboard / REST API as the primary human and external entry surfaces.
+- Internal API serves Dashboard with richer control-plane data, while Public API exposes a minimal stable integration surface.
+- `interfaces/http/` owns HTTP route adaptation for public and internal routes.
+- CLI and MCP are not the primary product paths in the finalized architecture.
 
 ### Console Web boundary rule
-- The Console Web is the human-machine entry, contract visualization surface, and operation panel.（Console Web 是人机入口、contract 可视化层和操作面板。）
-- The backend is the contract-driven closed-loop orchestration system.（后端是 contract 驱动的闭环编排系统。）
-- The Console Web may create, submit, display, inspect, and operate on a lifecycle contract, but it must not become the orchestrator itself.（Console Web 可以创建、提交、展示、查看和操作 lifecycle contract，但不能演化成编排器本身。）
-- The Console Web must not own stage transitions, recovery branching, governance decisions, promotion decisions, or version evolution logic.（Console Web 不能拥有阶段流转、恢复分支、治理决策、promotion 决策或版本演化逻辑。）
-- The Console Web must not duplicate runtime, suggestion, governance, promotion, or repair workflows that already belong to the backend contract flow.（Console Web 不能复制已属于后端 contract 流程的 runtime、suggestion、governance、promotion 或 repair 工作流。）
-- The Console Web should stay thin and stateless with respect to orchestration, and should only translate user intent into contract operations.（Console Web 应保持薄且尽量无状态，只负责把用户意图翻译成 contract 操作。）
-- All stable lifecycle completion guarantees must be implemented by the backend contract, stage machine, services, facades, hooks, registries, and orchestrators.（所有需要稳定完成生命周期的能力，应尽量通过后端的 contract、stage machine，以及现有的 service、facade、hook、registry 和 orchestrator 等扩展点来实现。）
-- If the Console Web needs additional capability, prefer adding contract fields, backend lifecycle states, or operation APIs rather than embedding business logic in the UI layer.（如果控制台 Web 需要新增能力，应优先增加 contract 字段、后端生命周期状态或操作 API，而不是把业务逻辑塞进 UI 层。）
-- Dashboard is the approved human-facing control surface, while the internal control plane remains hidden behind service and API boundaries.（Dashboard 是批准的人机控制面，而内部控制面应隐藏在 service 和 API 边界之后。）
-- External systems should consume the minimal stable public API rather than internal control-plane details.（外部系统应消费最小且稳定的 Public API，而不是内部控制面细节。）
+- The Console Web is the human-machine entry, contract visualization surface, and operation panel.
+- The backend is the contract-driven closed-loop orchestration system.
+- The Console Web may create, submit, display, inspect, and operate on a lifecycle contract, but it must not become the orchestrator itself.
+- The Console Web must not own stage transitions, recovery branching, governance decisions, promotion decisions, or version evolution logic.
+- The Console Web must not duplicate runtime, suggestion, governance, promotion, or repair workflows that already belong to the backend contract flow.
+- The Console Web should stay thin and stateless with respect to orchestration, and should only translate user intent into contract operations.
+- All stable lifecycle completion guarantees must be implemented by the backend contract, stage machine, services, facades, hooks, registries, and orchestrators.
+- If the Console Web needs additional capability, prefer adding contract fields, backend lifecycle states, or operation APIs rather than embedding business logic in the UI layer.
+- Dashboard is the approved human-facing control surface, while the internal control plane remains hidden behind service and API boundaries.
+- External systems should consume the minimal stable public API rather than internal control-plane details.
 
 ### LangGraph orchestration boundaries
-- LangGraph is the orchestration skeleton for SprintCycle planning and sprint-level execution coordination.（LangGraph 是 SprintCycle 规划与 Sprint 级执行协调的编排骨架。）
-- The current LangGraph integration lives under `infrastructure/integrations/langgraph/`.（当前 LangGraph 的集成位于 `infrastructure/integrations/langgraph/`。）
-- `IntentGraphRuntime` is the top-level runtime for `Intent → Plan → Sprint Split → Dispatch → Finalize`.（`IntentGraphRuntime` 是顶层运行时，负责 `Intent → Plan → Sprint Split → Dispatch → Finalize`。）
-- `SprintGraphRuntime` is the per-sprint runtime for `Prepare → Execute → Observe → Repair → Finalize`.（`SprintGraphRuntime` 是每个 Sprint 的运行时，负责 `Prepare → Execute → Observe → Repair → Finalize`。）
-- These runtimes are orchestration adapters, not domain owners.（这些运行时是编排适配层，不是领域所有者。）
-- Keep LangGraph focused on orchestration flow, state transitions, and routing between stages.（LangGraph 只应聚焦于编排流程、状态转移和阶段间路由。）
-- Do not put domain business rules directly inside graph nodes when the logic belongs to application services, facades, hooks, or orchestrators.（不要把领域业务规则直接写进 graph 节点，除非这些逻辑本来就属于 application service、facade、hook 或 orchestrator。）
-- Do not use LangGraph as a shortcut to bypass existing architecture boundaries.（不要把 LangGraph 当成绕过现有架构边界的捷径。）
-- Plan generation, sprint splitting, sprint creation, sprint sequencing, retry/fix routing, and intra-sprint dispatch must remain aligned with the layered architecture.（plan 拆分、sprint 创建、sprint 排序、修复重试路由、sprint 内部派发，都必须与分层架构保持一致。）
-- Prefer reusing existing extension points, hook phases, registries, and service methods rather than introducing parallel graph-specific business logic.（优先复用现有扩展点、hook phase、registry 和 service 方法，而不是引入平行的 graph 专用业务逻辑。）
-- Preserve the clean separation between orchestration and domain responsibility.（必须保持编排与领域责任的清晰分离。）
-- Any LangGraph change must keep the end-to-end lifecycle intact and must not weaken governance, observability, suggestion handling, or evolution flows.（任何 LangGraph 变更都必须保持端到端生命周期完整，不能削弱治理、可观测性、建议处理或自进化流程。）
-- LangGraph is an orchestration adapter that must stay subordinate to the contract-driven lifecycle and thin public facade model.（LangGraph 是编排适配层，必须服从契约驱动的生命周期和薄公共 facade 模型。）
-- Its scope is to coordinate flow, routing, and state transitions, not to introduce a parallel business pipeline.（它的职责是协调流程、路由和状态转移，而不是引入平行业务流水线。）
-- Any graph change must preserve the stable chain from request intake through plan creation, sprint execution, observability, repair, governance, and evolution.（任何 graph 变更都必须保持从请求接收、计划创建、Sprint 执行、可观测性、修复、治理到演进的稳定链路。）
-- Graph nodes are orchestration units, not domain service replacements.（graph 节点是编排单元，不是领域 service 的替代品。）
-- Keep graph transitions explicit and minimal.（保持 graph 转移显式且最小化。）
-- If a node needs business behavior, move that behavior into the owning service/facade/hook and let the graph call it.（如果某个节点需要业务行为，就把行为移到所属 service/facade/hook，再由 graph 调用。）
-- Avoid hardcoding workflow policy inside graph construction when the policy already exists in the domain layer.（当领域层已经存在策略时，不要在 graph 构建里硬编码工作流策略。）
+- LangGraph is the orchestration skeleton for SprintCycle planning and sprint-level execution coordination.
+- The current LangGraph integration lives under `infrastructure/adapters/generic/integrations/langgraph/`.
+- `IntentGraphRuntime` is the top-level runtime for `Intent → Plan → Sprint Split → Dispatch → Finalize`.
+- `SprintGraphRuntime` is the per-sprint runtime for `Prepare → Execute → Observe → Repair → Finalize`.
+- These runtimes are orchestration adapters, not domain owners.
+- Keep LangGraph focused on orchestration flow, state transitions, and routing between stages.
+- Do not put domain business rules directly inside graph nodes when the logic belongs to application services, facades, hooks, or orchestrators.
+- Do not use LangGraph as a shortcut to bypass existing architecture boundaries.
+- Plan generation, sprint splitting, sprint creation, sprint sequencing, retry/fix routing, and intra-sprint dispatch must remain aligned with the layered architecture.
+- Prefer reusing existing extension points, hook phases, registries, and service methods rather than introducing parallel graph-specific business logic.
+- Preserve the clean separation between orchestration and domain responsibility.
+- Any LangGraph change must keep the end-to-end lifecycle intact and must not weaken governance, observability, suggestion handling, or evolution flows.
+- LangGraph is an orchestration adapter that must stay subordinate to the contract-driven lifecycle and thin public facade model.
+- Its scope is to coordinate flow, routing, and state transitions, not to introduce a parallel business pipeline.
+- Any graph change must preserve the stable chain from request intake through plan creation, sprint execution, observability, repair, governance, and evolution.
+- Graph nodes are orchestration units, not domain service replacements.
+- Keep graph transitions explicit and minimal.
+- If a node needs business behavior, move that behavior into the owning service/facade/hook and let the graph call it.
+- Avoid hardcoding workflow policy inside graph construction when the policy already exists in the domain layer.
+
+### Dependency Injection and Composition Root rules
+- All infrastructure implementations must be registered via port factories in the composition root.
+- Use `register_*_factory` patterns from `domain/generic/ports/` for dependency injection.
+- The composition root (`application/factories/http.py`) should use lazy imports for infrastructure dependencies.
+- Application services should depend on domain protocols/ports, not concrete infrastructure implementations.
+- ConfigService must obtain RuntimeConfig through the port factory (`get_runtime_config`) rather than direct imports.
 
 ### Interaction rules
-- For every request, first identify the owning subsystem.（对于每个需求，先识别所属子系统。）
-- Determine whether the change is additive, behavioral, or structural.（判断这次修改是新增、行为变更还是结构调整。）
-- Reuse the nearest existing extension point before introducing new abstractions.（优先复用最近的现有扩展点，再考虑新增抽象。）
-- Keep changes localized to the smallest responsible layer.（把改动限制在最小的责任层中。）
-- If a request touches multiple subsystems, keep boundaries explicit and coordinate through services rather than direct coupling.（如果一个需求涉及多个子系统，必须保持边界清晰，通过 service 协调，而不是直接耦合。）
-- Prefer explicit lifecycle steps over implicit side effects.（优先使用显式生命周期步骤，避免隐式副作用。）
+- For every request, first identify the owning subsystem.
+- Determine whether the change is additive, behavioral, or structural.
+- Reuse the nearest existing extension point before introducing new abstractions.
+- Keep changes localized to the smallest responsible layer.
+- If a request touches multiple subsystems, keep boundaries explicit and coordinate through services rather than direct coupling.
+- Prefer explicit lifecycle steps over implicit side effects.
 
 ### Change strategy
-1. Identify the owning subsystem.（识别所属子系统。）
-2. Check whether an existing service, facade, hook, registry, or adapter can express the change.（检查现有 service、facade、hook、registry 或 adapter 是否能表达该变化。）
-3. Implement the smallest possible change in the correct layer.（在正确层中实现最小改动。）
-4. Keep the public API thin.（保持公共 API 薄。）
-5. Keep orchestration clean and domain logic localized.（保持编排简洁，领域逻辑局部化。）
-6. Verify that the web-triggered end-to-end lifecycle still remains intact.（验证 Web 触发的端到端生命周期仍然完整。）
-7. Verify that governance, observability, suggestion, and evolution flows remain consistent.（验证治理、可观测性、建议和自进化流程保持一致。）
+1. Identify the owning subsystem.
+2. Check whether an existing service, facade, hook, registry, or adapter can express the change.
+3. Implement the smallest possible change in the correct layer.
+4. Keep the public API thin.
+5. Keep orchestration clean and domain logic localized.
+6. Verify that the web-triggered end-to-end lifecycle still remains intact.
+7. Verify that governance, observability, suggestion, and evolution flows remain consistent.
+8. If introducing infrastructure dependencies, register them in the composition root via port factories.
 
 ### Default decision policy
-- When in doubt, preserve the current architecture.（有疑问时，优先保留当前架构。）
-- Prefer extension over replacement.（优先扩展而不是替换。）
-- Prefer composition over coupling.（优先组合而不是耦合。）
-- Prefer service-level changes over API-level complexity.（优先在 service 层修改，而不是增加 API 层复杂度。）
-- Prefer explicit flow over hidden behavior.（优先显式流程，而不是隐藏行为。）
-- Avoid speculative abstractions and avoid duplicating logic across layers.（避免投机性的抽象，也避免在多层重复逻辑。）
-- Keep the 8-layer directory policy and import-rewrite discipline enforced for structural changes.（保持 8 层目录政策和 import 重写纪律在结构性变更中持续生效。）
+- When in doubt, preserve the current architecture.
+- Prefer extension over replacement.
+- Prefer composition over coupling.
+- Prefer service-level changes over API-level complexity.
+- Prefer explicit flow over hidden behavior.
+- Avoid speculative abstractions and avoid duplicating logic across layers.
+- Keep the layered directory policy and import-rewrite discipline enforced for structural changes.
+- Always use the composition root pattern for infrastructure dependency resolution.
 
 ### Current implementation boundaries
-- `sprintcycle/api.py` is the unified entry, but it only coordinates and aggregates; it does not own workflow business logic.（`sprintcycle/api.py` 是统一入口，但只负责协调与聚合，不承载工作流业务逻辑。）
-- `sprintcycle/application/services/` contains domain-organized services: execution, governance, lifecycle, evolution, and dashboard.（`sprintcycle/application/services/` 包含按领域划分的服务：execution、governance、lifecycle、evolution 和 dashboard。）
-- `sprintcycle/interfaces/dashboard/` contains domain-based HTTP routes: execution/, governance/, lifecycle/, hitl/, suggestions/.（`sprintcycle/interfaces/dashboard/` 包含按领域划分的 HTTP 路由：execution/、governance/、lifecycle/、hitl/、suggestions/。）
-- `sprintcycle/interfaces/public/` handles the minimal stable contract for external systems.（`sprintcycle/interfaces/public/` 负责外部系统的最小稳定契约。）
-- `sprintcycle/infrastructure/auth.py`, `sprintcycle/infrastructure/audit.py`, and `sprintcycle/infrastructure/rate_limit.py` remain the unified governance entry points.（`sprintcycle/infrastructure/auth.py`、`sprintcycle/infrastructure/audit.py` 和 `sprintcycle/infrastructure/rate_limit.py` 仍是统一治理接入点。）
+- `sprintcycle/api.py` is the unified entry, but it only coordinates and aggregates; it does not own workflow business logic.
+- `sprintcycle/application/services/` contains domain-organized services: execution, governance, lifecycle, evolution, dashboard, observability.
+- `sprintcycle/application/factories/http.py` is the composition root responsible for registering infrastructure factories and creating service instances.
+- `sprintcycle/interfaces/http/dashboard/` contains domain-based HTTP routes: execution/, governance/, lifecycle/, hitl/, suggestions/.
+- `sprintcycle/interfaces/http/public/` handles the minimal stable contract for external systems.
+- Infrastructure adapters are organized under `sprintcycle/infrastructure/adapters/core/` and `sprintcycle/infrastructure/adapters/generic/`.
 
 ### Architecture and entrypoint end state
-- The final architecture converges on a contract-driven lifecycle, with Dashboard and REST API as the primary entry surfaces.（最终架构收敛为契约驱动生命周期，Dashboard 和 REST API 是主要入口。）
-- Dashboard gets richer control-plane data through Internal API.（Dashboard 通过 Internal API 获取更丰富的控制面数据。）
-- External systems consume the minimal stable integration surface through Public API.（外部系统通过 Public API 使用最小且稳定的集成面。）
-- `interfaces/http/` is the current HTTP entry-adaptation layer.（`interfaces/http/` 是当前 HTTP 入口适配层。）
-- CLI and MCP are not the primary product paths.（CLI 和 MCP 不再是主产品路径。）
+- The final architecture converges on a contract-driven lifecycle, with Dashboard and REST API as the primary entry surfaces.
+- Dashboard gets richer control-plane data through Internal API.
+- External systems consume the minimal stable integration surface through Public API.
+- `interfaces/http/` is the current HTTP entry-adaptation layer.
+- `application/factories/http.py` is the composition root for dependency injection and service initialization.
+- CLI and MCP are not the primary product paths.
