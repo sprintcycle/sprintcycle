@@ -14,7 +14,7 @@ from unittest.mock import patch, MagicMock, AsyncMock
 
 from fastapi.testclient import TestClient
 
-from sprintcycle.application.results import (
+from sprintcycle.application.dto.results import (
     PlanResult, RunResult, DiagnoseResult,
     StatusResult, RollbackResult, StopResult,
 )

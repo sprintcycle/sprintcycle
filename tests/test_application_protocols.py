@@ -1,7 +1,7 @@
 """测试 Application Layer Protocols"""
 
 import pytest
-from sprintcycle.application.protocols import (
+from sprintcycle.domain.generic.interfaces.protocols import (
     FeedbackProtocol,
     LifecycleProtocol,
 )

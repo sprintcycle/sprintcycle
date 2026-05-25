@@ -10,7 +10,7 @@ from sprintcycle.infrastructure.adapters.core.evolution.evolution_registry_acces
     create_evolution_registry,
     evolution_sandbox_status,
 )
-from sprintcycle.application.results import (
+from sprintcycle.application.dto.results import (
     EvolutionIndexResult,
     EvolutionOverviewResult,
     EvolutionVersionListResult,

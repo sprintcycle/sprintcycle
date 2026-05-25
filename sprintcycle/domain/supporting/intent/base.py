@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 if TYPE_CHECKING:
     from sprintcycle.domain.generic.models import ReleasePlan
     from ...application.orchestration.sprint_orchestrator import SprintResult
-    from ...application.results import RunResult
+    from ...application.dto.results import RunResult
 
 
 @dataclass
@@ -46,7 +46,7 @@ class IntentResult:
         run_result: "RunResult",
     ) -> "IntentResult":
         """由 ``SprintCycle.run_release_plan`` 的 ``RunResult`` 组装（``sprint_results`` 为空列表）。"""
-        from ...results import RunResult
+        from ...application.dto.results import RunResult
 
         if not isinstance(run_result, RunResult):
             raise TypeError("run_result must be RunResult")

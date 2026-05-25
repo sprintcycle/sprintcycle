@@ -284,7 +284,7 @@ class HTTPServices:
     def diagnose(self, execution_id: str = "") -> Any:
         """运行项目或执行诊断"""
         from sprintcycle.infrastructure.adapters.generic.observability.diagnostics.provider import ProjectDiagnostic
-        from sprintcycle.application.results import DiagnoseResult
+        from sprintcycle.application.dto.results import DiagnoseResult
 
         diag = ProjectDiagnostic(self.project_path)
         report = diag.diagnose(execution_id=execution_id)
@@ -312,7 +312,7 @@ class HTTPServices:
         """停止正在运行的执行"""
         from sprintcycle.domain.generic.interfaces import ExecutionStatus
         from sprintcycle.infrastructure.adapters.core.execution.state_store.state_store import get_state_store
-        from sprintcycle.application.results import StopResult
+        from sprintcycle.application.dto.results import StopResult
 
         if execution_id:
             store = get_state_store()

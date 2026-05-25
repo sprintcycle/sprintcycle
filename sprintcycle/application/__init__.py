@@ -13,7 +13,7 @@ Architecture:
     └── Protocols              - 接口定义
 """
 
-from sprintcycle.application.protocols import (
+from sprintcycle.domain.generic.interfaces.protocols import (
     EvolutionProtocol,
     FeedbackProtocol,
     LifecycleProtocol,
