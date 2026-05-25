@@ -1,21 +1,17 @@
 """
 SprintOrchestrator - 统一的 Sprint 交付编排器
 
-合并自:
-- sprintcycle/application/orchestration/sprint_orchestrator.py
-- sprintcycle/execution/orchestrator/sprint_orchestrator.py
-
 本模块负责将 ReleasePlan 编排为按 Sprint 顺序执行的交付流程。
 execute_release_plan 与 resume_from_sprint 是主入口。
 
-**分层**：LangGraph 编译器和知识库通过工厂函数获取，不直接依赖 Infrastructure。
+**分层**：所有基础设施依赖通过依赖注入提供，不直接依赖 Infrastructure。
 """
 
 from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from loguru import logger
 
@@ -49,47 +45,10 @@ from sprintcycle.domain.core.evolution.intent_evolution_loop import UserIntentEv
 from sprintcycle.domain.core.evolution.measurement import MeasurementResult
 from sprintcycle.domain.generic.interfaces.protocols import OrchestrationProtocol
 from sprintcycle.application.services.lifecycle.lifecycle_contracts import build_lifecycle_contract
-
-# TYPE_CHECKING: 仅用于类型提示，不在运行时导入 Infrastructure
-if TYPE_CHECKING:
-    from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
-    from sprintcycle.infrastructure.adapters.generic.integrations.phoenix.trace_runtime import PhoenixTraceRuntime
-    from sprintcycle.infrastructure.adapters.generic.knowledge.knowledge_repository import KnowledgeCardRepository
-    from sprintcycle.infrastructure.adapters.generic.knowledge.knowledge_hook import KnowledgeInjectionHook
-
-
-# =============================================================================
-# LangGraph 编译器工厂函数（延迟导入避免循环依赖）
-# =============================================================================
-
-def _compile_intent_graph(**kwargs: Any) -> Any:
-    """编译意图图（延迟导入）"""
-    from sprintcycle.infrastructure.adapters.generic.integrations.langgraph.compiler import compile_intent_graph as _compile
-    return _compile(**kwargs)
-
-
-def _compile_sprint_graph(**kwargs: Any) -> Any:
-    """编译 Sprint 图（延迟导入）"""
-    from sprintcycle.infrastructure.adapters.generic.integrations.langgraph.compiler import compile_sprint_graph as _compile
-    return _compile(**kwargs)
-
-
-def _create_knowledge_card_repository(db_path: str) -> "KnowledgeCardRepository":
-    """创建知识库仓库（延迟导入）"""
-    from sprintcycle.infrastructure.adapters.generic.knowledge.knowledge_repository import KnowledgeCardRepository
-    return KnowledgeCardRepository(db_path)
-
-
-def _create_knowledge_injection_hook(project_root: str, config: Any) -> "KnowledgeInjectionHook":
-    """创建知识注入 Hook（延迟导入）"""
-    from sprintcycle.infrastructure.adapters.generic.knowledge.knowledge_hook import KnowledgeInjectionHook
-    return KnowledgeInjectionHook(project_root, config)
-
-
-def _get_runtime_config() -> "RuntimeConfig":
-    """获取运行时配置（延迟导入）"""
-    from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
-    return RuntimeConfig()
+from sprintcycle.domain.generic.ports.orchestration import (
+    OrchestrationDependencies,
+    RuntimeConfigPort,
+)
 
 
 class SprintOrchestrator:
@@ -97,21 +56,18 @@ class SprintOrchestrator:
 
     def __init__(
         self,
-        config: Optional["RuntimeConfig"] = None,
+        dependencies: Optional[OrchestrationDependencies] = None,
         event_bus: Optional[ExecutionEventBackend] = None,
         project_path: Optional[str] = None,
         hitl_coordinator: Optional[Any] = None,
         evolution_loop: Optional[UserIntentEvolutionLoop] = None,
     ):
-        self.config = config or _get_runtime_config()
+        self._dependencies = dependencies
+        self.config: RuntimeConfigPort = dependencies.runtime_config if dependencies else self._create_default_config()
         self._project_root = os.path.abspath(project_path or ".")
         self.event_bus = event_bus
         self._hitl_coordinator = hitl_coordinator
-        self._evolution_loop = evolution_loop or UserIntentEvolutionLoop(
-            memory_store=None,
-            feedback_loop=FeedbackLoop(),
-            knowledge_repo=_create_knowledge_card_repository(".sprintcycle/knowledge.db"),
-        )
+        self._evolution_loop = evolution_loop or self._create_evolution_loop()
         self._callbacks: Dict[str, Callable] = {
             "on_task_start": self._default_on_task_start,
             "on_task_end": self._default_on_task_end,
@@ -121,15 +77,23 @@ class SprintOrchestrator:
         self._skill_store = SkillStore()
         self._skill_orchestrator = SkillOrchestrator()
         self._last_release_finalization_result: Optional[Dict[str, Any]] = None
-        self._phoenix_runtime: Optional["PhoenixTraceRuntime"] = None
-        if os.environ.get("PHOENIX_ENABLED"):
-            try:
-                from sprintcycle.infrastructure.adapters.generic.integrations.phoenix.exporter import PhoenixExporterSpec
-                from sprintcycle.infrastructure.adapters.generic.integrations.phoenix.trace_runtime import PhoenixTraceRuntime
 
-                self._phoenix_runtime = PhoenixTraceRuntime(PhoenixExporterSpec(project_name=self._project_root))
-            except ImportError:
-                logger.debug("Phoenix not available")
+    def _create_default_config(self) -> RuntimeConfigPort:
+        """创建默认配置（仅在未提供依赖时使用）"""
+        from sprintcycle.application.factories.orchestration import RuntimeConfigAdapter
+        return RuntimeConfigAdapter()
+
+    def _create_evolution_loop(self) -> UserIntentEvolutionLoop:
+        """创建演化循环"""
+        knowledge_repo = self._dependencies.knowledge_repository if self._dependencies else None
+        if knowledge_repo is None:
+            from sprintcycle.application.factories.orchestration import KnowledgeRepositoryAdapter
+            knowledge_repo = KnowledgeRepositoryAdapter(".sprintcycle/knowledge.db")
+        return UserIntentEvolutionLoop(
+            memory_store=None,
+            feedback_loop=FeedbackLoop(),
+            knowledge_repo=knowledge_repo,
+        )
 
     def _get_event_bus(self) -> ExecutionEventBackend:
         if self.event_bus is None:
@@ -143,9 +107,10 @@ class SprintOrchestrator:
             logger.warning(f"Failed to emit event: {e}")
 
     def _emit_trace_event(self, event: Event) -> None:
-        if self._phoenix_runtime is not None:
+        trace_runtime = self._dependencies.trace_runtime if self._dependencies else None
+        if trace_runtime is not None:
             try:
-                self._phoenix_runtime.emit_trace([event.to_dict()])
+                trace_runtime.emit_trace([event.to_dict()])
             except Exception as e:
                 logger.debug("Failed to emit trace event: {}", e)
 
@@ -179,8 +144,13 @@ class SprintOrchestrator:
         return ex
 
     def _build_sprint_hooks(self, release_plan: ReleasePlan) -> SprintLifecycleHooks:
+        knowledge_hook = self._dependencies.knowledge_injection_hook if self._dependencies else None
+        if knowledge_hook is None:
+            from sprintcycle.application.factories.orchestration import KnowledgeInjectionHookAdapter
+            knowledge_hook = KnowledgeInjectionHookAdapter(self._project_root, self.config)
+
         parts: List[SprintLifecycleHooks] = [
-            _create_knowledge_injection_hook(self._project_root, self.config),
+            knowledge_hook,
             SkillLifecycleHook(self._skill_orchestrator, self._skill_store),
         ]
         if getattr(self.config, "governance_enabled", False):
@@ -213,19 +183,21 @@ class SprintOrchestrator:
 
     def _persist_release_finalization(self, release_plan: ReleasePlan, finalize_result: Any) -> None:
         try:
-            from sprintcycle.infrastructure.adapters.core.execution.state_store import get_state_store
+            state_store = self._dependencies.state_store if self._dependencies else None
+            if state_store is None:
+                from sprintcycle.application.factories.orchestration import StateStoreAdapter
+                state_store = StateStoreAdapter()
 
             eid = getattr(release_plan, "execution_id", None)
             if not eid:
                 return
-            store = get_state_store()
-            state = store.load(eid)
+            state = state_store.load(eid)
             if state is None:
                 return
             state.metadata["release_finalization"] = (
                 finalize_result.to_dict() if hasattr(finalize_result, "to_dict") else {}
             )
-            store.save(state)
+            state_store.save(state)
         except Exception as e:
             logger.debug("persist release finalization failed: {}", e)
 
@@ -237,14 +209,10 @@ class SprintOrchestrator:
         sprint: Optional[SprintDefinition] = None,
         sprint_result: Optional[SprintResult] = None,
     ) -> Optional[MeasurementResult]:
-        from sprintcycle.infrastructure.adapters.generic.config.quality import resolve_effective_quality_level, runs_pytest
         from sprintcycle.domain.core.evolution.measurement import MeasurementProvider
 
-        quality_level = resolve_effective_quality_level(
-            getattr(self.config, "quality_profile", ""),
-            getattr(self.config, "quality_level", "") or "L2",
-        )
-        if not runs_pytest(quality_level):
+        quality_level = self._resolve_effective_quality_level()
+        if not self._runs_pytest(quality_level):
             return None
         raw_root = release_plan.project.path or self._project_root
         try:
@@ -268,6 +236,41 @@ class SprintOrchestrator:
             )
         return m
 
+    def _resolve_effective_quality_level(self) -> str:
+        """解析有效质量级别（通过依赖注入）"""
+        quality_config = self._dependencies.quality_config if self._dependencies else None
+        if quality_config is None:
+            from sprintcycle.application.factories.orchestration import QualityConfigAdapter
+            quality_config = QualityConfigAdapter()
+        return quality_config.resolve_effective_quality_level(
+            getattr(self.config, "quality_profile", ""),
+            getattr(self.config, "quality_level", "") or "L2",
+        )
+
+    def _runs_pytest(self, quality_level: str) -> bool:
+        """检查是否需要运行 pytest（通过依赖注入）"""
+        quality_config = self._dependencies.quality_config if self._dependencies else None
+        if quality_config is None:
+            from sprintcycle.application.factories.orchestration import QualityConfigAdapter
+            quality_config = QualityConfigAdapter()
+        return quality_config.runs_pytest(quality_level)
+
+    def _compile_intent_graph(self, **kwargs: Any) -> Any:
+        """编译意图图（通过依赖注入）"""
+        graph_compiler = self._dependencies.graph_compiler if self._dependencies else None
+        if graph_compiler is None:
+            from sprintcycle.application.factories.orchestration import GraphCompilerAdapter
+            graph_compiler = GraphCompilerAdapter()
+        return graph_compiler.compile_intent_graph(**kwargs)
+
+    def _compile_sprint_graph(self, **kwargs: Any) -> Any:
+        """编译 Sprint 图（通过依赖注入）"""
+        graph_compiler = self._dependencies.graph_compiler if self._dependencies else None
+        if graph_compiler is None:
+            from sprintcycle.application.factories.orchestration import GraphCompilerAdapter
+            graph_compiler = GraphCompilerAdapter()
+        return graph_compiler.compile_sprint_graph(**kwargs)
+
     async def execute_release_plan(self, release_plan: ReleasePlan, max_concurrent: int = 3) -> List[SprintResult]:
         to_run = expand_release_plan_for_execution(release_plan)
         await self._emit(
@@ -288,8 +291,7 @@ class SprintOrchestrator:
                 sprint_number=0,
             )
         )
-        # 使用 intent graph 执行
-        intent_runtime = _compile_intent_graph(checkpointer=getattr(self.config, "checkpoint_store", None))
+        intent_runtime = self._compile_intent_graph(checkpointer=getattr(self.config, "checkpoint_store", None))
         intent_graph = intent_runtime.graph
         intent_context = {
             "project_path": self._project_root,
@@ -348,12 +350,13 @@ class SprintOrchestrator:
                 )
             )
         if not sprint_results:
-            # Fallback: 直接执行
             sprint_results = await self._execute_via_sprint_executor(to_run, max_concurrent)
 
-        # Finalization
         try:
-            from sprintcycle.domain.core.execution.orchestrator.finalization import ReleaseFinalizationPolicy, ReleaseFinalizationRunner
+            from sprintcycle.domain.core.execution.orchestrator.finalization import (
+                ReleaseFinalizationPolicy,
+                ReleaseFinalizationRunner,
+            )
 
             runner = ReleaseFinalizationRunner(
                 ReleaseFinalizationPolicy(), sprint_executor_factory=self._make_sprint_executor
@@ -367,7 +370,6 @@ class SprintOrchestrator:
             logger.debug("Finalization skipped: {}", e)
 
         success = all(r.status in (ExecutionStatus.SUCCESS, ExecutionStatus.SKIPPED) for r in sprint_results)
-        # Build lifecycle contract
         completion_summary = {
             "execution_id": getattr(release_plan, "execution_id", None),
             "release_plan_name": getattr(to_run.project, "name", ""),
@@ -410,18 +412,19 @@ class SprintOrchestrator:
         )
         await self._emit(complete_event)
         self._emit_trace_event(complete_event)
-        # Persist state
         try:
-            from sprintcycle.infrastructure.adapters.core.execution.state_store import get_state_store
+            state_store = self._dependencies.state_store if self._dependencies else None
+            if state_store is None:
+                from sprintcycle.application.factories.orchestration import StateStoreAdapter
+                state_store = StateStoreAdapter()
 
             if getattr(release_plan, "execution_id", None):
-                store = get_state_store()
-                state = store.load(getattr(release_plan, "execution_id", None))
+                state = state_store.load(getattr(release_plan, "execution_id", None))
                 if state is not None:
                     state.metadata["release_finalization"] = completion_summary
                     state.metadata["lifecycle_contract"] = contract.to_dict()
                     state.status = "success" if success else "failed"
-                    store.save(state)
+                    state_store.save(state)
         except Exception as e:
             logger.debug("persist sprint orchestration lifecycle failed: {}", e)
         self._last_release_finalization_result = {
@@ -456,7 +459,7 @@ class SprintOrchestrator:
                 sprint_number=resume_from_idx,
             )
         )
-        sprint_runtime = _compile_sprint_graph(checkpointer=getattr(self.config, "checkpoint_store", None))
+        sprint_runtime = self._compile_sprint_graph(checkpointer=getattr(self.config, "checkpoint_store", None))
         results = list(previous_results)
         for sprint_index, sprint in enumerate(to_run.sprints[resume_from_idx:], start=resume_from_idx):
             sprint_state = {
