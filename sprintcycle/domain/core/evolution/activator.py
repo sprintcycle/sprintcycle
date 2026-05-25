@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
 from sprintcycle.domain.core.evolution.runtime_state import (
     ActivationDecision,

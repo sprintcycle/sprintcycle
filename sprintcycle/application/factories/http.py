@@ -8,7 +8,7 @@ HTTP 层服务工厂 - 为 interfaces/http 提供 application 服务实例
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any, Dict, List, Optional
 
 from sprintcycle.application.services.observability.observability_service import ObservabilityService
 from sprintcycle.application.services.dashboard.platform_summary_service import PlatformSummaryService
@@ -576,10 +576,11 @@ class HTTPServices:
             "duration": getattr(report, "duration", 0.0) if hasattr(report, "duration") else 0.0,
         }
 
-    def stop(self, execution_id: str = "") -> Any:
+    def stop_execution(self, execution_id: str = "") -> Any:
         """停止正在运行的执行"""
         from sprintcycle.domain.generic.interfaces import ExecutionStatus
         from sprintcycle.application.dto.results import StopResult
+        from sprintcycle.domain.generic.ports.state_store import get_state_store
 
         if execution_id:
             store = get_state_store()
@@ -609,6 +610,7 @@ class HTTPServices:
     def rollback(self, execution_id: str) -> Any:
         """回滚执行到执行前状态"""
         from sprintcycle.application.results import RollbackResult
+        from sprintcycle.domain.generic.ports.state_store import get_state_store
 
         store = get_state_store()
         state = store.load(execution_id)

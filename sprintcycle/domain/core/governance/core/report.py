@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
-__all__ = ["GovernanceReport", "GovernanceViolation"]
-
 # 延迟导入避免循环依赖
 _GovernanceReport = None
 _GovernanceViolation = None
+
+# 模块级导出名称（通过 __getattr__ 动态提供）
+GovernanceReport = None
+GovernanceViolation = None
+
+__all__ = ["GovernanceReport", "GovernanceViolation"]
 
 
 def _get_governance_report():

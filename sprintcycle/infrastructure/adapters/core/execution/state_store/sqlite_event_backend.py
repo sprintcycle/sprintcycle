@@ -230,8 +230,8 @@ async def fetch_execution_events_for_replay(
         return out[-lim:]
 
 
-def _row_to_item(row: aiosqlite.Row) -> dict[str, Any]:
-    """将 aiosqlite.Row 转换为字典。"""
+def _row_to_item(row: Any) -> dict[str, Any]:
+    """将数据库行转换为字典。"""
     import json
 
     topic = str(row["topic"])
