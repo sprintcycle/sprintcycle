@@ -2,6 +2,8 @@
 HTTP 层服务工厂 - 为 interfaces/http 提供 application 服务实例
 
 从 api.py 中提取服务初始化逻辑，供 internal.py 和 public.py 直接使用。
+
+遵循洋葱架构原则：application 层不直接依赖 infrastructure 层，所有基础设施依赖通过延迟导入。
 """
 
 from __future__ import annotations
@@ -26,15 +28,9 @@ from sprintcycle.application.services.execution.evaluator_agent import Evaluator
 from sprintcycle.domain.generic.models.release_plan.parser import ReleasePlanParser
 from sprintcycle.domain.generic.models.release_plan.validator import ReleasePlanValidator
 from sprintcycle.domain.supporting.fitness.evaluator import FitnessEvaluator
-from sprintcycle.infrastructure.adapters.core.execution.state_store.state_store import get_state_store
 from sprintcycle.domain.core.execution.core.events import get_execution_event_backend
 from sprintcycle.domain.core.governance.core.facade import GovernanceFacade, create_governance_facade
 from sprintcycle.domain.core.governance.suggestion import SuggestionFacade, create_suggestion_facade
-from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
-from sprintcycle.infrastructure.adapters.core.evolution.evolution_registry_access import create_evolution_registry
-from sprintcycle.infrastructure.adapters.generic.knowledge.knowledge_repository import KnowledgeCardRepository
-from sprintcycle.infrastructure.adapters.generic.observability.facade import ObservabilityFacade
-from sprintcycle.infrastructure.adapters.generic.config.runtime_registry import RuntimeRegistry
 from sprintcycle.domain.generic.interfaces.hooks import HookRegistry
 
 
@@ -43,6 +39,13 @@ class HTTPServices:
 
     def __init__(self, project_path: str):
         self.project_path = project_path
+        
+        # 延迟导入基础设施依赖，遵循洋葱架构
+        from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
+        from sprintcycle.infrastructure.adapters.generic.observability.facade import ObservabilityFacade
+        from sprintcycle.infrastructure.adapters.generic.config.runtime_registry import RuntimeRegistry
+        from sprintcycle.infrastructure.adapters.core.evolution.evolution_registry_access import create_evolution_registry
+
         self.config = RuntimeConfig.from_project(project_path)
 
         # 初始化核心依赖
@@ -56,6 +59,11 @@ class HTTPServices:
 
     def _register_infrastructure_factories(self) -> None:
         """注册 Domain 层依赖的 Infrastructure 工厂函数（DDD 依赖倒置）"""
+        # 延迟导入基础设施依赖，遵循洋葱架构
+        from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
+        from sprintcycle.infrastructure.adapters.generic.knowledge.knowledge_repository import KnowledgeCardRepository
+        from sprintcycle.infrastructure.adapters.core.evolution.evolution_registry_access import create_evolution_registry
+
         # 注册事件后端工厂
         from sprintcycle.infrastructure.adapters.core.execution.state_store import register_event_backend_factory
 
@@ -508,7 +516,7 @@ class HTTPServices:
         return self._governance_orchestration.architecture_check()
 
     async def governance_check(self, gate: str = "review") -> Any:
-        return await self._governance_orchestration.check_and_persist(gate=gate)
+        return await self._governance_orchestration.governance_check(gate=gate)
 
     def evolution_overview(self) -> Any:
         return self._lifecycle_evolution.overview()

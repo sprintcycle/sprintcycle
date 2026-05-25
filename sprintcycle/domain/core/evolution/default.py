@@ -56,8 +56,8 @@ def create_evolution_facade(
         release_plan_generator=release_plan_generator,
         release_plan_validator=release_plan_validator,
         sandbox_manager=sandbox_manager,
-        code_evolution_adapter=code_adapter,
-        requirement_evolution_adapter=req_adapter,
+        code_adapter=code_adapter,
+        requirement_adapter=req_adapter,
     )
 
     # Create service with rollback manager

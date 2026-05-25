@@ -76,10 +76,14 @@ def get_version_manifest_summary(registry: Any, version_id: str) -> Dict[str, An
 
 def evolution_sandbox_status(config: Any) -> Dict[str, Any]:
     """获取进化沙箱状态"""
-    raise RuntimeError(
-        "Evolution sandbox status function not registered. "
-        "Please register the factory from Infrastructure layer before using."
-    )
+    from sprintcycle.domain.generic.ports.integrations import create_phoenix_exporter_spec, create_phoenix_trace_runtime
+    
+    try:
+        exporter = create_phoenix_exporter_spec()
+        runtime = create_phoenix_trace_runtime(exporter)
+        return runtime.build()
+    except Exception:
+        return {"available": False, "message": "sandbox not configured"}
 
 
 __all__ = [

@@ -112,23 +112,5 @@ class GovernanceOrchestrationService:
             return {"success": False, "error": "Request not found"}
         return {"success": True, "data": rec}
 
-    async def check_and_persist(self, gate: str = "review") -> Dict[str, Any]:
-        """运行治理检查并持久化报告"""
-        from sprintcycle.domain.core.governance.core.runner import run_governance_check_and_persist
-        from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
-
-        cfg = RuntimeConfig.from_project(self.project_path)
-        planning_report, review_report, fail = await run_governance_check_and_persist(
-            self.project_path,
-            cfg,
-            gate,
-        )
-        result = {"should_fail_ci": fail, "gate": gate}
-        if planning_report is not None:
-            result["planning"] = planning_report.to_dict()
-        if review_report is not None:
-            result["review"] = review_report.to_dict()
-        return result
-
 
 __all__ = ["GovernanceOrchestrationService"]
