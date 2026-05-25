@@ -440,65 +440,59 @@ result = await api.run("重构认证模块")
 ```
 sprintcycle/
 ├── api.py                    # 统一 API 入口
-├── application/              # 用例编排与服务层（保持三层架构不变）
-├── domain/                   # 领域模型（按 DDD 子域划分）
+├── application/              # 用例编排与服务层（DDD 应用层）
+│   ├── services/            # 核心业务服务（按领域组织）
+│   │   ├── execution/       # 执行相关服务（phase_workflow, evaluator_agent）
+│   │   ├── governance/      # 治理相关服务（governance_orchestration, promotion_policy）
+│   │   ├── lifecycle/       # 生命周期相关服务（state_machine, contracts, evolution）
+│   │   ├── evolution/       # 版本演化服务（promotion_service, version_service）
+│   │   ├── dashboard/       # 仪表盘视图服务（platform_summary, view_service）
+│   │   ├── observability/   # 可观测性服务（observability_service）
+│   │   └── release/         # 发布编排服务（orchestrator）
+│   ├── orchestration/       # 编排层（sprint_orchestrator）
+│   ├── factories/           # 工厂层（http.py, evolution.py）
+│   └── dto/                 # 数据传输对象（results.py）
+├── domain/                   # 领域模型（DDD 领域层 - 按子域划分）
 │   ├── core/                # 核心子域（核心竞争力）
 │   │   ├── lifecycle/       # 生命周期契约与状态机
-│   │   ├── execution/       # 执行引擎与任务编排
+│   │   ├── execution/       # 执行引擎与任务编排（agents, core, hooks, orchestrator, planners）
 │   │   ├── evolution/       # 版本演化与晋升
-│   │   └── governance/      # 治理与建议处理
+│   │   └── governance/      # 治理与建议处理（arch_guard, hitl, quality_spec, suggestion）
 │   ├── supporting/          # 支撑子域（业务支撑）
 │   │   ├── intent/          # 意图解析与归一化
-│   │   ├── verification/    # 验证引擎
-│   │   └── fitness/        # 健康度评估
-│   └── generic/             # 通用子域（基础设施）
-│       ├── errors/          # 错误处理
-│       ├── prompts/         # 提示词管理
-│       ├── models/          # 通用数据模型
-│       ├── platform/        # 平台视图
-│       ├── interfaces/      # 通用接口定义
-│       └── ports/           # 端口定义
-├── infrastructure/          # 适配器层（按 DDD 子域组织）
-│   ├── adapters/            # 子域适配器
-│   │   ├── core/           # 核心子域适配器
-│   │   │   ├── execution/  # 执行引擎适配器（状态存储、事件后端）
-│   │   │   ├── evolution/  # 版本演化适配器（版本存储、回滚存储）
-│   │   │   └── governance/ # 治理适配器（HITL、建议存储、架构防护）
-│   │   ├── supporting/     # 支撑子域适配器
-│   │   │   ├── verification/ # 验证提供者适配器
-│   │   │   ├── fitness/      # 健康度评估适配器
-│   │   │   └── intent/       # 意图解析适配器
-│   │   └── generic/        # 通用子域适配器
-│   │       ├── config/      # 配置实现
-│   │       ├── llm/         # LLM 调用实现
-│   │       ├── cache/       # 缓存实现
-│   │       ├── mq/          # 消息队列实现
-│   │       ├── sandbox/     # 沙箱管理实现
-│   │       ├── knowledge/   # 知识注入实现
-│   │       ├── observability/ # 可观测性实现
-│   │       ├── deploy/      # 部署实现
-│   │       └── integrations/ # 第三方集成（LangGraph、Phoenix 等）
-│   ├── shared/              # 共享基础设施（跨子域共享）
-│   │   ├── persistence/     # 持久化基础设施（SQLAlchemy、SQLite）
-│   │   ├── http/            # HTTP 基础设施
-│   │   └── utils/           # 工具函数
-│   └── factory.py           # 适配器创建工厂
-└── interfaces/              # HTTP 接口层（public / internal）
-    ├── app.py               # FastAPI 应用工厂
-    ├── __init__.py          # 包导出
-    ├── internal_compat.py    # 内部路由向后兼容
-    ├── public_compat.py     # 公共路由向后兼容
-    ├── dashboard/           # Dashboard 专用 HTTP 路由（前端控制台）
-    │   ├── __init__.py      # 模块导出
-    │   ├── config.py        # 配置管理端点
-    │   ├── execution.py     # 执行详情与生命周期端点
-    │   ├── governance.py    # 治理检查与历史端点
-    │   ├── overview.py      # 控制台概览与首页端点
-    │   └── platform.py      # 平台工作区与摘要端点
-    └── public/              # 公共 API 端点（外部集成）
-        ├── __init__.py      # 模块导出
-        ├── execution.py     # Plan、run、status、rollback、stop 端点
-        └── health.py        # 健康检查端点
+│   │   ├── verification/    # 验证引擎（providers）
+│   │   └── fitness/         # 健康度评估
+│   └── generic/             # 通用子域（基础设施抽象）
+│       ├── errors/          # 错误处理与知识路由
+│       ├── prompts/         # 提示词管理与模板
+│       ├── models/          # 通用数据模型（release_plan, sprint_models）
+│       ├── platform/        # 平台视图与总览
+│       ├── interfaces/      # 通用接口协议定义
+│       └── ports/           # 基础设施端口抽象
+├── infrastructure/          # 适配器层（DDD 基础设施层 - 按子域组织）
+│   └── adapters/            # 子域适配器实现
+│       ├── core/           # 核心子域适配器
+│       │   ├── execution/  # 执行引擎适配器（state_store, event_backend）
+│       │   ├── evolution/  # 版本演化适配器（version_store, rollback_store）
+│       │   └── governance/ # 治理适配器（hitl_store, suggestion_store, arch_guard）
+│       └── generic/        # 通用子域适配器
+│           ├── config/      # 配置实现（runtime_config, sprintcycle_config）
+│           ├── cache/       # 缓存实现（redis_backend, disk_backend）
+│           ├── deploy/      # 部署实现（compose_manager, runtime_registry）
+│           └── integrations/ # 第三方集成（langgraph, phoenix, autogpt）
+└── interfaces/              # HTTP 接口层（DDD 接口适配器层）
+    └── http/                # HTTP 适配层
+        ├── app.py           # FastAPI 应用工厂
+        ├── request_context.py # 请求上下文
+        ├── dashboard/       # Dashboard 专用 HTTP 路由（按领域划分）
+        │   ├── execution/   # 执行领域路由（trace, detail, replay）
+        │   ├── governance/  # 治理领域路由（check, history, latest）
+        │   ├── lifecycle/   # 生命周期领域路由（contract, delivery）
+        │   ├── hitl/        # HITL 领域路由（pending, history, decision）
+        │   └── suggestions/ # 建议领域路由（approve, reject, promoted）
+        └── public/          # 公共 API 端点（外部集成）
+            ├── execution.py # Plan、run、status、rollback、stop 端点
+            └── health.py    # 健康检查端点
 ```
 
 ---

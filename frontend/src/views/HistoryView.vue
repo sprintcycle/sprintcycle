@@ -1,10 +1,39 @@
 <script setup lang="ts">
+import { computed, onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 
-import { useDashboardStore } from '@/stores/dashboard'
+import { useExecutionStore } from '@/stores/execution'
 
-const store = useDashboardStore()
-const { executions, historyLoaded, expanded } = storeToRefs(store)
+const store = useExecutionStore()
+const { executions, loaded, expanded } = storeToRefs(store)
+
+function shortId(id: string): string {
+  return id.slice(0, 8)
+}
+
+function canResume(ex: Record<string, unknown>): boolean {
+  return String(ex.status) === 'paused' || String(ex.status) === 'interrupted'
+}
+
+function finalizationForExec(ex: Record<string, unknown>): Record<string, unknown> {
+  return {}
+}
+
+function sprintRows(ex: Record<string, unknown>): Record<string, unknown>[] {
+  return []
+}
+
+function taskRows(sp: Record<string, unknown>): (string | Record<string, unknown>)[] {
+  return []
+}
+
+const selectedId = ref<string>('')
+
+function toggleExpand(id: string) {
+  selectedId.value = selectedId.value === id ? '' : id
+}
+
+onMounted(() => void store.loadHistory())
 </script>
 
 <template>
@@ -13,14 +42,14 @@ const { executions, historyLoaded, expanded } = storeToRefs(store)
       <span class="sc-muted">近期执行记录</span>
       <el-button size="small" @click="store.loadHistory">🔄 刷新</el-button>
     </div>
-    <div v-if="!historyLoaded" class="sc-muted">加载中...</div>
+    <div v-if="!loaded" class="sc-muted">加载中...</div>
     <div v-else-if="executions.length === 0" class="sc-empty">
       📭 暂无执行历史
     </div>
     <div v-else class="exec-list">
       <el-card v-for="ex in executions" :key="String(ex.execution_id)" class="exec-card" shadow="hover">
-        <div class="exec-row" @click="store.toggleExpand(String(ex.execution_id ?? ''))">
-          <span class="exec-short">{{ store.shortId(String(ex.execution_id ?? '')) }}</span>
+        <div class="exec-row" @click="toggleExpand(String(ex.execution_id ?? ''))">
+          <span class="exec-short">{{ shortId(String(ex.execution_id ?? '')) }}</span>
           <el-tag size="small" effect="dark">{{ String(ex.status ?? 'unknown') }}</el-tag>
           <div class="exec-meta">
             <span v-if="ex.release_plan_name">📦 {{ ex.release_plan_name }}</span>
@@ -36,43 +65,43 @@ const { executions, historyLoaded, expanded } = storeToRefs(store)
           </div>
           <div class="exec-actions">
             <el-button
-v-if="store.canResume(ex)" type="success" size="small"
-              @click.stop="store.handleResume(String(ex.execution_id))">
+v-if="canResume(ex)" type="success" size="small"
+              @click.stop="store.resume(String(ex.execution_id))">
               ▶ Resume
             </el-button>
             <el-button
 type="warning" size="small" plain
-              @click.stop="store.handleRollback(String(ex.execution_id ?? ''))">
+              @click.stop="store.rollback(String(ex.execution_id ?? ''))">
               ↩ 回滚
             </el-button>
-            <el-button size="small" @click.stop="store.handleStop(String(ex.execution_id ?? ''))">⏹</el-button>
+            <el-button size="small" @click.stop="store.stop(String(ex.execution_id ?? ''))">⏹</el-button>
           </div>
-          <span class="chev" :class="{ open: expanded[String(ex.execution_id)] }">▶</span>
+          <span class="chev" :class="{ open: selectedId === String(ex.execution_id) }">▶</span>
         </div>
-        <div v-show="expanded[String(ex.execution_id)]" class="exec-detail">
-          <div class="finalization-card" v-if="store.finalizationForExec(ex) && Object.keys(store.finalizationForExec(ex)).length">
+        <div v-show="selectedId === String(ex.execution_id)" class="exec-detail">
+          <div class="finalization-card" v-if="finalizationForExec(ex) && Object.keys(finalizationForExec(ex)).length">
             <div class="sprint-head">
               <span class="sprint-dot success" />
               <b>Release Finalization</b>
               <span class="sc-muted">
-                {{ String((store.finalizationForExec(ex) as Record<string, unknown>).summary ?? '') }}
+                {{ String((finalizationForExec(ex) as Record<string, unknown>).summary ?? '') }}
               </span>
               <span class="sc-muted">
-                ready: {{ String((store.finalizationForExec(ex) as Record<string, unknown>).ready_to_release ?? false) }}
+                ready: {{ String((finalizationForExec(ex) as Record<string, unknown>).ready_to_release ?? false) }}
               </span>
             </div>
-            <div class="task-row" v-if="Array.isArray((store.finalizationForExec(ex) as Record<string, unknown>).issues) && (store.finalizationForExec(ex) as Record<string, unknown>).issues.length">
+            <div class="task-row" v-if="Array.isArray((finalizationForExec(ex) as Record<string, unknown>).issues) && (finalizationForExec(ex) as Record<string, unknown>).issues.length">
               <span class="sc-muted">Issues</span>
-              <span>{{ (store.finalizationForExec(ex) as Record<string, unknown>).issues.join(' · ') }}</span>
+              <span>{{ (finalizationForExec(ex) as Record<string, unknown>).issues.join(' · ') }}</span>
             </div>
-            <div class="task-row" v-if="Array.isArray((store.finalizationForExec(ex) as Record<string, unknown>).executed_fix_sprints) && (store.finalizationForExec(ex) as Record<string, unknown>).executed_fix_sprints.length">
+            <div class="task-row" v-if="Array.isArray((finalizationForExec(ex) as Record<string, unknown>).executed_fix_sprints) && (finalizationForExec(ex) as Record<string, unknown>).executed_fix_sprints.length">
               <span class="sc-muted">Fix Sprints</span>
-              <span>{{ (store.finalizationForExec(ex) as Record<string, unknown>).executed_fix_sprints.length }}</span>
+              <span>{{ (finalizationForExec(ex) as Record<string, unknown>).executed_fix_sprints.length }}</span>
             </div>
           </div>
-          <div v-if="store.sprintRows(ex).length === 0" class="sc-muted pad">暂无详细信息</div>
+          <div v-if="sprintRows(ex).length === 0" class="sc-muted pad">暂无详细信息</div>
           <div v-else class="sprint-section">
-            <div v-for="(sp, si) in store.sprintRows(ex)" :key="si" class="sprint-card">
+            <div v-for="(sp, si) in sprintRows(ex)" :key="si" class="sprint-card">
               <div class="sprint-head">
                 <span class="sprint-dot" :class="String((sp as Record<string, unknown>).status ?? '')" />
                 <b>{{ String((sp as Record<string, unknown>).sprint_name ?? (sp as Record<string, unknown>).name ?? `Sprint ${si + 1}`) }}</b>
@@ -81,7 +110,7 @@ type="warning" size="small" plain
                   ⏱ {{ Number((sp as Record<string, unknown>).duration).toFixed(1) }}s
                 </span>
               </div>
-              <div v-for="(t, ti) in store.taskRows(sp as Record<string, unknown>)" :key="ti" class="task-row">
+              <div v-for="(t, ti) in taskRows(sp as Record<string, unknown>)" :key="ti" class="task-row">
                 <template v-if="typeof t === 'string'">
                   {{ t }}
                 </template>

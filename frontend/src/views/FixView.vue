@@ -1,13 +1,12 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 
-import { useDashboardStore } from '@/stores/dashboard'
+import { useSuggestionsStore } from '@/stores/suggestions'
 
-const store = useDashboardStore()
-const { fixSuggestions, selectedFixSuggestion, selectedLinkedRunId } = storeToRefs(store)
+const store = useSuggestionsStore()
+const { suggestions, selectedSuggestion } = storeToRefs(store)
 
-const suggestions = computed(() => fixSuggestions.value || [])
 const stats = computed(() => {
   const total = suggestions.value.length
   const promoted = suggestions.value.filter((item) => String(item.status ?? '') === 'promoted').length
@@ -16,19 +15,21 @@ const stats = computed(() => {
   return { total, promoted, approved, pending }
 })
 
-const selectedSuggestion = ref<Record<string, unknown> | null>(null)
+const localSelected = ref<Record<string, unknown> | null>(null)
 const selectedCardEl = ref<HTMLElement | null>(null)
 
-watch(selectedFixSuggestion, (val) => {
-  selectedSuggestion.value = val
+watch(selectedSuggestion, (val) => {
+  localSelected.value = val
 }, { immediate: true })
 
 async function selectSuggestion(item: Record<string, unknown>) {
-  selectedSuggestion.value = item
-  store.selectFixSuggestion(item)
+  localSelected.value = item
+  store.selectSuggestion(item)
   await nextTick()
   selectedCardEl.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
 }
+
+onMounted(() => void store.loadSuggestions())
 </script>
 
 <template>
@@ -63,7 +64,7 @@ async function selectSuggestion(item: Record<string, unknown>) {
 
     <div v-if="suggestions.length === 0" class="empty-state">暂无建议</div>
     <div v-else class="fix-grid">
-      <el-card v-for="item in suggestions" :key="String(item.suggestion_id ?? item.title ?? '')" ref="selectedCardEl" shadow="never" class="fix-card" :class="{ selected: selectedSuggestion?.suggestion_id === item.suggestion_id }" @click="selectSuggestion(item)">
+      <el-card v-for="item in suggestions" :key="String(item.suggestion_id ?? item.title ?? '')" ref="selectedCardEl" shadow="never" class="fix-card" :class="{ selected: localSelected?.suggestion_id === item.suggestion_id }" @click="selectSuggestion(item)">
         <template #header>
           <div class="fix-card-head">
             <div class="fix-card-title">{{ item.title }}</div>
@@ -93,7 +94,7 @@ async function selectSuggestion(item: Record<string, unknown>) {
         </div>
       </el-card>
 
-      <el-card v-if="selectedSuggestion" shadow="never" class="fix-detail-panel">
+      <el-card v-if="localSelected" shadow="never" class="fix-detail-panel">
         <template #header>
           <div class="fix-card-head">
             <div class="fix-card-title">Selected Suggestion</div>
@@ -101,13 +102,12 @@ async function selectSuggestion(item: Record<string, unknown>) {
           </div>
         </template>
         <div class="detail-block">
-          <div><span class="sc-muted">ID</span><b>{{ selectedSuggestion.suggestion_id }}</b></div>
-          <div><span class="sc-muted">Title</span><b>{{ selectedSuggestion.title }}</b></div>
-          <div><span class="sc-muted">Status</span><b>{{ selectedSuggestion.status }}</b></div>
-          <div><span class="sc-muted">Severity</span><b>{{ selectedSuggestion.severity }}</b></div>
-          <div><span class="sc-muted">Evolution</span><b>{{ selectedSuggestion.linked_evolution_id || '—' }}</b></div>
-          <div><span class="sc-muted">Linked Run</span><b>{{ selectedLinkedRunId || '—' }}</b></div>
-          <div class="detail-json"><pre>{{ JSON.stringify(selectedSuggestion, null, 2) }}</pre></div>
+          <div><span class="sc-muted">ID</span><b>{{ localSelected.suggestion_id }}</b></div>
+          <div><span class="sc-muted">Title</span><b>{{ localSelected.title }}</b></div>
+          <div><span class="sc-muted">Status</span><b>{{ localSelected.status }}</b></div>
+          <div><span class="sc-muted">Severity</span><b>{{ localSelected.severity }}</b></div>
+          <div><span class="sc-muted">Evolution</span><b>{{ localSelected.linked_evolution_id || '—' }}</b></div>
+          <div class="detail-json"><pre>{{ JSON.stringify(localSelected, null, 2) }}</pre></div>
         </div>
       </el-card>
     </div>

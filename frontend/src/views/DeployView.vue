@@ -1,22 +1,30 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { storeToRefs } from 'pinia'
+import { computed, onMounted, ref } from 'vue'
 
-import { useDashboardStore } from '@/stores/dashboard'
+import { apiPlatformDeploy } from '@/api/platform'
+import { apiLifecycleContract } from '@/api/lifecycle'
+import { apiStatus } from '@/api/execution'
 
-const store = useDashboardStore()
-const { deployPayload, lifecycleContracts } = storeToRefs(store)
+const deployPayload = ref<Record<string, unknown> | null>(null)
+const latestContract = ref<Record<string, unknown> | null>(null)
 
-const runtimes = computed(() => (deployPayload.value?.runtimes as Array<Record<string, unknown>>) || [])
+async function loadData() {
+  deployPayload.value = await apiPlatformDeploy()
+  const status = await apiStatus()
+  const execId = String(status?.primary_execution?.execution_id ?? status?.executions?.[0]?.execution_id ?? '')
+  if (execId) {
+    latestContract.value = await apiLifecycleContract(execId)
+  }
+}
+
+onMounted(() => void loadData())
+
+const runtimes = computed(() => (deployPayload.value?.data?.runtimes as Array<Record<string, unknown>>) || (deployPayload.value?.runtimes as Array<Record<string, unknown>>) || [])
 const overview = computed(() => (deployPayload.value?.data as Record<string, unknown>) || deployPayload.value || {})
-const latestContract = computed(() => {
-  const keys = Object.keys(lifecycleContracts.value || {})
-  const latestKey = keys[keys.length - 1] || ''
-  return latestKey ? (lifecycleContracts.value?.[latestKey] as Record<string, unknown>) || {} : {}
-})
-const evaluation = computed(() => (latestContract.value?.evaluation as Record<string, unknown> | undefined) || {})
+const contractData = computed(() => latestContract.value?.data as Record<string, unknown> | undefined || {})
+const evaluation = computed(() => (contractData.value?.evaluation as Record<string, unknown> | undefined) || {})
 const scoreCard = computed(() => (evaluation.value?.score_card as Record<string, unknown> | undefined) || {})
-const promotion = computed(() => (latestContract.value?.promotion as Record<string, unknown> | undefined) || {})
+const promotion = computed(() => (contractData.value?.promotion as Record<string, unknown> | undefined) || {})
 const promotionReady = computed(() => Boolean(promotion.value?.passed ?? false))
 const missingEvidence = computed(() => Array.isArray(scoreCard.value?.missing_evidence) ? (scoreCard.value?.missing_evidence as string[]) : [])
 </script>
@@ -40,7 +48,7 @@ const missingEvidence = computed(() => Array.isArray(scoreCard.value?.missing_ev
       <el-col :xs="24" :md="8">
         <el-card shadow="never">
           <div class="k">Contract Stage</div>
-          <div class="v">{{ String(latestContract.stage ?? '—') }}</div>
+          <div class="v">{{ String(contractData.stage ?? '—') }}</div>
         </el-card>
       </el-col>
     </el-row>
@@ -56,7 +64,7 @@ const missingEvidence = computed(() => Array.isArray(scoreCard.value?.missing_ev
       <div class="fitness-meta" style="margin-top: 8px;">
         <span>Promotion Ready: {{ String(promotionReady) }}</span>
         <span>Runtime Healthy: {{ String(Boolean((overview as Record<string, unknown>).health ?? true)) }}</span>
-        <span>Contract Stage: {{ String(latestContract.stage ?? '—') }}</span>
+        <span>Contract Stage: {{ String(contractData.stage ?? '—') }}</span>
       </div>
       <div class="fitness-meta" style="margin-top: 8px;" v-if="missingEvidence.length">
         <span>Missing Evidence:</span>

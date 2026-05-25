@@ -1,22 +1,34 @@
 <script setup lang="ts">
-import { storeToRefs } from 'pinia'
-import { onMounted, onUnmounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { storeToRefs } from 'pinia'
 
-import { useDashboardStore } from '@/stores/dashboard'
+import { useEventsStore } from '@/stores/events'
+import { useExecutionStore } from '@/stores/execution'
 
 const route = useRoute()
-const store = useDashboardStore()
-const { sseLabel, sseDotClass, clientCount, liveEventCount, historyBadge } = storeToRefs(store)
+
+const eventsStore = useEventsStore()
+const executionStore = useExecutionStore()
+
+const { sseLabel, sseDotClass, clientCount, liveEventCount } = storeToRefs(eventsStore)
+const { historyBadge } = storeToRefs(executionStore)
 
 watch(
   () => route.name,
-  (name) => store.onRouteChange(name),
+  () => {
+  },
   { immediate: true },
 )
 
-onMounted(() => store.mountDashboard())
-onUnmounted(() => store.unmountDashboard())
+onMounted(() => {
+  eventsStore.connectSSE()
+  executionStore.loadHistory()
+})
+
+onUnmounted(() => {
+  eventsStore.disconnectSSE()
+})
 </script>
 
 <template>

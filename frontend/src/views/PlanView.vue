@@ -1,11 +1,16 @@
 <script setup lang="ts">
-import { storeToRefs } from 'pinia'
+import { ref } from 'vue'
+import { ElMessage } from 'element-plus'
 
-import { useDashboardStore } from '@/stores/dashboard'
+import { apiPlan, apiRun } from '@/api/execution'
 
-const store = useDashboardStore()
-const { yamlInput, referencePathsText, writePolicy, planBusy, planMeta, planMessage, planTone } =
-  storeToRefs(store)
+const yamlInput = ref('')
+const referencePathsText = ref('')
+const writePolicy = ref('auto')
+const planBusy = ref(false)
+const planMeta = ref('')
+const planMessage = ref('')
+const planTone = ref('')
 
 const policyOptions = [
   { label: 'auto（按目标是否存在）', value: 'auto' },
@@ -13,6 +18,60 @@ const policyOptions = [
   { label: 'incremental（增量）', value: 'incremental' },
   { label: 'safe（只新增不改）', value: 'safe' },
 ]
+
+function clearEditor() {
+  yamlInput.value = ''
+  planMessage.value = ''
+  planMeta.value = ''
+  planTone.value = ''
+}
+
+async function handlePlan() {
+  if (!yamlInput.value.trim()) {
+    ElMessage.warning('请输入执行计划')
+    return
+  }
+  planBusy.value = true
+  try {
+    const result = await apiPlan({
+      yaml: yamlInput.value,
+      write_policy: writePolicy.value,
+      reference_paths: referencePathsText.value.split('\n').filter(Boolean),
+    })
+    planMessage.value = result.message || JSON.stringify(result, null, 2)
+    planMeta.value = result.meta || ''
+    planTone.value = result.tone || 'info'
+  } catch (e) {
+    planMessage.value = e instanceof Error ? e.message : String(e)
+    planTone.value = 'error'
+  } finally {
+    planBusy.value = false
+  }
+}
+
+async function handleRun() {
+  if (!yamlInput.value.trim()) {
+    ElMessage.warning('请输入执行计划')
+    return
+  }
+  planBusy.value = true
+  try {
+    const result = await apiRun({
+      yaml: yamlInput.value,
+      write_policy: writePolicy.value,
+      reference_paths: referencePathsText.value.split('\n').filter(Boolean),
+    })
+    planMessage.value = result.message || JSON.stringify(result, null, 2)
+    planMeta.value = result.meta || ''
+    planTone.value = 'success'
+    ElMessage.success('执行已启动')
+  } catch (e) {
+    planMessage.value = e instanceof Error ? e.message : String(e)
+    planTone.value = 'error'
+  } finally {
+    planBusy.value = false
+  }
+}
 </script>
 
 <template>
@@ -25,7 +84,7 @@ const policyOptions = [
         </template>
         <el-input
 v-model="yamlInput" type="textarea" :rows="14" class="sc-yaml-input" placeholder="输入 YAML 或自然语言意图..."
-          @keydown.ctrl.enter.prevent="store.handleRun" @keydown.meta.enter.prevent="store.handleRun" />
+          @keydown.ctrl.enter.prevent="handleRun" @keydown.meta.enter.prevent="handleRun" />
         <div class="sc-plan-extra">
           <el-select v-model="writePolicy" placeholder="写入策略" style="width: 100%" size="small">
             <el-option v-for="o in policyOptions" :key="o.value" :label="o.label" :value="o.value" />
@@ -40,10 +99,10 @@ v-model="yamlInput" type="textarea" :rows="14" class="sc-yaml-input" placeholder
           />
         </div>
         <div class="sc-card-actions">
-          <el-button @click="store.clearEditor">🗑️ 清空</el-button>
+          <el-button @click="clearEditor">🗑️ 清空</el-button>
           <div class="grow" />
-          <el-button :loading="planBusy" @click="store.handlePlan">📋 Plan</el-button>
-          <el-button type="success" :loading="planBusy" @click="store.handleRun">
+          <el-button :loading="planBusy" @click="handlePlan">📋 Plan</el-button>
+          <el-button type="success" :loading="planBusy" @click="handleRun">
             ▶ Run
           </el-button>
         </div>

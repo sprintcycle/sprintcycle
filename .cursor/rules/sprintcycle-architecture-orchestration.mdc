@@ -28,19 +28,27 @@ You are working on SprintCycle, a contract-driven lifecycle platform with a stab
 - Do not introduce competing pipelines that weaken the current skeleton.（不要引入会破坏当前骨架的竞争性流程或平行流水线。）
 - Do not treat legacy compatibility surfaces as primary architecture.（不要把遗留兼容层当成主架构。）
 
-### Layer ownership
-- `api.py`: thin public facade for normalization, routing, delegation, and aggregation.（`api.py`：用于归一化、路由、委派和聚合的薄公共 facade。）
-- `application/`: use cases, orchestration, workflow coordination, and plan expansion.（`application/`：用例、编排、工作流协调和 plan 扩展。）
-- `execution/`: executor / engine / worker, state machine, planners, agents, rollback / retry / hooks.（`execution/`：执行器/引擎/worker、状态机、规划器、代理、回滚/重试/hooks。）
-- `governance/`: policy, approval, audit, versioning, HITL, arch guard, suggestion / review / compliance.（`governance/`：策略、审批、审计、版本管理、HITL、架构守卫、建议/评审/合规。）
-- `domain/`: core business models, value objects, entities, protocols, and rules.（`domain/`：核心业务模型、值对象、实体、协议和规则。）
-- `infrastructure/`: DB, MQ, cache, config, logging, sandbox, SDK implementations, adapters, clients, repositories, observability (trace, replay, event, metrics, diagnostics, health reports).（`infrastructure/`：数据库、消息队列、缓存、配置、日志、沙箱、SDK 实现、适配器、客户端、仓储、可观测性（trace、replay、事件、指标、诊断、健康报告）。）
-- `interfaces/http/`: current HTTP entry-adaptation layer for public / internal routes.（`interfaces/http/`：当前用于 public / internal 路由的 HTTP 入口适配层。）
-- Service layer: workflow logic and orchestration of domain behavior.（Service 层：工作流逻辑和领域行为编排。）
-- Facade layer: stable domain-facing coordination and compatibility.（Facade 层：稳定的领域协调入口和兼容层。）
-- Hook layer: lifecycle interception, before/after/failed behavior, policy gating, and annotations.（Hook 层：生命周期拦截、before/after/failed 行为、策略门控和注解。）
-- Orchestration/execution layer: runtime execution mechanics, scheduling, and execution lifecycle.（编排/执行层：运行时执行机制、调度和执行生命周期。）
-- Registry/adapter layer: plugin lookup and environment-specific integration.（Registry/Adapter 层：插件查找和环境相关集成。）
+### Layer ownership (DDD Onion Architecture - from outer to inner)
+- **`api.py`**: thin public facade for normalization, routing, delegation, and aggregation.（`api.py`：用于归一化、路由、委派和聚合的薄公共 facade。）
+- **`interfaces/http/`**: HTTP interface adapter layer (outermost layer) - routes, request context, audit logging.（`interfaces/http/`：HTTP 接口适配器层（最外层）- 路由、请求上下文、审计日志。）
+  - `dashboard/`: domain-based HTTP routes - execution/, governance/, lifecycle/, hitl/, suggestions/
+  - `public/`: minimal stable public API for external integrations
+- **`application/`**: application services layer - use cases, orchestration, workflow coordination, organized by domain.（`application/`：应用服务层 - 用例、编排、工作流协调，按领域组织。）
+  - `services/`: domain-organized services (execution, governance, lifecycle, evolution, dashboard, observability, release)
+  - `orchestration/`: sprint orchestrator
+  - `factories/`: factory implementations
+- **`domain/`**: domain layer (core business logic) - no external dependencies.（`domain/`：领域层（核心业务逻辑）- 无外部依赖。）
+  - `core/`: core subdomains (lifecycle, execution, evolution, governance)
+  - `supporting/`: supporting subdomains (intent, verification, fitness)
+  - `generic/`: generic subdomains (errors, prompts, models, platform, ports)
+- **`infrastructure/`**: infrastructure layer (innermost layer) - adapters, config, persistence, integrations.（`infrastructure/`：基础设施层（最内层）- 适配器、配置、持久化、集成。）
+  - `adapters/core/`: core subdomain adapters (execution, evolution, governance)
+  - `adapters/generic/`: generic adapters (config, cache, deploy, integrations)
+
+### Layer dependency rules
+- `interfaces` → `application` → `domain` → `infrastructure` (outer to inner)
+- Domain layer has no external dependencies
+- Infrastructure is depended on by all other layers but depends on nothing
 
 ### Lifecycle and entrypoint rules
 - For any task initiated from the Web platform, the system must be able to complete the full lifecycle stably.（对于任何从 Web 平台发起的任务，系统都必须能够稳定完成完整生命周期。）
@@ -114,9 +122,9 @@ You are working on SprintCycle, a contract-driven lifecycle platform with a stab
 
 ### Current implementation boundaries
 - `sprintcycle/api.py` is the unified entry, but it only coordinates and aggregates; it does not own workflow business logic.（`sprintcycle/api.py` 是统一入口，但只负责协调与聚合，不承载工作流业务逻辑。）
-- `sprintcycle/application/internal_api_service.py` handles Dashboard control-plane orchestration.（`sprintcycle/application/internal_api_service.py` 负责 Dashboard 控制面编排。）
-- `sprintcycle/application/public_api_service.py` handles the minimal stable contract for external systems.（`sprintcycle/application/public_api_service.py` 负责外部系统的最小稳定契约。）
-- `sprintcycle/interfaces/http/public.py` and `sprintcycle/interfaces/http/internal.py` handle public / internal HTTP route adaptation.（`sprintcycle/interfaces/http/public.py` 和 `sprintcycle/interfaces/http/internal.py` 负责 public / internal HTTP 路由适配。）
+- `sprintcycle/application/services/` contains domain-organized services: execution, governance, lifecycle, evolution, and dashboard.（`sprintcycle/application/services/` 包含按领域划分的服务：execution、governance、lifecycle、evolution 和 dashboard。）
+- `sprintcycle/interfaces/dashboard/` contains domain-based HTTP routes: execution/, governance/, lifecycle/, hitl/, suggestions/.（`sprintcycle/interfaces/dashboard/` 包含按领域划分的 HTTP 路由：execution/、governance/、lifecycle/、hitl/、suggestions/。）
+- `sprintcycle/interfaces/public/` handles the minimal stable contract for external systems.（`sprintcycle/interfaces/public/` 负责外部系统的最小稳定契约。）
 - `sprintcycle/infrastructure/auth.py`, `sprintcycle/infrastructure/audit.py`, and `sprintcycle/infrastructure/rate_limit.py` remain the unified governance entry points.（`sprintcycle/infrastructure/auth.py`、`sprintcycle/infrastructure/audit.py` 和 `sprintcycle/infrastructure/rate_limit.py` 仍是统一治理接入点。）
 
 ### Architecture and entrypoint end state

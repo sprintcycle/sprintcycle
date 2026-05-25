@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 
-import { apiConsoleOverview, apiExecutionDetail, apiExecutionReplay, apiPlatformSummary, apiRollback, apiRun } from '@/api'
+import { apiPlatformOverview } from '@/api/platform'
+import { apiStatus, apiExecutionReplay, apiExecutionDetail, apiRun, apiRollback } from '@/api/execution'
 
 type Summary = Record<string, unknown>
 
@@ -47,9 +48,10 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    summary.value = await apiPlatformSummary()
-    consoleOverview.value = await apiConsoleOverview(20)
-    const primary = asRecord(asRecord(summary.value?.executions_overview).primary_execution)
+    summary.value = await apiPlatformOverview()
+    const status = await apiStatus()
+    consoleOverview.value = status
+    const primary = asRecord(asRecord(status?.executions_overview).primary_execution)
     const execId = selectedExecId.value || (typeof primary.execution_id === 'string' ? primary.execution_id : '')
     selectedExecId.value = execId
     replayExecId.value = execId
@@ -126,6 +128,11 @@ const contractSummary = computed(() => {
     promotionReady: Boolean(asRecord(contract.promotion).passed ?? false),
   }
 })
+
+const contractStage = computed(() => '—')
+const contractStatus = computed(() => '—')
+const contractScore = computed(() => 0)
+const contractData = computed(() => (execDetail.value?.data as Record<string, unknown>) || {})
 
 async function selectExecution(execId: string) {
   if (!execId) return
@@ -440,6 +447,11 @@ async function rollbackSelectedExecution() {
   background: #0f172a;
   border: 1px solid #334155;
   color: #cbd5e1;
+}
+.chip.ok {
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.3);
+  color: #4ade80;
 }
 .muted {
   color: #64748b;

@@ -2,7 +2,7 @@
 import { ElMessage } from 'element-plus'
 import { onMounted, ref } from 'vue'
 
-import { apiGovernanceCheck, apiGovernanceHistory, apiGovernanceLatest } from '@/api'
+import { apiGovernanceCheck, apiGovernanceHistory, apiGovernanceLatest } from '@/api/governance'
 
 const loading = ref(false)
 const running = ref(false)
@@ -13,13 +13,15 @@ const historyEntries = ref<Record<string, unknown>[]>([])
 async function refresh() {
   loading.value = true
   try {
-    latest.value = (await apiGovernanceLatest()) as Record<string, unknown>
+    const res = await apiGovernanceLatest()
+    latest.value = res.data as Record<string, unknown> || res
   } catch {
     latest.value = null
   }
   try {
     const h = await apiGovernanceHistory(50)
-    historyEntries.value = Array.isArray(h.entries) ? (h.entries as Record<string, unknown>[]) : []
+    const data = h.data as Record<string, unknown> || {}
+    historyEntries.value = Array.isArray(data.entries) ? (data.entries as Record<string, unknown>[]) : []
   } catch {
     historyEntries.value = []
   }

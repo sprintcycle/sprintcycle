@@ -1,18 +1,18 @@
 """Dashboard HTTP routes.
 
-All internal routes for the SprintCycle web dashboard.
+All internal routes for the SprintCycle web dashboard, organized by domain.
 """
 
-from .governance import build_governance_router
 from .execution import build_execution_router
-from .platform import build_platform_router
-from .config import build_config_router
-from .overview import build_overview_router
+from .governance import build_governance_router
+from .lifecycle import build_lifecycle_router
+from .hitl import build_hitl_router
+from .suggestions import build_suggestions_router
 
 __all__ = [
-    "build_governance_router",
     "build_execution_router",
-    "build_platform_router",
-    "build_config_router",
-    "build_overview_router",
+    "build_governance_router",
+    "build_lifecycle_router",
+    "build_hitl_router",
+    "build_suggestions_router",
 ]

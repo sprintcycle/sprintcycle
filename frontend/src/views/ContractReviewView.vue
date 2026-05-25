@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 
-import { apiDashboardLifecycleContract, apiDashboardLifecycleContractReview } from '@/api'
+import { apiLifecycleContract, apiLifecycleContractReview } from '@/api/lifecycle'
 
 const executionId = ref('')
 const loading = ref(false)
@@ -10,7 +10,7 @@ const reviewLoading = ref(false)
 const contract = ref<Record<string, unknown> | null>(null)
 const reviewResult = ref<Record<string, unknown> | null>(null)
 
-const latest = computed(() => contract.value || {})
+const latest = computed(() => contract.value?.data as Record<string, unknown> | undefined || {})
 const evaluation = computed(() => (latest.value?.evaluation as Record<string, unknown> | undefined) || {})
 const scoreCard = computed(() => (evaluation.value?.score_card as Record<string, unknown> | undefined) || {})
 const missingEvidence = computed(() => Array.isArray(scoreCard.value?.missing_evidence) ? (scoreCard.value?.missing_evidence as string[]) : [])
@@ -19,8 +19,7 @@ async function loadContract() {
   if (!executionId.value) return
   loading.value = true
   try {
-    const res = await apiDashboardLifecycleContract(executionId.value)
-    contract.value = (res.data as Record<string, unknown>) || res
+    contract.value = await apiLifecycleContract(executionId.value)
     reviewResult.value = null
   } finally {
     loading.value = false
@@ -31,8 +30,7 @@ async function runReview() {
   if (!executionId.value) return
   reviewLoading.value = true
   try {
-    const res = await apiDashboardLifecycleContractReview(executionId.value, {})
-    reviewResult.value = (res.data as Record<string, unknown>) || res
+    reviewResult.value = await apiLifecycleContractReview(executionId.value)
     await loadContract()
     ElMessage.success('Contract review completed')
   } finally {

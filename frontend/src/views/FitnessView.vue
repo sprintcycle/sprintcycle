@@ -1,40 +1,56 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { storeToRefs } from 'pinia'
+import { computed, onMounted, ref } from 'vue'
 
-import { useDashboardStore } from '@/stores/dashboard'
+import { apiPlatformFitness } from '@/api/platform'
+import { apiPlatformDeploy } from '@/api/platform'
+import { apiLifecycleContract } from '@/api/lifecycle'
+import { apiStatus } from '@/api/execution'
 
-const store = useDashboardStore()
-const { diagnoseScore, diagnoseTitle, diagnoseDesc, diagnoseIssues, deployPayload, promotionLog, lifecycleContracts } = storeToRefs(store)
+const fitness = ref<Record<string, unknown> | null>(null)
+const deployPayload = ref<Record<string, unknown> | null>(null)
+const latestContract = ref<Record<string, unknown> | null>(null)
 
-const score = computed(() => diagnoseScore.value ?? 0)
+async function loadData() {
+  fitness.value = await apiPlatformFitness()
+  deployPayload.value = await apiPlatformDeploy()
+  const status = await apiStatus()
+  const execId = String(status?.primary_execution?.execution_id ?? status?.executions?.[0]?.execution_id ?? '')
+  if (execId) {
+    latestContract.value = await apiLifecycleContract(execId)
+  }
+}
+
+onMounted(() => void loadData())
+
+const score = computed(() => Number(fitness.value?.data?.overall ?? 0))
 const fitnessSummary = computed(() => ({
-  deployments: Array.isArray(deployPayload.value?.runtimes) ? deployPayload.value?.runtimes.length : 0,
-  promoted: promotionLog.value.length,
-  contracts: Object.keys(lifecycleContracts.value || {}).length,
+  deployments: Array.isArray(deployPayload.value?.data?.runtimes) ? deployPayload.value?.data?.runtimes.length : 0,
+  promoted: 0,
+  contracts: latestContract.value ? 1 : 0,
 }))
 
-const latestContract = computed(() => {
-  const keys = Object.keys(lifecycleContracts.value || {})
-  const key = keys[keys.length - 1] || ''
-  return (key ? lifecycleContracts.value?.[key] : null) as Record<string, unknown> | null
-})
-
-const review = computed(() => (latestContract.value?.evaluation as Record<string, unknown> | undefined) || {})
+const contractData = computed(() => latestContract.value?.data as Record<string, unknown> | undefined || {})
+const review = computed(() => (contractData.value?.evaluation as Record<string, unknown> | undefined) || {})
 const scoreCard = computed(() => (review.value?.score_card as Record<string, unknown> | undefined) || {})
 const passed = computed(() => Boolean(scoreCard.value?.passed ?? review.value?.passed ?? false))
 const verdict = computed(() => String(review.value?.verdict ?? (scoreCard.value?.passed ? 'passed' : 'pending')))
 const reason = computed(() => String(review.value?.reason ?? scoreCard.value?.reason ?? '—'))
 const weights = computed(() => (scoreCard.value?.weights as Record<string, unknown> | undefined) || {})
+
+function scoreColor(s: number): string {
+  if (s >= 80) return '#22c55e'
+  if (s >= 60) return '#f59e0b'
+  return '#ef4444'
+}
 </script>
 
 <template>
   <div class="fitness-wrap">
     <h2>Fitness</h2>
     <el-card shadow="never" class="fitness-card">
-      <div class="fitness-score" :style="{ color: store.scoreColor(score) }">{{ score }}</div>
-      <div class="fitness-title">{{ diagnoseTitle }}</div>
-      <div class="fitness-desc">{{ diagnoseDesc }}</div>
+      <div class="fitness-score" :style="{ color: scoreColor(score) }">{{ score }}</div>
+      <div class="fitness-title">Fitness Score</div>
+      <div class="fitness-desc">综合评估平台健康状况</div>
       <div class="fitness-meta">
         <span>Deployments: {{ fitnessSummary.deployments }}</span>
         <span>Promoted: {{ fitnessSummary.promoted }}</span>
@@ -64,7 +80,7 @@ const weights = computed(() => (scoreCard.value?.weights as Record<string, unkno
       </div>
     </el-card>
 
-    <el-table :data="diagnoseIssues" stripe empty-text="暂无问题" class="fitness-table">
+    <el-table :data="[]" stripe empty-text="暂无问题" class="fitness-table">
       <el-table-column prop="severity" label="Severity" width="120" />
       <el-table-column prop="title" label="Title" />
       <el-table-column prop="detail" label="Detail" />

@@ -2,9 +2,9 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 
-import { useDashboardStore } from '@/stores/dashboard'
+import { useExecutionStore } from '@/stores/execution'
 
-const store = useDashboardStore()
+const store = useExecutionStore()
 const { tracePayload, replayPayload, selectedTraceNode } = storeToRefs(store)
 
 const traceNodes = computed(() => (tracePayload.value?.nodes as Array<Record<string, unknown>>) || [])

@@ -243,65 +243,59 @@ Common exports include:
 ```
 sprintcycle/
 ├── api.py                    # Unified API entrypoint
-├── application/              # Use cases and service orchestration (3-tier unchanged)
-├── domain/                   # Domain models (DDD subdomain structure)
+├── application/              # Use cases and service orchestration (DDD Application Layer)
+│   ├── services/            # Core business services (organized by domain)
+│   │   ├── execution/       # Execution-related services (phase_workflow, evaluator_agent)
+│   │   ├── governance/      # Governance-related services (governance_orchestration, promotion_policy)
+│   │   ├── lifecycle/       # Lifecycle-related services (state_machine, contracts, evolution)
+│   │   ├── evolution/       # Version evolution services (promotion_service, version_service)
+│   │   ├── dashboard/       # Dashboard view services (platform_summary, view_service)
+│   │   ├── observability/   # Observability services (observability_service)
+│   │   └── release/         # Release orchestration services (orchestrator)
+│   ├── orchestration/       # Orchestration layer (sprint_orchestrator)
+│   ├── factories/           # Factory layer (http.py, evolution.py)
+│   └── dto/                 # Data transfer objects (results.py)
+├── domain/                   # Domain models (DDD Domain Layer - organized by subdomain)
 │   ├── core/                # Core subdomains (core competency)
 │   │   ├── lifecycle/       # Lifecycle contracts and state machine
-│   │   ├── execution/       # Execution engine and task orchestration
+│   │   ├── execution/       # Execution engine and task orchestration (agents, core, hooks, orchestrator, planners)
 │   │   ├── evolution/       # Version evolution and promotion
-│   │   └── governance/      # Governance and suggestion handling
+│   │   └── governance/      # Governance and suggestion handling (arch_guard, hitl, quality_spec, suggestion)
 │   ├── supporting/          # Supporting subdomains (business support)
 │   │   ├── intent/          # Intent parsing and normalization
-│   │   ├── verification/    # Verification engine
+│   │   ├── verification/    # Verification engine (providers)
 │   │   └── fitness/         # Health evaluation
-│   └── generic/             # Generic subdomains (infrastructure)
-│       ├── errors/           # Error handling
-│       ├── prompts/          # Prompt management
-│       ├── models/           # Generic data models
-│       ├── platform/         # Platform views
-│       ├── interfaces/       # Generic interface definitions
-│       └── ports/            # Port definitions
-├── infrastructure/          # Adapter layer (organized by DDD subdomains)
-│   ├── adapters/            # Subdomain adapters
-│   │   ├── core/           # Core subdomain adapters
-│   │   │   ├── execution/  # Execution engine adapters (state storage, event backend)
-│   │   │   ├── evolution/  # Version evolution adapters (version storage, rollback storage)
-│   │   │   └── governance/ # Governance adapters (HITL, suggestion storage, architecture guard)
-│   │   ├── supporting/     # Supporting subdomain adapters
-│   │   │   ├── verification/ # Verification provider adapters
-│   │   │   ├── fitness/      # Health evaluation adapters
-│   │   │   └── intent/       # Intent parsing adapters
-│   │   └── generic/        # Generic subdomain adapters
-│   │       ├── config/      # Configuration implementations
-│   │       ├── llm/         # LLM invocation implementations
-│   │       ├── cache/       # Cache implementations
-│   │       ├── mq/          # Message queue implementations
-│   │       ├── sandbox/     # Sandbox management implementations
-│   │       ├── knowledge/   # Knowledge injection implementations
-│   │       ├── observability/ # Observability implementations
-│   │       ├── deploy/      # Deployment implementations
-│   │       └── integrations/ # Third-party integrations (LangGraph, Phoenix, etc.)
-│   ├── shared/              # Shared infrastructure (cross-subdomain)
-│   │   ├── persistence/     # Persistence infrastructure (SQLAlchemy, SQLite)
-│   │   ├── http/            # HTTP infrastructure
-│   │   └── utils/           # Utility functions
-│   └── factory.py           # Adapter creation factory
-└── interfaces/               # HTTP interface layer (public / internal)
-    ├── app.py               # FastAPI application factory
-    ├── __init__.py          # Package exports
-    ├── internal_compat.py    # Backward compatibility for internal routes
-    ├── public_compat.py     # Backward compatibility for public routes
-    ├── dashboard/           # Dashboard-specific HTTP routes (Frontend control surface)
-    │   ├── __init__.py      # Module exports
-    │   ├── config.py        # Configuration management endpoints
-    │   ├── execution.py     # Execution detail and lifecycle endpoints
-    │   ├── governance.py    # Governance check and history endpoints
-    │   ├── overview.py      # Console overview and home endpoints
-    │   └── platform.py      # Platform workspace and summary endpoints
-    └── public/              # Public API endpoints (External integrations)
-        ├── __init__.py      # Module exports
-        ├── execution.py     # Plan, run, status, rollback, stop endpoints
-        └── health.py        # Health check endpoint
+│   └── generic/             # Generic subdomains (infrastructure abstractions)
+│       ├── errors/           # Error handling and knowledge routing
+│       ├── prompts/          # Prompt management and templates
+│       ├── models/           # Generic data models (release_plan, sprint_models)
+│       ├── platform/         # Platform views and overview
+│       ├── interfaces/       # Generic interface protocol definitions
+│       └── ports/            # Infrastructure port abstractions
+├── infrastructure/          # Adapter layer (DDD Infrastructure Layer - organized by subdomain)
+│   └── adapters/            # Subdomain adapter implementations
+│       ├── core/           # Core subdomain adapters
+│       │   ├── execution/  # Execution engine adapters (state_store, event_backend)
+│       │   ├── evolution/  # Version evolution adapters (version_store, rollback_store)
+│       │   └── governance/ # Governance adapters (hitl_store, suggestion_store, arch_guard)
+│       └── generic/        # Generic subdomain adapters
+│           ├── config/      # Configuration implementations (runtime_config, sprintcycle_config)
+│           ├── cache/       # Cache implementations (redis_backend, disk_backend)
+│           ├── deploy/      # Deployment implementations (compose_manager, runtime_registry)
+│           └── integrations/ # Third-party integrations (langgraph, phoenix, autogpt)
+└── interfaces/               # HTTP interface layer (DDD Interface Adapter Layer)
+    └── http/                # HTTP adaptation layer
+        ├── app.py           # FastAPI application factory
+        ├── request_context.py # Request context
+        ├── dashboard/       # Dashboard-specific HTTP routes (domain-based)
+        │   ├── execution/   # Execution domain routes (trace, detail, replay)
+        │   ├── governance/  # Governance domain routes (check, history, latest)
+        │   ├── lifecycle/   # Lifecycle domain routes (contract, delivery)
+        │   ├── hitl/        # HITL domain routes (pending, history, decision)
+        │   └── suggestions/ # Suggestions domain routes (approve, reject, promoted)
+        └── public/          # Public API endpoints (External integrations)
+            ├── execution.py # Plan, run, status, rollback, stop endpoints
+            └── health.py    # Health check endpoint
 ```
 
 ---

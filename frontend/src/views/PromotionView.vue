@@ -2,12 +2,10 @@
 import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
 
-import { useDashboardStore } from '@/stores/dashboard'
+import { useSuggestionsStore } from '@/stores/suggestions'
 
-const store = useDashboardStore()
-const { promotionLog } = storeToRefs(store)
-
-const promoted = computed(() => promotionLog.value || [])
+const store = useSuggestionsStore()
+const { promoted } = storeToRefs(store)
 </script>
 
 <template>

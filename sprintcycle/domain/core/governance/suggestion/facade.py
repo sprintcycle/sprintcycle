@@ -59,6 +59,7 @@ class SuggestionFacade:
 
 
 def create_suggestion_facade(project_path: str, config: Any, evolution_facade: Any = None) -> SuggestionFacade:
+    from sprintcycle.infrastructure.adapters.core.governance.suggestion_store import SuggestionStore
     store_root = (
         getattr(getattr(config, "governance_suggestion", None), "root_dir", None)
         or ".sprintcycle/governance/suggestion"

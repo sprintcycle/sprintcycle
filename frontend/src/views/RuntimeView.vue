@@ -1,13 +1,18 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { storeToRefs } from 'pinia'
+import { computed, onMounted, ref } from 'vue'
 
-import { useDashboardStore } from '@/stores/dashboard'
+import { apiPlatformDeploy } from '@/api/platform'
 
-const store = useDashboardStore()
-const { deployPayload } = storeToRefs(store)
+const deployPayload = ref<Record<string, unknown> | null>(null)
 
-const runtimes = computed(() => (deployPayload.value?.data as Array<Record<string, unknown>>) || [])
+const runtimes = computed(() => {
+  const data = deployPayload.value?.data as Record<string, unknown> || {}
+  return Array.isArray(data.runtimes) ? (data.runtimes as Record<string, unknown>[]) : []
+})
+
+onMounted(async () => {
+  deployPayload.value = await apiPlatformDeploy()
+})
 </script>
 
 <template>

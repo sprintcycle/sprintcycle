@@ -1,6 +1,6 @@
-"""Governance dashboard routes.
+"""Governance domain routes.
 
-HTTP endpoints for governance-related dashboard pages.
+HTTP endpoints for governance-related operations.
 """
 
 from __future__ import annotations
@@ -20,15 +20,6 @@ from sprintcycle.infrastructure.adapters.generic.integrations.audit import recor
 
 
 def build_governance_router(services: HTTPServices, project_path: str) -> APIRouter:
-    """Build governance dashboard router.
-
-    Args:
-        services: HTTP services instance.
-        project_path: Project root path.
-
-    Returns:
-        APIRouter: Governance routes router.
-    """
     router = APIRouter()
 
     def _ctx(request: Request) -> RequestContext:
@@ -42,14 +33,6 @@ def build_governance_router(services: HTTPServices, project_path: str) -> APIRou
 
     @router.get("/api/governance/latest")
     async def governance_latest(request: Request) -> dict:
-        """Get latest governance reports.
-
-        Args:
-            request: FastAPI request object.
-
-        Returns:
-            dict: Latest planning and review governance reports.
-        """
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/governance/latest", context=ctx)
         cfg = RuntimeConfig.from_project(project_path)
@@ -76,15 +59,6 @@ def build_governance_router(services: HTTPServices, project_path: str) -> APIRou
 
     @router.get("/api/governance/history")
     async def governance_history(request: Request, limit: int = 50) -> dict:
-        """Get governance history.
-
-        Args:
-            request: FastAPI request object.
-            limit: Maximum number of history items.
-
-        Returns:
-            dict: Governance history.
-        """
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/governance/history", context=ctx)
         result = await services.governance_history(limit=limit)
@@ -99,15 +73,6 @@ def build_governance_router(services: HTTPServices, project_path: str) -> APIRou
 
     @router.post("/api/governance/check")
     async def governance_check(request: Request, body: dict) -> dict:
-        """Run governance check.
-
-        Args:
-            request: FastAPI request object.
-            body: Request body with gate type.
-
-        Returns:
-            dict: Governance check results.
-        """
         ctx = _ctx(request)
         check_rate_limit(request, route="/api/governance/check", context=ctx)
         cfg = RuntimeConfig.from_project(project_path)
@@ -131,24 +96,16 @@ def build_governance_router(services: HTTPServices, project_path: str) -> APIRou
         )
         return out
 
-    @router.get("/api/dashboard/governance")
-    async def dashboard_governance(request: Request) -> dict:
-        """Get dashboard governance view.
-
-        Args:
-            request: FastAPI request object.
-
-        Returns:
-            dict: Governance view data.
-        """
+    @router.get("/api/governance/lifecycle")
+    async def governance_lifecycle(request: Request, execution_id: str = "") -> dict:
         ctx = _ctx(request)
-        check_rate_limit(request, route="/api/dashboard/governance", context=ctx)
-        result = services.governance_view()
+        check_rate_limit(request, route="/api/governance/lifecycle", context=ctx)
+        result = await services.governance_lifecycle(execution_id=execution_id)
         record_audit_event(
             request_id=ctx.request_id,
             actor=ctx.caller,
-            action="internal.governance_view",
-            resource="/api/dashboard/governance",
+            action="internal.governance_lifecycle",
+            resource="/api/governance/lifecycle",
             outcome="success",
         )
         return result

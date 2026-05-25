@@ -45,14 +45,14 @@ class HTTPServices:
         self.project_path = project_path
         self.config = RuntimeConfig.from_project(project_path)
 
-        # 注册 Domain 层依赖的 Infrastructure 工厂函数
-        self._register_infrastructure_factories()
-
         # 初始化核心依赖
         self._observability = ObservabilityFacade()
         self._runtime_registry = RuntimeRegistry()
         self._hooks = HookRegistry()
         self._evolution_registry = create_evolution_registry(self.config)
+
+        # 注册 Domain 层依赖的 Infrastructure 工厂函数
+        self._register_infrastructure_factories()
 
     def _register_infrastructure_factories(self) -> None:
         """注册 Domain 层依赖的 Infrastructure 工厂函数（DDD 依赖倒置）"""
@@ -115,10 +115,11 @@ class HTTPServices:
             governance=self._governance,
         )
         
+        from sprintcycle.domain.core.governance.promotion_policy import PromotionPolicy
         self._lifecycle_evolution = LifecycleEvolutionService(
-            project_path=self.project_path,
-            config=self.config,
-            evolution_registry=self._evolution_registry,
+            observability=self._observability,
+            runtime_registry=self._runtime_registry,
+            promotion_policy=PromotionPolicy(),
         )
         
         self._lifecycle_delivery = LifecycleDeliveryService(

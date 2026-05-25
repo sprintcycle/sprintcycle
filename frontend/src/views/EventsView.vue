@@ -1,17 +1,17 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
 
-import { useDashboardStore } from '@/stores/dashboard'
+import { useEventsStore } from '@/stores/events'
 
-const store = useDashboardStore()
-const { eventLines, autoScrollEvents, eventsLogRef } = storeToRefs(store)
+const store = useEventsStore()
+const { eventLines, autoScroll, eventsLogRef } = storeToRefs(store)
 </script>
 
 <template>
   <div class="events-wrap">
     <div class="events-toolbar">
       <span class="sc-muted">实时事件流 (SSE)</span>
-      <el-checkbox v-model="autoScrollEvents">自动滚动</el-checkbox>
+      <el-checkbox v-model="autoScroll">自动滚动</el-checkbox>
       <el-button size="small" @click="store.clearEvents">🗑️ 清除</el-button>
     </div>
     <div ref="eventsLogRef" class="events-log">

@@ -2,7 +2,10 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
-import { apiDashboardFitness, apiDashboardGovernance, apiDashboardDeploy, apiDashboardLifecycleContract, apiPlatformSummary } from '@/api'
+import { apiPlatformOverview, apiPlatformFitness, apiPlatformDeploy } from '@/api/platform'
+import { apiGovernanceLifecycle } from '@/api/governance'
+import { apiLifecycleContract } from '@/api/lifecycle'
+import { apiStatus } from '@/api/execution'
 
 const router = useRouter()
 const loading = ref(false)
@@ -11,17 +14,18 @@ const fitness = ref<Record<string, unknown> | null>(null)
 const governance = ref<Record<string, unknown> | null>(null)
 const deploy = ref<Record<string, unknown> | null>(null)
 const lifecycleContract = ref<Record<string, unknown> | null>(null)
+const status = ref<Record<string, unknown> | null>(null)
 
 async function refresh() {
   loading.value = true
   try {
-    summary.value = await apiPlatformSummary()
-    fitness.value = await apiDashboardFitness()
-    governance.value = await apiDashboardGovernance()
-    deploy.value = await apiDashboardDeploy()
-    const primary = summary.value?.executions_overview as Record<string, unknown> | undefined
-    const execId = typeof primary?.primary_execution === 'object' ? String((primary?.primary_execution as Record<string, unknown>)?.execution_id ?? '') : ''
-    lifecycleContract.value = execId ? await apiDashboardLifecycleContract(execId) : null
+    summary.value = await apiPlatformOverview()
+    fitness.value = await apiPlatformFitness()
+    governance.value = await apiGovernanceLifecycle()
+    deploy.value = await apiPlatformDeploy()
+    status.value = await apiStatus()
+    const execId = String(status.value?.primary_execution?.execution_id ?? status.value?.executions?.[0]?.execution_id ?? '')
+    lifecycleContract.value = execId ? await apiLifecycleContract(execId) : null
   } finally {
     loading.value = false
   }
@@ -30,12 +34,11 @@ async function refresh() {
 onMounted(() => void refresh())
 
 const executions = computed(() => {
-  const ex = summary.value?.executions_overview as Record<string, unknown> | undefined
-  return Array.isArray(ex?.executions) ? (ex!.executions as Record<string, unknown>[]) : []
+  return Array.isArray(status.value?.executions) ? (status.value!.executions as Record<string, unknown>[]) : []
 })
 
-const fitnessScore = computed(() => Number((fitness.value?.data as Record<string, unknown> | undefined)?.score ?? 0))
-const promotedCount = computed(() => Number((governance.value?.data as Record<string, unknown> | undefined)?.promoted ?? 0))
+const fitnessScore = computed(() => Number((fitness.value?.data as Record<string, unknown> | undefined)?.overall ?? 0))
+const promotedCount = computed(() => Number((governance.value?.data as Record<string, unknown> | undefined)?.summary?.promoted ?? 0))
 const runtimeCount = computed(() => {
   const d = deploy.value?.data as Record<string, unknown> | undefined
   return Array.isArray(d?.data) ? (d!.data as Record<string, unknown>[]).length : 0
@@ -53,7 +56,6 @@ const contractReason = computed(() => String(((lifecycleContract.value?.data as 
 
 function openTraceFromExecution(executionId: string) {
   router.push({ name: 'trace' })
-  // 尝试将目标 execution 传给 trace/fix 联动层
   window.dispatchEvent(new CustomEvent('sprintcycle:focus-execution', { detail: { executionId } }))
 }
 

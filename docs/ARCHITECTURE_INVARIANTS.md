@@ -11,48 +11,76 @@
 |------|------|
 | Python 文件总数 | 345 |
 | 总代码行数 | 35,170 |
-| 顶层模块数 | 8 |
+| 顶层模块数 | 5 |
 
 ### 1.1 模块分布
 
 | 模块 | 文件数 | 说明 |
 |------|--------|------|
-| `execution` | 78 | 执行引擎、状态管理、事件总线 |
-| `governance` | 77 | 治理、HITL、建议、版本控制 |
-| `domain` | 62 | 领域模型、质量规范、验证 |
-| `infrastructure` | 60+ | 配置、持久化、集成、部署、可观测性 |
-| `application` | 47 | 服务编排、API 封装 |
-| `interfaces` | 4 | HTTP 接口层 |
+| `domain/core/execution` | 78 | 执行引擎、状态管理、事件总线、agents、hooks |
+| `domain/core/governance` | 77 | 治理、HITL、建议、版本控制、arch_guard |
+| `domain` | 62 | 领域模型（core、supporting、generic 子域） |
+| `infrastructure` | 60+ | 配置、持久化、集成、部署、可观测性适配器 |
+| `application` | 47 | 服务编排（按领域组织：lifecycle、governance、evolution、dashboard） |
+| `interfaces/http` | 14 | HTTP 接口层（dashboard 按领域划分路由） |
 | `sprintcycle/` | 5 | 根模块（api.py, hooks.py 等） |
 
 ---
 
 ## 2. 分层架构
 
-### 2.1 层级定义
+### 2.1 层级定义（洋葱架构 - 从外到内）
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    interfaces/http/                         │
-│                  (HTTP API: internal.py, public.py)         │
+│                    interfaces/                              │
+│   (HTTP API: dashboard/[execution, governance, lifecycle,  │
+│    hitl, suggestions] / public/)                           │
+│                       ↓                                    │
+│              ┌─────────────────────┐                       │
+│              │  HTTP 路由适配层    │                       │
+│              └─────────────────────┘                       │
 ├─────────────────────────────────────────────────────────────┤
 │                     application/                            │
-│    (Services: lifecycle, governance, evolution, etc.)      │
+│    (Services: execution, governance, lifecycle, evolution, │
+│     dashboard - organized by domain)                       │
+│                       ↓                                    │
+│              ┌─────────────────────┐                       │
+│              │  用例编排与服务层   │                       │
+│              └─────────────────────┘                       │
 ├─────────────────────────────────────────────────────────────┤
 │                       domain/                               │
-│   (Models: fitness, intent, platform, quality_spec, etc.)  │
+│   (Core: lifecycle, execution, evolution, governance;      │
+│    Supporting: intent, verification, fitness;              │
+│    Generic: errors, prompts, models, platform, ports)      │
+│                       ↓                                    │
+│              ┌─────────────────────┐                       │
+│              │  领域模型与业务规则  │                       │
+│              └─────────────────────┘                       │
 ├─────────────────────────────────────────────────────────────┤
-│                      execution/                             │
-│    (Execution: engine, state, events, hooks, etc.)          │
-├─────────────────────────────────────────────────────────────┤
-│                      governance/                            │
-│      (Policy: hitl, arch_guard, suggestion, versioning)    │
-├─────────────────────────────────────────────────────────────┤
-│                    infrastructure/                          │
+│                  infrastructure/                            │
 │  (Config, persistence, integrations, deployment, sandbox,   │
 │   observability: trace, replay, diagnostics, runtime)       │
+│                       ↓                                    │
+│              ┌─────────────────────┐                       │
+│              │   基础设施适配层    │                       │
+│              └─────────────────────┘                       │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+**洋葱架构层次说明：**
+
+| 层级 | 位置 | 职责 | 依赖方向 |
+|------|------|------|----------|
+| **interfaces** | 最外层 | HTTP 接口、请求路由、上下文传递 | 依赖 application |
+| **application** | 第二层 | 用例编排、服务协调、事务边界 | 依赖 domain |
+| **domain** | 第三层 | 领域模型、业务规则、值对象 | 无外部依赖 |
+| **infrastructure** | 最内层 | 数据库、缓存、外部集成、适配器 | 被所有层依赖 |
+
+**领域层子域划分：**
+- **Core Domains（核心子域）**: lifecycle, execution, evolution, governance
+- **Supporting Domains（支撑子域）**: intent, verification, fitness  
+- **Generic Domains（通用子域）**: errors, prompts, models, platform, ports
 
 ### 2.2 各层职责
 
@@ -60,28 +88,33 @@
 |------|----------|------------|
 | **interfaces** | HTTP 请求路由、请求上下文、审计日志 | 仅做请求转发，不含业务逻辑 |
 | **application** | 跨服务编排、生命周期管理、API 聚合 | 依赖 domain，不直接操作基础设施 |
-| **domain** | 领域模型、业务规则、质量规范 | 无外部依赖，纯业务表达 |
-| **execution** | 执行引擎、状态机、事件发布 | 可观测性边界，不做治理决策 |
-| **governance** | 策略检查、HITL、建议管理、架构守卫 | 不直接操作执行引擎 |
-| **infrastructure** | 配置、持久化、外部集成 | 实现细节，不暴露给 domain |
+| **domain** | 领域模型、业务规则、质量规范<br>**核心子域**: lifecycle, execution, evolution, governance<br>**支撑子域**: intent, verification, fitness<br>**通用子域**: errors, prompts, models, platform, ports | 无外部依赖，纯业务表达 |
+| **infrastructure** | 配置、持久化、外部集成、可观测性 | 实现细节，不暴露给 domain |
 
 ### 2.3 跨层依赖规则
 
 ```
-interfaces → application → domain
-                         ↓
-                   execution
-                         ↓
-                   infrastructure (包含 observability)
+interfaces → application → domain → infrastructure
+```
 
-governance → domain (仅读)
-governance → infrastructure (通过 runner)
+**分层依赖说明（从外到内）：**
+- **interfaces** 依赖 **application**
+- **application** 依赖 **domain**
+- **domain** 无外部依赖（纯业务逻辑）
+- **infrastructure** 被所有层依赖（不依赖任何层）
+
+**domain 层内部子域依赖：**
+```
+core/ (lifecycle, execution, evolution, governance)
+    ↓
+supporting/ (intent, verification, fitness)
+    ↓
+generic/ (errors, prompts, models, platform, ports)
 ```
 
 **禁止**：
-- domain 层依赖 application 层
-- domain 层依赖 execution 层
-- infrastructure 层依赖 governance 层
+- domain 层依赖 application 层或 interfaces 层
+- infrastructure 层依赖任何业务层
 - 任何层直接访问数据库实现细节
 
 ---
@@ -535,20 +568,42 @@ class LifecycleStateMachine:
 
 ## 11. API 端点清单
 
-### 11.1 Internal API
+### 11.1 Dashboard API（按领域划分）
 
+#### Execution 领域
+| 端点 | 方法 | 服务 | 说明 |
+|------|------|------|------|
+| `/api/execution/trace` | GET | Observability | 执行追踪 |
+| `/api/execution/{id}/detail` | GET | Execution | 执行详情 |
+| `/api/execution/{id}/replay` | GET | Observability | 执行回放 |
+
+#### Governance 领域
 | 端点 | 方法 | 服务 | 说明 |
 |------|------|------|------|
 | `/api/governance/latest` | GET | Governance | 最新治理报告 |
 | `/api/governance/history` | GET | Governance | 治理历史 |
 | `/api/governance/check` | POST | Governance | 执行治理检查 |
-| `/api/dashboard/governance` | GET | Dashboard | 仪表盘治理视图 |
-| `/api/dashboard/platform` | GET | Dashboard | 平台工作区 |
-| `/api/dashboard/trace` | GET | Dashboard | 执行追踪 |
-| `/api/dashboard/fitness` | GET | Dashboard | 适配度视图 |
-| `/api/dashboard/deploy` | GET | Dashboard | 部署视图 |
-| `/api/dashboard/lifecycle-contract` | GET | Dashboard | 生命周期契约 |
-| `/api/console/overview` | GET | Console | 控制台概览 |
+
+#### Lifecycle 领域
+| 端点 | 方法 | 服务 | 说明 |
+|------|------|------|------|
+| `/api/lifecycle/contract` | GET | Lifecycle | 生命周期契约 |
+| `/api/lifecycle/contract/{id}/review` | POST | Lifecycle | 契约评审 |
+| `/api/lifecycle/delivery` | GET | Lifecycle | 交付状态 |
+
+#### HITL 领域
+| 端点 | 方法 | 服务 | 说明 |
+|------|------|------|------|
+| `/api/hitl/pending` | GET | HITL | 待处理决策列表 |
+| `/api/hitl/history` | GET | HITL | 决策历史 |
+| `/api/hitl/{id}/decision` | POST | HITL | 提交决策 |
+
+#### Suggestions 领域
+| 端点 | 方法 | 服务 | 说明 |
+|------|------|------|------|
+| `/api/suggestions/{id}/approve` | POST | Suggestions | 批准建议 |
+| `/api/suggestions/{id}/reject` | POST | Suggestions | 拒绝建议 |
+| `/api/suggestions/promoted` | GET | Suggestions | 已晋升建议 |
 
 ### 11.2 Public API
 
@@ -636,6 +691,7 @@ event_backend = "sqlite"
 
 ---
 
-> **版本**：v1.0  
-> **更新日期**：2024-01-20  
-> **维护者**：架构团队
+> **版本**：v2.0  
+> **更新日期**：2026-05-25  
+> **维护者**：架构团队  
+> **变更说明**：重构为 DDD 领域划分架构，Dashboard HTTP 路由按领域拆分（execution、governance、lifecycle、hitl、suggestions）
