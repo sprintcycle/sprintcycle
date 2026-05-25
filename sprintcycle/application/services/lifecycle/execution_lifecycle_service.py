@@ -13,10 +13,8 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 from sprintcycle.domain.generic.interfaces.hooks import EXECUTION_STARTED_EVENT, HookContext, HookPhase, HookRegistry, HookRunner
 from sprintcycle.domain.generic.ports.config import RuntimeConfigProtocol
 from sprintcycle.domain.generic.ports.observability import ObservabilityFacadeProtocol
-
-# TYPE_CHECKING: 仅用于类型提示
-if TYPE_CHECKING:
-    from sprintcycle.domain.generic.ports.state_store import StateStoreProtocol
+from sprintcycle.domain.generic.ports.registry import RuntimeRegistryProtocol
+from sprintcycle.domain.generic.ports.state_store import StateStoreProtocol
 
 
 class ExecutionLifecycleService:
@@ -25,12 +23,14 @@ class ExecutionLifecycleService:
         project_path: str,
         config: RuntimeConfigProtocol,
         observability: ObservabilityFacadeProtocol,
+        runtime_registry: RuntimeRegistryProtocol,
         state_store: StateStoreProtocol,
         hooks: Optional[HookRegistry] = None,
     ):
         self.project_path = project_path
         self.config = config
         self.observability = observability
+        self.runtime_registry = runtime_registry
         self.state_store = state_store
         self.hooks = hooks or HookRegistry()
         self._hook_runner = HookRunner(self.hooks)
@@ -68,6 +68,7 @@ class ExecutionLifecycleService:
             "verified": True,
             "metadata": dict(kwargs.get("metadata") or {}),
         }
+        self.runtime_registry.register(runtime_payload)
         try:
             self.state_store.update_status(runtime_id, "running")
         except Exception:
@@ -108,10 +109,13 @@ class ExecutionLifecycleService:
         }
 
     def runtime_latest(self) -> Dict[str, Any]:
-        return {"success": True, "data": {}}
+        payload = self.runtime_registry.records[-1] if self.runtime_registry.records else {}
+        return {"success": True, "data": payload}
 
     def runtime_update(self, runtime_id: str, **changes: Any) -> Dict[str, Any]:
-        return {"success": True, "data": {"runtime_id": runtime_id, **changes}}
+        current = self.runtime_registry.get(runtime_id)
+        merged = {**current, **changes, "runtime_id": runtime_id}
+        return self.runtime_registry.register(merged)
 
     def execution_detail(self, execution_id: str, limit: int = 200) -> Dict[str, Any]:
         state = self.state_store.load(execution_id)

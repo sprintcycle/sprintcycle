@@ -62,9 +62,105 @@ class HTTPServices:
         register_event_backend_factory()
 
         # 注册回滚实现
-        from sprintcycle.infrastructure.adapters.core.execution.state_store import register_rollback_implementations
+        from sprintcycle.infrastructure.adapters.core.evolution.rollback_store.rollback_types import (
+            GitRollbackMixin,
+            RollbackConfig,
+            RollbackError,
+            VariantBranch,
+            _is_git_repo,
+            _run_git,
+        )
+        from sprintcycle.domain.generic.ports.state_store import register_rollback_implementations
 
-        register_rollback_implementations()
+        register_rollback_implementations(
+            GitRollbackMixin=GitRollbackMixin,
+            RollbackConfig=RollbackConfig,
+            RollbackError=RollbackError,
+            VariantBranch=VariantBranch,
+            is_git_repo=_is_git_repo,
+            run_git=_run_git,
+        )
+
+        # 注册 HITL 存储工厂
+        from sprintcycle.infrastructure.adapters.core.governance.hitl_store import HitlSqliteStore
+        from sprintcycle.domain.generic.ports.hitl import register_hitl_store_factory
+
+        def create_hitl_store(project_path: str):
+            return HitlSqliteStore(project_path)
+
+        register_hitl_store_factory(create_hitl_store)
+
+        # 注册 Suggestion 存储工厂
+        from sprintcycle.infrastructure.adapters.core.governance.suggestion_store import SuggestionSqliteStore
+        from sprintcycle.domain.generic.ports.suggestion import register_suggestion_store_factory
+
+        def create_suggestion_store(project_path: str):
+            return SuggestionSqliteStore(project_path)
+
+        register_suggestion_store_factory(create_suggestion_store)
+
+        # 注册 Observability 门面工厂
+        from sprintcycle.domain.generic.ports.observability import register_observability_facade_factory
+
+        def create_observability_facade():
+            from sprintcycle.infrastructure.adapters.generic.observability.facade import ObservabilityFacade
+            return ObservabilityFacade()
+
+        register_observability_facade_factory(create_observability_facade)
+
+        # 注册 Knowledge 持久化工厂
+        from sprintcycle.domain.generic.ports.knowledge import register_knowledge_repository_factory
+
+        def create_knowledge_repository(project_path: str):
+            from sprintcycle.infrastructure.adapters.generic.knowledge.knowledge_repository import KnowledgeCardRepository
+            return KnowledgeCardRepository(project_path)
+
+        register_knowledge_repository_factory(create_knowledge_repository)
+
+        # 注册 Runtime Registry 工厂
+        from sprintcycle.domain.generic.ports.registry import register_runtime_registry_factory
+
+        def create_runtime_registry(config: Any):
+            from sprintcycle.infrastructure.adapters.generic.config.runtime_registry import RuntimeRegistry
+            return RuntimeRegistry()
+
+        register_runtime_registry_factory(create_runtime_registry)
+
+        # 注册 Evolution 注册表工厂
+        from sprintcycle.domain.generic.ports.evolution import (
+            register_evolution_registry_factory,
+            register_version_manifest_factory,
+        )
+
+        register_evolution_registry_factory(create_evolution_registry)
+
+        from sprintcycle.infrastructure.adapters.core.evolution.version_store.interface import get_version_manifest_summary
+
+        register_version_manifest_factory(get_version_manifest_summary)
+
+        # 注册 Integrations 工厂
+        from sprintcycle.domain.generic.ports.integrations import (
+            register_compile_intent_graph_factory,
+            register_compile_sprint_graph_factory,
+            register_plan_runtime_factory,
+        )
+        from sprintcycle.infrastructure.adapters.generic.integrations.langgraph.compiler import (
+            compile_intent_graph,
+            compile_sprint_graph,
+            PlanRuntime,
+        )
+
+        register_compile_intent_graph_factory(compile_intent_graph)
+        register_compile_sprint_graph_factory(compile_sprint_graph)
+
+        def create_plan_runtime(**kwargs):
+            return PlanRuntime(**kwargs)
+
+        register_plan_runtime_factory(create_plan_runtime)
+
+        # 获取状态存储
+        from sprintcycle.domain.generic.ports.state_store import get_state_store
+        self._state_store = get_state_store()
         
         # 初始化 config service
         self._config_service = ConfigService(self.project_path)
@@ -92,6 +188,7 @@ class HTTPServices:
             config=self.config,
             observability=self._observability,
             runtime_registry=self._runtime_registry,
+            state_store=self._state_store,
             hooks=self._hooks,
         )
         
