@@ -162,7 +162,15 @@ class HTTPServices:
         from sprintcycle.domain.generic.ports.state_store import get_state_store
         self._state_store = get_state_store()
         
-        # 初始化 config service
+        # 注册 RuntimeConfig 工厂（DDD 依赖倒置）
+        from sprintcycle.domain.generic.ports.config import register_runtime_config_factory
+        
+        def create_runtime_config(project_path: str):
+            return RuntimeConfig.from_project(project_path)
+        
+        register_runtime_config_factory(create_runtime_config)
+        
+        # 初始化 config service（通过端口工厂注入）
         self._config_service = ConfigService(self.project_path)
         
         # 初始化 governance facade

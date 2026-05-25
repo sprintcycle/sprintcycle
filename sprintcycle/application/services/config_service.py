@@ -8,9 +8,9 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
-from sprintcycle.domain.generic.ports.config import RuntimeConfigProtocol
+from sprintcycle.domain.generic.ports.config import RuntimeConfigProtocol, get_runtime_config
 
 
 class ConfigService:
@@ -19,18 +19,14 @@ class ConfigService:
     Handles loading, saving, and tracking history of configuration changes.
     """
 
-    def __init__(self, project_path: str, config: Optional[RuntimeConfigProtocol] = None):
+    def __init__(self, project_path: str):
         self.project_path = Path(project_path).expanduser().resolve()
         self.config_history: List[Dict[str, Any]] = []
         self.runtime_yaml = self.project_path / "sprintcycle.runtime.yaml"
-        self._config = config
 
     def _get_runtime_config(self) -> RuntimeConfigProtocol:
-        """获取运行时配置（延迟导入）"""
-        if self._config is not None:
-            return self._config
-        from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
-        return RuntimeConfig.from_project(str(self.project_path))
+        """获取运行时配置（通过端口工厂注入）"""
+        return get_runtime_config(str(self.project_path))
 
     def load_config(self) -> Dict[str, Any]:
         """Load and normalize runtime configuration.
