@@ -37,8 +37,12 @@ from sprintcycle.domain.generic.interfaces.hooks import (
     HookRunner,
 )
 from sprintcycle.domain.core.evolution.models import VersionArtifact
-from ..lifecycle.lifecycle_contracts import build_lifecycle_contract
-from ..lifecycle.lifecycle_state_machine import build_default_correlation
+from sprintcycle.domain.core.lifecycle import (
+    create_lifecycle,
+    LifecycleStage,
+    LifecycleStateMachineService,
+)
+from sprintcycle.domain.core.lifecycle.models import build_default_correlation
 from .promotion_policy import PromotionPolicy
 
 
@@ -398,18 +402,47 @@ class SuggestionApplicationService:
             "root_cause", normalized_event.get("root_cause") or normalized_event.get("failure_kind") or ""
         )
         result = await self.suggestion.capture_from_execution_event(normalized_event)
-        contract = build_lifecycle_contract(
+        
+        # 使用新架构创建 lifecycle
+        lifecycle = create_lifecycle(
             execution_id=execution_id,
             task_id=str(normalized_event.get("task_id") or execution_id),
             project_path=str(normalized_event.get("project_path") or ""),
-            stage="suggesting",
-            status="success",
-            metadata={"source": "execution_event", "root_cause": normalized_event.get("root_cause", "")},
-            suggestion_refs=[result.to_dict() if hasattr(result, "to_dict") else dict(result or {})],
-            governance_refs={"source": "execution_event_capture", "governed": bool(self.governance is not None)},
-            evolution_refs={"candidate": True, "source": "execution_event"},
-            recovery_refs={"root_cause": normalized_event.get("root_cause", ""), "execution_id": execution_id},
+            metadata={
+                "source": "execution_event",
+                "root_cause": normalized_event.get("root_cause", ""),
+                "suggestion_refs": [result.to_dict() if hasattr(result, "to_dict") else dict(result or {})],
+                "governance_refs": {"source": "execution_event_capture", "governed": bool(self.governance is not None)},
+                "evolution_refs": {"candidate": True, "source": "execution_event"},
+                "recovery_refs": {"root_cause": normalized_event.get("root_cause", ""), "execution_id": execution_id},
+            },
         )
+        
+        # 转换到 suggesting 阶段
+        lifecycle = lifecycle.transition_to(LifecycleStage.SUGGESTING)
+        
+        # 获取字典格式
+        service = LifecycleStateMachineService()
+        contract_dict = {
+            "contract_id": lifecycle.contract_id,
+            "execution_id": lifecycle.execution_id,
+            "task_id": lifecycle.task_id,
+            "project_path": lifecycle.project_path,
+            "stage": lifecycle.stage.value,
+            "status": lifecycle.status.value,
+            "metadata": dict(lifecycle.metadata),
+            "suggestion_refs": dict(lifecycle.metadata).get("suggestion_refs", []),
+            "governance_refs": dict(lifecycle.metadata).get("governance_refs", {}),
+            "evolution_refs": dict(lifecycle.metadata).get("evolution_refs", {}),
+            "recovery_refs": dict(lifecycle.metadata).get("recovery_refs", {}),
+            "stage_history": [
+                {"from": h.from_stage, "to": h.to_stage, "at": h.at, "reason": h.reason}
+                for h in lifecycle.stage_history
+            ],
+            "is_terminal": service.is_terminal(lifecycle.stage.value),
+            "stage_index": service.stage_index(lifecycle.stage.value),
+        }
+        
         self._hooks.after(
             "suggestion",
             SUGGESTION_CAPTURE_EXECUTION_EVENT[1],
@@ -417,7 +450,7 @@ class SuggestionApplicationService:
                 SUGGESTION_CAPTURE_EXECUTION_EVENT[1],
                 subject_id=str(normalized_event.get("suggestion_id") or ""),
                 execution_id=execution_id,
-                payload={"event": normalized_event, "result": result, "lifecycle_contract": contract.to_dict()},
+                payload={"event": normalized_event, "result": result, "lifecycle_contract": contract_dict},
             ),
         )
         self._hooks.event(
@@ -429,14 +462,14 @@ class SuggestionApplicationService:
                 "result": result,
                 "source": "execution",
                 "root_cause": normalized_event.get("root_cause", ""),
-                "lifecycle_contract": contract.to_dict(),
+                "lifecycle_contract": contract_dict,
             },
         )
         return {
             "success": True,
             "data": {
                 "suggestion": result.to_dict() if hasattr(result, "to_dict") else result,
-                "lifecycle_contract": contract.to_dict(),
+                "lifecycle_contract": contract_dict,
             },
         }
 

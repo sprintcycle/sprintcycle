@@ -1,11 +1,15 @@
-"""Web lifecycle request normalization and phase orchestration."""
+"""Web lifecycle request normalization and phase orchestration.
+
+完全使用新架构 - LifecycleRoot 聚合根。
+保持接口完全兼容，但内部使用新实现。
+"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional
 
-from .lifecycle_contracts import build_lifecycle_contract
+from .lifecycle_root_services import LifecycleRootService
 from ..execution.phase_workflow import build_decompose_artifact, build_plan_artifact, build_prepare_artifact
 
 
@@ -16,6 +20,10 @@ class WebLifecycleOrchestrationService:
     runtime_lifecycle: Callable[[str], Dict[str, Any]]
     observability_trace: Callable[[str], Dict[str, Any]]
     evaluate_sprint_contract: Callable[[Dict[str, Any]], Dict[str, Any]]
+
+    def __post_init__(self):
+        """初始化时创建新架构的 root service。"""
+        self.root_service = LifecycleRootService(self.project_path)
 
     def normalize_lifecycle_request(
         self,
@@ -30,6 +38,7 @@ class WebLifecycleOrchestrationService:
         suggestion_id: str = "",
         evolution_id: str = "",
     ) -> Dict[str, Any]:
+        """标准化 web 生命周期请求 - 使用新架构。"""
         normalized_metadata = dict(metadata or {})
         normalized_metadata.update(
             {"source": source, "task_type": task_type, "intent": intent or task_id, "normalized": True}
@@ -45,18 +54,34 @@ class WebLifecycleOrchestrationService:
             "evolution_id": evolution_id,
             "metadata": normalized_metadata,
         }
-        contract = build_lifecycle_contract(
+        
+        # 使用新架构创建 lifecycle
+        lifecycle = self.root_service.create_lifecycle(
             execution_id=execution_id,
             task_id=task_id,
             project_path=project_path or self.project_path,
-            stage="normalized",
-            status="pending",
+            task_type=task_type,
+            intent=intent,
             metadata=normalized_metadata,
-            evidence={"contract": {"normalized": True}, "stages": {"normalized": {"normalized": True}}},
-            input_refs={"execution_id": execution_id, "task_id": task_id, "intent": intent or task_id},
-            validation_refs={"normalized": True},
         )
-        return {"request": normalized_request, "contract": contract.to_dict()}
+        
+        # 推进到 normalized 阶段
+        lifecycle = self.root_service.advance_to_normalized(lifecycle)
+        
+        # 转换为兼容格式
+        contract_dict = self.root_service.lifecycle_to_dict(lifecycle)
+        
+        # 保持向后兼容的字段
+        contract_dict.update({
+            "input_refs": {"execution_id": execution_id, "task_id": task_id, "intent": intent or task_id},
+            "validation_refs": {"normalized": True},
+            "evidence": {
+                "contract": {"normalized": True},
+                "stages": {"normalized": {"normalized": True}}
+            }
+        })
+        
+        return {"request": normalized_request, "contract": contract_dict}
 
     def coerce_execution_contract(self, execution_contract: Dict[str, Any]) -> Dict[str, Any]:
         normalized = self.normalize_lifecycle_request(
@@ -145,19 +170,30 @@ class WebLifecycleOrchestrationService:
         dependencies: Optional[List[str]] = None,
         project_path: Optional[str] = None,
     ) -> Dict[str, Any]:
-        contract = build_lifecycle_contract(
+        """创建计划任务 artifacts - 使用新架构。"""
+        # 使用新架构创建 lifecycle
+        lifecycle = self.root_service.create_lifecycle(
             execution_id=execution_id,
             task_id=task_id,
             project_path=project_path or self.project_path,
-            stage="normalized",
-            status="pending",
             metadata={"source": "web", "phase": "plan"},
-            evidence={"contract": {"normalized": True}, "stages": {"normalized": {"normalized": True}}},
-            input_refs={"execution_id": execution_id, "task_id": task_id, "objective": objective},
-            validation_refs={"normalized": True},
         )
+        
+        # 转换为兼容格式
+        contract_dict = self.root_service.lifecycle_to_dict(lifecycle)
+        
+        # 补充向后兼容的字段
+        contract_dict.update({
+            "input_refs": {"execution_id": execution_id, "task_id": task_id, "objective": objective},
+            "validation_refs": {"normalized": True},
+            "evidence": {
+                "contract": {"normalized": True},
+                "stages": {"normalized": {"normalized": True}}
+            }
+        })
+        
         return build_plan_artifact(
-            contract,
+            contract_dict,
             objective=objective,
             success_criteria=success_criteria,
             risks=risks,

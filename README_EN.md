@@ -252,7 +252,9 @@ sprintcycle/
 │   │   ├── observability/   # Observability services (observability_service)
 │   │   └── release/         # Release orchestration services (orchestrator)
 │   ├── orchestration/       # Orchestration layer (sprint_orchestrator)
-│   ├── factories/           # Factory layer (http.py - composition root)
+│   ├── factories/           # Factory layer (pure wiring logic only)
+│   │   ├── http.py          # Composition root (HTTP service dependency injection)
+│   │   └── orchestration.py # Orchestrator dependency assembly
 │   └── dto/                 # Data transfer objects (results.py)
 ├── domain/                   # Domain models (DDD Domain Layer - organized by subdomain)
 │   ├── core/                # Core subdomains (core competency)
@@ -273,11 +275,12 @@ sprintcycle/
 │       └── ports/           # Infrastructure port abstractions (dependency injection factory registration)
 ├── infrastructure/          # Adapter layer (DDD Infrastructure Layer - organized by subdomain)
 │   ├── shared/              # Shared infrastructure (persistence)
-│   └── adapters/            # Subdomain adapter implementations
+│   └── adapters/            # Subdomain adapter implementations (implements domain ports)
 │       ├── core/           # Core subdomain adapters
 │       │   ├── execution/  # Execution engine adapters (state_store, event_backend)
 │       │   ├── evolution/  # Version evolution adapters (version_store, rollback_store)
-│       │   └── governance/ # Governance adapters (hitl_store, suggestion_store, arch_guard)
+│       │   ├── governance/ # Governance adapters (hitl_store, suggestion_store, arch_guard)
+│       │   └── orchestration/ # Orchestration adapters (GraphCompiler, RuntimeConfig, etc.)
 │       └── generic/        # Generic subdomain adapters
 │           ├── config/      # Configuration implementations (runtime_config, sprintcycle_config)
 │           ├── cache/       # Cache implementations (redis_backend, disk_backend)
@@ -297,6 +300,30 @@ sprintcycle/
             ├── execution.py # Plan, run, status, rollback, stop endpoints
             └── health.py    # Health check endpoint
 ```
+
+### Architecture Layer Explanation
+
+| Layer | Responsibility | Key Constraints |
+|-------|---------------|-----------------|
+| **interfaces** | HTTP interfaces, request routing | Forward only, no business logic |
+| **application** | Use case orchestration, service coordination | Depends on domain, factories only wire |
+| **domain** | Domain models, business rules, port definitions | No external dependencies |
+| **infrastructure** | Adapter implementations, infrastructure | Implements domain ports |
+
+### Adapter-Factory Separation Principle
+
+Following DDD Onion Architecture principles, adapter implementations are strictly separated from factory wiring logic:
+
+- **Factory Layer** (`application/factories/`): Only responsible for dependency assembly (wiring), no implementation logic
+- **Adapter Layer** (`infrastructure/adapters/`): Implements ports defined in domain layer, follows Dependency Inversion Principle
+
+**Port-Adapter Mapping**:
+| Port (domain) | Adapter (infrastructure) | Location |
+|---------------|-------------------------|----------|
+| `GraphCompilerPort` | `GraphCompilerAdapter` | `infrastructure/adapters/core/orchestration/` |
+| `RuntimeConfigPort` | `RuntimeConfigAdapter` | `infrastructure/adapters/core/orchestration/` |
+| `StateStorePort` | `StateStoreAdapter` | `infrastructure/adapters/core/orchestration/` |
+| `TraceRuntimePort` | `TraceRuntimeAdapter` | `infrastructure/adapters/core/orchestration/` |
 
 ---
 

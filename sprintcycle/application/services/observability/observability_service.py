@@ -14,8 +14,12 @@ from typing import Any, Dict, Optional
 
 from sprintcycle.domain.generic.ports.observability import ObservabilityFacadeProtocol
 from sprintcycle.domain.generic.ports.state_store import StateStoreProtocol
-from ..lifecycle.lifecycle_contracts import build_lifecycle_contract
-from ..lifecycle.lifecycle_state_machine import build_default_correlation
+from sprintcycle.domain.core.lifecycle import (
+    create_lifecycle,
+    LifecycleStage,
+    LifecycleStateMachineService,
+)
+from sprintcycle.domain.core.lifecycle.models import build_default_correlation
 from ..execution.phase_workflow import build_observe_artifact
 
 
@@ -71,12 +75,16 @@ class ObservabilityService:
             "repair_ready": repair_ready,
             "repair_candidate_count": len(repair_candidates),
         }
+        lifecycle_stage = "observing" if events else "normalized"
+        lifecycle_status = "success" if not failures else "failed"
+        failure_kind = root_cause_tags[0] if root_cause_tags else ("execution_error" if failures else "")
+        
         lifecycle = {
-            "stage": "observing" if events else "normalized",
-            "status": "success" if not failures else "failed",
+            "stage": lifecycle_stage,
+            "status": lifecycle_status,
             "is_healthy": not failures,
             "event_count": len(events),
-            "failure_kind": root_cause_tags[0] if root_cause_tags else ("execution_error" if failures else ""),
+            "failure_kind": failure_kind,
             "repair_ready": repair_ready,
             "correlation": correlation,
         }
@@ -88,34 +96,68 @@ class ObservabilityService:
             "root_cause_tags": root_cause_tags,
             "phase_tags": phase_tags,
         }
-        contract = build_lifecycle_contract(
+        
+        # 使用新架构创建 lifecycle
+        lifecycle_root = create_lifecycle(
             execution_id=run_id,
             task_id=run_id,
             project_path="",
-            stage=lifecycle["stage"],
-            status=lifecycle["status"],
-            metadata={"source": "observability"},
-            failure_kind=lifecycle["failure_kind"],
-            delivery_refs={"event_count": len(events)},
-            recovery_refs={
-                "ready": repair_ready,
-                "candidate_count": len(repair_candidates),
-                "root_causes": root_cause_tags,
-                "audit": audit,
+            metadata={
+                "source": "observability",
+                "failure_kind": failure_kind,
+                "delivery_refs": {"event_count": len(events)},
+                "recovery_refs": {
+                    "ready": repair_ready,
+                    "candidate_count": len(repair_candidates),
+                    "root_causes": root_cause_tags,
+                    "audit": audit,
+                },
+                "trace": data,
+                "diagnostics": diagnostics,
+                "validation_refs": {
+                    "trace_present": bool(events),
+                    "diagnostics_present": bool(diagnostics),
+                    "audit_present": True,
+                },
+                "output_refs": {"event_count": len(events), "root_cause_tags": root_cause_tags},
+                "transition_reason": "trace inspection",
             },
-            trace=data,
-            diagnostics=diagnostics,
-            correlation=correlation,
-            validation_refs={
-                "trace_present": bool(events),
-                "diagnostics_present": bool(diagnostics),
-                "audit_present": True,
-            },
-            output_refs={"event_count": len(events), "root_cause_tags": root_cause_tags},
-            transition_reason="trace inspection",
         )
-        observed = build_observe_artifact(contract.to_dict(), trace=data, diagnostics=diagnostics)
-        observed_contract = observed.get("lifecycle_contract", contract.to_dict())
+        
+        # 转换到目标阶段
+        target_stage = LifecycleStage.from_string(lifecycle_stage)
+        if lifecycle_root.stage != target_stage:
+            lifecycle_root = lifecycle_root.transition_to(target_stage)
+        
+        # 获取字典格式
+        service = LifecycleStateMachineService()
+        contract_dict = {
+            "contract_id": lifecycle_root.contract_id,
+            "execution_id": lifecycle_root.execution_id,
+            "task_id": lifecycle_root.task_id,
+            "project_path": lifecycle_root.project_path,
+            "stage": lifecycle_root.stage.value,
+            "status": lifecycle_status,
+            "failure_kind": failure_kind,
+            "metadata": dict(lifecycle_root.metadata),
+            "delivery_refs": dict(lifecycle_root.metadata).get("delivery_refs", {}),
+            "recovery_refs": dict(lifecycle_root.metadata).get("recovery_refs", {}),
+            "trace": dict(lifecycle_root.metadata).get("trace", {}),
+            "diagnostics": dict(lifecycle_root.metadata).get("diagnostics", {}),
+            "correlation": correlation,
+            "validation_refs": dict(lifecycle_root.metadata).get("validation_refs", {}),
+            "output_refs": dict(lifecycle_root.metadata).get("output_refs", {}),
+            "transition_reason": dict(lifecycle_root.metadata).get("transition_reason", ""),
+            "stage_history": [
+                {"from": h.from_stage, "to": h.to_stage, "at": h.at, "reason": h.reason}
+                for h in lifecycle_root.stage_history
+            ],
+            "is_terminal": service.is_terminal(lifecycle_root.stage.value),
+            "stage_index": service.stage_index(lifecycle_root.stage.value),
+        }
+        
+        observed = build_observe_artifact(contract_dict, trace=data, diagnostics=diagnostics)
+        observed_contract = observed.get("lifecycle_contract", contract_dict)
         observed_contract.setdefault("validation_refs", {})["audit_present"] = True
         observed_contract.setdefault("evidence", {}).setdefault("stages", {}).setdefault("observe", {})["audit"] = audit
         observed_contract.setdefault("evidence", {}).setdefault("recovery", {})["audit"] = audit

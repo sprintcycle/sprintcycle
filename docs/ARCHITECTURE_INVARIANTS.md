@@ -9,8 +9,8 @@
 
 | 指标 | 数值 |
 |------|------|
-| Python 文件总数 | 345+ |
-| 总代码行数 | 35,170+ |
+| Python 文件总数 | 347+ |
+| 总代码行数 | 35,300+ |
 | 顶层模块数 | 5 |
 
 ### 1.1 模块分布
@@ -19,7 +19,7 @@
 |------|--------|------|
 | `domain/core/execution` | 78 | 执行引擎、状态管理、事件总线、agents、hooks、orchestrator |
 | `domain/core/governance` | 77 | 治理、HITL、建议、版本控制、arch_guard |
-| `infrastructure` | 60+ | 配置、持久化、集成、部署、可观测性适配器 |
+| `infrastructure` | 62+ | 配置、持久化、集成、部署、可观测性适配器 |
 | `application` | 47 | 服务编排（按领域组织：lifecycle、governance、evolution、dashboard） |
 | `interfaces/http` | 14 | HTTP 接口层（dashboard 按领域划分路由） |
 | `sprintcycle/` | 5 | 根模块（api.py, hooks.py 等） |
@@ -46,6 +46,7 @@
 │                       ↓                                    │
 │              ┌─────────────────────┐                       │
 │              │  用例编排与服务层   │                       │
+│              │  factories/: 纯组装 │                       │
 │              └─────────────────────┘                       │
 ├─────────────────────────────────────────────────────────────┤
 │                       domain/                               │
@@ -62,6 +63,7 @@
 │                       ↓                                    │
 │              ┌─────────────────────┐                       │
 │              │   基础设施适配层    │                       │
+│              │   adapters/:实现   │                       │
 │              └─────────────────────┘                       │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -114,6 +116,27 @@ generic/ (errors, prompts, models, platform, ports)
 - domain 层依赖 application 层或 interfaces 层
 - infrastructure 层依赖任何业务层
 - 任何层直接访问数据库实现细节
+- **工厂层包含适配器实现**
+
+### 2.4 适配器与工厂分离原则
+
+**工厂层（application/factories/）职责：**
+- 仅负责依赖组装（wiring）
+- 依赖注入配置
+- 组合根模式实现
+- **禁止包含适配器实现逻辑**
+
+**适配器层（infrastructure/adapters/）职责：**
+- 实现 domain 层定义的端口（Ports）
+- 桥接领域抽象与具体技术实现
+- 遵循依赖倒置原则
+- **禁止包含组装逻辑**
+
+**适配器位置规范：**
+| 适配器类型 | 位置 | 示例 |
+|-----------|------|------|
+| 核心子域适配器 | `infrastructure/adapters/core/` | execution/, evolution/, governance/, **orchestration/** |
+| 通用子域适配器 | `infrastructure/adapters/generic/` | config/, cache/, deploy/, integrations/ |
 
 ---
 
@@ -129,6 +152,7 @@ SprintCycle 不可替代的核心功能：
 | 状态机 | `application/services/lifecycle/lifecycle_state_machine.py` | 16 个生命周期阶段定义 |
 | 恢复机制 | `application/services/governance/repair_orchestration_service.py` | 失败自动恢复路由 |
 | 证据收集 | `application/services/lifecycle/lifecycle_contracts.py` | 阶段证据 schema |
+| 依赖注入工厂 | `application/factories/orchestration.py` | 编排器依赖组装 |
 
 ### 3.2 质量治理
 
@@ -184,6 +208,7 @@ SprintCycle 不可替代的核心功能：
 | 验证提供者 | Playwright, 视觉对比等 | `domain/supporting/verification/providers/` |
 | LLM 提供者 | 模型调用抽象 | `infrastructure/adapters/generic/llm_provider.py` |
 | 事件后端 | SQLite, Memory 等 | `infrastructure/adapters/core/execution/state_store/sqlite_event_backend.py` |
+| 编排适配器 | 端口实现 | `infrastructure/adapters/core/orchestration/adapters.py` |
 
 ### 4.3 可配置扩展
 
@@ -293,6 +318,18 @@ RECOVERY_TARGETS = {
 }
 ```
 
+### 5.6 端口-适配器契约
+
+| 端口 | 适配器实现 | 位置 |
+|------|-----------|------|
+| `GraphCompilerPort` | `GraphCompilerAdapter` | `infrastructure/adapters/core/orchestration/adapters.py` |
+| `KnowledgeRepositoryPort` | `KnowledgeRepositoryAdapter` | `infrastructure/adapters/core/orchestration/adapters.py` |
+| `KnowledgeInjectionHookPort` | `KnowledgeInjectionHookAdapter` | `infrastructure/adapters/core/orchestration/adapters.py` |
+| `RuntimeConfigPort` | `RuntimeConfigAdapter` | `infrastructure/adapters/core/orchestration/adapters.py` |
+| `TraceRuntimePort` | `TraceRuntimeAdapter` | `infrastructure/adapters/core/orchestration/adapters.py` |
+| `StateStorePort` | `StateStoreAdapter` | `infrastructure/adapters/core/orchestration/adapters.py` |
+| `QualityConfigPort` | `QualityConfigAdapter` | `infrastructure/adapters/core/orchestration/adapters.py` |
+
 ---
 
 ## 6. 架构治理规则
@@ -306,6 +343,7 @@ RECOVERY_TARGETS = {
 | `planning:spec_ref_missing` | spec_ref 文件存在 | warning |
 | `review:extension_point_bypass` | 禁止绕过治理扩展点 | error |
 | `review:hook_context_invalid` | hook context 格式正确 | warning |
+| `review:adapter_in_factory` | 禁止在工厂中定义适配器 | error |
 
 ### 6.2 架构分层规则
 
@@ -423,6 +461,26 @@ class LifecycleStateMachine:
     next_stages(stage) -> tuple[str, ...]
 ```
 
+### 7.7 端口-适配器模式
+
+**位置**：`domain/generic/ports/` 和 `infrastructure/adapters/`
+
+```python
+# 端口定义（domain）
+@runtime_checkable
+class RuntimeConfigPort(Protocol):
+    def to_dict(self) -> Dict[str, Any]: ...
+    @property
+    def dry_run(self) -> bool: ...
+
+# 适配器实现（infrastructure）
+class RuntimeConfigAdapter(RuntimeConfigPort):
+    def __init__(self):
+        self._config = RuntimeConfig()
+    def to_dict(self) -> Dict[str, Any]:
+        return self._config.to_dict()
+```
+
 ---
 
 ## 8. API 设计规范
@@ -463,6 +521,18 @@ class LifecycleStateMachine:
 - `/api/v1` 前缀
 - 标准化请求/响应
 
+### 8.3 工厂层规范
+
+**工厂职责**：
+- 仅做依赖组装
+- 使用延迟导入避免循环依赖
+- 依赖端口而非具体实现
+
+**禁止**：
+- 在工厂中定义适配器类
+- 在工厂中包含业务逻辑
+- 直接依赖基础设施实现
+
 ---
 
 ## 9. 必须遵循的设计规范
@@ -473,6 +543,7 @@ class LifecycleStateMachine:
 2. **禁止**：基础设施层暴露给应用层以外
 3. **必须**：使用 Facade 封装复杂子域
 4. **必须**：接口层只做转发，不含业务逻辑
+5. **必须**：工厂层只做组装，不含适配器实现
 
 ### 9.2 扩展性规范
 
@@ -480,6 +551,7 @@ class LifecycleStateMachine:
 2. **必须**：新工具集成通过 Adapter 实现
 3. **必须**：新治理规则实现 Rule 接口
 4. **鼓励**：使用 pluggy 插件协议
+5. **必须**：适配器放在 infrastructure/adapters/ 中
 
 ### 9.3 状态管理规范
 
@@ -502,6 +574,13 @@ class LifecycleStateMachine:
 3. **禁止**：绕过 ArchGuard 直接访问内部实现
 4. **必须**：HITL 决策有超时机制
 
+### 9.6 适配器规范
+
+1. **必须**：适配器实现对应的 domain 端口
+2. **必须**：适配器放在 infrastructure/adapters/ 目录
+3. **禁止**：适配器包含组装逻辑
+4. **必须**：适配器遵循依赖倒置原则
+
 ---
 
 ## 10. 禁止事项
@@ -514,6 +593,7 @@ class LifecycleStateMachine:
 | 在 api.py 直接操作数据库 | 违反分层原则 |
 | 绕过 Hook 直接修改状态 | 破坏扩展机制 |
 | 绕过 GovernanceFacade 直接调用治理服务 | 破坏治理一致性 |
+| **在工厂层定义适配器** | 违反职责分离原则 |
 
 ### 10.2 状态破坏
 
@@ -541,6 +621,14 @@ class LifecycleStateMachine:
 | 删除或重命名 EventType 枚举值 | 破坏事件类型一致性 |
 | 修改 RECOVERY_TARGETS 默认映射 | 破坏恢复路由 |
 | 修改 LIFECYCLE_STAGES 顺序 | 破坏生命周期定义 |
+
+### 10.5 适配器-工厂分离破坏
+
+| 禁止项 | 原因 |
+|--------|------|
+| 在 factories/ 中定义适配器类 | 违反职责分离 |
+| 在 adapters/ 中定义组装逻辑 | 违反职责分离 |
+| 适配器不实现 domain 端口 | 违反依赖倒置 |
 
 ---
 
@@ -645,6 +733,8 @@ event_backend = "sqlite"
 | HITL 协调 | `sprintcycle/domain/core/governance/hitl/coordinator.py` |
 | 建议服务 | `sprintcycle/domain/core/governance/suggestion/service.py` |
 | 组合根 | `sprintcycle/application/factories/http.py` |
+| 编排依赖工厂 | `sprintcycle/application/factories/orchestration.py` |
+| 编排适配器 | `sprintcycle/infrastructure/adapters/core/orchestration/adapters.py` |
 
 ---
 
@@ -655,6 +745,7 @@ event_backend = "sqlite"
 1. 确认功能属于哪一层
 2. 如果需要扩展，添加到对应扩展点
 3. 更新本文档的对应章节
+4. 如果涉及适配器，放在 infrastructure/adapters/ 中
 
 ### B.2 添加新治理规则
 
@@ -664,13 +755,42 @@ event_backend = "sqlite"
 
 ### B.3 添加新适配器
 
-1. 实现 `QualityAdapter` 接口
-2. 注册到 `QualityRegistry`
-3. 添加到 `sprintcycle.toml` 的 adapters 配置
+1. 在 `domain/generic/ports/` 定义端口（如果需要）
+2. 在 `infrastructure/adapters/` 实现适配器类
+3. 在工厂层添加组装逻辑
 
 ---
 
-> **版本**：v2.0  
+## 附录 C：洋葱架构依赖关系图
+
+```
+┌─────────────────────────────────────────────────────┐
+│              interfaces/http/                       │ ← 依赖 application
+│  (Dashboard Routes, Public API)                    │
+└─────────────────────────────────────────────────────┘
+                         ↓
+┌─────────────────────────────────────────────────────┐
+│              application/                           │ ← 依赖 domain
+│  (services/, orchestration/, factories/)           │
+│  factories/: 纯组装逻辑                            │
+└─────────────────────────────────────────────────────┘
+                         ↓
+┌─────────────────────────────────────────────────────┐
+│                domain/                              │ ← 无外部依赖
+│  (core/, supporting/, generic/ports/)              │
+│  ports/: 端口定义                                   │
+└─────────────────────────────────────────────────────┘
+                         ↓
+┌─────────────────────────────────────────────────────┐
+│            infrastructure/                         │ ← 依赖 domain 端口
+│  (adapters/core/, adapters/generic/)               │
+│  adapters/: 适配器实现                              │
+└─────────────────────────────────────────────────────┘
+```
+
+---
+
+> **版本**：v2.1  
 > **更新日期**：2026-05-25  
 > **维护者**：架构团队  
-> **变更说明**：重构为 DDD 领域划分架构，Dashboard HTTP 路由按领域拆分（execution、governance、lifecycle、hitl、suggestions），引入组合根模式（factories/http.py）
+> **变更说明**：重构适配器与工厂分离，适配器统一放在 infrastructure/adapters/core/orchestration/，工厂层仅保留组装逻辑，符合 DDD 洋葱架构原则

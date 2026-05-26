@@ -44,7 +44,11 @@ from sprintcycle.domain.core.governance.hooks.task_hooks import GovernanceTaskLi
 from sprintcycle.domain.core.evolution.intent_evolution_loop import UserIntentEvolutionLoop
 from sprintcycle.domain.core.evolution.measurement import MeasurementResult
 from sprintcycle.domain.generic.interfaces.protocols import OrchestrationProtocol
-from sprintcycle.application.services.lifecycle.lifecycle_contracts import build_lifecycle_contract
+from sprintcycle.domain.core.lifecycle import (
+    create_lifecycle,
+    LifecycleStage,
+    LifecycleStateMachineService,
+)
 from sprintcycle.domain.generic.ports.orchestration import OrchestrationDependencies
 
 
@@ -333,22 +337,54 @@ class SprintOrchestrator:
             if isinstance(intent_context.get("task_skill_trace", {}), dict)
             else {}
         )
-        contract = build_lifecycle_contract(
+        # 使用新架构创建 lifecycle
+        lifecycle = create_lifecycle(
             execution_id=getattr(release_plan, "execution_id", ""),
             task_id=getattr(release_plan, "execution_id", "") or getattr(to_run.project, "name", ""),
             project_path=self._project_root,
-            stage="delivering",
-            status="success" if success else "failed",
-            metadata={"release_plan": to_run.project.name, "execution_id": getattr(release_plan, "execution_id", None)},
-            delivery_refs={"delivery_summary": completion_summary},
-            evolution_refs={"finalization": completion_summary.get("finalization", {})},
-            skill_refs=list(skill_matches),
-            skill_matches=list(skill_matches),
-            skill_review_checklists=list(intent_context.get("review_checklists", []))
-            if isinstance(intent_context.get("review_checklists", []), list)
-            else [],
-            skill_trace=skill_trace,
+            metadata={
+                "release_plan": to_run.project.name,
+                "execution_id": getattr(release_plan, "execution_id", None),
+                "delivery_refs": {"delivery_summary": completion_summary},
+                "evolution_refs": {"finalization": completion_summary.get("finalization", {})},
+                "skill_refs": list(skill_matches),
+                "skill_matches": list(skill_matches),
+                "skill_review_checklists": list(intent_context.get("review_checklists", []))
+                if isinstance(intent_context.get("review_checklists", []), list)
+                else [],
+                "skill_trace": skill_trace,
+            },
         )
+        
+        # 转换到 delivering 阶段
+        lifecycle = lifecycle.transition_to(LifecycleStage.DELIVERING)
+        
+        # 获取字典格式
+        service = LifecycleStateMachineService()
+        contract_dict = {
+            "contract_id": lifecycle.contract_id,
+            "execution_id": lifecycle.execution_id,
+            "task_id": lifecycle.task_id,
+            "project_path": lifecycle.project_path,
+            "stage": lifecycle.stage.value,
+            "status": "success" if success else "failed",
+            "metadata": dict(lifecycle.metadata),
+            "delivery_refs": dict(lifecycle.metadata).get("delivery_refs", {}),
+            "evolution_refs": dict(lifecycle.metadata).get("evolution_refs", {}),
+            "skill_refs": dict(lifecycle.metadata).get("skill_refs", []),
+            "skill_matches": dict(lifecycle.metadata).get("skill_matches", []),
+            "skill_review_checklists": dict(lifecycle.metadata).get("skill_review_checklists", []),
+            "skill_trace": dict(lifecycle.metadata).get("skill_trace", {}),
+            "stage_history": [
+                {"from": h.from_stage, "to": h.to_stage, "at": h.at, "reason": h.reason}
+                for h in lifecycle.stage_history
+            ],
+            "is_terminal": service.is_terminal(lifecycle.stage.value),
+            "stage_index": service.stage_index(lifecycle.stage.value),
+        }
+        
+        # 为了保持向后兼容，使用 contract_dict 替代 contract
+        contract = type('MockContract', (), {'to_dict': lambda: contract_dict})()
         complete_event = create_event(
             EventType.EXECUTION_COMPLETE if success else EventType.EXECUTION_FAILED,
             execution_id=getattr(release_plan, "execution_id", None),

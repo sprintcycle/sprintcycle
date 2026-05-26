@@ -11,6 +11,9 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Optional
 
 from .state_machine import LIFECYCLE_STAGES, LifecycleStateMachine, build_default_correlation
+from .lifecycle_root import create_lifecycle, LifecycleStage, LifecycleStatus, LifecycleRoot
+from .services import LifecycleStateMachineService
+from .values import CorrelationContext
 
 STAGE_EVIDENCE_SCHEMA: Dict[str, tuple[str, ...]] = {
     "normalized": ("normalized",),
@@ -384,50 +387,130 @@ def build_lifecycle_contract(
     transition_reason: str = "",
     failure_code: str = "",
 ) -> LifecycleContract:
+    """构建生命周期合约 - 完全迁移到新架构。
+    
+    此函数现在内部完全使用新的 LifecycleRoot 聚合根，但保持外部接口兼容。
+    """
     meta = normalize_lifecycle_metadata(metadata)
-    machine = LifecycleStateMachine()
-    normalized_stage = machine.normalize_stage(stage)
-    normalized_status = status or "pending"
-    evidence_payload = ensure_lifecycle_evidence(evidence)
-    contract = LifecycleContract(
+    
+    # 使用新的 DDD 实现
+    root = create_lifecycle(
         execution_id=execution_id,
         task_id=task_id,
         project_path=project_path,
         task_type=str(meta.get("task_type") or "project_optimization"),
         intent=str(meta.get("intent") or ""),
-        stage=normalized_stage,
-        status=normalized_status,
-        failure_kind=failure_kind or FAILURE_KIND_BY_STAGE.get(normalized_stage, ""),
-        failure_reason=failure_reason,
-        delivery_refs=dict(delivery_refs or {}),
-        runtime_refs=dict(runtime_refs or {}),
-        suggestion_refs=list(suggestion_refs or []),
-        skill_refs=list(skill_refs or []),
-        skill_matches=list(skill_matches or []),
-        skill_review_checklists=list(skill_review_checklists or []),
-        skill_trace=dict(skill_trace or {}),
-        evolution_refs=dict(evolution_refs or {}),
-        evidence=evidence_payload,
-        recovery_refs=dict(recovery_refs or {}),
-        recovery_plan_refs=dict(recovery_plan_refs or {}),
-        governance_refs=dict(governance_refs or {}),
-        trace=dict(trace or {}),
-        diagnostics=dict(diagnostics or {}),
-        metrics=dict(metrics or {}),
         metadata=meta,
-        correlation=dict(correlation or {}),
-        stage_history=list(stage_history or []),
-        allowed_next_stages=list(allowed_next_stages or machine.next_stages(normalized_stage)),
-        validation_refs=dict(validation_refs or {}),
-        input_refs=dict(input_refs or {}),
-        output_refs=dict(output_refs or {}),
-        transition_reason=transition_reason,
-        failure_code=failure_code,
     )
+    
+    # 转换到目标阶段
+    from .lifecycle_root import LifecycleStage
+    from .services import LifecycleStateMachineService
+    service = LifecycleStateMachineService()
+    
+    try:
+        target_stage = LifecycleStage.from_string(stage)
+        if target_stage != root.stage:
+            # 逐步转换阶段
+            stages = list(LifecycleStage)
+            start_idx = stages.index(root.stage)
+            end_idx = stages.index(target_stage)
+            for i in range(start_idx, end_idx):
+                next_stage = stages[i + 1]
+                if service.can_transition(root.stage.value, next_stage.value):
+                    root = root.transition_to(next_stage)
+    except Exception:
+        pass
+    
+    # 构建证据和其他字段
+    evidence_payload = ensure_lifecycle_evidence(evidence)
+    
+    # 处理额外的引用和数据（保存到 metadata）
+    extra_metadata = dict(root.metadata)
+    if delivery_refs:
+        extra_metadata["delivery_refs"] = dict(delivery_refs)
+    if runtime_refs:
+        extra_metadata["runtime_refs"] = dict(runtime_refs)
+    if suggestion_refs:
+        extra_metadata["suggestion_refs"] = list(suggestion_refs)
+    if skill_refs:
+        extra_metadata["skill_refs"] = list(skill_refs)
+    if skill_matches:
+        extra_metadata["skill_matches"] = list(skill_matches)
+    if skill_review_checklists:
+        extra_metadata["skill_review_checklists"] = list(skill_review_checklists)
+    if skill_trace:
+        extra_metadata["skill_trace"] = dict(skill_trace)
+    if evolution_refs:
+        extra_metadata["evolution_refs"] = dict(evolution_refs)
+    if recovery_refs:
+        extra_metadata["recovery_refs"] = dict(recovery_refs)
+    if recovery_plan_refs:
+        extra_metadata["recovery_plan_refs"] = dict(recovery_plan_refs)
+    if governance_refs:
+        extra_metadata["governance_refs"] = dict(governance_refs)
+    if trace:
+        extra_metadata["trace"] = dict(trace)
+    if diagnostics:
+        extra_metadata["diagnostics"] = dict(diagnostics)
+    if metrics:
+        extra_metadata["metrics"] = dict(metrics)
+    if validation_refs:
+        extra_metadata["validation_refs"] = dict(validation_refs)
+    if input_refs:
+        extra_metadata["input_refs"] = dict(input_refs)
+    if output_refs:
+        extra_metadata["output_refs"] = dict(output_refs)
+    
+    # 添加阶段历史
+    history_from_root = [
+        {"from": h.from_stage, "to": h.to_stage, "at": h.at, "reason": h.reason}
+        for h in root.stage_history
+    ]
+    full_history = list(stage_history or []) + history_from_root
+    
+    # 构建兼容的旧合约对象
+    contract = LifecycleContract(
+        execution_id=root.execution_id,
+        task_id=root.task_id,
+        project_path=root.project_path,
+        task_type=root.task_type,
+        intent=root.intent,
+        stage=root.stage.value,
+        status=status or root.status.value,
+        failure_kind=failure_kind or root.failure_kind,
+        failure_reason=failure_reason or root.failure_reason,
+        delivery_refs=dict(delivery_refs or extra_metadata.get("delivery_refs", {})),
+        runtime_refs=dict(runtime_refs or extra_metadata.get("runtime_refs", {})),
+        suggestion_refs=list(suggestion_refs or extra_metadata.get("suggestion_refs", [])),
+        skill_refs=list(skill_refs or extra_metadata.get("skill_refs", [])),
+        skill_matches=list(skill_matches or extra_metadata.get("skill_matches", [])),
+        skill_review_checklists=list(skill_review_checklists or extra_metadata.get("skill_review_checklists", [])),
+        skill_trace=dict(skill_trace or extra_metadata.get("skill_trace", {})),
+        evolution_refs=dict(evolution_refs or extra_metadata.get("evolution_refs", {})),
+        evidence=evidence_payload,
+        recovery_refs=dict(recovery_refs or extra_metadata.get("recovery_refs", {})),
+        recovery_plan_refs=dict(recovery_plan_refs or extra_metadata.get("recovery_plan_refs", {})),
+        governance_refs=dict(governance_refs or extra_metadata.get("governance_refs", {})),
+        trace=dict(trace or extra_metadata.get("trace", {})),
+        diagnostics=dict(diagnostics or extra_metadata.get("diagnostics", {})),
+        metrics=dict(metrics or extra_metadata.get("metrics", {})),
+        metadata=extra_metadata,
+        correlation=root.correlation.to_dict() if root.correlation else (correlation or {}),
+        stage_history=full_history,
+        allowed_next_stages=list(allowed_next_stages or root.allowed_next_stages),
+        validation_refs=dict(validation_refs or extra_metadata.get("validation_refs", {})),
+        input_refs=dict(input_refs or extra_metadata.get("input_refs", {})),
+        output_refs=dict(output_refs or extra_metadata.get("output_refs", {})),
+        transition_reason=transition_reason or root.transition_reason,
+        failure_code=failure_code or root.failure_code,
+    )
+    
     if not contract.correlation:
         contract.correlation = build_default_correlation(
             {"execution_id": execution_id, "task_id": task_id, "metadata": meta}
         ).to_dict()
+    
     return contract
 
 

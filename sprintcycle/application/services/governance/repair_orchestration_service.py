@@ -3,6 +3,8 @@
 Implements an explicit repair -> verify -> observe loop for lifecycle recovery.
 
 **分层**：RepairOrchestrationService 通过构造函数接收依赖。
+
+使用新架构：LifecycleRoot + LifecycleStateMachineService
 """
 
 from __future__ import annotations
@@ -11,7 +13,12 @@ from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
 from sprintcycle.domain.generic.ports.observability import ObservabilityFacadeProtocol
-from ..lifecycle.lifecycle_contracts import build_lifecycle_contract, build_lifecycle_state_machine
+from sprintcycle.domain.core.lifecycle import (
+    LifecycleRoot,
+    LifecycleStage,
+    LifecycleStateMachineService,
+    create_lifecycle,
+)
 from ..execution.phase_workflow import build_diagnose_artifact, build_observe_artifact, build_repair_artifact
 
 
@@ -52,72 +59,99 @@ class RepairOrchestrationService:
     def repair(
         self, execution_id: str, diagnosis: Dict[str, Any], *, repair_plan: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
-        machine = build_lifecycle_state_machine()
         root_causes = list((diagnosis or {}).get("root_causes", []) or [])
         trace = dict((diagnosis or {}).get("trace") or {})
-        contract = build_lifecycle_contract(
+        
+        # 使用新架构创建 lifecycle
+        lifecycle = create_lifecycle(
             execution_id=execution_id,
             task_id=execution_id,
             project_path=str((repair_plan or {}).get("project_path") or ""),
-            stage="repairing",
-            status="running",
-            metadata={"source": "repair", "repair_plan": dict(repair_plan or {})},
-            recovery_refs={"root_causes": root_causes, "repair_plan": dict(repair_plan or {}), "attempted": True},
-            delivery_refs={"diagnosis": diagnosis},
-            trace=trace,
-            diagnostics=diagnosis,
-            correlation=machine.ensure_correlation({"execution_id": execution_id, "source": "repair"}).to_dict(),
-            validation_refs={"repair_ready": bool(root_causes or trace.get("events"))},
-            input_refs={"diagnosis": diagnosis},
-            output_refs={"repair_attempted": True},
+            metadata={
+                "source": "repair",
+                "repair_plan": dict(repair_plan or {}),
+                "recovery_refs": {"root_causes": root_causes, "repair_plan": dict(repair_plan or {}), "attempted": True},
+                "delivery_refs": {"diagnosis": diagnosis},
+                "trace": trace,
+                "diagnostics": diagnosis,
+                "validation_refs": {"repair_ready": bool(root_causes or trace.get("events"))},
+                "input_refs": {"diagnosis": diagnosis},
+                "output_refs": {"repair_attempted": True},
+            },
         )
-        contract_dict = contract.to_dict()
-        verify_contract = machine.transition(
-            contract_dict, "verifying", status="running", reason="repair completed", metadata={"source": "repair"}
-        )
-        observe_contract = machine.transition(
-            verify_contract, "observing", status="success", reason="verification passed", metadata={"source": "repair"}
-        )
-        repair_artifact = build_repair_artifact(contract_dict, closed_loop=True, verify_result=verify_contract)
-        observe_artifact = build_observe_artifact(observe_contract, trace=trace, diagnostics=dict(diagnosis or {}))
+        
+        # 转换到 repairing 阶段
+        lifecycle = lifecycle.transition_to(LifecycleStage.REPAIRING)
+        
+        # 转换到 verifying 阶段
+        lifecycle = lifecycle.transition_to(LifecycleStage.VERIFYING)
+        
+        # 转换到 observing 阶段
+        lifecycle = lifecycle.transition_to(LifecycleStage.OBSERVING)
+        
+        # 使用服务获取字典格式
+        service = LifecycleStateMachineService()
+        lifecycle_dict = {
+            "contract_id": lifecycle.contract_id,
+            "execution_id": lifecycle.execution_id,
+            "task_id": lifecycle.task_id,
+            "project_path": lifecycle.project_path,
+            "stage": lifecycle.stage.value,
+            "status": lifecycle.status.value,
+            "metadata": dict(lifecycle.metadata),
+            "recovery_refs": dict(lifecycle.metadata.get("recovery_refs", {})),
+            "observation_refs": {},
+            "evidence": {"stages": {}},
+            "stage_history": [
+                {"from": h.from_stage, "to": h.to_stage, "at": h.at, "reason": h.reason}
+                for h in lifecycle.stage_history
+            ],
+            "is_terminal": service.is_terminal(lifecycle.stage.value),
+            "stage_index": service.stage_index(lifecycle.stage.value),
+        }
+        
+        # 创建 artifacts
+        repair_artifact = build_repair_artifact(lifecycle_dict, closed_loop=True, verify_result=lifecycle_dict)
+        observe_artifact = build_observe_artifact(lifecycle_dict, trace=trace, diagnostics=dict(diagnosis or {}))
+        
+        # 构建最终合约
         lifecycle_contract = {
-            **contract_dict,
-            "stage": observe_contract.get("stage", "observing"),
-            "status": observe_contract.get("status", "success"),
+            **lifecycle_dict,
+            "stage": lifecycle.stage.value,
+            "status": lifecycle.status.value,
             "recovery_refs": {
-                **dict(contract_dict.get("recovery_refs") or {}),
+                **dict(lifecycle_dict.get("recovery_refs") or {}),
                 "closed_loop": True,
-                "verify_result": verify_contract,
-                "observe_result": observe_contract,
+                "verify_result": lifecycle_dict,
+                "observe_result": lifecycle_dict,
             },
             "observation_refs": {
-                **dict(contract_dict.get("observation_refs") or {}),
+                **dict(lifecycle_dict.get("observation_refs") or {}),
                 "observability": observe_artifact.get("observe", {}),
             },
             "evidence": {
-                **dict(observe_contract.get("evidence") or {}),
                 "stages": {
-                    **dict((observe_contract.get("evidence") or {}).get("stages") or {}),
                     "repair": {
                         "attempted": True,
                         "closed_loop": True,
-                        "verify_result": verify_contract,
+                        "verify_result": lifecycle_dict,
                         "present": True,
                     },
-                    "verify": {"closed_loop": True, "verify_result": verify_contract, "present": True},
+                    "verify": {"closed_loop": True, "verify_result": lifecycle_dict, "present": True},
                     "observe": {"trace": trace, "diagnostics": dict(diagnosis or {}), "present": True},
                 },
                 "recovery": {"closed_loop": True, "repaired": True},
             },
         }
+        
         return {
             "success": True,
             "data": {
                 "execution_id": execution_id,
                 "diagnosis": diagnosis,
-                "repair_contract": contract_dict,
-                "verify_contract": verify_contract,
-                "observe_contract": observe_contract,
+                "repair_contract": lifecycle_dict,
+                "verify_contract": lifecycle_dict,
+                "observe_contract": lifecycle_dict,
                 "repair_artifact": repair_artifact.get("repair", {}),
                 "observe_artifact": observe_artifact.get("observe", {}),
                 "lifecycle_contract": lifecycle_contract,

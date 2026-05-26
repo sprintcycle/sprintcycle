@@ -408,7 +408,9 @@ sprintcycle/
 │   │   ├── observability/   # 可观测性服务（observability_service）
 │   │   └── release/         # 发布编排服务（orchestrator）
 │   ├── orchestration/       # 编排层（sprint_orchestrator）
-│   ├── factories/           # 工厂层（http.py - 组合根）
+│   ├── factories/           # 工厂层（纯组装逻辑，不含实现）
+│   │   ├── http.py          # 组合根（HTTP 服务依赖注入）
+│   │   └── orchestration.py # 编排器依赖组装
 │   └── dto/                 # 数据传输对象（results.py）
 ├── domain/                   # 领域模型（DDD 领域层 - 按子域划分）
 │   ├── core/                # 核心子域（核心竞争力）
@@ -426,14 +428,15 @@ sprintcycle/
 │       ├── models/          # 通用数据模型（release_plan, sprint_models）
 │       ├── platform/        # 平台视图与总览
 │       ├── interfaces/      # 通用接口协议定义
-│       └── ports/           # 基础设施端口抽象（config, registry, deploy, etc.）
+│       └── ports/           # 基础设施端口抽象（config, registry, deploy, orchestration 等）
 ├── infrastructure/          # 适配器层（DDD 基础设施层 - 按子域组织）
 │   ├── shared/              # 共享基础设施（persistence）
-│   └── adapters/            # 子域适配器实现
+│   └── adapters/            # 子域适配器实现（实现 domain 端口）
 │       ├── core/           # 核心子域适配器
 │       │   ├── execution/  # 执行引擎适配器（state_store, event_backend）
 │       │   ├── evolution/  # 版本演化适配器（version_store, rollback_store）
-│       │   └── governance/ # 治理适配器（hitl_store, suggestion_store, arch_guard）
+│       │   ├── governance/ # 治理适配器（hitl_store, suggestion_store, arch_guard）
+│       │   └── orchestration/ # 编排适配器（GraphCompiler, RuntimeConfig 等）
 │       └── generic/        # 通用子域适配器
 │           ├── config/      # 配置实现（runtime_config, sprintcycle_config）
 │           ├── cache/       # 缓存实现（redis_backend, disk_backend）
@@ -453,6 +456,30 @@ sprintcycle/
             ├── execution.py # Plan、run、status、rollback、stop 端点
             └── health.py    # 健康检查端点
 ```
+
+### 架构分层说明
+
+| 层级 | 职责 | 关键约束 |
+|------|------|----------|
+| **interfaces** | HTTP 接口、请求路由 | 仅转发，无业务逻辑 |
+| **application** | 用例编排、服务协调 | 依赖 domain，工厂仅组装 |
+| **domain** | 领域模型、业务规则、端口定义 | 无外部依赖 |
+| **infrastructure** | 适配器实现、基础设施 | 实现 domain 端口 |
+
+### 适配器与工厂分离原则
+
+遵循 DDD 洋葱架构原则，适配器实现与工厂组装逻辑严格分离：
+
+- **工厂层** (`application/factories/`)：仅负责依赖组装（wiring），不包含任何实现逻辑
+- **适配器层** (`infrastructure/adapters/`)：实现 domain 层定义的端口（Ports），遵循依赖倒置原则
+
+**端口-适配器映射**：
+| 端口（domain） | 适配器（infrastructure） | 位置 |
+|---------------|-------------------------|------|
+| `GraphCompilerPort` | `GraphCompilerAdapter` | `infrastructure/adapters/core/orchestration/` |
+| `RuntimeConfigPort` | `RuntimeConfigAdapter` | `infrastructure/adapters/core/orchestration/` |
+| `StateStorePort` | `StateStoreAdapter` | `infrastructure/adapters/core/orchestration/` |
+| `TraceRuntimePort` | `TraceRuntimeAdapter` | `infrastructure/adapters/core/orchestration/` |
 
 ---
 
