@@ -22,9 +22,9 @@ from .release_plan_models import (
     EvolutionParams,
 )
 
-from sprintcycle.domain.core.governance.quality_spec.spec.constraint_spec import ConstraintSpec
-from sprintcycle.domain.core.governance.quality_spec.spec.task_spec import TaskSpec
-from sprintcycle.domain.core.governance.quality_spec.spec.verification_strategy import VerificationStrategySpec
+from .constraint_spec import ConstraintSpec
+from .task_spec import TaskSpec
+from .verification_strategy import VerificationStrategySpec
 
 __all__ = [
     "ExecutionMode",
@@ -33,4 +33,7 @@ __all__ = [
     "SprintBacklogItem",
     "SprintDefinition",
     "EvolutionParams",
+    "ConstraintSpec",
+    "TaskSpec",
+    "VerificationStrategySpec",
 ]

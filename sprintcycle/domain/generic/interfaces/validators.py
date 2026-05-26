@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from sprintcycle.domain.generic.models import ReleasePlan
-    from sprintcycle.domain.core.governance.quality_spec.plan import ValidationResult
+    from sprintcycle.domain.generic.interfaces.validator_protocol import ValidationResult
 
 
 class ValidatorProtocol(ABC):
@@ -31,7 +31,7 @@ def create_validator() -> ValidatorProtocol:
     """工厂函数：创建验证器实例（使用纯领域层实现）"""
     global _validator_instance
     if _validator_instance is None:
-        from sprintcycle.domain.core.governance.quality_spec.plan import ReleasePlanValidator
+        from sprintcycle.domain.generic.interfaces.validator_protocol import ReleasePlanValidator
 
         _validator_instance = ReleasePlanValidator()
     return _validator_instance

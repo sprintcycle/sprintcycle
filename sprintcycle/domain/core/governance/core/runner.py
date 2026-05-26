@@ -17,7 +17,7 @@ from loguru import logger
 
 from sprintcycle.domain.core.governance.quality_spec.context import build_quality_context
 from sprintcycle.domain.core.governance.quality_spec.rules.planning_rules import default_planning_rules
-from sprintcycle.domain.core.governance.quality_spec.spec.task_spec import TaskSpec
+from sprintcycle.domain.generic.models.task_spec import TaskSpec
 from sprintcycle.domain.core.execution.core.static_analyzer import AnalysisConfig, StaticAnalyzer
 from sprintcycle.domain.generic.ports.config import RuntimeConfigProtocol
 from sprintcycle.domain.generic.ports.governance import (

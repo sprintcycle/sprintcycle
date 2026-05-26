@@ -59,7 +59,7 @@ def create_default_evolution_facade(
         release_plan_generator = IntentReleasePlanGenerator()
 
     if release_plan_validator is None:
-        from sprintcycle.domain.core.governance.quality_spec.plan import ReleasePlanValidator
+        from sprintcycle.domain.generic.interfaces.validator_protocol import ReleasePlanValidator
         release_plan_validator = ReleasePlanValidator()
 
     if sandbox_manager is None:

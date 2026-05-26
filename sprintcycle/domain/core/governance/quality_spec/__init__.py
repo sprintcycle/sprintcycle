@@ -9,13 +9,9 @@ from .rules.rule import Rule
 from .rules.rule_registry import RuleRegistry
 from .rules.rule_set import RuleSet
 from .spec.acceptance_spec import AcceptanceSpec
-from .spec.constraint_spec import ConstraintSpec
-from .spec.task_spec import TaskSpec
-from .spec.verification_strategy import VerificationStrategySpec
 
 __all__ = [
     "AcceptanceSpec",
-    "ConstraintSpec",
     "Finding",
     "QualityContext",
     "QualityRegistry",
@@ -24,7 +20,5 @@ __all__ = [
     "RuleRegistry",
     "RuleSet",
     "Summary",
-    "TaskSpec",
-    "VerificationStrategySpec",
     "build_quality_context",
 ]
