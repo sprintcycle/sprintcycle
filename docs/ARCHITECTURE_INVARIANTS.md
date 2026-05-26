@@ -11,18 +11,19 @@
 |------|------|
 | Python 文件总数 | 360+ |
 | 总代码行数 | 38,000+ |
-| 顶层模块数 | 5 |
+| 顶层模块数 | 6 |
 
 ### 1.1 模块分布
 
 | 模块 | 文件数 | 说明 |
 |------|--------|------|
 | `domain/core/execution` | 80+ | 执行引擎、状态管理、事件总线、agents、hooks、orchestrator、聚合根 |
-| `domain/core/governance` | 78+ | 治理、HITL、建议、版本控制、arch_guard、聚合根 |
+| `domain/core/governance` | 78+ | 治理、HITL、建议、版本控制、arch_guard、聚合根、验证引擎 |
 | `domain/core/lifecycle` | 10+ | 生命周期契约、状态机、聚合根、值对象、领域服务 |
 | `infrastructure` | 62+ | 配置、持久化、集成、部署、可观测性适配器 |
 | `application` | 47 | 服务编排（按领域组织：lifecycle、governance、evolution、dashboard） |
 | `interfaces/http` | 14 | HTTP 接口层（dashboard 按领域划分路由） |
+| `composition` | 3 | 组合根层（依赖注入） |
 
 ---
 
@@ -32,40 +33,48 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    interfaces/                              │
-│   (HTTP API: dashboard/[execution, governance, lifecycle,  │
-│    hitl, suggestions] / public/)                           │
-│                       ↓                                    │
-│              ┌─────────────────────┐                       │
-│              │  HTTP 路由适配层    │                       │
-│              └─────────────────────┘                       │
+│                    interfaces/http/                        │
+│   (HTTP API: dashboard/[execution, governance, lifecycle, │
+│    hitl, suggestions] / public/ / middleware/)            │
+│                       ↓                                   │
+│              ┌─────────────────────┐                      │
+│              │  HTTP 路由适配层    │                      │
+│              └─────────────────────┘                      │
 ├─────────────────────────────────────────────────────────────┤
-│                     application/                            │
+│                     composition/                           │
+│    (http_factory.py, evolution_factory.py,                │
+│     orchestration_factory.py)                             │
+│                       ↓                                   │
+│              ┌─────────────────────┐                      │
+│              │    组合根 - 依赖注入 │                      │
+│              └─────────────────────┘                      │
+├─────────────────────────────────────────────────────────────┤
+│                     application/                           │
 │    (Services: execution, governance, lifecycle, evolution, │
 │     dashboard, observability - organized by domain)        │
-│                       ↓                                    │
-│              ┌─────────────────────┐                       │
-│              │  用例编排与服务层   │                       │
-│              │  factories/: 纯组装 │                       │
-│              └─────────────────────┘                       │
+│                       ↓                                   │
+│              ┌─────────────────────┐                      │
+│              │  用例编排与服务层   │                      │
+│              └─────────────────────┘                      │
 ├─────────────────────────────────────────────────────────────┤
-│                       domain/                               │
+│                       domain/                              │
 │   (Core: lifecycle, execution, evolution, governance;      │
-│    Supporting: intent, verification, fitness;              │
-│    Generic: errors, prompts, models, platform, ports)      │
-│                       ↓                                    │
-│              ┌─────────────────────┐                       │
-│              │  领域模型与业务规则  │                       │
-│              │  聚合根与值对象      │                       │
-│              └─────────────────────┘                       │
+│    Supporting: intent, fitness;                           │
+│    Generic: errors, prompts, models, platform, ports,     │
+│             interfaces)                                   │
+│                       ↓                                   │
+│              ┌─────────────────────┐                      │
+│              │  领域模型与业务规则  │                      │
+│              │  聚合根与值对象      │                      │
+│              └─────────────────────┘                      │
 ├─────────────────────────────────────────────────────────────┤
-│                  infrastructure/                            │
-│  (shared/persistence, adapters/core, adapters/generic)      │
-│                       ↓                                    │
-│              ┌─────────────────────┐                       │
-│              │   基础设施适配层    │                       │
-│              │   adapters/:实现   │                       │
-│              └─────────────────────┘                       │
+│                  infrastructure/                           │
+│  (shared/persistence, adapters/core, adapters/generic)     │
+│                       ↓                                   │
+│              ┌─────────────────────┐                      │
+│              │   基础设施适配层    │                      │
+│              │   adapters/:实现   │                      │
+│              └─────────────────────┘                      │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -73,21 +82,23 @@
 
 | 层级 | 位置 | 职责 | 依赖方向 |
 |------|------|------|----------|
-| **interfaces** | 最外层 | HTTP 接口、请求路由、上下文传递 | 依赖 application |
-| **application** | 第二层 | 用例编排、服务协调、事务边界 | 依赖 domain |
-| **domain** | 第三层 | 领域模型、业务规则、聚合根、值对象、端口定义 | 无外部依赖 |
+| **interfaces** | 最外层 | HTTP 接口、请求路由、上下文传递、中间件 | 依赖 application |
+| **composition** | 第二层 | 组合根、依赖注入、服务初始化 | 依赖 application 和 infrastructure |
+| **application** | 第三层 | 用例编排、服务协调、事务边界 | 依赖 domain |
+| **domain** | 第四层 | 领域模型、业务规则、聚合根、值对象、端口定义 | 无外部依赖 |
 | **infrastructure** | 最内层 | 数据库、缓存、外部集成、适配器 | 被所有层依赖 |
 
 **领域层子域划分：**
-- **Core Domains（核心子域）**: lifecycle, execution, evolution, governance
-- **Supporting Domains（支撑子域）**: intent, verification, fitness  
-- **Generic Domains（通用子域）**: errors, prompts, models, platform, ports
+- **Core Domains（核心子域）**: lifecycle, execution, evolution, governance（含 verification）
+- **Supporting Domains（支撑子域）**: intent, fitness  
+- **Generic Domains（通用子域）**: errors, prompts, models, platform, ports, interfaces
 
 ### 2.2 各层职责
 
 | 层级 | 核心职责 | 不变性约束 |
 |------|----------|------------|
-| **interfaces** | HTTP 请求路由、请求上下文、审计日志 | 仅做请求转发，不含业务逻辑 |
+| **interfaces** | HTTP 请求路由、请求上下文、审计日志、中间件 | 仅做请求转发，不含业务逻辑 |
+| **composition** | 依赖注入、服务组装、工厂注册 | 纯组装逻辑，不含业务实现 |
 | **application** | 跨服务编排、生命周期管理、API 聚合 | 依赖 domain，不直接操作基础设施 |
 | **domain** | 领域模型、业务规则、聚合根、值对象、领域服务、端口定义 | 无外部依赖，纯业务表达 |
 | **infrastructure** | 配置、持久化、外部集成、可观测性 | 实现细节，不暴露给 domain |
@@ -95,11 +106,12 @@
 ### 2.3 跨层依赖规则
 
 ```
-interfaces → application → domain → infrastructure
+interfaces → composition → application → domain → infrastructure
 ```
 
 **分层依赖说明（从外到内）：**
-- **interfaces** 依赖 **application**
+- **interfaces** 依赖 **application** 和 **composition**
+- **composition** 依赖 **application** 和 **infrastructure**
 - **application** 依赖 **domain**
 - **domain** 无外部依赖（纯业务逻辑）
 - **infrastructure** 被所有层依赖（不依赖任何层）
@@ -108,9 +120,9 @@ interfaces → application → domain → infrastructure
 ```
 core/ (lifecycle, execution, evolution, governance)
     ↓
-supporting/ (intent, verification, fitness)
+supporting/ (intent, fitness)
     ↓
-generic/ (errors, prompts, models, platform, ports)
+generic/ (errors, prompts, models, platform, ports, interfaces)
 ```
 
 **禁止**：
@@ -118,6 +130,7 @@ generic/ (errors, prompts, models, platform, ports)
 - infrastructure 层依赖任何业务层
 - 任何层直接访问数据库实现细节
 - **工厂层包含适配器实现**
+- **composition 层包含业务逻辑**
 
 ---
 
@@ -130,7 +143,7 @@ generic/ (errors, prompts, models, platform, ports)
 | **lifecycle** | `LifecycleRoot` | `StageEvidence`, `CorrelationContext`, `LifecycleEvidence`, `FailureInfo`, `RuntimeRef`, `GovernanceRef`, `EvolutionRef` | `LifecycleStateMachineService` |
 | **execution** | `SprintAggregate`, `ReleasePlanAggregate` | `TaskResult`, `SprintResult` | - |
 | **evolution** | `EvolutionRequest`, `SandboxSession` | `VersionArtifact`, `EvolutionEvidence` | - |
-| **governance** | `GovernanceSession`, `RuleSetAggregate` | `GovernanceRule`, `RuleEvaluation`, `Finding` | - |
+| **governance** | `GovernanceSession`, `RuleSetAggregate` | `GovernanceRule`, `RuleEvaluation`, `Finding`, `VerificationFinding`, `VerificationRule`, `VerificationReport` | - |
 
 ### 3.2 聚合根设计原则
 
@@ -175,6 +188,7 @@ SprintCycle 不可替代的核心功能：
 |------|------|------|
 | 规则引擎 | `domain/core/governance/quality_spec/rules/rule.py` | 规则定义与匹配 |
 | 架构守卫 | `domain/core/governance/arch_guard/` | 架构约束检查 |
+| 验证引擎 | `domain/core/governance/verification/` | 多源验证提供者 |
 | 聚合根 | `domain/core/governance/aggregates/governance_aggregates.py` | `GovernanceSession`, `RuleSetAggregate` |
 
 ### 4.3 人类在环（HITL）
@@ -200,6 +214,7 @@ SprintCycle 不可替代的核心功能：
 | 事件总线 | `domain/core/events/handlers.py` | 发布-订阅事件 |
 | 追踪 | `infrastructure/adapters/generic/observability/facade.py` | 运行追踪 |
 | 诊断 | `infrastructure/adapters/generic/observability/diagnostics/` | 健康报告 |
+| 诊断类型 | `domain/generic/interfaces/diagnostics.py` | `DiagnoseResult` 类型定义 |
 
 ---
 
@@ -219,7 +234,7 @@ SprintCycle 不可替代的核心功能：
 | 扩展点 | 说明 | 位置 |
 |--------|------|------|
 | 质量适配器 | 集成 Bandit, Arch, Deal 等 | `domain/core/governance/quality_spec/adapters/` |
-| 验证提供者 | Playwright, 视觉对比等 | `domain/supporting/verification/providers/` |
+| 验证提供者 | Playwright, 视觉对比等 | `domain/core/governance/verification/providers/` |
 | LLM 提供者 | 模型调用抽象 | `infrastructure/adapters/generic/llm_provider.py` |
 | 事件后端 | SQLite, Memory 等 | `infrastructure/adapters/core/execution/state_store/sqlite_event_backend.py` |
 | 编排适配器 | 端口实现 | `infrastructure/adapters/core/orchestration/adapters.py` |
@@ -309,6 +324,14 @@ class LifecycleRoot:
 | `aggregate:identity` | 聚合根必须有唯一标识 | error |
 | `aggregate:value_object` | 值对象必须通过属性值相等判断 | error |
 
+### 7.3 依赖规则
+
+| 规则 ID | 检查内容 | 严重性 |
+|---------|----------|--------|
+| `dependency:domain_no_external` | domain 层不能有外部依赖 | error |
+| `dependency:infrastructure_no_business` | infrastructure 不能依赖业务层 | error |
+| `dependency:composition_only_wiring` | composition 层只能包含组装逻辑 | error |
+
 ---
 
 ## 8. 设计模式清单
@@ -363,6 +386,19 @@ class RuntimeConfigAdapter(RuntimeConfigPort):
     def to_dict(self) -> Dict[str, Any]: ...
 ```
 
+### 8.6 组合根模式
+
+**位置**：`composition/`
+
+```python
+# 组合根 - 依赖注入组装
+class HttpFactory:
+    def create_app(self) -> FastAPI:
+        # 注册基础设施适配器
+        # 创建应用服务
+        # 返回配置好的应用
+```
+
 ---
 
 ## 9. API 设计规范
@@ -409,6 +445,7 @@ lifecycle = lifecycle.transition_to(LifecycleStage.NORMALIZED)
 3. **必须**：使用 Facade 封装复杂子域
 4. **必须**：接口层只做转发，不含业务逻辑
 5. **必须**：工厂层只做组装，不含适配器实现
+6. **必须**：composition 层只做依赖注入，不含业务逻辑
 
 ### 10.2 聚合根规范
 
@@ -434,6 +471,7 @@ lifecycle = lifecycle.transition_to(LifecycleStage.NORMALIZED)
 | 在 domain 层导入 execution | 违反分层原则 |
 | 在 api.py 直接操作数据库 | 违反分层原则 |
 | 绕过 Hook 直接修改状态 | 破坏扩展机制 |
+| composition 层包含业务逻辑 | 违反组合根模式 |
 
 ### 11.2 聚合根破坏
 
@@ -457,6 +495,7 @@ lifecycle = lifecycle.transition_to(LifecycleStage.NORMALIZED)
 | 功能 | 关键文件 |
 |------|----------|
 | 主入口 | `sprintcycle/api.py` |
+| 组合根 | `sprintcycle/composition/http_factory.py` |
 | 聚合根 | `sprintcycle/domain/core/lifecycle/lifecycle_root.py` |
 | 领域服务 | `sprintcycle/domain/core/lifecycle/services.py` |
 | 值对象 | `sprintcycle/domain/core/lifecycle/values.py` |
@@ -464,6 +503,7 @@ lifecycle = lifecycle.transition_to(LifecycleStage.NORMALIZED)
 | 执行聚合 | `sprintcycle/domain/core/execution/aggregates/execution_aggregates.py` |
 | 治理聚合 | `sprintcycle/domain/core/governance/aggregates/governance_aggregates.py` |
 | 演化聚合 | `sprintcycle/domain/core/evolution/aggregates/evolution_aggregates.py` |
+| 验证引擎 | `sprintcycle/domain/core/governance/verification/engine.py` |
 
 ---
 
@@ -471,7 +511,7 @@ lifecycle = lifecycle.transition_to(LifecycleStage.NORMALIZED)
 
 | 版本 | 日期 | 变更说明 |
 |------|------|----------|
-| v3.0 | 2026-05-26 | 引入 DDD 聚合根设计，重构 lifecycle、execution、governance、evolution 子域 |
+| v3.0 | 2026-05-26 | 引入 DDD 聚合根设计，重构 lifecycle、execution、governance、evolution 子域；新增 composition 层；verification 移入 governance |
 | v2.1 | 2026-05-25 | 适配器与工厂分离 |
 | v2.0 | 2026-05-20 | 引入洋葱架构分层 |
 
@@ -480,4 +520,4 @@ lifecycle = lifecycle.transition_to(LifecycleStage.NORMALIZED)
 > **版本**：v3.0  
 > **更新日期**：2026-05-26  
 > **维护者**：架构团队  
-> **变更说明**：引入 DDD 领域驱动设计，添加聚合根、值对象、领域服务和事件驱动架构
+> **变更说明**：引入 DDD 领域驱动设计，添加聚合根、值对象、领域服务、事件驱动架构和组合根模式

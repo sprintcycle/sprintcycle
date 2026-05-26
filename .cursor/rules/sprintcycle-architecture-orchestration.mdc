@@ -7,7 +7,7 @@ alwaysApply: true
 
 ## English
 
-You are working on SprintCycle, a contract-driven lifecycle platform with a stable layered architecture following DDD Onion principles. This implementation includes Domain-Driven Design patterns with Aggregate Roots, Value Objects, Domain Services, and Event-Driven Architecture.
+You are working on SprintCycle, an intent-driven closed-loop production platform with a stable layered architecture following DDD Onion principles. This implementation includes Domain-Driven Design patterns with Aggregate Roots, Value Objects, Domain Services, and Event-Driven Architecture.
 
 ### Core principles
 - Preserve the current architecture and core skeleton.
@@ -18,14 +18,14 @@ You are working on SprintCycle, a contract-driven lifecycle platform with a stab
 - Any new feature must land in the correct layer and use the smallest possible change.
 - The platform is contract-driven, with a clear split between entry, orchestration, and governance.
 - Finalized architecture must favor a thin facade, explicit internal/public API separation, and a single lifecycle contract across surfaces.
-- Follow the Composition Root pattern: `application/factories/http.py` is the designated composition root for HTTP services.
+- Follow the Composition Root pattern: `composition/http_factory.py` is the designated composition root for HTTP services.
 - **Factories should only contain wiring logic; adapter implementations belong in `infrastructure/adapters/`.**
 - **Follow DDD principles: Aggregate Roots are immutable, Value Objects have no identity, and Domain Services are stateless.**
 
 ### DDD Subdomain Architecture
-- **Core Domains**: lifecycle, execution, evolution, governance
-- **Supporting Domains**: intent, verification, fitness
-- **Generic Domains**: errors, prompts, models, platform, ports
+- **Core Domains**: lifecycle, execution, evolution, governance (includes verification engine)
+- **Supporting Domains**: intent, fitness
+- **Generic Domains**: errors, prompts, models, platform, ports, interfaces
 
 ### DDD Aggregate Roots
 - **lifecycle**: `LifecycleRoot` - immutable aggregate root for lifecycle management
@@ -36,7 +36,7 @@ You are working on SprintCycle, a contract-driven lifecycle platform with a stab
 ### DDD Value Objects
 - **lifecycle**: `StageEvidence`, `CorrelationContext`, `LifecycleEvidence`, `FailureInfo`, `RuntimeRef`, `GovernanceRef`, `EvolutionRef`
 - **execution**: `TaskResult`, `SprintResult`
-- **governance**: `GovernanceRule`, `RuleEvaluation`, `Finding`
+- **governance**: `GovernanceRule`, `RuleEvaluation`, `Finding`, `VerificationFinding`, `VerificationRule`, `VerificationReport`
 - **evolution**: `VersionArtifact`, `EvolutionEvidence`
 
 ### Domain Services
@@ -58,30 +58,36 @@ You are working on SprintCycle, a contract-driven lifecycle platform with a stab
 
 ### Layer ownership (DDD Onion Architecture - from outer to inner)
 - **`api.py`**: thin public facade for normalization, routing, delegation, and aggregation.
-- **`interfaces/http/`**: HTTP interface adapter layer (outermost layer) - routes, request context, audit logging.
+- **`interfaces/http/`**: HTTP interface adapter layer (outermost layer) - routes, request context, middleware, audit logging.
   - `dashboard/`: domain-based HTTP routes - execution/, governance/, lifecycle/, hitl/, suggestions/
   - `public/`: minimal stable public API for external integrations
+  - `middleware/`: rate limiting, audit, and other cross-cutting concerns
+- **`composition/`**: composition root layer - dependency injection, service initialization, factory registration.
+  - `http_factory.py`: HTTP service dependency injection
+  - `evolution_factory.py`: Evolution Facade factory
+  - `orchestration_factory.py`: Orchestrator dependency assembly
 - **`application/`**: application services layer - use cases, orchestration, workflow coordination, organized by domain.
-  - `services/`: domain-organized services (execution, governance, lifecycle, evolution, dashboard, observability)
+  - `services/`: domain-organized services (execution, governance, lifecycle, evolution, dashboard, observability, release)
   - `orchestration/`: sprint orchestrator
-  - `factories/`: **pure wiring logic only** - composition root, dependency injection setup
+  - `dto/`: data transfer objects
 - **`domain/`**: domain layer (core business logic) - no external dependencies.
-  - `core/`: core subdomains with Aggregate Roots (lifecycle, execution, evolution, governance)
-  - `supporting/`: supporting subdomains (intent, verification, fitness)
-  - `generic/`: generic subdomains (errors, prompts, models, platform, ports)
+  - `core/`: core subdomains with Aggregate Roots (lifecycle, execution, evolution, governance including verification)
+  - `supporting/`: supporting subdomains (intent, fitness)
+  - `generic/`: generic subdomains (errors, prompts, models, platform, ports, interfaces)
   - `events/`: DomainEvent base class and EventBus
 - **`infrastructure/`**: infrastructure layer (innermost layer) - adapters, config, persistence, integrations.
   - `shared/`: shared infrastructure (persistence)
-  - `adapters/core/`: core subdomain adapters (execution, evolution, governance, **orchestration**)
-  - `adapters/generic/`: generic adapters (config, cache, deploy, integrations)
+  - `adapters/core/`: core subdomain adapters (execution, evolution, governance, orchestration)
+  - `adapters/generic/`: generic adapters (config, cache, deploy, integrations, observability)
 
 ### Layer dependency rules
-- `interfaces` → `application` → `domain` → `infrastructure` (outer to inner)
+- `interfaces` → `composition` → `application` → `domain` → `infrastructure` (outer to inner)
 - Domain layer has no external dependencies
 - Infrastructure is depended on by all other layers but depends on nothing
-- The composition root (`application/factories/http.py`) is the only place where infrastructure implementations should be directly imported and registered
+- The composition root (`composition/http_factory.py`) is the only place where infrastructure implementations should be directly imported and registered
 - **Adapters in `infrastructure/adapters/` implement ports defined in `domain/generic/ports/`**
 - **Aggregate Roots in `domain/core/` depend only on Value Objects and other domain types**
+- **`domain/generic/interfaces/` contains generic interface definitions shared across layers**
 
 ### Adapter Implementation Rules
 - **Adapter classes must implement domain ports** (defined in `domain/generic/ports/`)
@@ -153,10 +159,10 @@ You are working on SprintCycle, a contract-driven lifecycle platform with a stab
 ### Dependency Injection and Composition Root rules
 - All infrastructure implementations must be registered via port factories in the composition root.
 - Use `register_*_factory` patterns from `domain/generic/ports/` for dependency injection.
-- The composition root (`application/factories/http.py`) should use lazy imports for infrastructure dependencies.
+- The composition root (`composition/http_factory.py`) should use lazy imports for infrastructure dependencies.
 - Application services should depend on domain protocols/ports, not concrete infrastructure implementations.
 - ConfigService must obtain RuntimeConfig through the port factory (`get_runtime_config`) rather than direct imports.
-- **Factories (`application/factories/`) must not contain adapter implementations.**
+- **Factories (`composition/`) must not contain adapter implementations.**
 
 ### Interaction rules
 - For every request, first identify the owning subsystem.
@@ -193,33 +199,38 @@ You are working on SprintCycle, a contract-driven lifecycle platform with a stab
 
 ### Current implementation boundaries
 - `sprintcycle/api.py` is the unified entry, but it only coordinates and aggregates; it does not own workflow business logic.
-- `sprintcycle/application/services/` contains domain-organized services: execution, governance, lifecycle, evolution, dashboard, observability.
-- `sprintcycle/application/factories/http.py` is the composition root responsible for registering infrastructure factories and creating service instances.
-- `sprintcycle/application/factories/orchestration.py` is the orchestration dependency factory (wiring only).
+- `sprintcycle/application/services/` contains domain-organized services: execution, governance, lifecycle, evolution, dashboard, observability, release.
+- `sprintcycle/composition/http_factory.py` is the composition root responsible for registering infrastructure factories and creating service instances.
+- `sprintcycle/composition/orchestration_factory.py` is the orchestration dependency factory (wiring only).
+- `sprintcycle/composition/evolution_factory.py` is the Evolution Facade factory (wiring only).
 - `sprintcycle/interfaces/http/dashboard/` contains domain-based HTTP routes: execution/, governance/, lifecycle/, hitl/, suggestions/.
 - `sprintcycle/interfaces/http/public/` handles the minimal stable contract for external systems.
+- `sprintcycle/interfaces/http/middleware/` handles cross-cutting concerns like rate limiting and audit.
 - Infrastructure adapters are organized under `sprintcycle/infrastructure/adapters/core/` and `sprintcycle/infrastructure/adapters/generic/`.
 - **Orchestration adapters (`GraphCompilerAdapter`, `RuntimeConfigAdapter`, etc.) are located in `infrastructure/adapters/core/orchestration/`.**
+- **Verification engine is located in `domain/core/governance/verification/`**
 - **DDD Aggregate Roots are located in `domain/core/<subdomain>/aggregates/`**
 - **DDD Value Objects are located in `domain/core/<subdomain>/values.py` or alongside aggregates**
 - **Domain Services are located in `domain/core/<subdomain>/services.py`**
 - **Domain Events are located in `domain/core/events/`**
+- **Generic interface definitions are located in `domain/generic/interfaces/`**
 
 ### Architecture and entrypoint end state
 - The final architecture converges on a contract-driven lifecycle, with Dashboard and REST API as the primary entry surfaces.
 - Dashboard gets richer control-plane data through Internal API.
 - External systems consume the minimal stable integration surface through Public API.
 - `interfaces/http/` is the current HTTP entry-adaptation layer.
-- `application/factories/http.py` is the composition root for dependency injection and service initialization.
+- `composition/http_factory.py` is the composition root for dependency injection and service initialization.
 - **Adapter implementations are cleanly separated from factory wiring logic.**
 - **DDD patterns are fully implemented with Aggregate Roots, Value Objects, Domain Services, and Event-Driven Architecture.**
+- **Verification engine is integrated into the governance core subdomain.**
 - CLI and MCP are not the primary product paths.
 
 ---
 
 ## 中文
 
-您正在处理 SprintCycle，这是一个遵循 DDD 洋葱架构原则的契约驱动生命周期平台。该实现包含领域驱动设计模式，包括聚合根、值对象、领域服务和事件驱动架构。
+您正在处理 SprintCycle，这是一个遵循 DDD 洋葱架构原则的意图驱动闭环生产平台。该实现包含领域驱动设计模式，包括聚合根、值对象、领域服务和事件驱动架构。
 
 ### 核心原则
 - 保持当前架构和核心框架不变。
@@ -230,14 +241,14 @@ You are working on SprintCycle, a contract-driven lifecycle platform with a stab
 - 任何新功能必须放在正确的层中，并使用最小的可能变更。
 - 平台是契约驱动的，入口、编排和治理之间有明确的分离。
 - 最终架构必须支持简洁门面、显式的内部/公共 API 分离，以及跨表面的单一生命周期契约。
-- 遵循组合根模式：`application/factories/http.py` 是 HTTP 服务的指定组合根。
+- 遵循组合根模式：`composition/http_factory.py` 是 HTTP 服务的指定组合根。
 - **工厂应仅包含组装逻辑；适配器实现应放在 `infrastructure/adapters/` 中。**
 - **遵循 DDD 原则：聚合根是不可变的，值对象没有身份标识，领域服务是无状态的。**
 
 ### DDD 子域架构
-- **核心子域**：lifecycle、execution、evolution、governance
-- **支撑子域**：intent、verification、fitness
-- **通用子域**：errors、prompts、models、platform、ports
+- **核心子域**：lifecycle、execution、evolution、governance（包含验证引擎）
+- **支撑子域**：intent、fitness
+- **通用子域**：errors、prompts、models、platform、ports、interfaces
 
 ### DDD 聚合根
 - **lifecycle**：`LifecycleRoot` - 生命周期管理的不可变聚合根
@@ -248,7 +259,7 @@ You are working on SprintCycle, a contract-driven lifecycle platform with a stab
 ### DDD 值对象
 - **lifecycle**：`StageEvidence`、`CorrelationContext`、`LifecycleEvidence`、`FailureInfo`、`RuntimeRef`、`GovernanceRef`、`EvolutionRef`
 - **execution**：`TaskResult`、`SprintResult`
-- **governance**：`GovernanceRule`、`RuleEvaluation`、`Finding`
+- **governance**：`GovernanceRule`、`RuleEvaluation`、`Finding`、`VerificationFinding`、`VerificationRule`、`VerificationReport`
 - **evolution**：`VersionArtifact`、`EvolutionEvidence`
 
 ### 领域服务
@@ -270,22 +281,27 @@ You are working on SprintCycle, a contract-driven lifecycle platform with a stab
 
 ### 层所有权（DDD 洋葱架构 - 从外到内）
 - **`api.py`**：用于归一化、路由、委托和聚合的简洁公共门面。
-- **`interfaces/http/`**：HTTP 接口适配层（最外层）- 路由、请求上下文、审计日志。
+- **`interfaces/http/`**：HTTP 接口适配层（最外层）- 路由、请求上下文、中间件、审计日志。
   - `dashboard/`：基于领域的 HTTP 路由 - execution/、governance/、lifecycle/、hitl/、suggestions/
   - `public/`：用于外部集成的最小稳定公共 API
+  - `middleware/`：速率限制、审计和其他横切关注点
+- **`composition/`**：组合根层 - 依赖注入、服务初始化、工厂注册。
+  - `http_factory.py`：HTTP 服务依赖注入
+  - `evolution_factory.py`：演化门面工厂
+  - `orchestration_factory.py`：编排器依赖组装
 - **`application/`**：应用服务层 - 用例、编排、工作流协调，按领域组织。
-  - `services/`：按领域组织的服务（execution、governance、lifecycle、evolution、dashboard、observability）
+  - `services/`：按领域组织的服务（execution、governance、lifecycle、evolution、dashboard、observability、release）
   - `orchestration/`：sprint 编排器
-  - `factories/`：**仅纯组装逻辑** - 组合根、依赖注入设置
+  - `dto/`：数据传输对象
 - **`domain/`**：领域层（核心业务逻辑）- 无外部依赖。
-  - `core/`：带聚合根的核心子域（lifecycle、execution、evolution、governance）
-  - `supporting/`：支撑子域（intent、verification、fitness）
-  - `generic/`：通用子域（errors、prompts、models、platform、ports）
+  - `core/`：带聚合根的核心子域（lifecycle、execution、evolution、governance 包含 verification）
+  - `supporting/`：支撑子域（intent、fitness）
+  - `generic/`：通用子域（errors、prompts、models、platform、ports、interfaces）
   - `events/`：DomainEvent 基类和 EventBus
 - **`infrastructure/`**：基础设施层（最内层）- 适配器、配置、持久化、集成。
   - `shared/`：共享基础设施（持久化）
-  - `adapters/core/`：核心子域适配器（execution、evolution、governance、**orchestration**）
-  - `adapters/generic/`：通用适配器（config、cache、deploy、integrations）
+  - `adapters/core/`：核心子域适配器（execution、evolution、governance、orchestration）
+  - `adapters/generic/`：通用适配器（config、cache、deploy、integrations、observability）
 
 ### 聚合根规则
 - **聚合根必须是不可变的**（使用 `@dataclass(frozen=True)`）
@@ -318,15 +334,46 @@ You are working on SprintCycle, a contract-driven lifecycle platform with a stab
 
 ### 当前实现边界
 - `sprintcycle/api.py` 是统一入口，但它只协调和聚合；不拥有工作流业务逻辑。
-- `sprintcycle/application/services/` 包含按领域组织的服务：execution、governance、lifecycle、evolution、dashboard、observability。
-- `sprintcycle/application/factories/http.py` 是负责注册基础设施工厂和创建服务实例的组合根。
+- `sprintcycle/application/services/` 包含按领域组织的服务：execution、governance、lifecycle、evolution、dashboard、observability、release。
+- `sprintcycle/composition/http_factory.py` 是负责注册基础设施工厂和创建服务实例的组合根。
+- `sprintcycle/composition/orchestration_factory.py` 是编排器依赖工厂（仅组装）。
+- `sprintcycle/composition/evolution_factory.py` 是演化门面工厂（仅组装）。
+- **验证引擎位于 `domain/core/governance/verification/`**
 - **DDD 聚合根位于 `domain/core/<subdomain>/aggregates/`**
 - **DDD 值对象位于 `domain/core/<subdomain>/values.py` 或聚合根旁边**
 - **领域服务位于 `domain/core/<subdomain>/services.py`**
 - **领域事件位于 `domain/core/events/`**
+- **通用接口定义位于 `domain/generic/interfaces/`**
 
 ### 架构和入口端点状态
 - 最终架构收敛于契约驱动的生命周期，Dashboard 和 REST API 作为主要入口表面。
 - Dashboard 通过内部 API 获取更丰富的控制平面数据。
 - 外部系统通过公共 API 消费最小的稳定集成表面。
 - **DDD 模式已完全实现，包括聚合根、值对象、领域服务和事件驱动架构。**
+- **验证引擎已集成到 governance 核心子域中。**
+
+### 架构层次结构图
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    interfaces/http/                        │
+│   (HTTP API: dashboard/[execution, governance, lifecycle, │
+│    hitl, suggestions] / public/ / middleware/)            │
+├─────────────────────────────────────────────────────────────┤
+│                     composition/                           │
+│    (http_factory.py, evolution_factory.py,                │
+│     orchestration_factory.py)                             │
+├─────────────────────────────────────────────────────────────┤
+│                     application/                           │
+│    (Services: execution, governance, lifecycle, evolution, │
+│     dashboard, observability, release)                    │
+├─────────────────────────────────────────────────────────────┤
+│                       domain/                              │
+│   (Core: lifecycle, execution, evolution, governance;      │
+│    Supporting: intent, fitness;                           │
+│    Generic: errors, prompts, models, platform, ports,     │
+│             interfaces)                                   │
+├─────────────────────────────────────────────────────────────┤
+│                  infrastructure/                           │
+│  (shared/persistence, adapters/core, adapters/generic)     │
+└─────────────────────────────────────────────────────────────┘
+```

@@ -14,7 +14,7 @@ class DiagnosticAdapter:
     def diagnose(self, execution_id: str = "") -> Any:
         """Run diagnostics on the system or specific execution."""
         from sprintcycle.infrastructure.adapters.generic.observability.diagnostics.provider import ProjectDiagnostic
-        from sprintcycle.application.dto.results import DiagnoseResult
+        from sprintcycle.domain.generic.interfaces.diagnostics import DiagnoseResult
 
         diag = ProjectDiagnostic(self.project_path)
         report = diag.diagnose(execution_id=execution_id)

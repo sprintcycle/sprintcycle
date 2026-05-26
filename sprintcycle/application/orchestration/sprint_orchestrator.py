@@ -15,7 +15,7 @@ from typing import Any, Callable, Dict, List
 
 from loguru import logger
 
-from sprintcycle.domain.supporting.verification.hooks import VerificationSprintHooks
+from sprintcycle.domain.core.governance.verification.hooks import VerificationSprintHooks
 from sprintcycle.domain.core.execution.core.events import (
     Event,
     EventType,
