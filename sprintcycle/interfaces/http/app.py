@@ -131,14 +131,6 @@ def build_overview_router() -> APIRouter:
                 await sleep(15)
         return StreamingResponse(event_generator(), media_type="text/event-stream")
 
-    @router.get("/api/events")
-    async def api_events_legacy(request: Request) -> Dict[str, Any]:
-        return {"success": True, "events": []}
-
-    @router.get("/api/events/legacy")
-    async def api_events_legacy_path(request: Request) -> Dict[str, Any]:
-        return {"success": True, "events": []}
-
     return router
 
 

@@ -31,6 +31,4 @@ class RateLimitAdapter:
         return RateLimitState()
 
 
-def check_rate_limit(*_args, **_kwargs) -> RateLimitState:
-    """Legacy function for backward compatibility."""
-    return RateLimitState()
+

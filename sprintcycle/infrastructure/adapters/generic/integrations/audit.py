@@ -43,6 +43,4 @@ class AuditAdapter:
         )
 
 
-def record_audit_event(*_args, **_kwargs) -> AuditRecord:
-    """Legacy function for backward compatibility."""
-    return AuditRecord()
+
