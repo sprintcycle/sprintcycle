@@ -44,7 +44,6 @@ def create_default_evolution_facade(
     Returns:
         配置好的 EvolutionFacade 实例
     """
-    # 延迟导入，避免循环依赖
     if version_registry is None:
         from sprintcycle.infrastructure.shared.persistence import SQLiteVersionRegistry
         version_registry = SQLiteVersionRegistry(

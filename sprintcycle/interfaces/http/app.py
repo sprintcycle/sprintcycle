@@ -11,7 +11,7 @@ from fastapi import APIRouter, FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, StreamingResponse
 
-from sprintcycle.application.factories.http import initialize_http_infrastructure
+from sprintcycle.composition import initialize_http_infrastructure
 from sprintcycle.interfaces.http.handlers import (
     ServiceAggregator,
     ExecutionHandler,
