@@ -9,7 +9,8 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Optional
 
-from sprintcycle.domain.core.lifecycle import LifecycleContract, build_lifecycle_state_machine
+from sprintcycle.domain.core.lifecycle import create_lifecycle, LifecycleRoot, LifecycleStage, LifecycleStatus, LifecycleStateMachineService
+
 
 
 @dataclass
@@ -57,7 +58,7 @@ class DecomposeArtifact:
 
 
 def build_plan_artifact(
-    contract: LifecycleContract,
+    contract_or_lifecycle,
     *,
     objective: str = "",
     success_criteria: Optional[List[str]] = None,
@@ -65,15 +66,45 @@ def build_plan_artifact(
     dependencies: Optional[List[str]] = None,
     version: str = "v1",
 ) -> Dict[str, Any]:
-    machine = build_lifecycle_state_machine()
-    planned = machine.transition(
-        contract.to_dict(), "planned", status="success", reason="plan built", metadata={"phase": "plan"}
+    """Build plan artifact from either old LifecycleContract or new LifecycleRoot."""
+    # Handle both old and new formats
+    if hasattr(contract_or_lifecycle, 'to_dict'):
+        # Old format: LifecycleContract
+        contract_dict = contract_or_lifecycle.to_dict()
+        execution_id = contract_or_lifecycle.execution_id
+        task_id = contract_or_lifecycle.task_id
+        project_path = contract_or_lifecycle.project_path
+        intent = contract_or_lifecycle.intent
+        input_refs = contract_or_lifecycle.input_refs
+    elif hasattr(contract_or_lifecycle, 'contract_id'):
+        # New format: LifecycleRoot
+        service = LifecycleStateMachineService()
+        contract_dict = service.lifecycle_to_dict(contract_or_lifecycle)
+        execution_id = contract_or_lifecycle.execution_id
+        task_id = contract_or_lifecycle.task_id
+        project_path = contract_or_lifecycle.project_path
+        intent = contract_or_lifecycle.intent
+        input_refs = dict(contract_or_lifecycle.metadata.get('input_refs', {}))
+    else:
+        # Already a dict
+        contract_dict = dict(contract_or_lifecycle or {})
+        execution_id = str(contract_dict.get('execution_id') or '')
+        task_id = str(contract_dict.get('task_id') or '')
+        project_path = str(contract_dict.get('project_path') or '')
+        intent = str(contract_dict.get('intent') or '')
+        input_refs = dict(contract_dict.get('input_refs', {}))
+
+    # Use new state machine service
+    service = LifecycleStateMachineService()
+    planned = service.transition(
+        contract_dict, "planned", status="success", reason="plan built", metadata={"phase": "plan"}
     )
+
     artifact = PlanArtifact(
-        execution_id=contract.execution_id,
-        task_id=contract.task_id,
-        project_path=contract.project_path,
-        objective=objective or contract.intent,
+        execution_id=execution_id,
+        task_id=task_id,
+        project_path=project_path,
+        objective=objective or intent,
         success_criteria=list(success_criteria or []),
         risks=list(risks or []),
         dependencies=list(dependencies or []),
@@ -97,7 +128,7 @@ def build_plan_artifact(
             **planned,
             "evidence": evidence,
             "plan_refs": artifact.to_dict(),
-            "input_refs": {**dict(contract.input_refs), "objective": artifact.objective},
+            "input_refs": {**dict(input_refs), "objective": artifact.objective},
         },
         "plan": artifact.to_dict(),
     }
@@ -106,8 +137,8 @@ def build_plan_artifact(
 def build_prepare_artifact(
     contract_payload: Dict[str, Any], *, checks: Optional[Dict[str, Any]] = None, blockers: Optional[List[str]] = None
 ) -> Dict[str, Any]:
-    machine = build_lifecycle_state_machine()
-    prepared = machine.transition(
+    service = LifecycleStateMachineService()
+    prepared = service.transition(
         dict(contract_payload or {}),
         "prepared",
         status="success",
@@ -148,8 +179,8 @@ def build_prepare_artifact(
 def build_decompose_artifact(
     contract_payload: Dict[str, Any], *, subtasks: Optional[List[Dict[str, Any]]] = None
 ) -> Dict[str, Any]:
-    machine = build_lifecycle_state_machine()
-    decomposed = machine.transition(
+    service = LifecycleStateMachineService()
+    decomposed = service.transition(
         dict(contract_payload or {}),
         "decomposed",
         status="success",

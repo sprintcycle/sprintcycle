@@ -339,6 +339,116 @@ class LifecycleStateMachineService:
         )
         return contract
 
+    def transition(
+        self,
+        contract: Dict[str, Any],
+        to_stage: str,
+        *,
+        status: Optional[str] = None,
+        reason: str = "",
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Transition a contract dictionary to a new stage.
+        
+        This is the primary method for advancing the lifecycle state.
+        It validates the transition before applying it.
+        """
+        contract = dict(contract or {})
+        from_stage = contract.get("stage", "new")
+        error = self.validate_transition(from_stage, to_stage)
+        if error:
+            raise ValueError(error)
+        
+        result = dict(contract)
+        
+        # Update stage and status
+        result["stage"] = to_stage
+        if status:
+            result["status"] = status
+        elif to_stage in TERMINAL_STAGES or to_stage in FAILURE_STAGES:
+            result["status"] = "failed" if to_stage in FAILURE_STAGES else "success"
+        
+        # Update metadata
+        result.setdefault("metadata", {})
+        if metadata:
+            result["metadata"].update(dict(metadata))
+        
+        # Add transition to history
+        result.setdefault("stage_history", [])
+        result["stage_history"].append({
+            "from": from_stage,
+            "to": to_stage,
+            "at": datetime.now().isoformat(),
+            "reason": reason
+        })
+        
+        # Update terminal state
+        result["is_terminal"] = self.is_terminal(to_stage)
+        result["stage_index"] = self.stage_index(to_stage)
+        
+        # Set failure kind if needed
+        if to_stage in FAILURE_STAGES:
+            result["failure_kind"] = self.get_failure_kind(from_stage)
+        
+        return result
+
+    def lifecycle_to_dict(self, lifecycle) -> Dict[str, Any]:
+        """
+        Convert a LifecycleRoot instance to a legacy contract dictionary.
+        
+        Provides compatibility for code that expects the old format.
+        """
+        from .lifecycle_root import LifecycleRoot
+        from .values import StageEvidence, LifecycleEvidence
+        
+        if not isinstance(lifecycle, LifecycleRoot):
+            return dict(lifecycle or {})
+        
+        # Process evidence - handle both formats
+        evidence_dict = {"stages": {}}
+        if lifecycle.evidence:
+            if isinstance(lifecycle.evidence, LifecycleEvidence):
+                # New format - use LifecycleEvidence's to_dict
+                evidence_dict = lifecycle.evidence.to_dict()
+            elif hasattr(lifecycle.evidence, 'to_dict'):
+                # If it has to_dict method (like StageEvidence)
+                evidence_dict = lifecycle.evidence.to_dict()
+            elif hasattr(lifecycle.evidence, 'stages'):
+                # If it has stages attribute
+                evidence_dict = {'stages': {k: v.to_dict() for k, v in getattr(lifecycle.evidence, 'stages', {}).items()}}
+            elif isinstance(lifecycle.evidence, dict):
+                # If it's already a dictionary
+                evidence_dict = dict(lifecycle.evidence)
+        
+        # Ensure stages always exists
+        if 'stages' not in evidence_dict:
+            evidence_dict['stages'] = {}
+        
+        return {
+            "contract_id": lifecycle.contract_id,
+            "execution_id": lifecycle.execution_id,
+            "task_id": lifecycle.task_id,
+            "project_path": lifecycle.project_path,
+            "stage": lifecycle.stage.value,
+            "status": lifecycle.status.value,
+            "intent": lifecycle.intent,
+            "metadata": dict(lifecycle.metadata),
+            "evidence": evidence_dict,
+            "stage_history": [
+                {
+                    "from": transition.from_stage,
+                    "to": transition.to_stage,
+                    "at": transition.at.isoformat() if hasattr(transition.at, 'isoformat') else str(transition.at),
+                    "reason": transition.reason
+                }
+                for transition in lifecycle.stage_history
+            ],
+            "is_terminal": self.is_terminal(lifecycle.stage.value),
+            "stage_index": self.stage_index(lifecycle.stage.value),
+            "correlation": lifecycle.correlation.to_dict() if lifecycle.correlation else {},
+        }
+
 
 # Singleton instance for convenience
 _default_service: Optional[LifecycleStateMachineService] = None

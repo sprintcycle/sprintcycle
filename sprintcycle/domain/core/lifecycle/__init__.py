@@ -6,7 +6,6 @@ This module provides the canonical lifecycle management for SprintCycle.
 - LifecycleRoot: Aggregate root for lifecycle management
 - LifecycleStage: Enum for stage values
 - LifecycleStateMachineService: Domain service for state transitions
-- LifecycleContract: Contract model (maintained for compatibility)
 
 **Event-Driven Architecture:**
 Events flow between subdomains:
@@ -14,9 +13,8 @@ Events flow between subdomains:
 - RecoveryTriggered: Published when recovery is initiated
 """
 
-# Import models
+# Import core business constants from models (keep business logic intact)
 from .models import (
-    LifecycleContract,
     STAGE_EVIDENCE_SCHEMA,
     STAGE_EVIDENCE_TRUTHY_KEYS,
     FAILURE_KIND_BY_STAGE,
@@ -30,18 +28,9 @@ from .models import (
     next_stage,
     normalize_lifecycle_metadata,
     validate_lifecycle_evidence,
-    build_lifecycle_state_machine,
-    build_lifecycle_machine,
-    build_lifecycle_contract,
 )
 
-# Import state machine
-from .state_machine import (
-    LifecycleStateMachine,
-    build_default_correlation,
-)
-
-# Import new value objects
+# Import value objects
 from .values import (
     StageEvidence,
     StageHistoryEntry,
@@ -53,7 +42,7 @@ from .values import (
     FailureInfo,
 )
 
-# Import new domain service
+# Import domain service
 from .services import (
     LifecycleStateMachineService,
     LIFECYCLE_STAGES,
@@ -64,11 +53,10 @@ from .services import (
     RECOVERY_TARGETS,
     REPAIR_ROUTE_BY_STAGE,
     CORRELATION_KEY_FIELDS,
-    FAILURE_KIND_BY_STAGE as SERVICE_FAILURE_KIND_BY_STAGE,
     get_lifecycle_state_machine_service,
 )
 
-# Import new aggregate root
+# Import aggregate root
 from .lifecycle_root import (
     LifecycleRoot,
     LifecycleStage,
@@ -76,9 +64,41 @@ from .lifecycle_root import (
     create_lifecycle,
 )
 
+# Compatibility: Build lifecycle contract using new architecture
+def build_lifecycle_contract(*args, **kwargs):
+    """
+    Create a lifecycle contract.
+    
+    DEPRECATED: Use create_lifecycle() instead.
+    This is maintained for backward compatibility.
+    """
+    return create_lifecycle(*args, **kwargs)
+
+# Compatibility: Build state machine using new architecture
+def build_lifecycle_state_machine():
+    """
+    Build lifecycle state machine.
+    
+    DEPRECATED: Use LifecycleStateMachineService instead.
+    This is maintained for backward compatibility.
+    """
+    return LifecycleStateMachineService()
+
+build_lifecycle_machine = build_lifecycle_state_machine
+
+# Compatibility: Build default correlation
+def build_default_correlation(payload=None):
+    """
+    Build default correlation context.
+    
+    DEPRECATED: Use CorrelationContext directly.
+    This is maintained for backward compatibility.
+    """
+    service = LifecycleStateMachineService()
+    return service.build_default_correlation(payload)
+
 __all__ = [
-    # Models
-    "LifecycleContract",
+    # Core business constants (keep business logic)
     "STAGE_EVIDENCE_SCHEMA",
     "STAGE_EVIDENCE_TRUTHY_KEYS",
     "FAILURE_KIND_BY_STAGE",
@@ -92,12 +112,6 @@ __all__ = [
     "next_stage",
     "normalize_lifecycle_metadata",
     "validate_lifecycle_evidence",
-    "build_lifecycle_state_machine",
-    "build_lifecycle_machine",
-    "build_lifecycle_contract",
-    # State machine
-    "LifecycleStateMachine",
-    "build_default_correlation",
     # Value objects
     "StageEvidence",
     "StageHistoryEntry",
@@ -117,11 +131,15 @@ __all__ = [
     "RECOVERY_TARGETS",
     "REPAIR_ROUTE_BY_STAGE",
     "CORRELATION_KEY_FIELDS",
-    "SERVICE_FAILURE_KIND_BY_STAGE",
     "get_lifecycle_state_machine_service",
-    # Aggregate root
+    # Aggregate root (NEW ARCHITECTURE - PRIMARY API)
     "LifecycleRoot",
     "LifecycleStage",
     "LifecycleStatus",
     "create_lifecycle",
+    # Compatibility functions (DEPRECATED)
+    "build_lifecycle_contract",
+    "build_lifecycle_state_machine",
+    "build_lifecycle_machine",
+    "build_default_correlation",
 ]
