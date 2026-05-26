@@ -1,7 +1,10 @@
-"""Execution state machine helpers.
+"""Lifecycle state machine transitions for execution and task entities.
 
-This module formalizes the allowed lifecycle transitions for execution / sprint / task
+This module defines the allowed lifecycle transitions for execution / sprint / task
 states so the console can reason about recovery, replay, and invalid transitions.
+
+This is part of the Domain layer and should be the source of truth for state
+transition rules.
 """
 
 from __future__ import annotations
@@ -119,8 +122,21 @@ class ExecutionStateMachine:
         return allowed_transitions(self.entity)
 
 
-def summarize_state_machine() -> Dict[str, List[str]]:
+def summarize_state_machine() -> Dict[str, Dict[str, List[str]]]:
     return {
         "execution": {k: list(v) for k, v in EXECUTION_TRANSITIONS.items()},
         "task": {k: list(v) for k, v in TASK_TRANSITIONS.items()},
     }
+
+
+__all__ = [
+    "EXECUTION_TRANSITIONS",
+    "TASK_TRANSITIONS",
+    "StateTransition",
+    "allowed_transitions",
+    "can_transition",
+    "normalize_status",
+    "validate_transition",
+    "ExecutionStateMachine",
+    "summarize_state_machine",
+]

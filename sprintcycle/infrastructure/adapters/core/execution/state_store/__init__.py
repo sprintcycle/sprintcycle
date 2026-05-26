@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any
 from .cache import ExecutionCache
 from .checkpoint import CheckpointMixin
 from .context import TaskExecutionContext
-from .machine import ExecutionStateMachine, summarize_state_machine
+from sprintcycle.domain.core.execution.core.lifecycle_transitions import ExecutionStateMachine, summarize_state_machine
 from sprintcycle.infrastructure.adapters.core.evolution.rollback_store.rollback import RollbackConfig, RollbackManager, get_rollback_manager
 from sprintcycle.infrastructure.adapters.core.evolution.rollback_store.rollback_types import BackupRecord, RollbackError, RollbackResult, VariantBranch
 from .sqlite_event_backend import SQLiteMQEventBackend as SqliteEventBackend, execution_events_sqlite_path

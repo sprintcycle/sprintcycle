@@ -12,7 +12,7 @@ from sprintcycle.domain.generic.models.release_plan.payload_keys import checkpoi
 from sprintcycle.domain.generic.interfaces import ExecutionStatus
 from sprintcycle.infrastructure.shared.persistence.base import SyncSqliteStore
 from sprintcycle.infrastructure.shared.persistence.models import Base, ExecutionRow
-from sprintcycle.infrastructure.adapters.core.execution.state_store.machine import validate_transition
+from sprintcycle.domain.core.execution.core.lifecycle_transitions import validate_transition
 from sprintcycle.infrastructure.adapters.core.execution.state_store.state_store import ExecutionState
 
 
