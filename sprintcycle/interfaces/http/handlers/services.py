@@ -21,10 +21,10 @@ from sprintcycle.application.services.lifecycle.execution_lifecycle_service impo
 from sprintcycle.application.services.governance.governance_orchestration_service import GovernanceOrchestrationService
 from sprintcycle.application.services.evolution.evolution_version_service import EvolutionVersionService
 from sprintcycle.application.services.governance.suggestion_application_service import SuggestionApplicationService
-from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
-from sprintcycle.infrastructure.adapters.generic.observability.facade import ObservabilityFacade
-from sprintcycle.infrastructure.adapters.generic.config.runtime_registry import RuntimeRegistry
-from sprintcycle.infrastructure.adapters.core.evolution.evolution_registry_access import create_evolution_registry
+from sprintcycle.domain.generic.ports.config import get_runtime_config
+from sprintcycle.domain.generic.ports.observability import get_observability_facade
+from sprintcycle.domain.generic.ports.registry import create_runtime_registry
+from sprintcycle.domain.generic.ports.evolution import create_evolution_registry
 from sprintcycle.domain.generic.interfaces.hooks import HookRegistry
 from sprintcycle.domain.core.governance.core.facade import GovernanceFacade, create_governance_facade
 from sprintcycle.domain.core.governance.suggestion import SuggestionFacade, create_suggestion_facade
@@ -36,9 +36,9 @@ class ServiceAggregator:
     def __init__(self, project_path: str):
         self.project_path = project_path
         
-        self._config = RuntimeConfig.from_project(project_path)
-        self._observability = ObservabilityFacade()
-        self._runtime_registry = RuntimeRegistry()
+        self._config = get_runtime_config(project_path)
+        self._observability = get_observability_facade()
+        self._runtime_registry = create_runtime_registry(self._config)
         self._hooks = HookRegistry()
         self._evolution_registry = create_evolution_registry(self._config)
 

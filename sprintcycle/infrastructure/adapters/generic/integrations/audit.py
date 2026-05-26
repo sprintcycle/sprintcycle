@@ -20,5 +20,29 @@ class AuditRecord:
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
+class AuditAdapter:
+    """Infrastructure adapter for audit logging."""
+
+    def record_audit_event(
+        self,
+        request_id: str,
+        actor: str,
+        action: str,
+        resource: str,
+        outcome: str,
+        **kwargs,
+    ) -> AuditRecord:
+        """Record an audit event."""
+        return AuditRecord(
+            request_id=request_id,
+            actor=actor,
+            action=action,
+            resource=resource,
+            outcome=outcome,
+            metadata=kwargs,
+        )
+
+
 def record_audit_event(*_args, **_kwargs) -> AuditRecord:
+    """Legacy function for backward compatibility."""
     return AuditRecord()

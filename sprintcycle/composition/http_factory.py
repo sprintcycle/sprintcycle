@@ -230,6 +230,21 @@ class InfrastructureFactory:
         register_phoenix_exporter_factory(create_phoenix_exporter_spec)
         register_phoenix_trace_factory(create_phoenix_trace_runtime)
 
+        from sprintcycle.domain.generic.ports.rate_limit import register_rate_limit_adapter
+        from sprintcycle.infrastructure.adapters.generic.config.rate_limit import RateLimitAdapter
+
+        register_rate_limit_adapter(RateLimitAdapter())
+
+        from sprintcycle.domain.generic.ports.audit import register_audit_adapter
+        from sprintcycle.infrastructure.adapters.generic.integrations.audit import AuditAdapter
+
+        register_audit_adapter(AuditAdapter())
+
+        from sprintcycle.domain.generic.ports.diagnostics import register_diagnostic_adapter
+        from sprintcycle.infrastructure.adapters.generic.observability.diagnostics.adapter import DiagnosticAdapter
+
+        register_diagnostic_adapter(DiagnosticAdapter(self.project_path))
+
 
 def register_event_backend_factory() -> None:
     """注册事件后端工厂（抽离为独立函数便于测试）"""

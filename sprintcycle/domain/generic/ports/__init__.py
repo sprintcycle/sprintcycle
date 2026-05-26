@@ -8,6 +8,8 @@
 - 架构守卫端口 (governance.py)
 - 配置端口 (config.py)
 - 集成适配器端口 (integrations.py)
+- 限流端口 (rate_limit.py)
+- 审计端口 (audit.py)
 """
 
 from .state_store import StateStoreProtocol, ExecutionState
@@ -27,6 +29,9 @@ from .integrations import (
     PhoenixExporterSpecProtocol,
     PhoenixTraceRuntimeProtocol,
 )
+from .rate_limit import RateLimitPort, RateLimitState
+from .audit import AuditPort, AuditRecord
+from .diagnostics import DiagnosticPort
 
 __all__ = [
     # 状态存储端口
@@ -48,4 +53,12 @@ __all__ = [
     "LangGraphRuntimeAdapterProtocol",
     "PhoenixExporterSpecProtocol",
     "PhoenixTraceRuntimeProtocol",
+    # 限流端口
+    "RateLimitPort",
+    "RateLimitState",
+    # 审计端口
+    "AuditPort",
+    "AuditRecord",
+    # 诊断端口
+    "DiagnosticPort",
 ]

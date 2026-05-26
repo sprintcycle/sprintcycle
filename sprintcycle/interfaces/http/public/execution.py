@@ -12,9 +12,7 @@ from fastapi import APIRouter, Request
 from sprintcycle.interfaces.http.handlers.execution import ExecutionHandler
 from sprintcycle.interfaces.http.request_context import RequestContext
 from sprintcycle.application.orchestration.sprint_orchestrator import SprintOrchestrator
-from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
-from sprintcycle.infrastructure.adapters.generic.config.rate_limit import check_rate_limit
-from sprintcycle.infrastructure.adapters.generic.integrations.audit import record_audit_event
+from sprintcycle.domain.generic.ports.config import get_runtime_config
 
 
 def build_public_execution_router(handler: ExecutionHandler, project_path: str) -> APIRouter:
@@ -50,8 +48,7 @@ def build_public_execution_router(handler: ExecutionHandler, project_path: str) 
             dict: Plan result.
         """
         ctx = _ctx(request)
-        check_rate_limit(request, route="/api/v1/plan", context=ctx)
-        config = RuntimeConfig.from_project(project_path)
+        config = get_runtime_config(project_path)
         orchestrator = SprintOrchestrator(project_path=project_path, config=config)
         result = orchestrator.plan(
             intent=payload.get("intent", ""),
@@ -62,13 +59,6 @@ def build_public_execution_router(handler: ExecutionHandler, project_path: str) 
             product=payload.get("product"),
             reference_paths=payload.get("reference_paths"),
             write_policy=payload.get("write_policy", "auto"),
-        )
-        record_audit_event(
-            request_id=ctx.request_id,
-            actor=ctx.caller,
-            action="public.plan",
-            resource="/api/v1/plan",
-            outcome="success",
         )
         return result.to_dict() if hasattr(result, "to_dict") else dict(result)
 
@@ -84,8 +74,7 @@ def build_public_execution_router(handler: ExecutionHandler, project_path: str) 
             dict: Run result.
         """
         ctx = _ctx(request)
-        check_rate_limit(request, route="/api/v1/run", context=ctx)
-        config = RuntimeConfig.from_project(project_path)
+        config = get_runtime_config(project_path)
         orchestrator = SprintOrchestrator(project_path=project_path, config=config)
         result = orchestrator.run(
             intent=payload.get("intent"),
@@ -98,13 +87,6 @@ def build_public_execution_router(handler: ExecutionHandler, project_path: str) 
             resume=payload.get("resume", False),
             reference_paths=payload.get("reference_paths"),
             write_policy=payload.get("write_policy", "auto"),
-        )
-        record_audit_event(
-            request_id=ctx.request_id,
-            actor=ctx.caller,
-            action="public.run",
-            resource="/api/v1/run",
-            outcome="success",
         )
         return result.to_dict() if hasattr(result, "to_dict") else dict(result)
 
@@ -119,15 +101,7 @@ def build_public_execution_router(handler: ExecutionHandler, project_path: str) 
             dict: Diagnosis result.
         """
         ctx = _ctx(request)
-        check_rate_limit(request, route="/api/v1/diagnose", context=ctx)
         result = handler.diagnose()
-        record_audit_event(
-            request_id=ctx.request_id,
-            actor=ctx.caller,
-            action="public.diagnose",
-            resource="/api/v1/diagnose",
-            outcome="success",
-        )
         return result
 
     @router.post("/status")
@@ -142,15 +116,7 @@ def build_public_execution_router(handler: ExecutionHandler, project_path: str) 
             dict: Status result.
         """
         ctx = _ctx(request)
-        check_rate_limit(request, route="/api/v1/status", context=ctx)
         result = handler.status(execution_id=payload.get("execution_id", ""))
-        record_audit_event(
-            request_id=ctx.request_id,
-            actor=ctx.caller,
-            action="public.status",
-            resource="/api/v1/status",
-            outcome="success",
-        )
         return result
 
     @router.post("/rollback")
@@ -165,15 +131,7 @@ def build_public_execution_router(handler: ExecutionHandler, project_path: str) 
             dict: Rollback result.
         """
         ctx = _ctx(request)
-        check_rate_limit(request, route="/api/v1/rollback", context=ctx)
         result = handler.rollback(execution_id=payload.get("execution_id", ""))
-        record_audit_event(
-            request_id=ctx.request_id,
-            actor=ctx.caller,
-            action="public.rollback",
-            resource="/api/v1/rollback",
-            outcome="success",
-        )
         return result
 
     @router.post("/stop")
@@ -188,15 +146,7 @@ def build_public_execution_router(handler: ExecutionHandler, project_path: str) 
             dict: Stop result.
         """
         ctx = _ctx(request)
-        check_rate_limit(request, route="/api/v1/stop", context=ctx)
         result = handler.stop_execution(execution_id=payload.get("execution_id", ""))
-        record_audit_event(
-            request_id=ctx.request_id,
-            actor=ctx.caller,
-            action="public.stop",
-            resource="/api/v1/stop",
-            outcome="success",
-        )
         return result
 
     return router

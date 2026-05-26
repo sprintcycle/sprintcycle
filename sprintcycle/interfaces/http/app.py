@@ -22,8 +22,8 @@ from sprintcycle.interfaces.http.handlers import (
     ConfigHandler,
 )
 from sprintcycle.interfaces.http.request_context import RequestContext
-from sprintcycle.infrastructure.adapters.generic.config.rate_limit import check_rate_limit
-from sprintcycle.infrastructure.adapters.generic.integrations.audit import record_audit_event
+from sprintcycle.interfaces.http.middleware import rate_limit_middleware, audit_middleware
+from sprintcycle.domain.generic.ports.observability import get_observability_facade
 from pydantic import BaseModel
 
 _DASHBOARD_DEV = os.environ.get("SPRINTCYCLE_ENV", "production") == "development"
@@ -56,94 +56,46 @@ def build_config_router(config_handler: ConfigHandler, project_path: str) -> API
     @router.get("/api/config")
     async def get_config(request: Request) -> Dict[str, Any]:
         ctx = _ctx(request)
-        check_rate_limit(request, route="/api/config", context=ctx)
         result = {"success": True, "data": config_handler.load_config()}
-        record_audit_event(
-            request_id=ctx.request_id,
-            actor=ctx.caller,
-            action="internal.get_config",
-            resource="/api/config",
-            outcome="success",
-        )
         return result
 
     @router.put("/api/config")
     async def put_config(request: Request, body: ConfigUpdateRequest) -> Dict[str, Any]:
         ctx = _ctx(request)
-        check_rate_limit(request, route="/api/config", context=ctx)
         cfg = config_handler.load_config()
         cfg.update(body.updates)
         config_handler.save_config(cfg)
         config_handler.add_config_history(body.updates, source="api_put")
-        record_audit_event(
-            request_id=ctx.request_id,
-            actor=ctx.caller,
-            action="internal.put_config",
-            resource="/api/config",
-            outcome="success",
-        )
         return {"success": True, "data": cfg}
 
     @router.get("/api/config/schema")
     async def get_config_schema(request: Request) -> Dict[str, Any]:
         ctx = _ctx(request)
-        check_rate_limit(request, route="/api/config/schema", context=ctx)
         result = {
             "success": True,
             "data": config_handler.get_config_schema(),
         }
-        record_audit_event(
-            request_id=ctx.request_id,
-            actor=ctx.caller,
-            action="internal.get_config_schema",
-            resource="/api/config/schema",
-            outcome="success",
-        )
         return result
 
     @router.get("/api/config/history")
     async def get_config_history(request: Request) -> Dict[str, Any]:
         ctx = _ctx(request)
-        check_rate_limit(request, route="/api/config/history", context=ctx)
         result = {"success": True, "data": config_handler.get_config_history()}
-        record_audit_event(
-            request_id=ctx.request_id,
-            actor=ctx.caller,
-            action="internal.get_config_history",
-            resource="/api/config/history",
-            outcome="success",
-        )
         return result
 
     @router.post("/api/config/reload")
     async def reload_config(request: Request, _body: ReloadRequest) -> Dict[str, Any]:
         ctx = _ctx(request)
-        check_rate_limit(request, route="/api/config/reload", context=ctx)
         result = {"success": True, "data": config_handler.load_config()}
-        record_audit_event(
-            request_id=ctx.request_id,
-            actor=ctx.caller,
-            action="internal.reload_config",
-            resource="/api/config/reload",
-            outcome="success",
-        )
         return result
 
     @router.post("/api/config/import")
     async def import_config(request: Request, body: ConfigImportRequest) -> Dict[str, Any]:
         ctx = _ctx(request)
-        check_rate_limit(request, route="/api/config/import", context=ctx)
         cfg = config_handler.load_config()
         cfg.update(body.config)
         config_handler.save_config(cfg)
         config_handler.add_config_history(body.config, source="api_import")
-        record_audit_event(
-            request_id=ctx.request_id,
-            actor=ctx.caller,
-            action="internal.import_config",
-            resource="/api/config/import",
-            outcome="success",
-        )
         return {"success": True, "data": cfg}
 
     return router
@@ -164,8 +116,8 @@ def build_overview_router() -> APIRouter:
     @router.get("/api/clients")
     async def api_clients(request: Request) -> Dict[str, Any]:
         try:
-            from sprintcycle.infrastructure.adapters.generic.observability.hooks import get_client_manager
-            count = get_client_manager().get_client_count()
+            facade = get_observability_facade()
+            count = facade.get_client_count() if hasattr(facade, "get_client_count") else 0
         except Exception:
             count = 0
         return {"success": True, "client_count": count}
@@ -212,6 +164,9 @@ def create_app(project_path: str = ".") -> FastAPI:
             allow_methods=["*"],
             allow_headers=["*"],
         )
+
+    app.middleware("http")(rate_limit_middleware)
+    app.middleware("http")(audit_middleware)
 
     from .dashboard.execution import build_execution_router
     from .dashboard.governance import build_governance_router

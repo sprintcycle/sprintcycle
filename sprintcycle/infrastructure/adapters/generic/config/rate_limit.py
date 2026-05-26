@@ -7,6 +7,7 @@ policies.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass(slots=True)
@@ -17,5 +18,19 @@ class RateLimitState:
     reset_after_seconds: int = 0
 
 
+class RateLimitAdapter:
+    """Infrastructure adapter for rate limiting."""
+
+    def check_rate_limit(
+        self,
+        route: str,
+        context: Any,
+        **kwargs,
+    ) -> RateLimitState:
+        """Check if a request should be rate limited."""
+        return RateLimitState()
+
+
 def check_rate_limit(*_args, **_kwargs) -> RateLimitState:
+    """Legacy function for backward compatibility."""
     return RateLimitState()
