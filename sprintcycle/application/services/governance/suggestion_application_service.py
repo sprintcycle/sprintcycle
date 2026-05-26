@@ -41,8 +41,8 @@ from sprintcycle.domain.core.lifecycle import (
     create_lifecycle,
     LifecycleStage,
     LifecycleStateMachineService,
+    CorrelationContext,
 )
-from sprintcycle.domain.core.lifecycle.models import build_default_correlation
 from .promotion_policy import PromotionPolicy
 
 
@@ -324,7 +324,7 @@ class SuggestionApplicationService:
                     promotion_guard={"policy": policy_result, "approver": approver, "notes": notes},
                     metadata={
                         "source": "suggestion_approval",
-                        "correlation": build_default_correlation({"suggestion_id": suggestion_id}).to_dict(),
+                        "correlation": CorrelationContext(suggestion_id=suggestion_id, source="suggestion_approval").to_dict(),
                     },
                 )
                 await self.version_registry.register(artifact)

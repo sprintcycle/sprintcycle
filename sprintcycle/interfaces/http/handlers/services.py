@@ -1,6 +1,6 @@
 """Service aggregator for HTTP handlers.
 
-Aggregates all application services needed by HTTP handlers.
+完全使用新架构：LifecycleRoot + LifecycleStateMachineService
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from sprintcycle.application.services.dashboard.dashboard_workbench_service impo
 from sprintcycle.application.services.config_service import ConfigService
 from sprintcycle.application.services.lifecycle.lifecycle_delivery_service import LifecycleDeliveryService
 from sprintcycle.application.services.lifecycle.lifecycle_evolution_service import LifecycleEvolutionService
-from sprintcycle.application.services.lifecycle.lifecycle_contract_assembly_service import LifecycleContractAssemblyService
+from sprintcycle.application.services.lifecycle.lifecycle_root_services import LifecycleRootService, WebLifecycleRootOrchestrationService
 from sprintcycle.application.services.governance.repair_orchestration_service import RepairOrchestrationService
 from sprintcycle.application.services.lifecycle.execution_lifecycle_service import ExecutionLifecycleService
 from sprintcycle.application.services.governance.governance_orchestration_service import GovernanceOrchestrationService
@@ -108,24 +108,14 @@ class ServiceAggregator:
             promotion_policy=PromotionPolicy(),
         )
 
-        from sprintcycle.application.services.lifecycle.web_lifecycle_orchestration_service import WebLifecycleOrchestrationService
-        self._web_lifecycle = WebLifecycleOrchestrationService(
+        self._lifecycle_root = LifecycleRootService(project_path=project_path)
+
+        self._web_lifecycle = WebLifecycleRootOrchestrationService(
             project_path=project_path,
             start_execution_run=lambda *args, **kwargs: self._execution_lifecycle.start_execution_run(*args, **kwargs),
             runtime_lifecycle=lambda eid: self._execution_lifecycle.status(eid),
             observability_trace=lambda eid: self._observability_service.trace(eid),
-            evaluate_sprint_contract=lambda payload: self._lifecycle_contract.evaluate_sprint_contract(payload),
-        )
-
-        self._lifecycle_contract = LifecycleContractAssemblyService(
-            project_path=project_path,
-            execution_detail=lambda eid, limit: self._execution_lifecycle.execution_detail(eid, limit=limit),
-            runtime_lifecycle=lambda eid: self._execution_lifecycle.status(eid),
-            suggestion_overview_payload=lambda: self._management_overview.suggestion_overview(),
-            governance_orchestration=self._governance_orchestration,
-            lifecycle_evolution=self._lifecycle_evolution,
-            web_lifecycle=self._web_lifecycle,
-            deliver_runtime_governance_promotion=lambda eid, **kwargs: self._lifecycle_delivery.deliver_runtime_governance_promotion(eid, **kwargs),
+            evaluate_sprint_contract=lambda payload: self._lifecycle_root.evaluate_sprint_contract(payload),
         )
 
         self._lifecycle_delivery = LifecycleDeliveryService(
@@ -139,7 +129,7 @@ class ServiceAggregator:
             observability_trace=lambda eid: self._observability_service.trace(eid),
             observe_execution=lambda eid: self._execution_lifecycle.execution_detail(eid),
             deploy_view=lambda: self._dashboard_views.deploy_view({}),
-            lifecycle_contract=lambda rid: self._lifecycle_contract.assemble(rid),
+            lifecycle_contract=lambda rid: self._lifecycle_root.lifecycle_to_dict(self._lifecycle_root.create_lifecycle(rid, rid, "")) if rid else {},
             evaluate_promotion=lambda eid, **kwargs: self._lifecycle_evolution.promote(eid, **kwargs),
         )
 
@@ -179,8 +169,12 @@ class ServiceAggregator:
         return self._governance_orchestration
 
     @property
-    def lifecycle_contract(self) -> LifecycleContractAssemblyService:
-        return self._lifecycle_contract
+    def lifecycle_root(self) -> LifecycleRootService:
+        return self._lifecycle_root
+
+    @property
+    def web_lifecycle(self) -> WebLifecycleRootOrchestrationService:
+        return self._web_lifecycle
 
     @property
     def lifecycle_delivery(self) -> LifecycleDeliveryService:

@@ -1,10 +1,6 @@
 """Observability application service.
 
-Owns trace/replay/event read paths and keeps the facade free from observability
-implementation details. This layer also exposes diagnosis-oriented metadata
-for failure classification and repair analysis.
-
-**分层**：ObservabilityService 通过构造函数接收 ObservabilityFacade 依赖。
+完全使用新架构：LifecycleRoot + LifecycleStateMachineService
 """
 
 from __future__ import annotations
@@ -18,8 +14,8 @@ from sprintcycle.domain.core.lifecycle import (
     create_lifecycle,
     LifecycleStage,
     LifecycleStateMachineService,
+    CorrelationContext,
 )
-from sprintcycle.domain.core.lifecycle.models import build_default_correlation
 from ..execution.phase_workflow import build_observe_artifact
 
 
@@ -54,9 +50,14 @@ class ObservabilityService:
                 if str((e or {}).get("root_cause") or (e or {}).get("failure_kind") or "").strip()
             }
         )
-        correlation = build_default_correlation(
-            {"execution_id": run_id, "metadata": {"source": "observability"}}
-        ).to_dict()
+        
+        # 使用新架构的 CorrelationContext
+        correlation = CorrelationContext(
+            execution_id=run_id,
+            task_id=run_id,
+            source="observability",
+        )
+        
         repair_ready = bool(failures or root_cause_tags)
         repair_candidates = [
             e
@@ -86,7 +87,7 @@ class ObservabilityService:
             "event_count": len(events),
             "failure_kind": failure_kind,
             "repair_ready": repair_ready,
-            "correlation": correlation,
+            "correlation": correlation.to_dict(),
         }
         audit = {
             "run_id": run_id,
@@ -144,7 +145,7 @@ class ObservabilityService:
             "recovery_refs": dict(lifecycle_root.metadata).get("recovery_refs", {}),
             "trace": dict(lifecycle_root.metadata).get("trace", {}),
             "diagnostics": dict(lifecycle_root.metadata).get("diagnostics", {}),
-            "correlation": correlation,
+            "correlation": correlation.to_dict(),
             "validation_refs": dict(lifecycle_root.metadata).get("validation_refs", {}),
             "output_refs": dict(lifecycle_root.metadata).get("output_refs", {}),
             "transition_reason": dict(lifecycle_root.metadata).get("transition_reason", ""),

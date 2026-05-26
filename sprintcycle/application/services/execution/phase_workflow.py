@@ -1,7 +1,6 @@
 """Phase 2 workflow helpers for plan / prepare / decompose.
 
-This module provides lightweight structured artifacts that sit between the
-normalized lifecycle contract and actual execution.
+完全使用新架构：LifecycleRoot + LifecycleStateMachineService
 """
 
 from __future__ import annotations
@@ -9,8 +8,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Optional
 
-from sprintcycle.domain.core.lifecycle import create_lifecycle, LifecycleRoot, LifecycleStage, LifecycleStatus, LifecycleStateMachineService
-
+from sprintcycle.domain.core.lifecycle import LifecycleRoot, LifecycleStateMachineService
 
 
 @dataclass
@@ -66,19 +64,10 @@ def build_plan_artifact(
     dependencies: Optional[List[str]] = None,
     version: str = "v1",
 ) -> Dict[str, Any]:
-    """Build plan artifact from either old LifecycleContract or new LifecycleRoot."""
-    # Handle both old and new formats
-    if hasattr(contract_or_lifecycle, 'to_dict'):
-        # Old format: LifecycleContract
-        contract_dict = contract_or_lifecycle.to_dict()
-        execution_id = contract_or_lifecycle.execution_id
-        task_id = contract_or_lifecycle.task_id
-        project_path = contract_or_lifecycle.project_path
-        intent = contract_or_lifecycle.intent
-        input_refs = contract_or_lifecycle.input_refs
-    elif hasattr(contract_or_lifecycle, 'contract_id'):
-        # New format: LifecycleRoot
-        service = LifecycleStateMachineService()
+    """Build plan artifact using new architecture."""
+    service = LifecycleStateMachineService()
+    
+    if isinstance(contract_or_lifecycle, LifecycleRoot):
         contract_dict = service.lifecycle_to_dict(contract_or_lifecycle)
         execution_id = contract_or_lifecycle.execution_id
         task_id = contract_or_lifecycle.task_id
@@ -86,7 +75,6 @@ def build_plan_artifact(
         intent = contract_or_lifecycle.intent
         input_refs = dict(contract_or_lifecycle.metadata.get('input_refs', {}))
     else:
-        # Already a dict
         contract_dict = dict(contract_or_lifecycle or {})
         execution_id = str(contract_dict.get('execution_id') or '')
         task_id = str(contract_dict.get('task_id') or '')
@@ -94,8 +82,6 @@ def build_plan_artifact(
         intent = str(contract_dict.get('intent') or '')
         input_refs = dict(contract_dict.get('input_refs', {}))
 
-    # Use new state machine service
-    service = LifecycleStateMachineService()
     planned = service.transition(
         contract_dict, "planned", status="success", reason="plan built", metadata={"phase": "plan"}
     )

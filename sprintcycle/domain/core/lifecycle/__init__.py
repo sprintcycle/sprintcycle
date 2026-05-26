@@ -1,19 +1,8 @@
 """生命周期子域 - Lifecycle subdomain.
 
-This module provides the canonical lifecycle management for SprintCycle.
-
-**Key Concepts:**
-- LifecycleRoot: Aggregate root for lifecycle management
-- LifecycleStage: Enum for stage values
-- LifecycleStateMachineService: Domain service for state transitions
-
-**Event-Driven Architecture:**
-Events flow between subdomains:
-- StageTransitioned: Published when lifecycle transitions
-- RecoveryTriggered: Published when recovery is initiated
+这是新架构的核心入口，完全使用 DDD 模式实现。
 """
 
-# Import core business constants from models (keep business logic intact)
 from .models import (
     STAGE_EVIDENCE_SCHEMA,
     STAGE_EVIDENCE_TRUTHY_KEYS,
@@ -30,7 +19,6 @@ from .models import (
     validate_lifecycle_evidence,
 )
 
-# Import value objects
 from .values import (
     StageEvidence,
     StageHistoryEntry,
@@ -42,7 +30,6 @@ from .values import (
     FailureInfo,
 )
 
-# Import domain service
 from .services import (
     LifecycleStateMachineService,
     LIFECYCLE_STAGES,
@@ -56,7 +43,6 @@ from .services import (
     get_lifecycle_state_machine_service,
 )
 
-# Import aggregate root
 from .lifecycle_root import (
     LifecycleRoot,
     LifecycleStage,
@@ -64,41 +50,7 @@ from .lifecycle_root import (
     create_lifecycle,
 )
 
-# Compatibility: Build lifecycle contract using new architecture
-def build_lifecycle_contract(*args, **kwargs):
-    """
-    Create a lifecycle contract.
-    
-    DEPRECATED: Use create_lifecycle() instead.
-    This is maintained for backward compatibility.
-    """
-    return create_lifecycle(*args, **kwargs)
-
-# Compatibility: Build state machine using new architecture
-def build_lifecycle_state_machine():
-    """
-    Build lifecycle state machine.
-    
-    DEPRECATED: Use LifecycleStateMachineService instead.
-    This is maintained for backward compatibility.
-    """
-    return LifecycleStateMachineService()
-
-build_lifecycle_machine = build_lifecycle_state_machine
-
-# Compatibility: Build default correlation
-def build_default_correlation(payload=None):
-    """
-    Build default correlation context.
-    
-    DEPRECATED: Use CorrelationContext directly.
-    This is maintained for backward compatibility.
-    """
-    service = LifecycleStateMachineService()
-    return service.build_default_correlation(payload)
-
 __all__ = [
-    # Core business constants (keep business logic)
     "STAGE_EVIDENCE_SCHEMA",
     "STAGE_EVIDENCE_TRUTHY_KEYS",
     "FAILURE_KIND_BY_STAGE",
@@ -112,7 +64,6 @@ __all__ = [
     "next_stage",
     "normalize_lifecycle_metadata",
     "validate_lifecycle_evidence",
-    # Value objects
     "StageEvidence",
     "StageHistoryEntry",
     "CorrelationContext",
@@ -121,7 +72,6 @@ __all__ = [
     "RuntimeRef",
     "LifecycleEvidence",
     "FailureInfo",
-    # Domain service
     "LifecycleStateMachineService",
     "LIFECYCLE_STAGES",
     "STAGE_TRANSITIONS",
@@ -132,14 +82,8 @@ __all__ = [
     "REPAIR_ROUTE_BY_STAGE",
     "CORRELATION_KEY_FIELDS",
     "get_lifecycle_state_machine_service",
-    # Aggregate root (NEW ARCHITECTURE - PRIMARY API)
     "LifecycleRoot",
     "LifecycleStage",
     "LifecycleStatus",
     "create_lifecycle",
-    # Compatibility functions (DEPRECATED)
-    "build_lifecycle_contract",
-    "build_lifecycle_state_machine",
-    "build_lifecycle_machine",
-    "build_default_correlation",
 ]

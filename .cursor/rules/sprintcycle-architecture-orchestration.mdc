@@ -1,5 +1,5 @@
 ---
-description: SprintCycle architecture and orchestration boundaries
+description: SprintCycle architecture and orchestration boundaries with DDD implementation
 alwaysApply: true
 ---
 
@@ -7,7 +7,7 @@ alwaysApply: true
 
 ## English
 
-You are working on SprintCycle, a contract-driven lifecycle platform with a stable layered architecture following DDD Onion principles.
+You are working on SprintCycle, a contract-driven lifecycle platform with a stable layered architecture following DDD Onion principles. This implementation includes Domain-Driven Design patterns with Aggregate Roots, Value Objects, Domain Services, and Event-Driven Architecture.
 
 ### Core principles
 - Preserve the current architecture and core skeleton.
@@ -20,6 +20,28 @@ You are working on SprintCycle, a contract-driven lifecycle platform with a stab
 - Finalized architecture must favor a thin facade, explicit internal/public API separation, and a single lifecycle contract across surfaces.
 - Follow the Composition Root pattern: `application/factories/http.py` is the designated composition root for HTTP services.
 - **Factories should only contain wiring logic; adapter implementations belong in `infrastructure/adapters/`.**
+- **Follow DDD principles: Aggregate Roots are immutable, Value Objects have no identity, and Domain Services are stateless.**
+
+### DDD Subdomain Architecture
+- **Core Domains**: lifecycle, execution, evolution, governance
+- **Supporting Domains**: intent, verification, fitness
+- **Generic Domains**: errors, prompts, models, platform, ports
+
+### DDD Aggregate Roots
+- **lifecycle**: `LifecycleRoot` - immutable aggregate root for lifecycle management
+- **execution**: `SprintAggregate`, `ReleasePlanAggregate` - immutable execution aggregates
+- **evolution**: `EvolutionRequest`, `SandboxSession` - immutable evolution aggregates
+- **governance**: `GovernanceSession`, `RuleSetAggregate` - immutable governance aggregates
+
+### DDD Value Objects
+- **lifecycle**: `StageEvidence`, `CorrelationContext`, `LifecycleEvidence`, `FailureInfo`, `RuntimeRef`, `GovernanceRef`, `EvolutionRef`
+- **execution**: `TaskResult`, `SprintResult`
+- **governance**: `GovernanceRule`, `RuleEvaluation`, `Finding`
+- **evolution**: `VersionArtifact`, `EvolutionEvidence`
+
+### Domain Services
+- `LifecycleStateMachineService` - stateless service for lifecycle state transitions
+- `EventBus` - event publish/subscribe mechanism for inter-subdomain communication
 
 ### Non-negotiable boundaries
 - Do not move domain rules into the public facade or any UI-oriented layer.
@@ -31,6 +53,8 @@ You are working on SprintCycle, a contract-driven lifecycle platform with a stab
 - Do not treat legacy compatibility surfaces as primary architecture.
 - Do not bypass the composition root pattern; infrastructure dependencies must be injected through factory registration.
 - **Do not mix adapter implementations with factory wiring logic.**
+- **Do not make Aggregate Roots mutable; all state changes must return new instances.**
+- **Do not use direct object references between aggregates; use ID references instead.**
 
 ### Layer ownership (DDD Onion Architecture - from outer to inner)
 - **`api.py`**: thin public facade for normalization, routing, delegation, and aggregation.
@@ -42,9 +66,10 @@ You are working on SprintCycle, a contract-driven lifecycle platform with a stab
   - `orchestration/`: sprint orchestrator
   - `factories/`: **pure wiring logic only** - composition root, dependency injection setup
 - **`domain/`**: domain layer (core business logic) - no external dependencies.
-  - `core/`: core subdomains (lifecycle, execution, evolution, governance)
+  - `core/`: core subdomains with Aggregate Roots (lifecycle, execution, evolution, governance)
   - `supporting/`: supporting subdomains (intent, verification, fitness)
   - `generic/`: generic subdomains (errors, prompts, models, platform, ports)
+  - `events/`: DomainEvent base class and EventBus
 - **`infrastructure/`**: infrastructure layer (innermost layer) - adapters, config, persistence, integrations.
   - `shared/`: shared infrastructure (persistence)
   - `adapters/core/`: core subdomain adapters (execution, evolution, governance, **orchestration**)
@@ -56,12 +81,30 @@ You are working on SprintCycle, a contract-driven lifecycle platform with a stab
 - Infrastructure is depended on by all other layers but depends on nothing
 - The composition root (`application/factories/http.py`) is the only place where infrastructure implementations should be directly imported and registered
 - **Adapters in `infrastructure/adapters/` implement ports defined in `domain/generic/ports/`**
+- **Aggregate Roots in `domain/core/` depend only on Value Objects and other domain types**
 
 ### Adapter Implementation Rules
 - **Adapter classes must implement domain ports** (defined in `domain/generic/ports/`)
 - **Adapters must be placed in `infrastructure/adapters/`**, not in factories
 - **Factories should only wire dependencies**, not contain implementation logic
 - **Adapters follow the dependency inversion principle**: they depend on domain abstractions (ports), not the other way around
+
+### Aggregate Root Rules
+- **Aggregate Roots must be immutable** (use `@dataclass(frozen=True)`)
+- **All state transitions must return new instances**
+- **Cross-aggregate references must use ID references**, not direct object references
+- **Aggregate Roots must have a unique identity** (e.g., `contract_id`, `execution_id`)
+
+### Value Object Rules
+- **Value Objects have no identity** - equality is based on attribute values
+- **Value Objects are immutable** - no setter methods
+- **Value Objects are self-validating** - validation logic is embedded
+
+### Event-Driven Architecture Rules
+- **Use `DomainEvent` base class for all domain events**
+- **Publish events through `EventBus`**
+- **Subdomains communicate via events**, not direct method calls
+- **Event handlers must be idempotent**
 
 ### Lifecycle and entrypoint rules
 - For any task initiated from the Web platform, the system must be able to complete the full lifecycle stably.
@@ -122,6 +165,7 @@ You are working on SprintCycle, a contract-driven lifecycle platform with a stab
 - Keep changes localized to the smallest responsible layer.
 - If a request touches multiple subsystems, keep boundaries explicit and coordinate through services rather than direct coupling.
 - Prefer explicit lifecycle steps over implicit side effects.
+- **When adding new domain behavior, implement it as a Domain Service or extend an existing Aggregate Root.**
 
 ### Change strategy
 1. Identify the owning subsystem.
@@ -133,6 +177,7 @@ You are working on SprintCycle, a contract-driven lifecycle platform with a stab
 7. Verify that governance, observability, suggestion, and evolution flows remain consistent.
 8. If introducing infrastructure dependencies, register them in the composition root via port factories.
 9. **Place adapter implementations in `infrastructure/adapters/`, not in factories.**
+10. **When adding new domain concepts, follow DDD patterns: Aggregate Root, Value Object, or Domain Service.**
 
 ### Default decision policy
 - When in doubt, preserve the current architecture.
@@ -144,6 +189,7 @@ You are working on SprintCycle, a contract-driven lifecycle platform with a stab
 - Keep the layered directory policy and import-rewrite discipline enforced for structural changes.
 - Always use the composition root pattern for infrastructure dependency resolution.
 - **Factories should only wire, adapters should implement.**
+- **Follow DDD patterns for domain modeling.**
 
 ### Current implementation boundaries
 - `sprintcycle/api.py` is the unified entry, but it only coordinates and aggregates; it does not own workflow business logic.
@@ -154,6 +200,10 @@ You are working on SprintCycle, a contract-driven lifecycle platform with a stab
 - `sprintcycle/interfaces/http/public/` handles the minimal stable contract for external systems.
 - Infrastructure adapters are organized under `sprintcycle/infrastructure/adapters/core/` and `sprintcycle/infrastructure/adapters/generic/`.
 - **Orchestration adapters (`GraphCompilerAdapter`, `RuntimeConfigAdapter`, etc.) are located in `infrastructure/adapters/core/orchestration/`.**
+- **DDD Aggregate Roots are located in `domain/core/<subdomain>/aggregates/`**
+- **DDD Value Objects are located in `domain/core/<subdomain>/values.py` or alongside aggregates**
+- **Domain Services are located in `domain/core/<subdomain>/services.py`**
+- **Domain Events are located in `domain/core/events/`**
 
 ### Architecture and entrypoint end state
 - The final architecture converges on a contract-driven lifecycle, with Dashboard and REST API as the primary entry surfaces.
@@ -162,4 +212,121 @@ You are working on SprintCycle, a contract-driven lifecycle platform with a stab
 - `interfaces/http/` is the current HTTP entry-adaptation layer.
 - `application/factories/http.py` is the composition root for dependency injection and service initialization.
 - **Adapter implementations are cleanly separated from factory wiring logic.**
+- **DDD patterns are fully implemented with Aggregate Roots, Value Objects, Domain Services, and Event-Driven Architecture.**
 - CLI and MCP are not the primary product paths.
+
+---
+
+## 中文
+
+您正在处理 SprintCycle，这是一个遵循 DDD 洋葱架构原则的契约驱动生命周期平台。该实现包含领域驱动设计模式，包括聚合根、值对象、领域服务和事件驱动架构。
+
+### 核心原则
+- 保持当前架构和核心框架不变。
+- 保持公共门面层简洁：可以进行归一化、路由、委托和聚合，但不能包含工作流逻辑。
+- 严格分离执行、治理、可观测性、建议处理、部署/运行时和演化。
+- 优先使用现有的服务、门面、钩子、注册中心、适配器和事件后端，而非引入并行路径。
+- 在重构或调整文件夹时，不要丢失现有代码或破坏必需的调用链和依赖关系。
+- 任何新功能必须放在正确的层中，并使用最小的可能变更。
+- 平台是契约驱动的，入口、编排和治理之间有明确的分离。
+- 最终架构必须支持简洁门面、显式的内部/公共 API 分离，以及跨表面的单一生命周期契约。
+- 遵循组合根模式：`application/factories/http.py` 是 HTTP 服务的指定组合根。
+- **工厂应仅包含组装逻辑；适配器实现应放在 `infrastructure/adapters/` 中。**
+- **遵循 DDD 原则：聚合根是不可变的，值对象没有身份标识，领域服务是无状态的。**
+
+### DDD 子域架构
+- **核心子域**：lifecycle、execution、evolution、governance
+- **支撑子域**：intent、verification、fitness
+- **通用子域**：errors、prompts、models、platform、ports
+
+### DDD 聚合根
+- **lifecycle**：`LifecycleRoot` - 生命周期管理的不可变聚合根
+- **execution**：`SprintAggregate`、`ReleasePlanAggregate` - 不可变执行聚合
+- **evolution**：`EvolutionRequest`、`SandboxSession` - 不可变演化聚合
+- **governance**：`GovernanceSession`、`RuleSetAggregate` - 不可变治理聚合
+
+### DDD 值对象
+- **lifecycle**：`StageEvidence`、`CorrelationContext`、`LifecycleEvidence`、`FailureInfo`、`RuntimeRef`、`GovernanceRef`、`EvolutionRef`
+- **execution**：`TaskResult`、`SprintResult`
+- **governance**：`GovernanceRule`、`RuleEvaluation`、`Finding`
+- **evolution**：`VersionArtifact`、`EvolutionEvidence`
+
+### 领域服务
+- `LifecycleStateMachineService` - 生命周期状态转换的无状态服务
+- `EventBus` - 子域间通信的事件发布/订阅机制
+
+### 不可协商的边界
+- 不要将领域规则移到公共门面或任何面向 UI 的层中。
+- 当需要生命周期拦截、补偿或策略控制时，不要绕过钩子。
+- 当领域协调已经存在时，不要绕过门面。
+- 不要在执行代码中重复可观测性、治理或建议逻辑。
+- 不要在其指定工作流之外修改建议或治理状态。
+- 不要引入削弱当前框架的竞争管道。
+- 不要将遗留兼容表面视为主要架构。
+- 不要绕过组合根模式；基础设施依赖必须通过工厂注册注入。
+- **不要将适配器实现与工厂组装逻辑混合。**
+- **不要使聚合根可变；所有状态更改必须返回新实例。**
+- **不要在聚合之间使用直接对象引用；而是使用 ID 引用。**
+
+### 层所有权（DDD 洋葱架构 - 从外到内）
+- **`api.py`**：用于归一化、路由、委托和聚合的简洁公共门面。
+- **`interfaces/http/`**：HTTP 接口适配层（最外层）- 路由、请求上下文、审计日志。
+  - `dashboard/`：基于领域的 HTTP 路由 - execution/、governance/、lifecycle/、hitl/、suggestions/
+  - `public/`：用于外部集成的最小稳定公共 API
+- **`application/`**：应用服务层 - 用例、编排、工作流协调，按领域组织。
+  - `services/`：按领域组织的服务（execution、governance、lifecycle、evolution、dashboard、observability）
+  - `orchestration/`：sprint 编排器
+  - `factories/`：**仅纯组装逻辑** - 组合根、依赖注入设置
+- **`domain/`**：领域层（核心业务逻辑）- 无外部依赖。
+  - `core/`：带聚合根的核心子域（lifecycle、execution、evolution、governance）
+  - `supporting/`：支撑子域（intent、verification、fitness）
+  - `generic/`：通用子域（errors、prompts、models、platform、ports）
+  - `events/`：DomainEvent 基类和 EventBus
+- **`infrastructure/`**：基础设施层（最内层）- 适配器、配置、持久化、集成。
+  - `shared/`：共享基础设施（持久化）
+  - `adapters/core/`：核心子域适配器（execution、evolution、governance、**orchestration**）
+  - `adapters/generic/`：通用适配器（config、cache、deploy、integrations）
+
+### 聚合根规则
+- **聚合根必须是不可变的**（使用 `@dataclass(frozen=True)`）
+- **所有状态转换必须返回新实例**
+- **跨聚合引用必须使用 ID 引用**，而不是直接对象引用
+- **聚合根必须有唯一标识**（例如 `contract_id`、`execution_id`）
+
+### 值对象规则
+- **值对象没有身份标识** - 相等性基于属性值
+- **值对象是不可变的** - 没有 setter 方法
+- **值对象是自验证的** - 验证逻辑嵌入其中
+
+### 事件驱动架构规则
+- **所有领域事件使用 `DomainEvent` 基类**
+- **通过 `EventBus` 发布事件**
+- **子域通过事件通信**，而不是直接方法调用
+- **事件处理程序必须是幂等的**
+
+### 变更策略
+1. 识别所属子系统。
+2. 检查现有服务、门面、钩子、注册中心或适配器是否可以表达变更。
+3. 在正确的层中实现最小可能的变更。
+4. 保持公共 API 简洁。
+5. 保持编排清晰，领域逻辑本地化。
+6. 验证 Web 触发的端到端生命周期仍然完整。
+7. 验证治理、可观测性、建议和演化流程保持一致。
+8. 如果引入基础设施依赖，通过组合根中的端口工厂注册它们。
+9. **将适配器实现放在 `infrastructure/adapters/` 中，而不是工厂中。**
+10. **添加新领域概念时，遵循 DDD 模式：聚合根、值对象或领域服务。**
+
+### 当前实现边界
+- `sprintcycle/api.py` 是统一入口，但它只协调和聚合；不拥有工作流业务逻辑。
+- `sprintcycle/application/services/` 包含按领域组织的服务：execution、governance、lifecycle、evolution、dashboard、observability。
+- `sprintcycle/application/factories/http.py` 是负责注册基础设施工厂和创建服务实例的组合根。
+- **DDD 聚合根位于 `domain/core/<subdomain>/aggregates/`**
+- **DDD 值对象位于 `domain/core/<subdomain>/values.py` 或聚合根旁边**
+- **领域服务位于 `domain/core/<subdomain>/services.py`**
+- **领域事件位于 `domain/core/events/`**
+
+### 架构和入口端点状态
+- 最终架构收敛于契约驱动的生命周期，Dashboard 和 REST API 作为主要入口表面。
+- Dashboard 通过内部 API 获取更丰富的控制平面数据。
+- 外部系统通过公共 API 消费最小的稳定集成表面。
+- **DDD 模式已完全实现，包括聚合根、值对象、领域服务和事件驱动架构。**

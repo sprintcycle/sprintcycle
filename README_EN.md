@@ -40,14 +40,13 @@ Web Request → Normalize → Plan → Prepare → Decompose → Execute → Obs
 - Support sprint orchestration, checkpoint resume, and recovery
 - Support normalized lifecycle stage transitions
 - Primary entry surfaces are Dashboard, REST API, and Python SDK; CLI / MCP are no longer primary paths
-- Planning and execution are now primarily coordinated through `application/services/execution/`, `application/services/lifecycle/`, and `domain/core/execution/orchestrator/`
+- **DDD Aggregate Root**: `LifecycleRoot` serves as the lifecycle domain aggregate root with immutable design
 
 ### 2. Standard lifecycle contract
 - `LifecycleStateMachine` owns the canonical stage transition rules
 - `LifecycleContract` carries cross-service state facts
 - A unified correlation model links `execution_id`, `task_id`, `suggestion_id`, `runtime_id`, `version_id`, and `trace_id`
 - `final_snapshot` aggregates execution, observation, governance, repair, delivery, runtime, and promotion evidence
-- Contract assembly and aggregation are primarily handled by services such as `application/services/lifecycle/lifecycle_contracts.py` and `application/services/lifecycle/lifecycle_contract_assembly_service.py`
 
 ### 3. Repair and delivery loop
 - Explicitly supports `diagnosed → repairing → verifying → observing`
@@ -59,35 +58,89 @@ Web Request → Normalize → Plan → Prepare → Decompose → Execute → Obs
 - Multi-source validation plugin system powered by pluggy
 - Architecture contract checks, static analysis, YAML validation, ADR checks, mutation testing, and dependency security scanning
 - Suggestion review, approval, rejection, archival, and HITL promotion
-- suggestion / governance / promotion all operate on the same contract
+- **DDD Aggregate Roots**: `GovernanceSession`, `RuleSetAggregate` manage governance sessions and rule sets
 
 ### 5. Observability, audit, and runtime
 - Execution events, trace, replay, summary, and health read models
 - Observability traces write audit payloads into the lifecycle contract
 - Runtime registry and deployment linkage
 - `lifecycle_contract(...)` and `evolution_overview(...)` can query final snapshots, active versions, and promotion guards directly
-- Observability and runtime reads are primarily provided by `application/services/observability/observability_service.py`, `infrastructure/adapters/generic/observability/`, and `infrastructure/adapters/generic/integrations/phoenix/`
 
 ### 6. Versioned evolution
 - Successful promotion writes to the SQLite version registry
 - Active version pointers are linked to final snapshots
 - `EvolutionOverviewResult` shows recent versions, active versions, and final snapshot versions together
-- Version artifacts keep a final-snapshot contract reference for auditability and rollback
-- Versioning and evolution are primarily provided by `application/services/lifecycle/lifecycle_evolution_service.py`, `application/services/evolution/evolution_version_service.py`, and `infrastructure/adapters/core/evolution/version_store/`
+- **DDD Aggregate Roots**: `EvolutionRequest`, `SandboxSession` manage version evolution and sandbox sessions
 
 ### 7. Dashboard and integrations
 - Vue 3 + Element Plus web dashboard
 - FastAPI backend
 - Dashboard, REST API, and Python SDK share the same core contract entry
 - Quality decisions are made explicit through an independent Evaluator Agent and a Sprint Contract
-- HTTP entry adaptation is handled by `interfaces/http/` for public / internal routes
-- The Dashboard is implemented on top of `interfaces/http/dashboard/` plus the frontend app
 
 ### 8. Skills subsystem
 - Scene recognition, skill matching, skill injection, review checklist enrichment, and retro cleanup
 - Hooked into the main flow through `SprintOrchestrator` sprint hooks
-- Skill artifacts and execution traces are persistable and auditable
-- This logic is mainly spread across `domain/core/execution/agents/skills.py` and `domain/core/execution/hooks/skill_hooks.py`
+- **DDD Aggregate Roots**: `SprintAggregate`, `ReleasePlanAggregate` manage execution aggregates
+
+---
+
+## DDD Domain-Driven Design Architecture
+
+### Subdomain Partitioning
+
+SprintCycle follows DDD Onion Architecture with subdomain partitioning:
+
+#### Core Domains - Core Competency
+
+| Subdomain | Responsibility | Aggregate Roots | Value Objects |
+|---------|---------------|----------------|---------------|
+| **lifecycle** | Lifecycle contracts and state machine | `LifecycleRoot` | `StageEvidence`, `CorrelationContext`, `LifecycleEvidence`, `FailureInfo`, `RuntimeRef`, `GovernanceRef`, `EvolutionRef` |
+| **execution** | Execution engine and task orchestration | `SprintAggregate`, `ReleasePlanAggregate` | `TaskResult`, `SprintResult` |
+| **evolution** | Version evolution and promotion | `EvolutionRequest`, `SandboxSession` | `VersionArtifact`, `EvolutionEvidence` |
+| **governance** | Governance and suggestion handling | `GovernanceSession`, `RuleSetAggregate` | `GovernanceRule`, `RuleEvaluation`, `Finding` |
+
+#### Supporting Domains - Business Support
+
+| Subdomain | Responsibility | Main Modules |
+|---------|---------------|--------------|
+| **intent** | Intent parsing and normalization | `supporting/intent/` |
+| **verification** | Verification engine | `supporting/verification/` |
+| **fitness** | Health evaluation | `supporting/fitness/` |
+
+#### Generic Domains - Infrastructure Abstractions
+
+| Subdomain | Responsibility | Main Modules |
+|---------|---------------|--------------|
+| **errors** | Error handling and knowledge routing | `generic/errors/` |
+| **prompts** | Prompt management | `generic/prompts/` |
+| **models** | Generic data models | `generic/models/` |
+| **platform** | Platform views | `generic/platform/` |
+| **ports** | Infrastructure port abstractions | `generic/ports/` |
+
+### Aggregate Root Design Principles
+
+1. **Immutable Design**: All state modifications return new instances for thread safety
+2. **Value Objects**: No identity, equality based on attribute values
+3. **Event-Driven**: Subdomains communicate via `DomainEvent` for decoupling
+4. **ID References**: Cross-aggregate references use IDs instead of direct object references to prevent circular dependencies
+
+### Domain Services
+
+| Service | Responsibility | Location |
+|---------|---------------|----------|
+| `LifecycleStateMachineService` | State machine transition rules | `domain/core/lifecycle/services.py` |
+| `EventBus` | Event publish/subscribe mechanism | `domain/core/events/handlers.py` |
+
+### Event-Driven Architecture
+
+The system uses events for inter-subdomain decoupling:
+
+| Event Type | Source Subdomain | Target Subdomain |
+|-----------|-----------------|-----------------|
+| `SprintCompleted` | execution | governance |
+| `GovernanceCompleted` | governance | evolution |
+| `EvolutionPromoted` | evolution | lifecycle |
 
 ---
 
@@ -226,14 +279,31 @@ api = SprintCycle(project_path="./my-project")
 result = await api.run("Refactor the authentication module")
 ```
 
-Common exports include:
+**DDD Core Components**:
 
-- `SprintCycle`
-- `ReleasePlan`
-- `ReleasePlanParser`
-- `ReleasePlanValidator`
-- `SprintOrchestrator`
-- `SprintExecutor`
+```python
+from sprintcycle.domain.core.lifecycle import (
+    LifecycleRoot,
+    LifecycleStage,
+    LifecycleStatus,
+    create_lifecycle,
+    LifecycleStateMachineService,
+    StageEvidence,
+    CorrelationContext,
+)
+
+# Create lifecycle aggregate root
+lifecycle = create_lifecycle(
+    execution_id="exec-123",
+    task_id="task-456",
+    project_path="/workspace",
+    intent="optimize code"
+)
+
+# State transitions (immutable, returns new instance)
+lifecycle = lifecycle.transition_to(LifecycleStage.NORMALIZED)
+lifecycle = lifecycle.transition_to(LifecycleStage.PLANNED)
+```
 
 ---
 
@@ -244,210 +314,70 @@ sprintcycle/
 ├── api.py                    # Unified API entrypoint
 ├── application/              # Use cases and service orchestration (DDD Application Layer)
 │   ├── services/            # Core business services (organized by domain)
-│   │   ├── execution/       # Execution-related services (phase_workflow, evaluator_agent)
-│   │   ├── governance/      # Governance-related services (governance_orchestration, promotion_policy)
-│   │   ├── lifecycle/       # Lifecycle-related services (state_machine, contracts, evolution, delivery)
-│   │   ├── evolution/       # Version evolution services (promotion_service, version_service)
-│   │   ├── dashboard/       # Dashboard view services (platform_summary, view_service, workbench)
-│   │   ├── observability/   # Observability services (observability_service)
-│   │   └── release/         # Release orchestration services (orchestrator)
-│   ├── orchestration/       # Orchestration layer (sprint_orchestrator)
+│   │   ├── execution/       # Execution-related services
+│   │   ├── governance/      # Governance-related services
+│   │   ├── lifecycle/       # Lifecycle-related services
+│   │   ├── evolution/       # Version evolution services
+│   │   ├── dashboard/       # Dashboard view services
+│   │   ├── observability/   # Observability services
+│   │   └── release/         # Release orchestration services
+│   ├── orchestration/       # Orchestration layer
 │   ├── factories/           # Factory layer (pure wiring logic only)
-│   │   ├── http.py          # Composition root (HTTP service dependency injection)
+│   │   ├── http.py          # Composition root
 │   │   └── orchestration.py # Orchestrator dependency assembly
-│   └── dto/                 # Data transfer objects (results.py)
-├── domain/                   # Domain models (DDD Domain Layer - organized by subdomain)
+│   └── dto/                 # Data transfer objects
+├── domain/                   # Domain models (DDD Domain Layer - subdomain organized)
 │   ├── core/                # Core subdomains (core competency)
 │   │   ├── lifecycle/       # Lifecycle contracts and state machine
-│   │   ├── execution/       # Execution engine and task orchestration (agents, core, hooks, orchestrator)
+│   │   │   ├── lifecycle_root.py    # LifecycleRoot aggregate root
+│   │   │   ├── services.py          # LifecycleStateMachineService
+│   │   │   ├── values.py            # Value objects
+│   │   │   └── models.py            # Business constants
+│   │   ├── execution/       # Execution engine and task orchestration
+│   │   │   └── aggregates/          # SprintAggregate, ReleasePlanAggregate
 │   │   ├── evolution/       # Version evolution and promotion
-│   │   └── governance/      # Governance and suggestion handling (arch_guard, hitl, quality_spec, suggestion)
+│   │   │   └── aggregates/          # EvolutionRequest, SandboxSession
+│   │   ├── governance/      # Governance and suggestion handling
+│   │   │   └── aggregates/          # GovernanceSession, RuleSetAggregate
+│   │   └── events/          # Domain events (DomainEvent, EventBus)
 │   ├── supporting/          # Supporting subdomains (business support)
 │   │   ├── intent/          # Intent parsing and normalization
-│   │   ├── verification/    # Verification engine (providers)
+│   │   ├── verification/    # Verification engine
 │   │   └── fitness/         # Health evaluation
 │   └── generic/             # Generic subdomains (infrastructure abstractions)
-│       ├── errors/          # Error handling and knowledge routing
-│       ├── prompts/         # Prompt management and templates
-│       ├── models/          # Generic data models (release_plan, sprint_models)
-│       ├── platform/        # Platform views and overview
-│       ├── interfaces/      # Generic interface protocol definitions
-│       └── ports/           # Infrastructure port abstractions (dependency injection factory registration)
-├── infrastructure/          # Adapter layer (DDD Infrastructure Layer - organized by subdomain)
-│   ├── shared/              # Shared infrastructure (persistence)
-│   └── adapters/            # Subdomain adapter implementations (implements domain ports)
+│       ├── errors/          # Error handling
+│       ├── prompts/         # Prompt management
+│       ├── models/          # Generic data models
+│       ├── platform/        # Platform views
+│       ├── interfaces/      # Generic interface definitions
+│       └── ports/           # Infrastructure port abstractions
+├── infrastructure/          # Adapter layer (DDD Infrastructure Layer)
+│   ├── shared/              # Shared infrastructure
+│   └── adapters/            # Subdomain adapter implementations
 │       ├── core/           # Core subdomain adapters
-│       │   ├── execution/  # Execution engine adapters (state_store, event_backend)
-│       │   ├── evolution/  # Version evolution adapters (version_store, rollback_store)
-│       │   ├── governance/ # Governance adapters (hitl_store, suggestion_store, arch_guard)
-│       │   └── orchestration/ # Orchestration adapters (GraphCompiler, RuntimeConfig, etc.)
+│       │   ├── execution/  # Execution engine adapters
+│       │   ├── evolution/  # Version evolution adapters
+│       │   ├── governance/ # Governance adapters
+│       │   └── orchestration/ # Orchestration adapters
 │       └── generic/        # Generic subdomain adapters
-│           ├── config/      # Configuration implementations (runtime_config, sprintcycle_config)
-│           ├── cache/       # Cache implementations (redis_backend, disk_backend)
-│           ├── deploy/      # Deployment implementations (compose_manager, runtime_registry)
-│           └── integrations/ # Third-party integrations (langgraph, phoenix, autogpt)
+│           ├── config/      # Configuration implementations
+│           ├── cache/       # Cache implementations
+│           ├── deploy/      # Deployment implementations
+│           └── integrations/ # Third-party integrations
 └── interfaces/              # HTTP interface layer (DDD Interface Adapter Layer)
     └── http/                # HTTP adaptation layer
         ├── app.py           # FastAPI application factory
         ├── request_context.py # Request context
-        ├── dashboard/       # Dashboard-specific HTTP routes (domain-based)
-        │   ├── execution/   # Execution domain routes (trace, detail, replay)
-        │   ├── governance/  # Governance domain routes (check, history, latest)
-        │   ├── lifecycle/   # Lifecycle domain routes (contract, delivery)
-        │   ├── hitl/        # HITL domain routes (pending, history, decision)
-        │   └── suggestions/ # Suggestions domain routes (approve, reject, promoted)
-        └── public/          # Public API endpoints (External integrations)
+        ├── dashboard/       # Dashboard-specific HTTP routes
+        │   ├── execution/   # Execution domain routes
+        │   ├── governance/  # Governance domain routes
+        │   ├── lifecycle/   # Lifecycle domain routes
+        │   ├── hitl/        # HITL domain routes
+        │   └── suggestions/ # Suggestions domain routes
+        └── public/          # Public API endpoints
             ├── execution.py # Plan, run, status, rollback, stop endpoints
             └── health.py    # Health check endpoint
 ```
-
-### Architecture Layer Explanation
-
-| Layer | Responsibility | Key Constraints |
-|-------|---------------|-----------------|
-| **interfaces** | HTTP interfaces, request routing | Forward only, no business logic |
-| **application** | Use case orchestration, service coordination | Depends on domain, factories only wire |
-| **domain** | Domain models, business rules, port definitions | No external dependencies |
-| **infrastructure** | Adapter implementations, infrastructure | Implements domain ports |
-
-### Adapter-Factory Separation Principle
-
-Following DDD Onion Architecture principles, adapter implementations are strictly separated from factory wiring logic:
-
-- **Factory Layer** (`application/factories/`): Only responsible for dependency assembly (wiring), no implementation logic
-- **Adapter Layer** (`infrastructure/adapters/`): Implements ports defined in domain layer, follows Dependency Inversion Principle
-
-**Port-Adapter Mapping**:
-| Port (domain) | Adapter (infrastructure) | Location |
-|---------------|-------------------------|----------|
-| `GraphCompilerPort` | `GraphCompilerAdapter` | `infrastructure/adapters/core/orchestration/` |
-| `RuntimeConfigPort` | `RuntimeConfigAdapter` | `infrastructure/adapters/core/orchestration/` |
-| `StateStorePort` | `StateStoreAdapter` | `infrastructure/adapters/core/orchestration/` |
-| `TraceRuntimePort` | `TraceRuntimeAdapter` | `infrastructure/adapters/core/orchestration/` |
-
----
-
-## DDD Subdomain Architecture
-
-The domain layer (`domain/`) follows DDD onion architecture with subdomain partitioning, keeping the 3-tier architecture (`application/`, `infrastructure/`, `interfaces/`) unchanged.
-
-### Partitioning Principles
-
-Based on SprintCycle's value streams (intent-driven development loop, lifecycle contracts, repair delivery loop, governance and suggestion handling, observability audit and runtime, versioned evolution), subdomains are partitioned in the order of **Core Domains → Supporting Domains → Generic Domains**.
-
-### Subdomain Structure
-
-#### 1. Core Domains - Core Competency
-
-| Subdomain | Responsibility | Main Modules |
-|---------|---------------|--------------|
-| **lifecycle** | Lifecycle contracts and state machine, unified stage transitions | `core/lifecycle/` |
-| **execution** | Execution engine and task orchestration, Sprint runtime core | `core/execution/` (includes agents, core, hooks, orchestrator) |
-| **evolution** | Version evolution and promotion, versioned evolution capability | `core/evolution/` |
-| **governance** | Governance and suggestion handling, HITL review and gates | `core/governance/` (includes quality_spec, hitl, suggestion) |
-
-#### 2. Supporting Domains - Business Support
-
-| Subdomain | Responsibility | Main Modules |
-|---------|---------------|--------------|
-| **intent** | Intent parsing and normalization, NL to structured plan | `supporting/intent/` |
-| **verification** | Verification engine, validation plugins and quality checks | `supporting/verification/` (includes providers) |
-| **fitness** | Health evaluation, multi-dimensional quality scoring | `supporting/fitness/` |
-
-#### 3. Generic Domains - Infrastructure
-
-| Subdomain | Responsibility | Main Modules |
-|---------|---------------|--------------|
-| **errors** | Error handling and knowledge routing | `generic/errors/` |
-| **prompts** | Prompt management and templates | `generic/prompts/` |
-| **models** | Generic data models (ReleasePlan, SprintDefinition, etc.) | `generic/models/` |
-| **platform** | Platform views and overview | `generic/platform/` |
-| **interfaces** | Generic interface protocol definitions | `generic/interfaces/` |
-| **ports** | Infrastructure port abstractions (dependency injection factory registration) | `generic/ports/` |
-
-### Dependency Constraints
-
-```
-core/          ───────┐
-    │                 │ depends on
-    ▼                 ▼
-supporting/    ───────┐
-    │                 │ depends on
-    ▼                 ▼
-generic/       ───────┘
-```
-
-- **Core domains** can only depend on **Supporting domains** and **Generic domains**
-- **Supporting domains** can only depend on **Generic domains**
-- **Generic domains** do not depend on any other subdomains
-
-### Skills Subsystem Positioning
-
-The Skills subsystem belongs to the **Core domain (core/execution)** as an execution engine enhancement:
-- Scene recognition, skill matching, skill injection
-- Hooked into the main flow through `SprintOrchestrator` hooks
-- Located at `domain/core/execution/agents/`
-
----
-
-## Core Services Architecture
-
-### Lifecycle Core
-
-- `application/services/lifecycle/lifecycle_state_machine.py`
-  - Defines the canonical stages: `new → normalized → planned → prepared → decomposed → executing → observing → diagnosed → repairing → verifying → delivering → runtime_linked → governing → promotion_ready → promoted`
-  - Provides stage transitions, event building, and correlation helpers
-
-- `application/services/lifecycle/lifecycle_contracts.py`
-  - Defines `LifecycleContract`
-  - Carries execution, task, project, trace, diagnostics, runtime, suggestion, governance, evolution, recovery, validation_refs, and final snapshot evidence
-  - Provides evidence validation and final snapshot construction helpers
-
-- `application/services/execution/phase_workflow.py`
-  - Provides structured artifacts for plan / prepare / decompose / observe / diagnose / repair / deliver phases
-
-### Runtime Lifecycle
-
-- `application/services/lifecycle/execution_lifecycle_service.py`
-  - Handles execution bootstrap, normalization, runtime registration, observation event emission, and execution detail reads
-
-- `domain/core/execution/orchestrator/sprint_orchestrator.py`
-  - Handles Release Plan expansion, sprint orchestration, task execution, and runtime event coordination
-
-### Recovery, Governance, and Evolution
-
-- `application/services/governance/repair_orchestration_service.py`
-  - Provides a unified recovery route, supporting the `diagnose → repair → verify → observe` loop
-
-- `application/services/governance/promotion_policy.py`
-  - Provides the promotion gate, only allowing evidence-complete contracts with a correct stage and final snapshot to move forward
-
-- `application/services/lifecycle/lifecycle_evolution_service.py`
-  - Builds lifecycle contracts, evaluates promotion, performs promotion, and registers version artifacts
-
-- `infrastructure/adapters/core/evolution/version_store/registry.py`
-  - Manages version registration, active version pointers, and manifest indexing
-
-### Observability, Governance, and Suggestions
-
-- `application/services/observability/observability_service.py`
-  - Handles trace, replay, execution detail assembly, and observability read models
-  - Writes audit payloads into the lifecycle contract
-
-- `application/services/governance/governance_orchestration_service.py`
-  - Handles governance checks and governance read workflows
-
-- `application/services/governance/suggestion_application_service.py`
-  - Handles suggestion review, approval, rejection, archival, and HITL promotion
-
-### Dashboard / Overview / Views
-
-- `application/services/dashboard/platform_summary_service.py`
-  - Handles dashboard/platform-facing summary payloads
-
-- `application/dto/results.py`
-  - Unified result models
-  - Includes `FinalSnapshotResult`, `FinalSnapshotVersionSummary`, and `EvolutionOverviewResult`
 
 ---
 
@@ -480,7 +410,7 @@ The Skills subsystem belongs to the **Core domain (core/execution)** as an execu
 - `docs/SYSTEM_OVERVIEW.md` — System overview and target mature architecture
 - `docs/RELEASE_CHECKLIST.md` — Release checklist
 - `docs/GOVERNANCE_HEAVY_CHECKS.md` — Heavy governance checks documentation
-- `docs/ARCHITECTURE_INVARIANTS.md` — Architecture invariants documentation
+- `docs/ARCHITECTURE_INVARIANTS.md` — Architecture invariants documentation (includes DDD aggregate root design)
 
 ---
 
