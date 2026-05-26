@@ -43,7 +43,7 @@ from sprintcycle.domain.core.lifecycle import (
     LifecycleStateMachineService,
     CorrelationContext,
 )
-from .promotion_policy import PromotionPolicy
+from sprintcycle.domain.core.governance.promotion_policy import PromotionPolicy
 
 
 @dataclass
