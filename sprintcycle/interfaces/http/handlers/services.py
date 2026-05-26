@@ -1,6 +1,8 @@
 """Service aggregator for HTTP handlers.
 
 完全使用新架构：LifecycleRoot + LifecycleStateMachineService
+
+ServiceAggregator 只依赖 application 层服务，不直接依赖 domain 层。
 """
 
 from __future__ import annotations
@@ -21,17 +23,21 @@ from sprintcycle.application.services.lifecycle.execution_lifecycle_service impo
 from sprintcycle.application.services.governance.governance_orchestration_service import GovernanceOrchestrationService
 from sprintcycle.application.services.evolution.evolution_version_service import EvolutionVersionService
 from sprintcycle.application.services.governance.suggestion_application_service import SuggestionApplicationService
+from sprintcycle.application.services.governance.governance_facade_service import GovernanceFacadeService
+from sprintcycle.application.services.governance.suggestion_facade_service import SuggestionFacadeService
+from sprintcycle.application.services.lifecycle.hook_service import HookService
+from sprintcycle.application.services.lifecycle.promotion_policy_service import PromotionPolicyService
 from sprintcycle.domain.generic.ports.config import get_runtime_config
 from sprintcycle.domain.generic.ports.observability import get_observability_facade
 from sprintcycle.domain.generic.ports.registry import create_runtime_registry
 from sprintcycle.domain.generic.ports.evolution import create_evolution_registry
-from sprintcycle.domain.generic.interfaces.hooks import HookRegistry
-from sprintcycle.domain.core.governance.core.facade import GovernanceFacade, create_governance_facade
-from sprintcycle.domain.core.governance.suggestion import SuggestionFacade, create_suggestion_facade
 
 
 class ServiceAggregator:
-    """Aggregates all application services for HTTP handlers."""
+    """Aggregates all application services for HTTP handlers.
+    
+    只依赖 application 层服务，不直接依赖 domain 层。
+    """
 
     def __init__(self, project_path: str):
         self.project_path = project_path
@@ -39,19 +45,19 @@ class ServiceAggregator:
         self._config = get_runtime_config(project_path)
         self._observability = get_observability_facade()
         self._runtime_registry = create_runtime_registry(self._config)
-        self._hooks = HookRegistry()
+        self._hooks = HookService()
         self._evolution_registry = create_evolution_registry(self._config)
 
         self._init_state_store()
         
         self._config_service = ConfigService(project_path)
         
-        self._governance = create_governance_facade(
+        self._governance = GovernanceFacadeService(
             project_path=project_path,
             config=self._config,
         )
         
-        self._suggestion = create_suggestion_facade(
+        self._suggestion = SuggestionFacadeService(
             project_path=project_path,
             config=self._config,
             evolution_facade=None,
@@ -73,7 +79,7 @@ class ServiceAggregator:
             observability=self._observability,
             runtime_registry=self._runtime_registry,
             state_store=self._state_store,
-            hooks=self._hooks,
+            hooks=self._hooks.registry,
         )
 
         self._observability_service = ObservabilityService(
@@ -91,21 +97,21 @@ class ServiceAggregator:
         self._governance_orchestration = GovernanceOrchestrationService(
             project_path=project_path,
             config=self._config,
-            governance=self._governance,
-            hooks=self._hooks,
+            governance=self._governance.facade,
+            hooks=self._hooks.registry,
         )
 
         self._suggestion_application = SuggestionApplicationService(
-            suggestion=self._suggestion,
-            governance=self._governance,
+            suggestion=self._suggestion.facade,
+            governance=self._governance.facade,
             version_registry=self._evolution_registry,
         )
 
-        from sprintcycle.domain.core.governance.promotion_policy import PromotionPolicy
+        self._promotion_policy = PromotionPolicyService()
         self._lifecycle_evolution = LifecycleEvolutionService(
             observability=self._observability,
             runtime_registry=self._runtime_registry,
-            promotion_policy=PromotionPolicy(),
+            promotion_policy=self._promotion_policy.policy,
         )
 
         self._lifecycle_root = LifecycleRootService(project_path=project_path)
@@ -139,7 +145,7 @@ class ServiceAggregator:
         )
 
         self._management_overview = ManagementOverviewService(
-            suggestion=self._suggestion,
+            suggestion=self._suggestion.facade,
             evolution_dashboard=lambda: self._lifecycle_evolution.overview(),
             evolution_cli=lambda: self._lifecycle_evolution.overview_cli(),
         )
@@ -209,15 +215,15 @@ class ServiceAggregator:
         return self._config_service
 
     @property
-    def suggestion(self) -> SuggestionFacade:
-        return self._suggestion
+    def suggestion(self):
+        return self._suggestion.facade
 
     @property
-    def observability(self) -> ObservabilityFacade:
+    def observability(self):
         return self._observability
 
     @property
-    def runtime_registry(self) -> RuntimeRegistry:
+    def runtime_registry(self):
         return self._runtime_registry
 
 
