@@ -25,7 +25,7 @@ await bus.publish(SprintCompleted(...))
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Optional
 
 from sprintcycle.domain.core.events import (
     EventBus,
@@ -33,9 +33,7 @@ from sprintcycle.domain.core.events import (
     SprintCompleted,
     ReleasePlanCompleted,
     GovernanceCompleted,
-    EvolutionPromoted,
     StageTransitioned,
-    RecoveryTriggered,
 )
 
 from sprintcycle.domain.core.governance.aggregates import (

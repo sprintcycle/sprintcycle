@@ -8,7 +8,11 @@ from .release_plan_models import (
     SprintDefinition,
     EvolutionParams,
 )
-from .sprint_models import *
+from .sprint_models import (
+    ConstraintSpec,
+    TaskSpec,
+    VerificationStrategySpec,
+)
 
 __all__ = [
     "ExecutionMode",
