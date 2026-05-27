@@ -12,7 +12,7 @@ from fastapi import APIRouter, Request
 
 from sprintcycle.interfaces.http.handlers.governance import GovernanceHandler
 from sprintcycle.interfaces.http.request_context import RequestContext
-from sprintcycle.domain.generic.ports.config import get_runtime_config
+from sprintcycle.domain.ports.config import get_runtime_config
 
 
 def build_governance_router(handler: GovernanceHandler, project_path: str) -> APIRouter:

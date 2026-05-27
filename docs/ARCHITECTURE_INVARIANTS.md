@@ -29,92 +29,84 @@
 
 ## 2. 分层架构
 
-### 2.1 层级定义（洋葱架构 - 从外到内）
+### 2.1 层级定义（六边形架构）
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    interfaces/http/                        │
 │   (HTTP API: dashboard/[execution, governance, lifecycle, │
 │    hitl, suggestions] / public/ / middleware/)            │
-│                       ↓                                   │
-│              ┌─────────────────────┐                      │
-│              │  HTTP 路由适配层    │                      │
-│              └─────────────────────┘                      │
-├─────────────────────────────────────────────────────────────┤
-│                     composition/                           │
-│    (http_factory.py, evolution_factory.py,                │
-│     orchestration_factory.py)                             │
-│                       ↓                                   │
-│              ┌─────────────────────┐                      │
-│              │    组合根 - 依赖注入 │                      │
-│              └─────────────────────┘                      │
-├─────────────────────────────────────────────────────────────┤
+│              ↓                                            │
+│         ┌─────────────────┐                               │
+│         │   输入端口适配器  │                               │
+│         └────────┬────────┘                               │
+├──────────────────┼─────────────────────────────────────────┤
 │                     application/                           │
 │    (Services: execution, governance, lifecycle, evolution, │
 │     dashboard, observability - organized by domain)        │
-│                       ↓                                   │
-│              ┌─────────────────────┐                      │
-│              │  用例编排与服务层   │                      │
-│              └─────────────────────┘                      │
-├─────────────────────────────────────────────────────────────┤
+│    (composition/: http_factory.py, evolution_factory.py,   │
+│                   orchestration_factory.py)                │
+│              ↓                                            │
+│         ┌─────────────────┐                               │
+│         │   应用服务层     │                               │
+│         └────────┬────────┘                               │
+├──────────────────┼─────────────────────────────────────────┤
 │                       domain/                              │
 │   (Core: lifecycle, execution, evolution, governance;      │
 │    Supporting: intent, fitness;                           │
-│    Generic: errors, prompts, models, platform, ports,     │
-│             interfaces)                                   │
-│                       ↓                                   │
-│              ┌─────────────────────┐                      │
-│              │  领域模型与业务规则  │                      │
-│              │  聚合根与值对象      │                      │
-│              └─────────────────────┘                      │
-├─────────────────────────────────────────────────────────────┤
+│    Generic: errors, prompts, models, platform, interfaces)│
+│    (ports/: 端口协议定义)                                  │
+│              ↓                                            │
+│         ┌─────────────────┐                               │
+│         │   核心业务逻辑   │                               │
+│         │   端口定义层     │                               │
+│         └────────┬────────┘                               │
+├──────────────────┼─────────────────────────────────────────┤
 │                  infrastructure/                           │
-│  (shared/persistence, adapters/core, adapters/generic)     │
-│                       ↓                                   │
-│              ┌─────────────────────┐                      │
-│              │   基础设施适配层    │                      │
-│              │   adapters/:实现   │                      │
-│              └─────────────────────┘                      │
+│  (adapters/core/, adapters/generic/, shared/persistence)   │
+│              ↓                                            │
+│         ┌─────────────────┐                               │
+│         │   输出端口适配器  │                               │
+│         │   基础设施实现   │                               │
+│         └─────────────────┘                               │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**洋葱架构层次说明：**
+**六边形架构层次说明：**
 
-| 层级 | 位置 | 职责 | 依赖方向 |
+| 层级 | 位置 | 职责 | 六边形角色 |
 |------|------|------|----------|
-| **interfaces** | 最外层 | HTTP 接口、请求路由、上下文传递、中间件 | 依赖 application |
-| **composition** | 第二层 | 组合根、依赖注入、服务初始化 | 依赖 application 和 infrastructure |
-| **application** | 第三层 | 用例编排、服务协调、事务边界 | 依赖 domain |
-| **domain** | 第四层 | 领域模型、业务规则、聚合根、值对象、端口定义 | 无外部依赖 |
-| **infrastructure** | 最内层 | 数据库、缓存、外部集成、适配器 | 被所有层依赖 |
+| **interfaces** | 最外层 | HTTP 接口、请求路由、上下文传递、中间件 | 输入端口适配器 |
+| **application** | 第二层 | 用例编排、服务协调、事务边界、组合根 | 应用服务层 |
+| **domain** | 核心层 | 领域模型、业务规则、聚合根、值对象、端口定义 | 核心业务逻辑 |
+| **infrastructure** | 最内层 | 数据库、缓存、外部集成、适配器实现 | 输出端口适配器 |
 
 **领域层子域划分：**
 - **Core Domains（核心子域）**: lifecycle, execution, evolution, governance（含 verification）
 - **Supporting Domains（支撑子域）**: intent, fitness  
-- **Generic Domains（通用子域）**: errors, prompts, models, platform, ports, interfaces
+- **Generic Domains（通用子域）**: errors, prompts, models, platform, interfaces
+- **Ports（端口层）**: `domain/ports/` - 所有外部依赖的协议接口定义
 
 ### 2.2 各层职责
 
 | 层级 | 核心职责 | 不变性约束 |
 |------|----------|------------|
 | **interfaces** | HTTP 请求路由、请求上下文、审计日志、中间件 | 仅做请求转发，不含业务逻辑 |
-| **composition** | 依赖注入、服务组装、工厂注册 | 纯组装逻辑，不含业务实现 |
-| **application** | 跨服务编排、生命周期管理、API 聚合 | 依赖 domain，不直接操作基础设施 |
+| **application** | 跨服务编排、生命周期管理、API 聚合、组合根（依赖注入、服务组装） | 依赖 domain，不直接操作基础设施 |
 | **domain** | 领域模型、业务规则、聚合根、值对象、领域服务、端口定义 | 无外部依赖，纯业务表达 |
-| **infrastructure** | 配置、持久化、外部集成、可观测性 | 实现细节，不暴露给 domain |
+| **infrastructure** | 配置、持久化、外部集成、可观测性、适配器实现 | 实现细节，不暴露给 domain |
 
-### 2.3 跨层依赖规则
+### 2.3 跨层依赖规则（六边形架构）
 
 ```
-interfaces → composition → application → domain → infrastructure
+interfaces → application → domain → infrastructure
 ```
 
 **分层依赖说明（从外到内）：**
-- **interfaces** 依赖 **application** 和 **composition**
-- **composition** 依赖 **application** 和 **infrastructure**
-- **application** 依赖 **domain**
+- **interfaces** 依赖 **application**
+- **application** 依赖 **domain**（通过端口协议）
 - **domain** 无外部依赖（纯业务逻辑）
-- **infrastructure** 被所有层依赖（不依赖任何层）
+- **infrastructure** 实现端口协议，被 application 层通过依赖注入使用
 
 **domain 层内部子域依赖：**
 ```
@@ -122,15 +114,26 @@ core/ (lifecycle, execution, evolution, governance)
     ↓
 supporting/ (intent, fitness)
     ↓
-generic/ (errors, prompts, models, platform, ports, interfaces)
+generic/ (errors, prompts, models, platform, interfaces)
+    ↓
+ports/ (端口协议定义)
 ```
+
+**端口-适配器对应关系：**
+
+| 端口定义 | 位置 | 适配器实现 | 位置 |
+|----------|------|-----------|------|
+| `StateStoreProtocol` | `domain/ports/state_store.py` | `StateStore`, `SqliteStateStore` | `infrastructure/adapters/core/execution/state_store/` |
+| `EngineAdapterProtocol` | `domain/ports/llm.py` | `CursorCookbookAdapter`, `ClaudeCodeAdapter` | `infrastructure/adapters/generic/llm/` |
+| `CacheBackendProtocol` | `domain/ports/cache.py` | `RedisCache`, `DiskCache` | `infrastructure/adapters/generic/cache/` |
+| `ArchGuardAdapterProtocol` | `domain/ports/governance.py` | `ArchonAdapter`, `RuffAdapter` | `infrastructure/adapters/core/governance/arch_guard/` |
 
 **禁止**：
 - domain 层依赖 application 层或 interfaces 层
 - infrastructure 层依赖任何业务层
 - 任何层直接访问数据库实现细节
-- **工厂层包含适配器实现**
-- **composition 层包含业务逻辑**
+- **application 层直接依赖基础设施实现（必须通过端口协议）**
+- **端口定义包含实现逻辑**
 
 ---
 

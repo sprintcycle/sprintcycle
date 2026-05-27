@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict
 
-from sprintcycle.domain.generic.ports.integrations import compile_intent_graph
+from sprintcycle.domain.ports.integrations import compile_intent_graph
 
 
 @dataclass

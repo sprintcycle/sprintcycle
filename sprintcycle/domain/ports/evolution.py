@@ -76,7 +76,7 @@ def get_version_manifest_summary(registry: Any, version_id: str) -> Dict[str, An
 
 def evolution_sandbox_status(config: Any) -> Dict[str, Any]:
     """获取进化沙箱状态"""
-    from sprintcycle.domain.generic.ports.integrations import create_phoenix_exporter_spec, create_phoenix_trace_runtime
+    from sprintcycle.domain.ports.integrations import create_phoenix_exporter_spec, create_phoenix_trace_runtime
     
     try:
         exporter = create_phoenix_exporter_spec()

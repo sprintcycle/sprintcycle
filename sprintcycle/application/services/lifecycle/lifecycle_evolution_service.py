@@ -12,8 +12,8 @@ from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
 from sprintcycle.domain.core.governance import PromotionPolicy
-from sprintcycle.domain.generic.ports.observability import ObservabilityFacadeProtocol
-from sprintcycle.domain.generic.ports.registry import RuntimeRegistryProtocol
+from sprintcycle.domain.ports.observability import ObservabilityFacadeProtocol
+from sprintcycle.domain.ports.registry import RuntimeRegistryProtocol
 
 
 @dataclass

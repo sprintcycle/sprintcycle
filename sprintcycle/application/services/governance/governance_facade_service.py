@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 
 from sprintcycle.domain.core.governance.core.facade import GovernanceFacade, create_governance_facade
-from sprintcycle.domain.generic.ports.config import RuntimeConfigProtocol
+from sprintcycle.domain.ports.config import RuntimeConfigProtocol
 
 
 class GovernanceFacadeService:

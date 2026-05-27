@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from sprintcycle.domain.generic.ports.governance import (
+from sprintcycle.domain.ports.governance import (
     get_archguard_adapter,
     get_grimp_adapter,
     get_import_linter_adapter,

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from sprintcycle.domain.generic.ports.orchestration import (
+from sprintcycle.domain.ports.orchestration import (
     GraphCompilerPort,
     KnowledgeInjectionHookPort,
     KnowledgeRepositoryPort,

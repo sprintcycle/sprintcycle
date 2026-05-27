@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 from loguru import logger
 
-from sprintcycle.domain.generic.ports.state_store import (
+from sprintcycle.domain.ports.state_store import (
     get_git_rollback_mixin,
     get_rollback_config_cls,
     get_rollback_error_cls,

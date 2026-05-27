@@ -13,7 +13,7 @@ from typing import Any, Dict
 
 from sprintcycle.domain.generic.platform.overview import build_platform_overview_view
 from sprintcycle.domain.generic.platform.spec import build_platform_spec
-from sprintcycle.domain.generic.ports.state_store import StateStoreProtocol
+from sprintcycle.domain.ports.state_store import StateStoreProtocol
 from .dashboard_view_service import DashboardViewService
 from .dashboard_workbench_service import DashboardWorkbenchService
 

@@ -11,7 +11,7 @@ from typing import Optional
 
 from loguru import logger
 
-from sprintcycle.domain.generic.ports.orchestration import OrchestrationDependencies
+from sprintcycle.domain.ports.orchestration import OrchestrationDependencies
 
 
 def create_orchestration_dependencies(

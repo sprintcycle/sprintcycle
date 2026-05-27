@@ -16,7 +16,7 @@ from ..base import AgentContext, AgentExecutor, AgentResult, AgentType
 from .types import BatchConfig
 
 if TYPE_CHECKING:
-    from sprintcycle.domain.generic.ports.cache import CacheBackendProtocol as CacheBackend
+    from sprintcycle.domain.ports.cache import CacheBackendProtocol as CacheBackend
 
 
 # 引擎适配器协议（DDD Port）
@@ -72,7 +72,7 @@ def _get_cache_backend() -> Optional["CacheBackend"]:
     global _cache_backend_factory
     if _cache_backend_factory is not None:
         return _cache_backend_factory()
-    from sprintcycle.domain.generic.ports.cache import get_cache_backend
+    from sprintcycle.domain.ports.cache import get_cache_backend
     return get_cache_backend()
 
 
@@ -84,7 +84,7 @@ def _resolve_engine_adapter(
     global _engine_adapter_factory
     if _engine_adapter_factory is not None:
         return _engine_adapter_factory(engine, config)
-    from sprintcycle.domain.generic.ports.llm import resolve_engine_adapter as _resolve
+    from sprintcycle.domain.ports.llm import resolve_engine_adapter as _resolve
 
     return _resolve(
         engine,

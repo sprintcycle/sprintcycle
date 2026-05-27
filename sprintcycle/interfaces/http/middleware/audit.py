@@ -6,7 +6,7 @@ from typing import Awaitable, Callable
 
 from fastapi import Request, Response
 
-from sprintcycle.domain.generic.ports.audit import get_audit_adapter
+from sprintcycle.domain.ports.audit import get_audit_adapter
 
 
 async def audit_middleware(

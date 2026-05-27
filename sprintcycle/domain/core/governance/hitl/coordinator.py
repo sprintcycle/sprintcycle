@@ -14,19 +14,19 @@ from uuid import uuid4
 from loguru import logger
 
 from sprintcycle.domain.core.execution.core.events import Event, EventType, ExecutionEventBackend
-from sprintcycle.domain.generic.ports.config import RuntimeConfigProtocol
+from sprintcycle.domain.ports.config import RuntimeConfigProtocol
 from .context import build_replay_context, merge_correction_into_context, summarize_context_diff
 from .decision_normalize import normalize_hitl_decision_with_intent, validate_hitl_decision_for_submit
 from .events import HitlEventType
 from .types import HitlCorrection, HitlDecision, HitlGate, HitlReplayDirective, HitlRequestRecord, HitlRiskLevel
 
 if TYPE_CHECKING:
-    from sprintcycle.domain.generic.ports.hitl import HitlStoreProtocol
+    from sprintcycle.domain.ports.hitl import HitlStoreProtocol
 
 
 def _create_hitl_store(project_path: str) -> "HitlStoreProtocol":
     """创建 HITL Store（使用 Port 接口）"""
-    from sprintcycle.domain.generic.ports.hitl import get_hitl_store
+    from sprintcycle.domain.ports.hitl import get_hitl_store
     return get_hitl_store(project_path)
 
 

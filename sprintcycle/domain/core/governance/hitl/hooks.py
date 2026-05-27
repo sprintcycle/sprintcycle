@@ -14,7 +14,7 @@ from loguru import logger
 from sprintcycle.domain.generic.models import ReleasePlan, SprintBacklogItem, SprintDefinition
 from sprintcycle.domain.generic.interfaces import SprintLifecycleHookProtocol, TaskLifecycleHookProtocol
 from sprintcycle.domain.generic.interfaces import ExecutionStatus, TaskResult, SprintResult
-from sprintcycle.domain.generic.ports.config import RuntimeConfigProtocol
+from sprintcycle.domain.ports.config import RuntimeConfigProtocol
 from .types import (
     CTX_HITL_ABORT_EXECUTION,
     HitlDecision,
@@ -25,7 +25,7 @@ from .types import (
 )
 
 if TYPE_CHECKING:
-    from sprintcycle.domain.generic.ports.observability import ObservabilityFacadeProtocol
+    from sprintcycle.domain.ports.observability import ObservabilityFacadeProtocol
 
 
 class HitlSprintHooks(SprintLifecycleHookProtocol):

@@ -12,7 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
-from sprintcycle.domain.generic.ports.observability import ObservabilityFacadeProtocol
+from sprintcycle.domain.ports.observability import ObservabilityFacadeProtocol
 from sprintcycle.domain.core.lifecycle import (
     LifecycleRoot,
     LifecycleStage,

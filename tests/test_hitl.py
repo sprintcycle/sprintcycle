@@ -158,7 +158,7 @@ async def test_hitl_submit_unblocks_waiter(tmp_path) -> None:
 
 @pytest.mark.asyncio
 async def test_hitl_show_reads_db_without_hitl_enabled(tmp_path, monkeypatch) -> None:
-    from sprintcycle.composition import initialize_http_infrastructure
+    from sprintcycle.application.composition import initialize_http_infrastructure
     from sprintcycle.interfaces.http.handlers.services import create_service_aggregator
     from sprintcycle.interfaces.http.handlers.hitl import HitlHandler
 
@@ -191,7 +191,7 @@ async def test_hitl_show_reads_db_without_hitl_enabled(tmp_path, monkeypatch) ->
 
 @pytest.mark.asyncio
 async def test_hitl_submit_rejects_invalid_decision(tmp_path, monkeypatch) -> None:
-    from sprintcycle.composition import initialize_http_infrastructure
+    from sprintcycle.application.composition import initialize_http_infrastructure
     from sprintcycle.interfaces.http.handlers.services import create_service_aggregator
     from sprintcycle.interfaces.http.handlers.hitl import HitlHandler
 

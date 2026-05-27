@@ -11,8 +11,8 @@ from typing import Any, Callable, Dict, Optional
 from sprintcycle.application.services.governance.governance_orchestration_service import GovernanceOrchestrationService
 from sprintcycle.application.services.lifecycle.lifecycle_evolution_service import LifecycleEvolutionService
 from sprintcycle.application.services.governance.repair_orchestration_service import RepairOrchestrationService
-from sprintcycle.domain.generic.ports.deploy import PlatformLaunchServiceProtocol
-from sprintcycle.domain.generic.ports.registry import RuntimeRegistryProtocol
+from sprintcycle.domain.ports.deploy import PlatformLaunchServiceProtocol
+from sprintcycle.domain.ports.registry import RuntimeRegistryProtocol
 
 
 @dataclass

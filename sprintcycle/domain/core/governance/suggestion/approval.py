@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from .models import SuggestionApprovalRecord, SuggestionReviewRecord
 
 if TYPE_CHECKING:
-    from sprintcycle.domain.generic.ports.suggestion import SuggestionStoreProtocol
+    from sprintcycle.domain.ports.suggestion import SuggestionStoreProtocol
 
 
 class SuggestionApprovalService:

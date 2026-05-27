@@ -8,8 +8,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
-from sprintcycle.domain.generic.ports.observability import ObservabilityFacadeProtocol
-from sprintcycle.domain.generic.ports.state_store import StateStoreProtocol
+from sprintcycle.domain.ports.observability import ObservabilityFacadeProtocol
+from sprintcycle.domain.ports.state_store import StateStoreProtocol
 from sprintcycle.domain.core.lifecycle import (
     create_lifecycle,
     LifecycleStage,

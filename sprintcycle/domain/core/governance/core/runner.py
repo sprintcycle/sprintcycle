@@ -19,8 +19,8 @@ from sprintcycle.domain.core.governance.quality_spec.context import build_qualit
 from sprintcycle.domain.core.governance.quality_spec.rules.planning_rules import default_planning_rules
 from sprintcycle.domain.generic.models.task_spec import TaskSpec
 from sprintcycle.domain.core.execution.core.static_analyzer import AnalysisConfig, StaticAnalyzer
-from sprintcycle.domain.generic.ports.config import RuntimeConfigProtocol
-from sprintcycle.domain.generic.ports.governance import (
+from sprintcycle.domain.ports.config import RuntimeConfigProtocol
+from sprintcycle.domain.ports.governance import (
     get_archguard_adapter,
     get_grimp_adapter,
     get_import_linter_adapter,
@@ -44,19 +44,19 @@ from ..hitl.facade import HitlFacade, create_hitl_facade
 
 def _runs_architecture_guard(project_path: str) -> bool:
     """检查是否运行架构守卫（通过 Port 接口）"""
-    from sprintcycle.domain.generic.ports.governance import runs_architecture_guard
+    from sprintcycle.domain.ports.governance import runs_architecture_guard
     return runs_architecture_guard(project_path)
 
 
 def _runs_pytest(project_path: str) -> bool:
     """检查是否运行 pytest（通过 Port 接口）"""
-    from sprintcycle.domain.generic.ports.governance import runs_pytest
+    from sprintcycle.domain.ports.governance import runs_pytest
     return runs_pytest(project_path)
 
 
 def _runs_static_gate(project_path: str) -> bool:
     """检查是否运行静态门检查（通过 Port 接口）"""
-    from sprintcycle.domain.generic.ports.governance import runs_static_gate
+    from sprintcycle.domain.ports.governance import runs_static_gate
     return runs_static_gate(project_path)
 
 

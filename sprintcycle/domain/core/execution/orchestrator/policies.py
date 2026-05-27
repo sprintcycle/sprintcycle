@@ -57,7 +57,7 @@ class SprintPersistencePolicy:
         sprint_result: SprintResult,
         measurement: Optional[MeasurementResult],
     ) -> None:
-        from sprintcycle.domain.generic.ports.knowledge import get_sprint_outcome_card_persister
+        from sprintcycle.domain.ports.knowledge import get_sprint_outcome_card_persister
 
         persister = get_sprint_outcome_card_persister()
         persister.persist(

@@ -7,7 +7,7 @@ alwaysApply: true
 
 ## English
 
-You are working on SprintCycle, an intent-driven closed-loop production platform with a stable layered architecture following DDD Onion principles. This implementation includes Domain-Driven Design patterns with Aggregate Roots, Value Objects, Domain Services, and Event-Driven Architecture.
+You are working on SprintCycle, an intent-driven closed-loop production platform with a stable layered architecture following DDD Hexagonal (Ports & Adapters) principles. This implementation includes Domain-Driven Design patterns with Aggregate Roots, Value Objects, Domain Services, and Event-Driven Architecture.
 
 ### Core principles
 - Preserve the current architecture and core skeleton.
@@ -56,43 +56,45 @@ You are working on SprintCycle, an intent-driven closed-loop production platform
 - **Do not make Aggregate Roots mutable; all state changes must return new instances.**
 - **Do not use direct object references between aggregates; use ID references instead.**
 
-### Layer ownership (DDD Onion Architecture - from outer to inner)
+### Layer ownership (DDD Hexagonal Architecture)
 - **`api.py`**: thin public facade for normalization, routing, delegation, and aggregation.
-- **`interfaces/http/`**: HTTP interface adapter layer (outermost layer) - routes, request context, middleware, audit logging.
+- **`interfaces/http/`**: HTTP interface adapter layer (input port adapters) - routes, request context, middleware, audit logging.
   - `dashboard/`: domain-based HTTP routes - execution/, governance/, lifecycle/, hitl/, suggestions/
   - `public/`: minimal stable public API for external integrations
   - `middleware/`: rate limiting, audit, and other cross-cutting concerns
-- **`composition/`**: composition root layer - dependency injection, service initialization, factory registration.
-  - `http_factory.py`: HTTP service dependency injection
-  - `evolution_factory.py`: Evolution Facade factory
-  - `orchestration_factory.py`: Orchestrator dependency assembly
 - **`application/`**: application services layer - use cases, orchestration, workflow coordination, organized by domain.
   - `services/`: domain-organized services (execution, governance, lifecycle, evolution, dashboard, observability, release)
   - `orchestration/`: sprint orchestrator
   - `dto/`: data transfer objects
+  - `composition/`: composition root - dependency injection, service initialization, factory registration.
+    - `http_factory.py`: HTTP service dependency injection
+    - `evolution_factory.py`: Evolution Facade factory
+    - `orchestration_factory.py`: Orchestrator dependency assembly
 - **`domain/`**: domain layer (core business logic) - no external dependencies.
   - `core/`: core subdomains with Aggregate Roots (lifecycle, execution, evolution, governance including verification)
   - `supporting/`: supporting subdomains (intent, fitness)
-  - `generic/`: generic subdomains (errors, prompts, models, platform, ports, interfaces)
+  - `generic/`: generic subdomains (errors, prompts, models, platform, interfaces)
   - `events/`: DomainEvent base class and EventBus
-- **`infrastructure/`**: infrastructure layer (innermost layer) - adapters, config, persistence, integrations.
+  - `ports/`: port definitions - interfaces for external dependencies
+- **`infrastructure/`**: infrastructure layer (output port adapters) - adapters, config, persistence, integrations.
   - `shared/`: shared infrastructure (persistence)
   - `adapters/core/`: core subdomain adapters (execution, evolution, governance, orchestration)
   - `adapters/generic/`: generic adapters (config, cache, deploy, integrations, observability)
 
-### Layer dependency rules
-- `interfaces` → `composition` → `application` → `domain` → `infrastructure` (outer to inner)
+### Layer dependency rules (Hexagonal Architecture)
+- `interfaces` → `application` → `domain` → `infrastructure` (outer to inner)
 - Domain layer has no external dependencies
 - Infrastructure is depended on by all other layers but depends on nothing
-- The composition root (`composition/http_factory.py`) is the only place where infrastructure implementations should be directly imported and registered
-- **Adapters in `infrastructure/adapters/` implement ports defined in `domain/generic/ports/`**
+- The composition root (`application/composition/http_factory.py`) is the only place where infrastructure implementations should be directly imported and registered
+- **Adapters in `infrastructure/adapters/` implement ports defined in `domain/ports/`**
 - **Aggregate Roots in `domain/core/` depend only on Value Objects and other domain types**
 - **`domain/generic/interfaces/` contains generic interface definitions shared across layers**
+- **`domain/ports/` contains port definitions for all external dependencies**
 
-### Adapter Implementation Rules
-- **Adapter classes must implement domain ports** (defined in `domain/generic/ports/`)
+### Adapter Implementation Rules (Hexagonal Architecture)
+- **Adapter classes must implement domain ports** (defined in `domain/ports/`)
 - **Adapters must be placed in `infrastructure/adapters/`**, not in factories
-- **Factories should only wire dependencies**, not contain implementation logic
+- **Composition root (`application/composition/`) should only wire dependencies**, not contain implementation logic
 - **Adapters follow the dependency inversion principle**: they depend on domain abstractions (ports), not the other way around
 
 ### Aggregate Root Rules

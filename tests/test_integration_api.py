@@ -31,7 +31,7 @@ class TestExecutionHandlerDiagnose:
 
     def test_diagnose_returns_health(self):
         """diagnose → returns health information"""
-        from sprintcycle.composition import initialize_http_infrastructure
+        from sprintcycle.application.composition import initialize_http_infrastructure
         initialize_http_infrastructure(self.temp_dir)
         
         services = create_service_aggregator(self.temp_dir)
@@ -55,7 +55,7 @@ class TestExecutionHandlerStatus:
 
     def test_status_returns_overview(self):
         """status → returns console overview when no execution_id provided"""
-        from sprintcycle.composition import initialize_http_infrastructure
+        from sprintcycle.application.composition import initialize_http_infrastructure
         initialize_http_infrastructure(self.temp_dir)
         
         services = create_service_aggregator(self.temp_dir)
@@ -77,7 +77,7 @@ class TestExecutionHandlerStop:
 
     def test_stop_returns_result(self):
         """stop returns StopResult-like dict"""
-        from sprintcycle.composition import initialize_http_infrastructure
+        from sprintcycle.application.composition import initialize_http_infrastructure
         initialize_http_infrastructure(self.temp_dir)
         
         services = create_service_aggregator(self.temp_dir)
@@ -100,7 +100,7 @@ class TestExecutionHandlerRollback:
 
     def test_rollback_returns_result(self):
         """rollback returns RollbackResult-like dict"""
-        from sprintcycle.composition import initialize_http_infrastructure
+        from sprintcycle.application.composition import initialize_http_infrastructure
         initialize_http_infrastructure(self.temp_dir)
         
         services = create_service_aggregator(self.temp_dir)

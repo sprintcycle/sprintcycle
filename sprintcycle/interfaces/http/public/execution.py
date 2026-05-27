@@ -12,7 +12,7 @@ from fastapi import APIRouter, Request
 from sprintcycle.interfaces.http.handlers.execution import ExecutionHandler
 from sprintcycle.interfaces.http.request_context import RequestContext
 from sprintcycle.application.orchestration.sprint_orchestrator import SprintOrchestrator
-from sprintcycle.domain.generic.ports.config import get_runtime_config
+from sprintcycle.domain.ports.config import get_runtime_config
 
 
 def build_public_execution_router(handler: ExecutionHandler, project_path: str) -> APIRouter:

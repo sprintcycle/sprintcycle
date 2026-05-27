@@ -50,7 +50,7 @@ def load_project_config(project_path: str) -> ConfigProtocol:
     if _config_loader is not None:
         return _config_loader(project_path)
     # 使用 Ports 接口获取配置
-    from sprintcycle.domain.generic.ports.config import get_runtime_config
+    from sprintcycle.domain.ports.config import get_runtime_config
     return get_runtime_config(project_path)
 
 

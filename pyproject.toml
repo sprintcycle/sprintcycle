@@ -91,17 +91,17 @@ ignore = ["E501"]
 root_package = "sprintcycle"
 
 [[tool.importlinter.contracts]]
-name = "API 层不得依赖 dashboard（G4 / L3 最小门禁）"
+name = "接口层不得依赖 dashboard（G4 / L3 最小门禁）"
 type = "forbidden"
 source_modules = [
-    "sprintcycle.api",
+    "sprintcycle.interfaces",
 ]
 forbidden_modules = [
     "sprintcycle.dashboard",
 ]
 
 [[tool.importlinter.contracts]]
-name = "编排层不得依赖 dashboard（G4）"
+name = "应用层不得依赖 dashboard（G4）"
 type = "forbidden"
 source_modules = [
     "sprintcycle.application",
@@ -111,21 +111,41 @@ forbidden_modules = [
 ]
 
 [[tool.importlinter.contracts]]
-name = "Release plan 层不得依赖 dashboard（G4）"
+name = "Release 层不得依赖 dashboard（G4）"
 type = "forbidden"
 source_modules = [
-    "sprintcycle.application.release_plan",
+    "sprintcycle.application.services.release",
 ]
 forbidden_modules = [
     "sprintcycle.dashboard",
 ]
 
 [[tool.importlinter.contracts]]
-name = "执行层不得依赖 dashboard（G4）"
+name = "领域核心层不得依赖 dashboard（G4）"
 type = "forbidden"
 source_modules = [
-    "sprintcycle.execution",
+    "sprintcycle.domain.core",
 ]
 forbidden_modules = [
     "sprintcycle.dashboard",
+]
+
+[[tool.importlinter.contracts]]
+name = "领域层不得依赖基础设施层（Hexagonal）"
+type = "forbidden"
+source_modules = [
+    "sprintcycle.domain",
+]
+forbidden_modules = [
+    "sprintcycle.infrastructure",
+]
+
+[[tool.importlinter.contracts]]
+name = "应用服务层不得直接依赖基础设施层（Hexagonal）"
+type = "forbidden"
+source_modules = [
+    "sprintcycle.application.services",
+]
+forbidden_modules = [
+    "sprintcycle.infrastructure",
 ]

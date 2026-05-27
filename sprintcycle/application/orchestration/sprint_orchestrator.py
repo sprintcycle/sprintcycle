@@ -49,7 +49,7 @@ from sprintcycle.domain.core.lifecycle import (
     LifecycleStage,
     LifecycleStateMachineService,
 )
-from sprintcycle.domain.generic.ports.orchestration import OrchestrationDependencies
+from sprintcycle.domain.ports.orchestration import OrchestrationDependencies
 
 
 class SprintOrchestrator:

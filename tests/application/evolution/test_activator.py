@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from sprintcycle.domain.evolution.activator import EvolutionActivator
-from sprintcycle.domain.evolution.runtime_state import (
+from sprintcycle.domain.core.evolution.activator import EvolutionActivator
+from sprintcycle.domain.core.evolution.runtime_state import (
     ActivationGuardResult,
     ActivationReasonCode,
     ActivationState,

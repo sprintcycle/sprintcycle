@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 
 from sprintcycle.domain.core.governance.core.facade import GovernanceFacade
 from sprintcycle.domain.core.governance.suggestion import SuggestionFacade
-from sprintcycle.domain.generic.ports.evolution import EvolutionRegistryProtocol
+from sprintcycle.domain.ports.evolution import EvolutionRegistryProtocol
 from sprintcycle.domain.generic.interfaces.hooks import (
     SUGGESTION_APPROVAL_COMPLETED_EVENT,
     SUGGESTION_APPROVE_SUGGESTION,

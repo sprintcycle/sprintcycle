@@ -11,14 +11,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from sprintcycle.execution.rollback import (
+from sprintcycle.infrastructure.adapters.core.evolution.rollback_store.rollback import (
     RollbackConfig,
     VariantBranch,
     RollbackError,
     _run_git,
     _is_git_repo,
 )
-from sprintcycle.domain.evolution.rollback_manager import EvolutionRollbackManager
+from sprintcycle.domain.core.evolution.rollback_manager import EvolutionRollbackManager
 
 
 # =============================================================================

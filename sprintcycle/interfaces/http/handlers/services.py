@@ -27,10 +27,10 @@ from sprintcycle.application.services.governance.governance_facade_service impor
 from sprintcycle.application.services.governance.suggestion_facade_service import SuggestionFacadeService
 from sprintcycle.application.services.lifecycle.hook_service import HookService
 from sprintcycle.application.services.lifecycle.promotion_policy_service import PromotionPolicyService
-from sprintcycle.domain.generic.ports.config import get_runtime_config
-from sprintcycle.domain.generic.ports.observability import get_observability_facade
-from sprintcycle.domain.generic.ports.registry import create_runtime_registry
-from sprintcycle.domain.generic.ports.evolution import create_evolution_registry
+from sprintcycle.domain.ports.config import get_runtime_config
+from sprintcycle.domain.ports.observability import get_observability_facade
+from sprintcycle.domain.ports.registry import create_runtime_registry
+from sprintcycle.domain.ports.evolution import create_evolution_registry
 
 
 class ServiceAggregator:
@@ -63,7 +63,7 @@ class ServiceAggregator:
             evolution_facade=None,
         )
 
-        from sprintcycle.domain.generic.ports.deploy import create_platform_launch_service
+        from sprintcycle.domain.ports.deploy import create_platform_launch_service
         self._platform_launch = create_platform_launch_service()
 
         self._dashboard_views = DashboardViewService(project_path=project_path)
@@ -151,7 +151,7 @@ class ServiceAggregator:
         )
 
     def _init_state_store(self) -> None:
-        from sprintcycle.domain.generic.ports.state_store import get_state_store
+        from sprintcycle.domain.ports.state_store import get_state_store
         self._state_store = get_state_store()
 
     @property

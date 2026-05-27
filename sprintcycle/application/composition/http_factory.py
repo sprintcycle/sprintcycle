@@ -34,7 +34,7 @@ class InfrastructureFactory:
             RollbackError,
             VariantBranch,
         )
-        from sprintcycle.domain.generic.ports.state_store import register_rollback_implementations
+        from sprintcycle.domain.ports.state_store import register_rollback_implementations
 
         register_rollback_implementations(
             GitRollbackMixin=GitRollbackMixin,
@@ -45,7 +45,7 @@ class InfrastructureFactory:
             run_git=_run_git,
         )
 
-        from sprintcycle.domain.generic.ports.state_store import register_state_store_factory
+        from sprintcycle.domain.ports.state_store import register_state_store_factory
 
         def create_state_store(store_dir: Optional[str] = None):
             from sprintcycle.infrastructure.adapters.core.execution.state_store import get_state_store as _get
@@ -53,7 +53,7 @@ class InfrastructureFactory:
 
         register_state_store_factory(create_state_store)
 
-        from sprintcycle.domain.generic.ports.cache import register_cache_backend_factory
+        from sprintcycle.domain.ports.cache import register_cache_backend_factory
 
         def create_cache_backend(runtime: Any = None, project_path: str = "."):
             from sprintcycle.infrastructure.adapters.generic.cache import build_cache_backend as _get
@@ -62,7 +62,7 @@ class InfrastructureFactory:
 
         register_cache_backend_factory(create_cache_backend)
 
-        from sprintcycle.domain.generic.ports.config import register_runtime_config_factory
+        from sprintcycle.domain.ports.config import register_runtime_config_factory
 
         def create_runtime_config(project_path: Optional[str] = None):
             if project_path:
@@ -71,7 +71,7 @@ class InfrastructureFactory:
 
         register_runtime_config_factory(create_runtime_config)
 
-        from sprintcycle.domain.generic.ports.registry import register_runtime_registry_factory
+        from sprintcycle.domain.ports.registry import register_runtime_registry_factory
 
         def create_runtime_registry(config: Any):
             from sprintcycle.infrastructure.adapters.generic.config.runtime_registry import RuntimeRegistry
@@ -79,7 +79,7 @@ class InfrastructureFactory:
 
         register_runtime_registry_factory(create_runtime_registry)
 
-        from sprintcycle.domain.generic.ports.deploy import register_platform_launch_factory
+        from sprintcycle.domain.ports.deploy import register_platform_launch_factory
 
         def create_platform_launch_service():
             from sprintcycle.infrastructure.adapters.generic.deploy.platform_launch_service import PlatformLaunchService
@@ -88,7 +88,7 @@ class InfrastructureFactory:
 
         register_platform_launch_factory(create_platform_launch_service)
 
-        from sprintcycle.domain.generic.ports.evolution import (
+        from sprintcycle.domain.ports.evolution import (
             register_evolution_registry_factory,
             register_version_manifest_factory,
         )
@@ -99,7 +99,7 @@ class InfrastructureFactory:
 
         register_version_manifest_factory(get_version_manifest_summary)
 
-        from sprintcycle.domain.generic.ports.governance import (
+        from sprintcycle.domain.ports.governance import (
             register_archguard_adapter_factory,
             register_grimp_adapter_factory,
             register_import_linter_adapter_factory,
@@ -121,7 +121,7 @@ class InfrastructureFactory:
         register_typecheck_adapter_factory(lambda: TypeCheckAdapter())
 
         from sprintcycle.infrastructure.adapters.core.governance.hitl_store import HitlSqliteStore
-        from sprintcycle.domain.generic.ports.hitl import register_hitl_store_factory
+        from sprintcycle.domain.ports.hitl import register_hitl_store_factory
 
         def create_hitl_store(project_path: Optional[str] = None):
             from sprintcycle.infrastructure.adapters.core.governance.hitl_store import default_hitl_db_path
@@ -130,7 +130,7 @@ class InfrastructureFactory:
         register_hitl_store_factory(create_hitl_store)
 
         from sprintcycle.infrastructure.adapters.core.governance.suggestion_store import SuggestionStore
-        from sprintcycle.domain.generic.ports.suggestion import register_suggestion_store_factory
+        from sprintcycle.domain.ports.suggestion import register_suggestion_store_factory
 
         def create_suggestion_store(store_root: Optional[str] = None):
             root = store_root or ".sprintcycle/governance/suggestion"
@@ -138,7 +138,7 @@ class InfrastructureFactory:
 
         register_suggestion_store_factory(create_suggestion_store)
 
-        from sprintcycle.domain.generic.ports.llm import register_engine_adapter_factory
+        from sprintcycle.domain.ports.llm import register_engine_adapter_factory
 
         def create_engine_adapter(engine: str, config: Any):
             from sprintcycle.infrastructure.adapters.generic.llm.engine_adapters import resolve_engine_adapter as _resolve
@@ -155,7 +155,7 @@ class InfrastructureFactory:
 
         register_engine_adapter_factory(create_engine_adapter)
 
-        from sprintcycle.domain.generic.ports.observability import register_observability_facade_factory
+        from sprintcycle.domain.ports.observability import register_observability_facade_factory
 
         def create_observability_facade(project_path: Optional[str] = None, config: Any = None):
             from sprintcycle.infrastructure.adapters.generic.observability.facade import ObservabilityFacade
@@ -163,7 +163,7 @@ class InfrastructureFactory:
 
         register_observability_facade_factory(create_observability_facade)
 
-        from sprintcycle.domain.generic.ports.knowledge import (
+        from sprintcycle.domain.ports.knowledge import (
             register_knowledge_repository_factory,
             register_sprint_outcome_card_factory,
         )
@@ -176,12 +176,12 @@ class InfrastructureFactory:
 
         def create_sprint_outcome_card_persister():
             from sprintcycle.infrastructure.adapters.generic.knowledge.sprint_knowledge_card import persist_sprint_outcome_card
-            from sprintcycle.domain.generic.ports.knowledge import SprintOutcomeCardAdapter
+            from sprintcycle.domain.ports.knowledge import SprintOutcomeCardAdapter
             return SprintOutcomeCardAdapter(persist_sprint_outcome_card)
 
         register_sprint_outcome_card_factory(create_sprint_outcome_card_persister)
 
-        from sprintcycle.domain.generic.ports.integrations import (
+        from sprintcycle.domain.ports.integrations import (
             register_autogpt_compose_factory,
             register_autogpt_runtime_factory,
             register_langgraph_adapter_factory,
@@ -230,17 +230,17 @@ class InfrastructureFactory:
         register_phoenix_exporter_factory(create_phoenix_exporter_spec)
         register_phoenix_trace_factory(create_phoenix_trace_runtime)
 
-        from sprintcycle.domain.generic.ports.rate_limit import register_rate_limit_adapter
+        from sprintcycle.domain.ports.rate_limit import register_rate_limit_adapter
         from sprintcycle.infrastructure.adapters.generic.config.rate_limit import RateLimitAdapter
 
         register_rate_limit_adapter(RateLimitAdapter())
 
-        from sprintcycle.domain.generic.ports.audit import register_audit_adapter
+        from sprintcycle.domain.ports.audit import register_audit_adapter
         from sprintcycle.infrastructure.adapters.generic.integrations.audit import AuditAdapter
 
         register_audit_adapter(AuditAdapter())
 
-        from sprintcycle.domain.generic.ports.diagnostics import register_diagnostic_adapter
+        from sprintcycle.domain.ports.diagnostics import register_diagnostic_adapter
         from sprintcycle.infrastructure.adapters.generic.observability.diagnostics.adapter import DiagnosticAdapter
 
         register_diagnostic_adapter(DiagnosticAdapter(self.project_path))

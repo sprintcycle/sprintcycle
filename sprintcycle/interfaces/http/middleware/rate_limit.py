@@ -6,7 +6,7 @@ from typing import Awaitable, Callable
 
 from fastapi import Request, Response
 
-from sprintcycle.domain.generic.ports.rate_limit import get_rate_limit_adapter
+from sprintcycle.domain.ports.rate_limit import get_rate_limit_adapter
 
 
 async def rate_limit_middleware(

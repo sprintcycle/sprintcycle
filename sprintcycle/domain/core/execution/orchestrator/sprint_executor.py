@@ -55,7 +55,7 @@ from ._feedback_stub import FeedbackReleasePlanStub
 
 # TYPE_CHECKING: 仅用于类型提示，通过端口层访问
 if TYPE_CHECKING:
-    from sprintcycle.domain.generic.ports.state_store import ExecutionState
+    from sprintcycle.domain.ports.state_store import ExecutionState
 
 
 class SprintExecutor:
@@ -158,7 +158,7 @@ class SprintExecutor:
     def state_store(self) -> Any:
         """获取状态存储（延迟初始化以避免循环依赖）"""
         if self._state_store is None:
-            from sprintcycle.domain.generic.ports.state_store import get_state_store
+            from sprintcycle.domain.ports.state_store import get_state_store
             self._state_store = get_state_store()
         return self._state_store
 

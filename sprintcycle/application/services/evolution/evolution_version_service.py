@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
-from sprintcycle.domain.generic.ports.config import RuntimeConfigProtocol
-from sprintcycle.domain.generic.ports.evolution import (
+from sprintcycle.domain.ports.config import RuntimeConfigProtocol
+from sprintcycle.domain.ports.evolution import (
     EvolutionRegistryProtocol,
     create_evolution_registry,
     evolution_sandbox_status,

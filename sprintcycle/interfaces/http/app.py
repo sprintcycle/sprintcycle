@@ -11,7 +11,7 @@ from fastapi import APIRouter, FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, StreamingResponse
 
-from sprintcycle.composition import initialize_http_infrastructure
+from sprintcycle.application.composition import initialize_http_infrastructure
 from sprintcycle.interfaces.http.handlers import (
     ServiceAggregator,
     ExecutionHandler,
@@ -23,7 +23,7 @@ from sprintcycle.interfaces.http.handlers import (
 )
 from sprintcycle.interfaces.http.request_context import RequestContext
 from sprintcycle.interfaces.http.middleware import rate_limit_middleware, audit_middleware
-from sprintcycle.domain.generic.ports.observability import get_observability_facade
+from sprintcycle.domain.ports.observability import get_observability_facade
 from pydantic import BaseModel
 
 _DASHBOARD_DEV = os.environ.get("SPRINTCYCLE_ENV", "production") == "development"

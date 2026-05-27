@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict
 
-from sprintcycle.domain.generic.ports.integrations import (
+from sprintcycle.domain.ports.integrations import (
     AutoGPTComposeSpecProtocol,
     AutoGPTRuntimeSpecProtocol,
     PhoenixExporterSpecProtocol,

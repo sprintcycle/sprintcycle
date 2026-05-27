@@ -31,14 +31,14 @@ def register_all_infrastructure(project_path: str, config: Any) -> None:
     logger.debug("[Infrastructure] Registered persistence factories")
 
     # 注册状态存储工厂到端口
-    from sprintcycle.domain.generic.ports.state_store import register_state_store_factory
+    from sprintcycle.domain.ports.state_store import register_state_store_factory
     from sprintcycle.infrastructure.adapters.core.execution.state_store import get_state_store
 
     register_state_store_factory(get_state_store)
     logger.debug("[Infrastructure] Registered state_store factory to ports")
 
     # 注册缓存工厂到端口
-    from sprintcycle.domain.generic.ports.cache import register_cache_backend_factory
+    from sprintcycle.domain.ports.cache import register_cache_backend_factory
     from sprintcycle.infrastructure.adapters.generic.cache import build_cache_backend
     from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
 
@@ -50,7 +50,7 @@ def register_all_infrastructure(project_path: str, config: Any) -> None:
     logger.debug("[Infrastructure] Registered cache factory to ports")
 
     # 注册治理适配器工厂到端口
-    from sprintcycle.domain.generic.ports.governance import (
+    from sprintcycle.domain.ports.governance import (
         register_archguard_adapter_factory,
         register_grimp_adapter_factory,
         register_import_linter_adapter_factory,
@@ -73,7 +73,7 @@ def register_all_infrastructure(project_path: str, config: Any) -> None:
     logger.debug("[Infrastructure] Registered governance adapters to ports")
 
     # 注册配置工厂到端口
-    from sprintcycle.domain.generic.ports.config import register_runtime_config_factory
+    from sprintcycle.domain.ports.config import register_runtime_config_factory
 
     def _config_factory(project_path: Optional[str] = None) -> RuntimeConfig:
         if project_path:
@@ -84,7 +84,7 @@ def register_all_infrastructure(project_path: str, config: Any) -> None:
     logger.debug("[Infrastructure] Registered config factory to ports")
 
     # 注册 LLM 引擎适配器工厂到端口
-    from sprintcycle.domain.generic.ports.llm import register_engine_adapter_factory
+    from sprintcycle.domain.ports.llm import register_engine_adapter_factory
     from sprintcycle.infrastructure.adapters.generic.llm.engine_adapters import (
         resolve_engine_adapter,
         EngineAdapterConfig,
@@ -104,7 +104,7 @@ def register_all_infrastructure(project_path: str, config: Any) -> None:
     logger.debug("[Infrastructure] Registered LLM engine factory to ports")
 
     # 注册集成适配器工厂到端口
-    from sprintcycle.domain.generic.ports.integrations import (
+    from sprintcycle.domain.ports.integrations import (
         register_autogpt_compose_factory,
         register_autogpt_runtime_factory,
         register_langgraph_adapter_factory,

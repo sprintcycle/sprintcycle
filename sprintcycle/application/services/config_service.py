@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 
-from sprintcycle.domain.generic.ports.config import RuntimeConfigProtocol, get_runtime_config
+from sprintcycle.domain.ports.config import RuntimeConfigProtocol, get_runtime_config
 
 
 class ConfigService:

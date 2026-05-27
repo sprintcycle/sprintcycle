@@ -11,10 +11,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from sprintcycle.domain.generic.interfaces.hooks import EXECUTION_STARTED_EVENT, HookContext, HookPhase, HookRegistry, HookRunner
-from sprintcycle.domain.generic.ports.config import RuntimeConfigProtocol
-from sprintcycle.domain.generic.ports.observability import ObservabilityFacadeProtocol
-from sprintcycle.domain.generic.ports.registry import RuntimeRegistryProtocol
-from sprintcycle.domain.generic.ports.state_store import StateStoreProtocol
+from sprintcycle.domain.ports.config import RuntimeConfigProtocol
+from sprintcycle.domain.ports.observability import ObservabilityFacadeProtocol
+from sprintcycle.domain.ports.registry import RuntimeRegistryProtocol
+from sprintcycle.domain.ports.state_store import StateStoreProtocol
 
 
 class ExecutionLifecycleService:
