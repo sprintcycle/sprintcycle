@@ -8,7 +8,7 @@ from __future__ import annotations
 import asyncio
 import uuid
 from collections import defaultdict
-from typing import Any, Callable, Dict, List
+from typing import Dict, List
 
 from loguru import logger
 from sqlalchemy import text

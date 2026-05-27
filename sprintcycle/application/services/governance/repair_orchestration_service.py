@@ -14,7 +14,6 @@ from typing import Any, Dict, Optional
 
 from sprintcycle.domain.ports.observability import ObservabilityFacadeProtocol
 from sprintcycle.domain.core.lifecycle import (
-    LifecycleRoot,
     LifecycleStage,
     LifecycleStateMachineService,
     create_lifecycle,

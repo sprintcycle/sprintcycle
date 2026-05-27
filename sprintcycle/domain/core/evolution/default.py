@@ -7,7 +7,6 @@ This module provides a convenient factory for assembling the evolution control p
 
 from __future__ import annotations
 
-from typing import Any
 
 from sprintcycle.domain.generic.interfaces import (
     VersionRegistryProtocol,

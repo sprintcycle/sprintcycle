@@ -8,7 +8,7 @@ and dashboard-facing lifecycle snapshots.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import Any, Dict, Optional
 
 from sprintcycle.domain.generic.interfaces.hooks import EXECUTION_STARTED_EVENT, HookContext, HookPhase, HookRegistry, HookRunner
 from sprintcycle.domain.ports.config import RuntimeConfigProtocol

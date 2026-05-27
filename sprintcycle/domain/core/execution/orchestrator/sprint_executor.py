@@ -55,7 +55,7 @@ from ._feedback_stub import FeedbackReleasePlanStub
 
 # TYPE_CHECKING: 仅用于类型提示，通过端口层访问
 if TYPE_CHECKING:
-    from sprintcycle.domain.ports.state_store import ExecutionState
+    pass
 
 
 class SprintExecutor:

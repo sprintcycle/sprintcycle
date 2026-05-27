@@ -1,7 +1,6 @@
 """版本注册表协议 - Domain 层定义接口，Infrastructure 层实现"""
 
 from abc import ABC, abstractmethod
-from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 

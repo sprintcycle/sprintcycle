@@ -6,7 +6,7 @@ that should be implemented by infrastructure adapters.
 
 from __future__ import annotations
 
-from typing import Any, Protocol, runtime_checkable, Optional
+from typing import Any, Protocol, runtime_checkable
 
 
 @runtime_checkable

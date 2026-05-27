@@ -11,9 +11,8 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Optional
 
 from .state_machine import LIFECYCLE_STAGES, LifecycleStateMachine, build_default_correlation
-from .lifecycle_root import create_lifecycle, LifecycleStage, LifecycleStatus, LifecycleRoot
+from .lifecycle_root import create_lifecycle, LifecycleStage
 from .services import LifecycleStateMachineService
-from .values import CorrelationContext
 
 STAGE_EVIDENCE_SCHEMA: Dict[str, tuple[str, ...]] = {
     "normalized": ("normalized",),
@@ -404,8 +403,6 @@ def build_lifecycle_contract(
     )
     
     # 转换到目标阶段
-    from .lifecycle_root import LifecycleStage
-    from .services import LifecycleStateMachineService
     service = LifecycleStateMachineService()
     
     try:

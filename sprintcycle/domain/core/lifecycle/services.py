@@ -12,7 +12,6 @@ stage transitions.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
@@ -400,7 +399,7 @@ class LifecycleStateMachineService:
         Provides compatibility for code that expects the old format.
         """
         from .lifecycle_root import LifecycleRoot
-        from .values import StageEvidence, LifecycleEvidence
+        from .values import LifecycleEvidence
         
         if not isinstance(lifecycle, LifecycleRoot):
             return dict(lifecycle or {})

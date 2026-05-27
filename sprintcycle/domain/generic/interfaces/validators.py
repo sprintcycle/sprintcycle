@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from sprintcycle.domain.generic.models import ReleasePlan
-    from sprintcycle.domain.generic.interfaces.validator_protocol import ValidationResult
 
 
 class ValidatorProtocol(ABC):

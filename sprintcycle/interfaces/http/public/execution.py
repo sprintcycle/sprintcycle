@@ -5,7 +5,6 @@ HTTP endpoints for external execution API.
 
 from __future__ import annotations
 
-from typing import Any, Dict
 
 from fastapi import APIRouter, Request
 
@@ -47,7 +46,7 @@ def build_public_execution_router(handler: ExecutionHandler, project_path: str) 
         Returns:
             dict: Plan result.
         """
-        ctx = _ctx(request)
+        _ctx(request)
         config = get_runtime_config(project_path)
         orchestrator = SprintOrchestrator(project_path=project_path, config=config)
         result = orchestrator.plan(
@@ -73,7 +72,7 @@ def build_public_execution_router(handler: ExecutionHandler, project_path: str) 
         Returns:
             dict: Run result.
         """
-        ctx = _ctx(request)
+        _ctx(request)
         config = get_runtime_config(project_path)
         orchestrator = SprintOrchestrator(project_path=project_path, config=config)
         result = orchestrator.run(
@@ -100,7 +99,7 @@ def build_public_execution_router(handler: ExecutionHandler, project_path: str) 
         Returns:
             dict: Diagnosis result.
         """
-        ctx = _ctx(request)
+        _ctx(request)
         result = handler.diagnose()
         return result
 
@@ -115,7 +114,7 @@ def build_public_execution_router(handler: ExecutionHandler, project_path: str) 
         Returns:
             dict: Status result.
         """
-        ctx = _ctx(request)
+        _ctx(request)
         result = handler.status(execution_id=payload.get("execution_id", ""))
         return result
 
@@ -130,7 +129,7 @@ def build_public_execution_router(handler: ExecutionHandler, project_path: str) 
         Returns:
             dict: Rollback result.
         """
-        ctx = _ctx(request)
+        _ctx(request)
         result = handler.rollback(execution_id=payload.get("execution_id", ""))
         return result
 
@@ -145,7 +144,7 @@ def build_public_execution_router(handler: ExecutionHandler, project_path: str) 
         Returns:
             dict: Stop result.
         """
-        ctx = _ctx(request)
+        _ctx(request)
         result = handler.stop_execution(execution_id=payload.get("execution_id", ""))
         return result
 

@@ -7,7 +7,7 @@ that should be implemented by infrastructure adapters.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 
 @dataclass(slots=True)

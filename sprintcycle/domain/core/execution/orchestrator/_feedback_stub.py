@@ -1,6 +1,6 @@
 """Feedback Release Plan Stub - 用于反馈循环中生成假计划。"""
 
-from sprintcycle.domain.generic.models import ReleasePlan, SprintDefinition, SprintBacklogItem
+from sprintcycle.domain.generic.models import ReleasePlan
 
 
 class FeedbackReleasePlanStub:

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, Optional, List
+from typing import Any, Callable, Dict, List
 
 from sprintcycle.domain.generic.interfaces.hooks import (
     HookRegistry,
@@ -10,8 +10,6 @@ from sprintcycle.domain.generic.interfaces.hooks import (
     HookContext,
     HookResult,
     HookPhase,
-    HookPolicy,
-    HookHandler,
 )
 
 

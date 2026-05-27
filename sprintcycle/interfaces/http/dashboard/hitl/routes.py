@@ -25,19 +25,19 @@ def build_hitl_router(handler: HitlHandler, project_path: str) -> APIRouter:
 
     @router.get("/api/hitl/pending")
     async def hitl_pending(request: Request, execution_id: str = "") -> dict:
-        ctx = _ctx(request)
+        _ctx(request)
         result = handler.hitl_pending(execution_id if execution_id else None)
         return result
 
     @router.get("/api/hitl/history")
     async def hitl_history(request: Request, execution_id: str = "", limit: int = 50) -> dict:
-        ctx = _ctx(request)
+        _ctx(request)
         result = handler.hitl_history(execution_id if execution_id else None, limit=limit)
         return result
 
     @router.post("/api/hitl/{request_id}/decision")
     async def hitl_decision(request: Request, request_id: str, body: dict) -> dict:
-        ctx = _ctx(request)
+        _ctx(request)
         result = handler.hitl_submit(
             request_id,
             body.get("decision", ""),
@@ -47,7 +47,7 @@ def build_hitl_router(handler: HitlHandler, project_path: str) -> APIRouter:
 
     @router.get("/api/hitl/{request_id}")
     async def hitl_show(request: Request, request_id: str) -> dict:
-        ctx = _ctx(request)
+        _ctx(request)
         result = handler.hitl_show(request_id)
         return result
 

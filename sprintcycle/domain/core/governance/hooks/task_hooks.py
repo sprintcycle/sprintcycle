@@ -8,15 +8,15 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
 from sprintcycle.domain.generic.models import SprintBacklogItem
-from sprintcycle.domain.generic.interfaces import TaskLifecycleHookProtocol, ExecutionEventProtocol
+from sprintcycle.domain.generic.interfaces import TaskLifecycleHookProtocol
 from sprintcycle.domain.generic.interfaces import ExecutionStatus, TaskResult
 from sprintcycle.domain.ports.config import RuntimeConfigProtocol
-from ..hitl import HitlGate, HitlService, create_hitl_coordinator, evaluate_hitl_policy
+from ..hitl import HitlService
 from sprintcycle.domain.core.governance.arch_guard.model import GuardFinding as GovernanceViolation
 from ..arch_guard.yaml_checks import checks_for_gate, filter_argv_items_by_governance_sources, run_argv_item
 from sprintcycle.domain.core.governance.core import load_merged_governance_data

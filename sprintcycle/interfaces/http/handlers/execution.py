@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from .services import ServiceAggregator
 
@@ -66,9 +66,8 @@ class ExecutionHandler:
         return adapter.diagnose(execution_id=execution_id)
 
     def stop_execution(self, execution_id: str = "") -> Any:
-        from sprintcycle.domain.generic.interfaces import ExecutionStatus
+        from sprintcycle.domain.ports.state_store import get_state_store, ExecutionStatus
         from sprintcycle.application.dto.results import StopResult
-        from sprintcycle.domain.ports.state_store import get_state_store
 
         if execution_id:
             store = get_state_store()

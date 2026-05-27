@@ -6,10 +6,6 @@ from dataclasses import dataclass
 from typing import Any, Dict
 
 from sprintcycle.domain.ports.integrations import (
-    AutoGPTComposeSpecProtocol,
-    AutoGPTRuntimeSpecProtocol,
-    PhoenixExporterSpecProtocol,
-    PhoenixTraceRuntimeProtocol,
     build_default_compose_spec,
     compile_intent_graph,
     compile_sprint_graph,

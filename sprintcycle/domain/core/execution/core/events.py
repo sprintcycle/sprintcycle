@@ -32,7 +32,7 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Protocol, Self, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Protocol, Self
 
 from loguru import logger
 

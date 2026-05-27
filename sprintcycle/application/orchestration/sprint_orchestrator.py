@@ -43,7 +43,6 @@ from sprintcycle.domain.core.governance.hooks.sprint_hooks import GovernanceSpri
 from sprintcycle.domain.core.governance.hooks.task_hooks import GovernanceTaskLifecycleHooks
 from sprintcycle.domain.core.evolution.intent_evolution_loop import UserIntentEvolutionLoop
 from sprintcycle.domain.core.evolution.measurement import MeasurementResult
-from sprintcycle.domain.generic.interfaces.protocols import OrchestrationProtocol
 from sprintcycle.domain.core.lifecycle import (
     create_lifecycle,
     LifecycleStage,

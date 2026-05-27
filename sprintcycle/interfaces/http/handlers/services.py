@@ -7,7 +7,6 @@ ServiceAggregator 只依赖 application 层服务，不直接依赖 domain 层�
 
 from __future__ import annotations
 
-from typing import Any, Optional
 
 from sprintcycle.application.services.observability.observability_service import ObservabilityService
 from sprintcycle.application.services.dashboard.platform_summary_service import PlatformSummaryService

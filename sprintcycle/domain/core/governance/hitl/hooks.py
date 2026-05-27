@@ -7,13 +7,13 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict
 
 from loguru import logger
 
-from sprintcycle.domain.generic.models import ReleasePlan, SprintBacklogItem, SprintDefinition
+from sprintcycle.domain.generic.models import SprintBacklogItem, SprintDefinition
 from sprintcycle.domain.generic.interfaces import SprintLifecycleHookProtocol, TaskLifecycleHookProtocol
-from sprintcycle.domain.generic.interfaces import ExecutionStatus, TaskResult, SprintResult
+from sprintcycle.domain.generic.interfaces import ExecutionStatus, SprintResult
 from sprintcycle.domain.ports.config import RuntimeConfigProtocol
 from .types import (
     CTX_HITL_ABORT_EXECUTION,

@@ -55,13 +55,13 @@ def build_config_router(config_handler: ConfigHandler, project_path: str) -> API
 
     @router.get("/api/config")
     async def get_config(request: Request) -> Dict[str, Any]:
-        ctx = _ctx(request)
+        _ctx(request)
         result = {"success": True, "data": config_handler.load_config()}
         return result
 
     @router.put("/api/config")
     async def put_config(request: Request, body: ConfigUpdateRequest) -> Dict[str, Any]:
-        ctx = _ctx(request)
+        _ctx(request)
         cfg = config_handler.load_config()
         cfg.update(body.updates)
         config_handler.save_config(cfg)
@@ -70,7 +70,7 @@ def build_config_router(config_handler: ConfigHandler, project_path: str) -> API
 
     @router.get("/api/config/schema")
     async def get_config_schema(request: Request) -> Dict[str, Any]:
-        ctx = _ctx(request)
+        _ctx(request)
         result = {
             "success": True,
             "data": config_handler.get_config_schema(),
@@ -79,19 +79,19 @@ def build_config_router(config_handler: ConfigHandler, project_path: str) -> API
 
     @router.get("/api/config/history")
     async def get_config_history(request: Request) -> Dict[str, Any]:
-        ctx = _ctx(request)
+        _ctx(request)
         result = {"success": True, "data": config_handler.get_config_history()}
         return result
 
     @router.post("/api/config/reload")
     async def reload_config(request: Request, _body: ReloadRequest) -> Dict[str, Any]:
-        ctx = _ctx(request)
+        _ctx(request)
         result = {"success": True, "data": config_handler.load_config()}
         return result
 
     @router.post("/api/config/import")
     async def import_config(request: Request, body: ConfigImportRequest) -> Dict[str, Any]:
-        ctx = _ctx(request)
+        _ctx(request)
         cfg = config_handler.load_config()
         cfg.update(body.config)
         config_handler.save_config(cfg)

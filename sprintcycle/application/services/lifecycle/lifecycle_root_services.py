@@ -11,7 +11,6 @@ from typing import Any, Callable, Dict, List, Optional
 from sprintcycle.domain.core.lifecycle import (
     LifecycleRoot,
     LifecycleStage,
-    LifecycleStatus,
     create_lifecycle,
     LifecycleStateMachineService,
     StageEvidence,
@@ -83,7 +82,7 @@ class LifecycleRootService:
         
         这是完全兼容旧 API 的新版本实现，内部使用 LifecycleRoot 聚合根。
         """
-        from sprintcycle.domain.core.lifecycle import build_default_correlation, normalize_lifecycle_metadata
+        from sprintcycle.domain.core.lifecycle import normalize_lifecycle_metadata
         
         meta = normalize_lifecycle_metadata(metadata)
         

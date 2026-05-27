@@ -29,7 +29,7 @@ def build_governance_router(handler: GovernanceHandler, project_path: str) -> AP
 
     @router.get("/api/governance/latest")
     async def governance_latest(request: Request) -> dict:
-        ctx = _ctx(request)
+        _ctx(request)
         cfg = get_runtime_config(project_path)
         root = Path(project_path).expanduser().resolve()
         rel = (cfg.governance_report_dir or ".sprintcycle").strip() or ".sprintcycle"
@@ -47,19 +47,19 @@ def build_governance_router(handler: GovernanceHandler, project_path: str) -> AP
 
     @router.get("/api/governance/history")
     async def governance_history(request: Request, limit: int = 50) -> dict:
-        ctx = _ctx(request)
+        _ctx(request)
         result = await handler.governance_history(limit=limit)
         return result
 
     @router.post("/api/governance/check")
     async def governance_check(request: Request, body: dict) -> dict:
-        ctx = _ctx(request)
+        _ctx(request)
         result = await handler.governance_check(gate=body.get("gate", "review"))
         return result
 
     @router.get("/api/governance/lifecycle")
     async def governance_lifecycle(request: Request, execution_id: str = "") -> dict:
-        ctx = _ctx(request)
+        _ctx(request)
         result = await handler.governance_lifecycle(execution_id=execution_id)
         return result
 

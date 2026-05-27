@@ -4,8 +4,6 @@
 """
 
 import re
-from pathlib import Path
-from typing import Optional
 
 from .models import Location, ParsedTraceback, StackFrame
 

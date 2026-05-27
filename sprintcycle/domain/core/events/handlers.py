@@ -8,13 +8,12 @@ from __future__ import annotations
 
 import asyncio
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type
+from dataclasses import dataclass
+from typing import Any, Callable, Dict, List, Optional
 
 from loguru import logger
 
-from .common import DomainEvent, get_event_by_type
+from .common import DomainEvent
 
 
 # =============================================================================

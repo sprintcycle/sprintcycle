@@ -9,9 +9,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from loguru import logger
 
@@ -23,7 +22,6 @@ from sprintcycle.domain.ports.state_store import (
     get_is_git_repo_func,
     get_run_git_func,
     has_git_rollback,
-    register_rollback_implementations,
 )
 
 
@@ -180,7 +178,7 @@ class EvolutionRollbackManager:
             if "__pycache__" in str(py_file) or "test_" in py_file.name:
                 continue
             try:
-                backup_id = f"evo_{variant_id}_{ts}_{hashlib.md5(str(py_file).encode()).hexdigest()[:6]}"
+                backup_id = f"evo_{variant_id}_{ts}_{hashlib.md5(str(py_file).encode(), usedforsecurity=False).hexdigest()[:6]}"
                 backup_path = Path(self.config.backup_dir) / f"{backup_id}.py"
                 backup_path.parent.mkdir(parents=True, exist_ok=True)
                 backup_path.write_bytes(py_file.read_bytes())

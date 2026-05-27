@@ -322,7 +322,7 @@ class RollbackManager:
 
     def _generate_backup_id(self, file_path: str) -> str:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        return f"bk_{timestamp}_{hashlib.md5(f'{file_path}:{timestamp}'.encode()).hexdigest()[:8]}"
+        return f"bk_{timestamp}_{hashlib.md5(f'{file_path}:{timestamp}'.encode(), usedforsecurity=False).hexdigest()[:8]}"
 
     def _compute_file_hash(self, file_path: Path) -> str:
         hasher = hashlib.sha256()

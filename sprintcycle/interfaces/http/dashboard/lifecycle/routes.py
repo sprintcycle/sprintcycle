@@ -25,13 +25,13 @@ def build_lifecycle_router(handler: LifecycleHandler, project_path: str) -> APIR
 
     @router.get("/api/lifecycle/contract")
     async def lifecycle_contract(request: Request, execution_id: str, limit: int = 200) -> dict:
-        ctx = _ctx(request)
+        _ctx(request)
         result = handler.lifecycle_contract(execution_id, limit=limit)
         return result
 
     @router.post("/api/lifecycle/contract/{execution_id}/review")
     async def lifecycle_contract_review(request: Request, execution_id: str, body: dict) -> dict:
-        ctx = _ctx(request)
+        _ctx(request)
         contract = handler.lifecycle_contract(execution_id)
         payload = dict(body or {})
         payload.setdefault("contract", contract.get("data", {}))
@@ -40,7 +40,7 @@ def build_lifecycle_router(handler: LifecycleHandler, project_path: str) -> APIR
 
     @router.get("/api/lifecycle/delivery")
     async def lifecycle_delivery(request: Request) -> dict:
-        ctx = _ctx(request)
+        _ctx(request)
         result = await handler.deploy_lifecycle()
         return result
 

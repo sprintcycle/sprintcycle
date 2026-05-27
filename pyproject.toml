@@ -111,13 +111,13 @@ forbidden_modules = [
 ]
 
 [[tool.importlinter.contracts]]
-name = "Release 层不得依赖 dashboard（G4）"
-type = "forbidden"
+name = "应用组合层可依赖基础设施层（Hexagonal DI）"
+type = "allowed"
 source_modules = [
-    "sprintcycle.application.services.release",
+    "sprintcycle.application.composition",
 ]
-forbidden_modules = [
-    "sprintcycle.dashboard",
+allowed_modules = [
+    "sprintcycle.infrastructure",
 ]
 
 [[tool.importlinter.contracts]]
@@ -148,4 +148,25 @@ source_modules = [
 ]
 forbidden_modules = [
     "sprintcycle.infrastructure",
+]
+
+[[tool.importlinter.contracts]]
+name = "接口层可依赖端口层（Hexagonal）"
+type = "allowed"
+source_modules = [
+    "sprintcycle.interfaces",
+]
+allowed_modules = [
+    "sprintcycle.domain.ports",
+]
+
+[[tool.importlinter.contracts]]
+name = "接口层不得直访领域核心层（Hexagonal）"
+type = "forbidden"
+source_modules = [
+    "sprintcycle.interfaces",
+]
+forbidden_modules = [
+    "sprintcycle.domain.core",
+    "sprintcycle.domain.generic",
 ]

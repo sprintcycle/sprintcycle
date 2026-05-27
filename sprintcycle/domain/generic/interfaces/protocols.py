@@ -9,11 +9,11 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from sprintcycle.domain.generic.models import ReleasePlan, SprintDefinition
-from sprintcycle.domain.generic.interfaces import SprintResult, TaskResult, ExecutionStatus
+from sprintcycle.domain.generic.models import ReleasePlan
+from sprintcycle.domain.generic.interfaces import TaskResult, ExecutionStatus
 
 if TYPE_CHECKING:
-    from sprintcycle.domain.generic.interfaces.config import ConfigProtocol
+    pass
 
 
 class OrchestrationProtocol(ABC):
@@ -124,56 +124,7 @@ class GraphCompilerProtocol(ABC):
         ...
 
 
-class KnowledgeRepositoryProtocol(ABC):
-    """知识库协议"""
 
-    @abstractmethod
-    def get_card(self, card_id: str) -> Optional[Dict[str, Any]]:
-        """获取知识卡片"""
-        ...
-
-    @abstractmethod
-    def save_card(self, card: Dict[str, Any]) -> str:
-        """保存知识卡片"""
-        ...
-
-    @abstractmethod
-    def query(self, query: str, **kwargs: Any) -> List[Dict[str, Any]]:
-        """查询知识"""
-        ...
-
-
-class ObservabilityFacadeProtocol(ABC):
-    """可观测性门面协议"""
-
-    @abstractmethod
-    def emit_event(self, event: Dict[str, Any]) -> None:
-        """发射事件"""
-        ...
-
-    @abstractmethod
-    def emit_trace(self, traces: List[Dict[str, Any]]) -> None:
-        """发射追踪"""
-        ...
-
-
-class RuntimeRegistryProtocol(ABC):
-    """运行时注册表协议"""
-
-    @abstractmethod
-    def register(self, key: str, value: Any) -> None:
-        """注册运行时值"""
-        ...
-
-    @abstractmethod
-    def get(self, key: str, default: Any = None) -> Any:
-        """获取运行时值"""
-        ...
-
-    @abstractmethod
-    def clear(self) -> None:
-        """清除所有注册"""
-        ...
 
 
 # --- Protocol Exports ---
@@ -186,7 +137,4 @@ __all__ = [
     # Infrastructure
     "ExecutionStateProtocol",
     "GraphCompilerProtocol",
-    "KnowledgeRepositoryProtocol",
-    "ObservabilityFacadeProtocol",
-    "RuntimeRegistryProtocol",
 ]

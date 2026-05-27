@@ -7,7 +7,6 @@ from loguru import logger
 from sprintcycle.domain.generic.interfaces import Event, EventType, ExecutionEventBackendProtocol
 
 from sprintcycle.domain.generic.models import ReleasePlan, SprintDefinition
-from .config import VerificationConfig
 from .engine import VerificationEngine
 from .reporter import VerificationReportAdapter
 

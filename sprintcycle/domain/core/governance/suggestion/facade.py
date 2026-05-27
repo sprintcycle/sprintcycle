@@ -14,7 +14,7 @@ from .models import (
 from .service import SuggestionService
 
 if TYPE_CHECKING:
-    from sprintcycle.domain.ports.suggestion import SuggestionStoreProtocol
+    pass
 
 
 class SuggestionFacade:

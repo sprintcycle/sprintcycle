@@ -8,7 +8,7 @@ from loguru import logger
 from sprintcycle.domain.generic.prompts.prompt_sources import TESTER_UNITTEST_STUB_PREFIX
 
 from ..base import AgentContext, AgentExecutor, AgentResult, AgentType
-from .types import TestCase, TestType, TestResult
+from .types import TestCase
 
 
 class TesterAgent(AgentExecutor):

@@ -13,13 +13,12 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 from loguru import logger
 
 from sprintcycle.domain.generic.models import ReleasePlan, SprintDefinition
-from sprintcycle.domain.generic.interfaces import SprintLifecycleHookProtocol, ExecutionEventProtocol
+from sprintcycle.domain.generic.interfaces import SprintLifecycleHookProtocol
 from sprintcycle.domain.generic.interfaces import SprintResult
 from sprintcycle.domain.ports.config import RuntimeConfigProtocol
 from ..arch_guard.config import ArchGuardConfig
 from ..arch_guard.engine import ArchGuardEngine
 from ..arch_guard.reporter import GovernanceReportAdapter
-from sprintcycle.domain.core.governance.arch_guard.model import GuardReport as GovernanceReport
 from sprintcycle.domain.core.governance.core import persist_planning_report, persist_report
 
 if TYPE_CHECKING:

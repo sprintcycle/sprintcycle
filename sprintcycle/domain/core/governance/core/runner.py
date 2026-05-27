@@ -10,7 +10,7 @@ import shutil
 import subprocess
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import yaml
 from loguru import logger
@@ -20,13 +20,6 @@ from sprintcycle.domain.core.governance.quality_spec.rules.planning_rules import
 from sprintcycle.domain.generic.models.task_spec import TaskSpec
 from sprintcycle.domain.core.execution.core.static_analyzer import AnalysisConfig, StaticAnalyzer
 from sprintcycle.domain.ports.config import RuntimeConfigProtocol
-from sprintcycle.domain.ports.governance import (
-    get_archguard_adapter,
-    get_grimp_adapter,
-    get_import_linter_adapter,
-    get_ruff_adapter,
-    get_typecheck_adapter,
-)
 from ..arch_guard.adr_check import check_adr_readme_index, check_adr_readme_strict_glob
 from ..arch_guard.argv_extensions import extend_argv_items_with_plugins
 from ..arch_guard.compose_hint import check_compose_hints, check_compose_supply_chain_hints

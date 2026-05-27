@@ -81,9 +81,10 @@ class MeasurementProvider:
 
     def _default_runner(self, cmd: str, cwd: str = ".", timeout: int = 300) -> Tuple[int, str, str]:
         try:
+            import shlex
+            cmd_args = shlex.split(cmd)
             result = subprocess.run(
-                cmd,
-                shell=True,
+                cmd_args,
                 cwd=cwd,
                 capture_output=True,
                 text=True,

@@ -345,7 +345,7 @@ class CoderAgent(AgentExecutor):
 
     def _get_task_hash(self, task: str, context: AgentContext) -> str:
         key = f"{task}:{context.release_plan_id}:{context.sprint_index}"
-        return hashlib.md5(key.encode()).hexdigest()
+        return hashlib.md5(key.encode(), usedforsecurity=False).hexdigest()
 
 
 __all__ = [

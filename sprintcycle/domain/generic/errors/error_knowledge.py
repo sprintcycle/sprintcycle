@@ -164,7 +164,7 @@ class ErrorPattern:
         import hashlib
 
         hash_input = f"{self.error_type}:{self.pattern[:50]}"
-        return hashlib.md5(hash_input.encode()).hexdigest()[:12]
+        return hashlib.md5(hash_input.encode(), usedforsecurity=False).hexdigest()[:12]
 
     def matches(self, error_log: str) -> bool:
         try:

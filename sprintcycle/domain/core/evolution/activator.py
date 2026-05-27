@@ -6,11 +6,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 
 from sprintcycle.domain.core.evolution.runtime_state import (
-    ActivationDecision,
     ActivationGuardResult,
-    ActivationReasonCode,
-    ActivationState,
-    EvolutionHealthSnapshot,
     EvolutionHealthState,
     RetryPolicyConfig,
 )

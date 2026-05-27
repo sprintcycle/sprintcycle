@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from sprintcycle.domain.core.governance.suggestion import SuggestionFacade, create_suggestion_facade
 from sprintcycle.domain.ports.config import RuntimeConfigProtocol

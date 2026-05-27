@@ -13,7 +13,6 @@ It encapsulates all state and behavior related to the execution lifecycle.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
@@ -32,7 +31,6 @@ from .values import (
     EvolutionRef,
     RuntimeRef,
     LifecycleEvidence,
-    FailureInfo,
 )
 
 
@@ -535,7 +533,7 @@ class LifecycleRoot:
 
         # Next stages validation
         if self.allowed_next_stages:
-            service2 = LifecycleStateMachineService()
+            LifecycleStateMachineService()
             valid_stages_set = set(LIFECYCLE_STAGES) | {"failed", "aborted", "cancelled"}
             if any(stage not in valid_stages_set for stage in self.allowed_next_stages):
                 errors.append("allowed_next_stages contains invalid stage")
