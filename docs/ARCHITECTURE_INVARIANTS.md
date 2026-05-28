@@ -9,9 +9,10 @@
 
 | 指标 | 数值 |
 |------|------|
-| Python 文件总数 | 360+ |
-| 总代码行数 | 38,000+ |
-| 顶层模块数 | 6 |
+| Python 文件总数 | 469+ |
+| 总代码行数 | 50,000+ |
+| 顶层模块数 | 4 |
+| 端口定义数 | 17 |
 
 ### 1.1 模块分布
 
@@ -23,52 +24,34 @@
 | `infrastructure` | 62+ | 配置、持久化、集成、部署、可观测性适配器 |
 | `application` | 47 | 服务编排（按领域组织：lifecycle、governance、evolution、dashboard） |
 | `interfaces/http` | 14 | HTTP 接口层（dashboard 按领域划分路由） |
-| `composition` | 3 | 组合根层（依赖注入） |
+| `domain/ports` | 17 | 端口协议定义（17个端口） |
 
 ---
 
-## 2. 分层架构
+## 2. 分层架构（六边形架构）
 
-### 2.1 层级定义（六边形架构）
+### 2.1 层级定义
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    interfaces/http/                        │
+│                    interfaces/http/                        │ ← 输入端口适配器
 │   (HTTP API: dashboard/[execution, governance, lifecycle, │
 │    hitl, suggestions] / public/ / middleware/)            │
-│              ↓                                            │
-│         ┌─────────────────┐                               │
-│         │   输入端口适配器  │                               │
-│         └────────┬────────┘                               │
-├──────────────────┼─────────────────────────────────────────┤
-│                     application/                           │
-│    (Services: execution, governance, lifecycle, evolution, │
-│     dashboard, observability - organized by domain)        │
-│    (composition/: http_factory.py, evolution_factory.py,   │
-│                   orchestration_factory.py)                │
-│              ↓                                            │
-│         ┌─────────────────┐                               │
-│         │   应用服务层     │                               │
-│         └────────┬────────┘                               │
-├──────────────────┼─────────────────────────────────────────┤
-│                       domain/                              │
-│   (Core: lifecycle, execution, evolution, governance;      │
+├─────────────────────────────────────────────────────────────┤
+│                     application/                           │ ← 应用服务层
+│   (services/: execution, governance, lifecycle, evolution, │
+│    dashboard, observability, release)                     │
+│   (composition/: http_factory.py, evolution_factory.py,   │
+│                  orchestration_factory.py)                 │
+├─────────────────────────────────────────────────────────────┤
+│                       domain/                              │ ← 核心业务逻辑
+│   (Core: lifecycle, execution, evolution, governance;     │
 │    Supporting: intent, fitness;                           │
 │    Generic: errors, prompts, models, platform, interfaces)│
-│    (ports/: 端口协议定义)                                  │
-│              ↓                                            │
-│         ┌─────────────────┐                               │
-│         │   核心业务逻辑   │                               │
-│         │   端口定义层     │                               │
-│         └────────┬────────┘                               │
-├──────────────────┼─────────────────────────────────────────┤
-│                  infrastructure/                           │
-│  (adapters/core/, adapters/generic/, shared/persistence)   │
-│              ↓                                            │
-│         ┌─────────────────┐                               │
-│         │   输出端口适配器  │                               │
-│         │   基础设施实现   │                               │
-│         └─────────────────┘                               │
+│   (ports/: 端口协议定义 - 17个端口)                       │
+├─────────────────────────────────────────────────────────────┤
+│                  infrastructure/                           │ ← 输出端口适配器
+│  (adapters/core/, adapters/generic/)                      │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -85,7 +68,7 @@
 - **Core Domains（核心子域）**: lifecycle, execution, evolution, governance（含 verification）
 - **Supporting Domains（支撑子域）**: intent, fitness  
 - **Generic Domains（通用子域）**: errors, prompts, models, platform, interfaces
-- **Ports（端口层）**: `domain/ports/` - 所有外部依赖的协议接口定义
+- **Ports（端口层）**: `domain/ports/` - 所有外部依赖的协议接口定义（17个端口）
 
 ### 2.2 各层职责
 
@@ -127,6 +110,18 @@ ports/ (端口协议定义)
 | `EngineAdapterProtocol` | `domain/ports/llm.py` | `CursorCookbookAdapter`, `ClaudeCodeAdapter` | `infrastructure/adapters/generic/llm/` |
 | `CacheBackendProtocol` | `domain/ports/cache.py` | `RedisCache`, `DiskCache` | `infrastructure/adapters/generic/cache/` |
 | `ArchGuardAdapterProtocol` | `domain/ports/governance.py` | `ArchonAdapter`, `RuffAdapter` | `infrastructure/adapters/core/governance/arch_guard/` |
+| `ObservabilityFacadeProtocol` | `domain/ports/observability.py` | `ObservabilityFacade` | `infrastructure/adapters/generic/observability/` |
+| `RuntimeRegistryProtocol` | `domain/ports/registry.py` | `RuntimeRegistry` | `infrastructure/adapters/generic/config/runtime_registry.py` |
+| `KnowledgeRepositoryProtocol` | `domain/ports/knowledge.py` | `KnowledgeRepository` | `infrastructure/adapters/generic/knowledge/` |
+| `EvolutionPort` | `domain/ports/evolution.py` | `EvolutionAdapter` | `infrastructure/adapters/core/evolution/` |
+| `HitlPort` | `domain/ports/hitl.py` | `HitlAdapter` | `infrastructure/adapters/core/governance/hitl/` |
+| `AuditPort` | `domain/ports/audit.py` | `AuditAdapter` | `infrastructure/adapters/generic/observability/` |
+| `RuntimeConfigPort` | `domain/ports/config.py` | `RuntimeConfigAdapter` | `infrastructure/adapters/generic/config/` |
+| `DeployPort` | `domain/ports/deploy.py` | `DeployAdapter` | `infrastructure/adapters/generic/deploy/` |
+| `RateLimitPort` | `domain/ports/rate_limit.py` | `RateLimitAdapter` | `infrastructure/adapters/generic/observability/` |
+| `DiagnosticsPort` | `domain/ports/diagnostics.py` | `DiagnosticsAdapter` | `infrastructure/adapters/generic/observability/` |
+| `SuggestionPort` | `domain/ports/suggestion.py` | `SuggestionAdapter` | `infrastructure/adapters/core/governance/suggestion/` |
+| `OrchestrationPort` | `domain/ports/orchestration.py` | `OrchestrationAdapter` | `infrastructure/adapters/core/orchestration/` |
 
 **禁止**：
 - domain 层依赖 application 层或 interfaces 层
@@ -143,14 +138,14 @@ ports/ (端口协议定义)
 
 | 子域 | 聚合根 | 值对象 | 领域服务 |
 |------|--------|--------|----------|
-| **lifecycle** | `LifecycleRoot` | `StageEvidence`, `CorrelationContext`, `LifecycleEvidence`, `FailureInfo`, `RuntimeRef`, `GovernanceRef`, `EvolutionRef` | `LifecycleStateMachineService` |
-| **execution** | `SprintAggregate`, `ReleasePlanAggregate` | `TaskResult`, `SprintResult` | - |
-| **evolution** | `EvolutionRequest`, `SandboxSession` | `VersionArtifact`, `EvolutionEvidence` | - |
-| **governance** | `GovernanceSession`, `RuleSetAggregate` | `GovernanceRule`, `RuleEvaluation`, `Finding`, `VerificationFinding`, `VerificationRule`, `VerificationReport` | - |
+| **lifecycle** | `LifecycleRoot`（不可变设计） | `StageEvidence`, `StageHistoryEntry`, `CorrelationContext`, `LifecycleEvidence`, `FailureInfo`, `RuntimeRef`, `GovernanceRef`, `EvolutionRef` | `LifecycleStateMachineService` |
+| **execution** | `SprintAggregate`, `ReleasePlanAggregate`（不可变设计） | `TaskResult`, `SprintResult` | - |
+| **evolution** | `EvolutionRequest`, `SandboxSession`（不可变设计） | `VersionArtifact`, `ValidationCheck`, `SandboxSpec`, `GovernanceRef`, `SandboxRef`, `VersionRef` | - |
+| **governance** | `GovernanceSession`, `RuleSetAggregate`（不可变设计） | `GovernanceRule`, `RuleEvaluation`, `Finding`, `VerificationFinding`, `VerificationRule`, `VerificationReport` | - |
 
 ### 3.2 聚合根设计原则
 
-1. **不可变设计**：所有状态修改返回新实例，保证线程安全
+1. **不可变设计**：所有状态修改返回新实例，保证线程安全（使用 `@dataclass(frozen=True)`）
 2. **值对象**：无身份标识，通过属性值相等判断
 3. **事件驱动**：子域间通过 `DomainEvent` 通信，解耦依赖
 4. **ID 引用**：跨聚合引用使用 ID 而非直接对象引用，防止循环依赖
@@ -180,7 +175,7 @@ SprintCycle 不可替代的核心功能：
 | 能力 | 位置 | 说明 |
 |------|------|------|
 | 阶段编排 | `application/services/execution/phase_workflow.py` | 统一执行流程编排 |
-| 状态机 | `domain/core/lifecycle/services.py` | 15 个生命周期阶段定义 |
+| 状态机 | `domain/core/lifecycle/services.py` | 18 个生命周期阶段定义 |
 | 聚合根 | `domain/core/lifecycle/lifecycle_root.py` | `LifecycleRoot` 不可变聚合根 |
 | 恢复机制 | `application/services/governance/repair_orchestration_service.py` | 失败自动恢复路由 |
 | 证据收集 | `domain/core/lifecycle/values.py` | `StageEvidence` 值对象 |
@@ -334,6 +329,7 @@ class LifecycleRoot:
 | `dependency:domain_no_external` | domain 层不能有外部依赖 | error |
 | `dependency:infrastructure_no_business` | infrastructure 不能依赖业务层 | error |
 | `dependency:composition_only_wiring` | composition 层只能包含组装逻辑 | error |
+| `dependency:application_no_direct_infra` | application 层不能直接依赖基础设施实现 | error |
 
 ---
 
@@ -365,19 +361,19 @@ class EventBus:
 
 | 策略 | 位置 | 说明 |
 |------|------|------|
-| `PromotionPolicy` | `application/services/governance/promotion_policy.py` | 晋升策略 |
+| `PromotionPolicy` | `application/services/governance/promotion_policy_service.py` | 晋升策略 |
 | `HitlPolicy` | `domain/core/governance/hitl/policy.py` | HITL 决策策略 |
 
 ### 8.4 门面模式（Facade）
 
 | Facade | 位置 | 封装 |
 |--------|------|------|
-| `GovernanceFacade` | `domain/core/governance/facade.py` | HITL/Runner/Suggestion |
+| `GovernanceFacade` | `domain/core/governance/core/facade.py` | HITL/Runner/Suggestion |
 | `ObservabilityFacade` | `infrastructure/adapters/generic/observability/facade.py` | Phoenix/Events |
 
 ### 8.5 端口-适配器模式
 
-**位置**：`domain/generic/ports/` 和 `infrastructure/adapters/`
+**位置**：`domain/ports/` 和 `infrastructure/adapters/`
 
 ```python
 # 端口定义（domain）
@@ -391,14 +387,14 @@ class RuntimeConfigAdapter(RuntimeConfigPort):
 
 ### 8.6 组合根模式
 
-**位置**：`composition/`
+**位置**：`application/composition/`
 
 ```python
 # 组合根 - 依赖注入组装
 class HttpFactory:
     def create_app(self) -> FastAPI:
-        # 注册基础设施适配器
-        # 创建应用服务
+        # 注册基础设施适配器（通过端口工厂）
+        # 创建应用服务（依赖端口接口）
         # 返回配置好的应用
 ```
 
@@ -449,6 +445,7 @@ lifecycle = lifecycle.transition_to(LifecycleStage.NORMALIZED)
 4. **必须**：接口层只做转发，不含业务逻辑
 5. **必须**：工厂层只做组装，不含适配器实现
 6. **必须**：composition 层只做依赖注入，不含业务逻辑
+7. **必须**：application 层通过端口协议访问基础设施
 
 ### 10.2 聚合根规范
 
@@ -475,6 +472,7 @@ lifecycle = lifecycle.transition_to(LifecycleStage.NORMALIZED)
 | 在 api.py 直接操作数据库 | 违反分层原则 |
 | 绕过 Hook 直接修改状态 | 破坏扩展机制 |
 | composition 层包含业务逻辑 | 违反组合根模式 |
+| application 层直接依赖基础设施实现 | 违反端口-适配器模式 |
 
 ### 11.2 聚合根破坏
 
@@ -498,7 +496,7 @@ lifecycle = lifecycle.transition_to(LifecycleStage.NORMALIZED)
 | 功能 | 关键文件 |
 |------|----------|
 | 主入口 | `sprintcycle/api.py` |
-| 组合根 | `sprintcycle/composition/http_factory.py` |
+| 组合根 | `sprintcycle/application/composition/http_factory.py` |
 | 聚合根 | `sprintcycle/domain/core/lifecycle/lifecycle_root.py` |
 | 领域服务 | `sprintcycle/domain/core/lifecycle/services.py` |
 | 值对象 | `sprintcycle/domain/core/lifecycle/values.py` |
@@ -507,6 +505,8 @@ lifecycle = lifecycle.transition_to(LifecycleStage.NORMALIZED)
 | 治理聚合 | `sprintcycle/domain/core/governance/aggregates/governance_aggregates.py` |
 | 演化聚合 | `sprintcycle/domain/core/evolution/aggregates/evolution_aggregates.py` |
 | 验证引擎 | `sprintcycle/domain/core/governance/verification/engine.py` |
+| 端口定义 | `sprintcycle/domain/ports/` |
+| 适配器实现 | `sprintcycle/infrastructure/adapters/` |
 
 ---
 
@@ -514,13 +514,14 @@ lifecycle = lifecycle.transition_to(LifecycleStage.NORMALIZED)
 
 | 版本 | 日期 | 变更说明 |
 |------|------|----------|
-| v3.0 | 2026-05-26 | 引入 DDD 聚合根设计，重构 lifecycle、execution、governance、evolution 子域；新增 composition 层；verification 移入 governance |
+| v4.0 | 2026-05-27 | 完成六边形架构改造，端口层升级为 `domain/ports/`，组合根移入 `application/composition/` |
+| v3.0 | 2026-05-26 | 引入 DDD 聚合根设计，重构 lifecycle、execution、governance、evolution 子域 |
 | v2.1 | 2026-05-25 | 适配器与工厂分离 |
-| v2.0 | 2026-05-20 | 引入洋葱架构分层 |
+| v2.0 | 2026-05-20 | 引入六边形架构分层 |
 
 ---
 
-> **版本**：v3.0  
-> **更新日期**：2026-05-26  
+> **版本**：v4.0  
+> **更新日期**：2026-05-27  
 > **维护者**：架构团队  
-> **变更说明**：引入 DDD 领域驱动设计，添加聚合根、值对象、领域服务、事件驱动架构和组合根模式
+> **变更说明**：完成六边形架构改造，端口层从 `domain/generic/ports/` 升级为 `domain/ports/`，组合根从独立目录移入 `application/composition/`，完善端口-适配器模式实现，17个端口定义完整

@@ -147,7 +147,7 @@ It's not about making AI write code faster — it's about making every line of c
 
 | Version | Milestone | Status |
 |---------|-----------|--------|
-| 0.9.x | Architecture governance complete, Onion Architecture compliant | ✅ Current |
+| 0.9.x | Hexagonal Architecture completed, DDD Aggregate Root design | ✅ Current |
 | 1.0.0 | OpenHands integration + production ready | ⏳ |
 | 1.1.0 | Multi-project workspace support | 🔮 |
 | 2.0.0 | Self-evolving closed loop validation (measurement → evolution automatic cycle) | 🔮 |
@@ -158,25 +158,30 @@ It's not about making AI write code faster — it's about making every line of c
 
 ### One-sentence Summary
 
-Onion Architecture + DDD + Port/Adapter, 5-layer separation (interfaces → composition → application → domain → infrastructure), 4 core subdomains (lifecycle / execution / evolution / governance), 14 port abstractions, 469+ Python files.
+Hexagonal Architecture (Ports & Adapters) + DDD (Domain-Driven Design), 4-layer separation (interfaces → application → domain → infrastructure), 4 core subdomains (lifecycle / execution / evolution / governance), 17 port abstractions, 469+ Python files.
 
 ### Architecture Layers
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    interfaces/http/                        │
+│                    interfaces/http/                        │ ← Input Port Adapters
+│   (dashboard/[execution, governance, lifecycle,           │
+│    hitl, suggestions] / public/ / middleware/)            │
 ├─────────────────────────────────────────────────────────────┤
-│                     composition/                           │
+│                     application/                           │ ← Application Services
+│   (services/: execution, governance, lifecycle, evolution, │
+│    dashboard, observability, release)                     │
+│   (composition/: http_factory, evolution_factory,         │
+│                  orchestration_factory)                   │
 ├─────────────────────────────────────────────────────────────┤
-│                     application/                           │
+│                       domain/                              │ ← Core Business Logic
+│   (Core: lifecycle, execution, evolution, governance;     │
+│    Supporting: intent, fitness;                           │
+│    Generic: errors, prompts, models, platform, interfaces)│
+│   (ports/: 17 port definitions)                          │
 ├─────────────────────────────────────────────────────────────┤
-│                       domain/                              │
-│   ├── generic/                                            │
-│   ├── core/                                               │
-│   │   └── governance/verification/                        │
-│   └── supporting/ (intent/fitness)                        │
-├─────────────────────────────────────────────────────────────┤
-│                  infrastructure/                           │
+│                  infrastructure/                           │ ← Output Port Adapters
+│  (adapters/core/, adapters/generic/)                      │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -200,6 +205,94 @@ Intent → Normalize → Plan → Prepare → Decompose → Execute → Observe 
 - **Unified promotion gate**: promotion only accepts evidence-complete contracts with a valid final snapshot
 - **Unified versioning**: promoted iterations are stored in the version registry as `versioned evolution`
 - **Closed-loop production**: Complete closed loop from intent to usable software
+- **Port-Adapters pattern**: Define interfaces in `domain/ports/`, implement in `infrastructure/adapters/`
+
+---
+
+## DDD Domain-Driven Design Architecture
+
+### Subdomain Partitioning
+
+SprintCycle follows DDD Hexagonal Architecture with subdomain partitioning:
+
+#### Core Domains - Core Competency
+
+| Subdomain | Responsibility | Aggregate Roots | Value Objects |
+|-----------|---------------|-----------------|---------------|
+| **lifecycle** | Lifecycle contracts and state machine | `LifecycleRoot` | `StageEvidence`, `CorrelationContext`, `LifecycleEvidence`, `FailureInfo`, `RuntimeRef`, `GovernanceRef`, `EvolutionRef` |
+| **execution** | Execution engine and task orchestration | `SprintAggregate`, `ReleasePlanAggregate` | `TaskResult`, `SprintResult` |
+| **evolution** | Version evolution and promotion | `EvolutionRequest`, `SandboxSession` | `VersionArtifact`, `EvolutionEvidence` |
+| **governance** | Governance and suggestion handling (includes verification engine) | `GovernanceSession`, `RuleSetAggregate` | `GovernanceRule`, `RuleEvaluation`, `Finding`, `VerificationFinding`, `VerificationRule`, `VerificationReport` |
+
+#### Supporting Domains - Business Support
+
+| Subdomain | Responsibility | Main Modules |
+|-----------|---------------|--------------|
+| **intent** | Intent parsing and normalization | `supporting/intent/` |
+| **fitness** | Health evaluation | `supporting/fitness/` |
+
+#### Generic Domains - Infrastructure Abstractions
+
+| Subdomain | Responsibility | Main Modules |
+|-----------|---------------|--------------|
+| **errors** | Error handling and knowledge routing | `generic/errors/` |
+| **prompts** | Prompt management | `generic/prompts/` |
+| **models** | Generic data models | `generic/models/` |
+| **platform** | Platform views | `generic/platform/` |
+| **interfaces** | Generic interface definitions | `generic/interfaces/` |
+
+#### Ports - External Dependency Abstractions
+
+All external dependency interfaces are defined in `domain/ports/` (17 ports):
+
+| Port File | Protocol | Responsibility |
+|-----------|----------|---------------|
+| `state_store.py` | `StateStoreProtocol` | State persistence |
+| `llm.py` | `EngineAdapterProtocol` | LLM engine calls |
+| `cache.py` | `CacheBackendProtocol` | Cache services |
+| `governance.py` | `ArchGuardAdapterProtocol` | Architecture guard checks |
+| `observability.py` | `ObservabilityFacadeProtocol` | Observability integration |
+| `registry.py` | `RuntimeRegistryProtocol` | Runtime registration |
+| `knowledge.py` | `KnowledgeRepositoryProtocol` | Knowledge management |
+| `evolution.py` | `EvolutionPort` | Version evolution |
+| `hitl.py` | `HitlPort` | Human-in-the-loop |
+| `audit.py` | `AuditPort` | Audit logging |
+| `config.py` | `RuntimeConfigPort` | Runtime configuration |
+| `deploy.py` | `DeployPort` | Deployment services |
+| `rate_limit.py` | `RateLimitPort` | Rate limiting |
+| `diagnostics.py` | `DiagnosticsPort` | Diagnostics services |
+| `integrations.py` | Multiple integration ports | Third-party integrations |
+| `suggestion.py` | `SuggestionPort` | Suggestion system |
+| `orchestration.py` | Multiple orchestration ports | Execution orchestration |
+
+### Aggregate Root Design Principles
+
+1. **Immutable Design**: All state modifications return new instances for thread safety
+2. **Value Objects**: No identity, equality based on attribute values
+3. **Event-Driven**: Subdomains communicate via `DomainEvent` for decoupling
+4. **ID References**: Cross-aggregate references use IDs instead of direct object references to prevent circular dependencies
+
+### Domain Services
+
+| Service | Responsibility | Location |
+|---------|---------------|----------|
+| `LifecycleStateMachineService` | State machine transition rules | `domain/core/lifecycle/services.py` |
+| `EventBus` | Event publish/subscribe mechanism | `domain/core/events/handlers.py` |
+
+### Port-Adapters Pattern
+
+```python
+# Port definition (domain/ports/)
+class StateStoreProtocol(Protocol):
+    def save(self, state: ExecutionState) -> None: ...
+    def load(self, execution_id: str) -> Optional[ExecutionState]: ...
+
+# Adapter implementation (infrastructure/adapters/)
+class SqliteStateStore(StateStoreProtocol):
+    def save(self, state: ExecutionState) -> None:
+        # SQLite implementation
+        ...
+```
 
 ---
 
@@ -210,7 +303,6 @@ Intent → Normalize → Plan → Prepare → Decompose → Execute → Observe 
 - Generate Release Plans (YAML / structured plans)
 - Support sprint orchestration, checkpoint resume, and recovery
 - Support normalized lifecycle stage transitions
-- Primary entry surfaces are Dashboard, REST API, and Python SDK; CLI / MCP are no longer primary paths
 - **DDD Aggregate Root**: `LifecycleRoot` serves as the lifecycle domain aggregate root with immutable design
 
 ### 2. Standard lifecycle contract
@@ -254,65 +346,6 @@ Intent → Normalize → Plan → Prepare → Decompose → Execute → Observe 
 - Scene recognition, skill matching, skill injection, review checklist enrichment, and retro cleanup
 - Hooked into the main flow through `SprintOrchestrator` sprint hooks
 - **DDD Aggregate Roots**: `SprintAggregate`, `ReleasePlanAggregate` manage execution aggregates
-
----
-
-## DDD Domain-Driven Design Architecture
-
-### Subdomain Partitioning
-
-SprintCycle follows DDD Onion Architecture with subdomain partitioning:
-
-#### Core Domains - Core Competency
-
-| Subdomain | Responsibility | Aggregate Roots | Value Objects |
-|-----------|---------------|-----------------|---------------|
-| **lifecycle** | Lifecycle contracts and state machine | `LifecycleRoot` | `StageEvidence`, `CorrelationContext`, `LifecycleEvidence`, `FailureInfo`, `RuntimeRef`, `GovernanceRef`, `EvolutionRef` |
-| **execution** | Execution engine and task orchestration | `SprintAggregate`, `ReleasePlanAggregate` | `TaskResult`, `SprintResult` |
-| **evolution** | Version evolution and promotion | `EvolutionRequest`, `SandboxSession` | `VersionArtifact`, `EvolutionEvidence` |
-| **governance** | Governance and suggestion handling (includes verification engine) | `GovernanceSession`, `RuleSetAggregate` | `GovernanceRule`, `RuleEvaluation`, `Finding`, `VerificationFinding`, `VerificationRule`, `VerificationReport` |
-
-#### Supporting Domains - Business Support
-
-| Subdomain | Responsibility | Main Modules |
-|-----------|---------------|--------------|
-| **intent** | Intent parsing and normalization | `supporting/intent/` |
-| **fitness** | Health evaluation | `supporting/fitness/` |
-
-#### Generic Domains - Infrastructure Abstractions
-
-| Subdomain | Responsibility | Main Modules |
-|-----------|---------------|--------------|
-| **errors** | Error handling and knowledge routing | `generic/errors/` |
-| **prompts** | Prompt management | `generic/prompts/` |
-| **models** | Generic data models | `generic/models/` |
-| **platform** | Platform views | `generic/platform/` |
-| **ports** | Infrastructure port abstractions | `generic/ports/` |
-| **interfaces** | Generic interface definitions | `generic/interfaces/` |
-
-### Aggregate Root Design Principles
-
-1. **Immutable Design**: All state modifications return new instances for thread safety
-2. **Value Objects**: No identity, equality based on attribute values
-3. **Event-Driven**: Subdomains communicate via `DomainEvent` for decoupling
-4. **ID References**: Cross-aggregate references use IDs instead of direct object references to prevent circular dependencies
-
-### Domain Services
-
-| Service | Responsibility | Location |
-|---------|---------------|----------|
-| `LifecycleStateMachineService` | State machine transition rules | `domain/core/lifecycle/services.py` |
-| `EventBus` | Event publish/subscribe mechanism | `domain/core/events/handlers.py` |
-
-### Event-Driven Architecture
-
-The system uses events for inter-subdomain decoupling:
-
-| Event Type | Source Subdomain | Target Subdomain |
-|------------|------------------|------------------|
-| `SprintCompleted` | execution | governance |
-| `GovernanceCompleted` | governance | evolution |
-| `EvolutionPromoted` | evolution | lifecycle |
 
 ---
 
@@ -483,75 +516,111 @@ lifecycle = lifecycle.transition_to(LifecycleStage.PLANNED)
 
 ```
 sprintcycle/
-├── api.py                    # Unified API entrypoint
-├── application/              # Use cases and service orchestration (DDD Application Layer)
-│   ├── services/            # Core business services (organized by domain)
-│   │   ├── execution/       # Execution-related services
-│   │   ├── governance/      # Governance-related services
-│   │   ├── lifecycle/       # Lifecycle-related services
-│   │   ├── evolution/       # Version evolution services
-│   │   ├── dashboard/       # Dashboard view services
-│   │   ├── observability/   # Observability services
-│   │   └── release/         # Release orchestration services
-│   ├── orchestration/       # Orchestration layer
-│   └── dto/                 # Data transfer objects
-├── composition/              # Composition root layer (dependency injection)
-│   ├── http_factory.py      # HTTP service dependency injection
-│   ├── evolution_factory.py # Evolution Facade factory
-│   └── orchestration_factory.py # Orchestrator dependency assembly
-├── domain/                   # Domain models (DDD Domain Layer - subdomain organized)
-│   ├── core/                # Core subdomains (core competency)
-│   │   ├── lifecycle/       # Lifecycle contracts and state machine
-│   │   │   ├── lifecycle_root.py    # LifecycleRoot aggregate root
-│   │   │   ├── services.py          # LifecycleStateMachineService
-│   │   │   ├── values.py            # Value objects
+├── __init__.py                 # Module entry
+├── api.py                      # Unified API entrypoint
+├── application/                # Application services layer (DDD Application Layer)
+│   ├── services/               # Core business services (organized by domain)
+│   │   ├── execution/          # Execution-related services (phase_workflow, evaluator_agent)
+│   │   ├── governance/         # Governance-related services (governance_facade, repair_orchestration, suggestion_facade)
+│   │   ├── lifecycle/          # Lifecycle-related services (execution_lifecycle, promotion_policy, web_lifecycle_orchestration)
+│   │   ├── evolution/          # Version evolution services (evolution_promotion, evolution_version)
+│   │   ├── dashboard/          # Dashboard view services (dashboard_view, management_overview, platform_summary)
+│   │   ├── observability/      # Observability services
+│   │   └── release/            # Release orchestration services (orchestrator)
+│   ├── orchestration/          # Orchestration layer (sprint_orchestrator)
+│   ├── dto/                    # Data transfer objects (results)
+│   ├── events/                 # Application events
+│   └── composition/            # Composition root (dependency injection)
+│       ├── http_factory.py     # HTTP service dependency injection
+│       ├── evolution_factory.py # Evolution Facade factory
+│       └── orchestration_factory.py # Orchestrator dependency assembly
+├── domain/                     # Domain models (DDD Domain Layer)
+│   ├── core/                   # Core subdomains
+│   │   ├── lifecycle/          # Lifecycle contracts and state machine
+│   │   │   ├── lifecycle_root.py    # LifecycleRoot aggregate root (immutable design)
+│   │   │   ├── services.py          # LifecycleStateMachineService (domain service)
+│   │   │   ├── values.py            # Value objects (StageEvidence, CorrelationContext, GovernanceRef, EvolutionRef, RuntimeRef, LifecycleEvidence, FailureInfo)
 │   │   │   └── models.py            # Business constants
-│   │   ├── execution/       # Execution engine and task orchestration
-│   │   │   └── aggregates/          # SprintAggregate, ReleasePlanAggregate
-│   │   ├── evolution/       # Version evolution and promotion
-│   │   │   └── aggregates/          # EvolutionRequest, SandboxSession
-│   │   ├── governance/      # Governance and suggestion handling (includes verification)
-│   │   │   ├── aggregates/          # GovernanceSession, RuleSetAggregate
-│   │   │   └── verification/        # Verification engine
-│   │   └── events/          # Domain events (DomainEvent, EventBus)
-│   ├── supporting/          # Supporting subdomains (business support)
-│   │   ├── intent/          # Intent parsing and normalization
-│   │   └── fitness/         # Health evaluation
-│   └── generic/             # Generic subdomains (infrastructure abstractions)
-│       ├── errors/          # Error handling
-│       ├── prompts/         # Prompt management
-│       ├── models/          # Generic data models
-│       ├── platform/        # Platform views
-│       ├── interfaces/      # Generic interface definitions
-│       └── ports/           # Infrastructure port abstractions
-├── infrastructure/          # Adapter layer (DDD Infrastructure Layer)
-│   ├── shared/              # Shared infrastructure
-│   └── adapters/            # Subdomain adapter implementations
-│       ├── core/           # Core subdomain adapters
-│       │   ├── execution/  # Execution engine adapters
-│       │   ├── evolution/  # Version evolution adapters
-│       │   ├── governance/ # Governance adapters
-│       │   └── orchestration/ # Orchestration adapters
-│       └── generic/        # Generic subdomain adapters
-│           ├── config/      # Configuration implementations
-│           ├── cache/       # Cache implementations
-│           ├── deploy/      # Deployment implementations
-│           └── integrations/ # Third-party integrations
-└── interfaces/              # HTTP interface layer (DDD Interface Adapter Layer)
-    └── http/                # HTTP adaptation layer
-        ├── app.py           # FastAPI application factory
-        ├── request_context.py # Request context
-        ├── middleware/      # Middleware (rate_limit, audit)
-        ├── dashboard/       # Dashboard-specific HTTP routes
-        │   ├── execution/   # Execution domain routes
-        │   ├── governance/  # Governance domain routes
-        │   ├── lifecycle/   # Lifecycle domain routes
-        │   ├── hitl/        # HITL domain routes
-        │   └── suggestions/ # Suggestions domain routes
-        └── public/          # Public API endpoints
-            ├── execution.py # Plan, run, status, rollback, stop endpoints
-            └── health.py    # Health check endpoint
+│   │   ├── execution/          # Execution engine and task orchestration
+│   │   │   ├── aggregates/          # SprintAggregate, ReleasePlanAggregate (immutable design)
+│   │   │   ├── agents/              # 5 Agent types (coder/tester/architect/analyzer/regression_tester)
+│   │   │   ├── hooks/               # Execution hooks (governance_context, hook_context, quality_hooks, skill_hooks, sprint_hooks, task_hooks)
+│   │   │   ├── orchestrator/        # SprintOrchestrator (strategy pattern)
+│   │   │   ├── planners/            # Plan generators (builders, execution_planners, expand, generator, parser, validator, work_item_splitter)
+│   │   │   ├── core/                # Core execution (policies, context, error_handler, events, feedback, hooks, lifecycle_transitions, protocols, run_workspace, sprint_types, state_machine, static_analyzer)
+│   │   │   └── skills/              # Skills subsystem (marketplace, models, orchestrator, store)
+│   │   ├── evolution/          # Version evolution and promotion
+│   │   │   ├── aggregates/          # EvolutionRequest, SandboxSession (immutable design)
+│   │   │   ├── activator.py         # Evolution activator
+│   │   │   ├── controller.py        # Evolution controller
+│   │   │   ├── facade.py            # Evolution facade
+│   │   │   ├── rollback_manager.py  # Rollback manager
+│   │   │   └── intent_evolution_loop.py # Intent evolution loop
+│   │   ├── governance/         # Governance and suggestion handling
+│   │   │   ├── aggregates/          # GovernanceSession, RuleSetAggregate (immutable design)
+│   │   │   ├── arch_guard/          # Architecture guard (architecture_checker, architecture_guard, architecture_layers, cli, compose_hint, config, engine, loader, model, registry, reporter, yaml_checks)
+│   │   │   ├── hitl/                # Human-in-the-loop (coordinator, decision_normalize, facade, hooks, policy, service, session)
+│   │   │   ├── suggestion/          # Suggestion system (analyzer, approval, bridge, classifier, facade, reviewer, service)
+│   │   │   ├── verification/        # Verification engine (engine, model, providers)
+│   │   │   ├── quality_spec/        # Quality specification (adapters, hooks, providers, rules, spec)
+│   │   │   ├── core/                # Governance core (facade, history, plugin_host, report, runner, yaml_merge)
+│   │   │   └── hooks/               # Governance hooks (sprint_hooks, task_hooks)
+│   │   └── events/             # Domain events (common, handlers)
+│   ├── supporting/             # Supporting subdomains
+│   │   ├── intent/             # Intent parsing
+│   │   └── fitness/            # Health evaluation
+│   ├── generic/                # Generic subdomains
+│   │   ├── errors/             # Error handling and knowledge routing
+│   │   ├── prompts/            # Prompt management
+│   │   ├── models/             # Generic data models
+│   │   ├── platform/           # Platform views
+│   │   └── interfaces/         # Generic interface definitions
+│   └── ports/                  # Port definitions (17 ports)
+│       ├── state_store.py      # StateStoreProtocol, ExecutionState
+│       ├── llm.py              # EngineAdapterProtocol, EngineResult, EngineAdapterConfig
+│       ├── cache.py            # CacheBackendProtocol
+│       ├── governance.py       # ArchGuardAdapterProtocol, GrimpAdapterProtocol, ImportLinterAdapterProtocol, RuffAdapterProtocol, TypeCheckAdapterProtocol
+│       ├── observability.py    # ObservabilityFacadeProtocol
+│       ├── registry.py         # RuntimeRegistryProtocol
+│       ├── knowledge.py        # KnowledgeRepositoryProtocol, SprintOutcomeCardAdapter
+│       ├── evolution.py        # EvolutionRegistryProtocol, VersionManifestProtocol
+│       ├── hitl.py             # HitlStoreProtocol
+│       ├── audit.py            # AuditPort, AuditRecord
+│       ├── config.py           # RuntimeConfigProtocol
+│       ├── deploy.py           # PlatformLaunchServiceProtocol
+│       ├── rate_limit.py       # RateLimitPort, RateLimitState
+│       ├── diagnostics.py      # DiagnosticPort
+│       ├── integrations.py     # AutoGPTComposeSpecProtocol, AutoGPTRuntimeSpecProtocol, LangGraphRuntimeAdapterProtocol, PhoenixExporterSpecProtocol, PhoenixTraceRuntimeProtocol
+│       ├── suggestion.py       # SuggestionStoreProtocol
+│       └── orchestration.py    # RuntimeConfigPort, TraceRuntimePort
+├── infrastructure/             # Adapter layer (DDD Infrastructure Layer)
+│   └── adapters/               # Adapter implementations
+│       ├── core/               # Core subdomain adapters
+│       │   ├── execution/      # Execution engine adapters
+│       │   ├── evolution/      # Version evolution adapters
+│       │   ├── governance/     # Governance adapters
+│       │   └── orchestration/  # Orchestration adapters
+│       └── generic/            # Generic adapters
+│           ├── config/         # Configuration implementations
+│           ├── cache/          # Cache implementations (RedisCache, DiskCache)
+│           ├── integrations/   # Third-party integrations (LangGraph, Phoenix)
+│           └── observability/  # Observability implementations
+└── interfaces/                 # HTTP interface layer (Input Port Adapters)
+    └── http/                   # HTTP adaptation layer
+        ├── app.py              # FastAPI application factory
+        ├── middleware/         # Middleware (rate limiting, audit)
+        ├── dashboard/          # Dashboard routes (execution, governance, lifecycle, hitl, suggestions)
+        └── public/             # Public API endpoints
 ```
+
+### Layer Responsibilities
+
+| Layer | Responsibility | Key Constraints |
+|-------|---------------|----------------|
+| **interfaces** | HTTP interfaces, request routing, context passing, middleware | Forward only, no business logic |
+| **application** | Use case orchestration, service coordination, transaction boundaries, composition root | Depends on domain, no infrastructure dependencies |
+| **domain** | Domain models, business rules, aggregate roots, value objects, domain services, port definitions | No external dependencies, pure business expression |
+| **infrastructure** | Adapter implementations, configuration, persistence, external integrations, observability | Implements domain ports, not exposed to business layers |
 
 ---
 
@@ -577,17 +646,6 @@ sprintcycle/
 | MutmutPlugin | Mutation testing (optional) | mutmut |
 | PipAuditPlugin | Dependency security scanning (optional) | pip-audit |
 
-### Verification Providers
-
-| Provider | Functionality | Location |
-|----------|---------------|----------|
-| `ArchProvider` | Architecture checks (import-linter, ruff, grimp) | `domain/core/governance/verification/providers/` |
-| `CliProvider` | CLI command verification | `domain/core/governance/verification/providers/` |
-| `PlaywrightProvider` | Playwright end-to-end testing | `domain/core/governance/verification/providers/` |
-| `PytestProvider` | pytest unit testing | `domain/core/governance/verification/providers/` |
-| `SecurityProvider` | Security scanning (gitleaks) | `domain/core/governance/verification/providers/` |
-| `VisualProvider` | Visual verification | `domain/core/governance/verification/providers/` |
-
 ---
 
 ## Documentation
@@ -601,26 +659,18 @@ sprintcycle/
 
 ## Development and Testing
 
-### Framework Development
-
 ```bash
-./tools/start_develop/dev-setup.sh
-source tools/start_develop/activate.sh
-pytest tests/test_p0_runtime.py -v
-pytest tests/ -v
-./tools/start_develop/run-lint.sh
-```
+# Install development dependencies
+pip install -e "[dev]"
 
-### Using SprintCycle to Build Products
+# Run tests
+python -m pytest tests/ -v
 
-```bash
-pip install sprintcycle
-# or:
-pip install "sprintcycle[dashboard]"
+# Run lint
+ruff check sprintcycle/
 
-sprintcycle init
-sprintcycle run "Add unit tests for the login module"
-sprintcycle dashboard
+# Type checking
+mypy sprintcycle/
 ```
 
 ---
