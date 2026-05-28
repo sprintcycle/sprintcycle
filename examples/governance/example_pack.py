@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from .model import GuardRule
+from sprintcycle.domain.core.governance.arch_guard.model import GuardRule
 
 GUARD_RULES = [
     GuardRule(
