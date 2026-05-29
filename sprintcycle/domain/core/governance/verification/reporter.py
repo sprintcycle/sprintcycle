@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import List
 
 from sprintcycle.domain.core.governance.core.report import GovernanceReport, GovernanceViolation
-from .model import VerificationReport
+from sprintcycle.domain.core.governance.common.model import Report as VerificationReport
 
 
 class VerificationReportAdapter:

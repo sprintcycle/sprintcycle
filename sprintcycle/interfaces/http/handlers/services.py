@@ -14,9 +14,13 @@ from sprintcycle.application.services.dashboard.management_overview_service impo
 from sprintcycle.application.services.dashboard.dashboard_view_service import DashboardViewService
 from sprintcycle.application.services.dashboard.dashboard_workbench_service import DashboardWorkbenchService
 from sprintcycle.application.services.config_service import ConfigService
-from sprintcycle.application.services.lifecycle.lifecycle_delivery_service import LifecycleDeliveryService
 from sprintcycle.application.services.lifecycle.lifecycle_evolution_service import LifecycleEvolutionService
-from sprintcycle.application.services.lifecycle.lifecycle_root_services import LifecycleRootService, WebLifecycleRootOrchestrationService
+from sprintcycle.application.services.lifecycle.lifecycle_root_services import LifecycleRootService
+from sprintcycle.application.services.lifecycle.web_lifecycle_orchestration_service import WebLifecycleOrchestrationService
+from sprintcycle.application.services.lifecycle.runtime_lifecycle_service import RuntimeLifecycleService
+from sprintcycle.application.services.lifecycle.governance_lifecycle_service import GovernanceLifecycleService
+from sprintcycle.application.services.lifecycle.promotion_lifecycle_service import PromotionLifecycleService
+from sprintcycle.application.services.lifecycle.recovery_lifecycle_service import RecoveryLifecycleService
 from sprintcycle.application.services.governance.repair_orchestration_service import RepairOrchestrationService
 from sprintcycle.application.services.lifecycle.execution_lifecycle_service import ExecutionLifecycleService
 from sprintcycle.application.services.governance.governance_orchestration_service import GovernanceOrchestrationService
@@ -115,7 +119,7 @@ class ServiceAggregator:
 
         self._lifecycle_root = LifecycleRootService(project_path=project_path)
 
-        self._web_lifecycle = WebLifecycleRootOrchestrationService(
+        self._web_lifecycle = WebLifecycleOrchestrationService(
             project_path=project_path,
             start_execution_run=lambda *args, **kwargs: self._execution_lifecycle.start_execution_run(*args, **kwargs),
             runtime_lifecycle=lambda eid: self._execution_lifecycle.status(eid),
@@ -123,18 +127,35 @@ class ServiceAggregator:
             evaluate_sprint_contract=lambda payload: self._lifecycle_root.evaluate_sprint_contract(payload),
         )
 
-        self._lifecycle_delivery = LifecycleDeliveryService(
+        # 创建拆分后的新服务
+        self._runtime_lifecycle = RuntimeLifecycleService(
             project_path=project_path,
             runtime_registry=self._runtime_registry,
-            governance_orchestration=self._governance_orchestration,
-            lifecycle_evolution=self._lifecycle_evolution,
-            repair_orchestration=self._repair_orchestration,
-            platform_launch=self._platform_launch,
             runtime_latest=lambda: self._execution_lifecycle.runtime_latest(),
+        )
+
+        self._governance_lifecycle = GovernanceLifecycleService(
+            project_path=project_path,
+            governance_orchestration=self._governance_orchestration,
+        )
+
+        self._promotion_lifecycle = PromotionLifecycleService(
+            project_path=project_path,
+            runtime_lifecycle_service=self._runtime_lifecycle,
+            governance_lifecycle_service=self._governance_lifecycle,
+            lifecycle_evolution=self._lifecycle_evolution,
+            platform_launch=self._platform_launch,
+            deploy_view=lambda: self._dashboard_views.deploy_view({}),
+            lifecycle_contract=lambda rid: self._lifecycle_root.create_lifecycle(rid, rid, "").to_dict() if rid else {},
+            evaluate_promotion=lambda eid, **kwargs: self._lifecycle_evolution.promote(eid, **kwargs),
+        )
+
+        self._recovery_lifecycle = RecoveryLifecycleService(
+            project_path=project_path,
+            repair_orchestration=self._repair_orchestration,
+            promotion_lifecycle_service=self._promotion_lifecycle,
             observability_trace=lambda eid: self._observability_service.trace(eid),
             observe_execution=lambda eid: self._execution_lifecycle.execution_detail(eid),
-            deploy_view=lambda: self._dashboard_views.deploy_view({}),
-            lifecycle_contract=lambda rid: self._lifecycle_root.lifecycle_to_dict(self._lifecycle_root.create_lifecycle(rid, rid, "")) if rid else {},
             evaluate_promotion=lambda eid, **kwargs: self._lifecycle_evolution.promote(eid, **kwargs),
         )
 
@@ -178,12 +199,24 @@ class ServiceAggregator:
         return self._lifecycle_root
 
     @property
-    def web_lifecycle(self) -> WebLifecycleRootOrchestrationService:
+    def web_lifecycle(self) -> WebLifecycleOrchestrationService:
         return self._web_lifecycle
 
     @property
-    def lifecycle_delivery(self) -> LifecycleDeliveryService:
-        return self._lifecycle_delivery
+    def runtime_lifecycle(self) -> RuntimeLifecycleService:
+        return self._runtime_lifecycle
+
+    @property
+    def governance_lifecycle(self) -> GovernanceLifecycleService:
+        return self._governance_lifecycle
+
+    @property
+    def promotion_lifecycle(self) -> PromotionLifecycleService:
+        return self._promotion_lifecycle
+
+    @property
+    def recovery_lifecycle(self) -> RecoveryLifecycleService:
+        return self._recovery_lifecycle
 
     @property
     def repair_orchestration(self) -> RepairOrchestrationService:

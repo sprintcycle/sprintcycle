@@ -17,7 +17,7 @@ from sprintcycle.domain.generic.interfaces import TaskLifecycleHookProtocol
 from sprintcycle.domain.generic.interfaces import ExecutionStatus, TaskResult
 from sprintcycle.domain.ports.config import RuntimeConfigProtocol
 from ..hitl import HitlService
-from sprintcycle.domain.core.governance.arch_guard.model import GuardFinding as GovernanceViolation
+from sprintcycle.domain.core.governance.common.model import Finding as GovernanceViolation
 from ..arch_guard.yaml_checks import checks_for_gate, filter_argv_items_by_governance_sources, run_argv_item
 from sprintcycle.domain.core.governance.core import load_merged_governance_data
 

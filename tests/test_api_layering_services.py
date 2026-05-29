@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from sprintcycle.application.services.web_lifecycle_orchestration_service import (
+from sprintcycle.application.services.lifecycle.web_lifecycle_orchestration_service import (
     WebLifecycleOrchestrationService,
 )
 

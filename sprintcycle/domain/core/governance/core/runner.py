@@ -23,7 +23,7 @@ from sprintcycle.domain.ports.config import RuntimeConfigProtocol
 from ..arch_guard.adr_check import check_adr_readme_index, check_adr_readme_strict_glob
 from ..arch_guard.argv_extensions import extend_argv_items_with_plugins
 from ..arch_guard.compose_hint import check_compose_hints, check_compose_supply_chain_hints
-from ..arch_guard.model import GuardFinding, GuardReport, GuardSeverity
+from sprintcycle.domain.core.governance.common.model import Finding as GuardFinding, Report as GuardReport, Severity as GuardSeverity
 from ..arch_guard.sdd_checks import (
     violations_acceptance_files,
     violations_for_task_spec_refs,

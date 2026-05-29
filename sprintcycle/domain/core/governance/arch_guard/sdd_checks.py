@@ -6,7 +6,7 @@ from typing import List
 
 from sprintcycle.domain.generic.models import ReleasePlan
 
-from .model import GuardFinding
+from sprintcycle.domain.core.governance.common.model import Finding as GuardFinding
 
 
 def violations_spec_marker_in_files(root: str, spec_glob: str, marker: str) -> List[GuardFinding]:

@@ -19,9 +19,11 @@ from sprintcycle.domain.core.lifecycle.models import (
     validate_lifecycle_evidence,
     next_stage,
     normalize_lifecycle_metadata,
-    build_lifecycle_contract,
     build_lifecycle_state_machine,
-    build_lifecycle_machine,
+)
+
+from sprintcycle.application.services.lifecycle.lifecycle_root_services import (
+    LifecycleRootService,
 )
 
 
@@ -397,7 +399,8 @@ class TestContractBuilder:
 
     def test_build_lifecycle_contract(self):
         """测试构建生命周期契约"""
-        contract = build_lifecycle_contract(
+        service = LifecycleRootService(project_path="/test/project")
+        contract = service.build_lifecycle_contract(
             execution_id="exec-1",
             task_id="task-1",
             project_path="/test/project",
@@ -415,7 +418,8 @@ class TestContractBuilder:
 
     def test_build_lifecycle_contract_with_refs(self):
         """测试构建带引用的契约"""
-        contract = build_lifecycle_contract(
+        service = LifecycleRootService(project_path="/test/project")
+        contract = service.build_lifecycle_contract(
             execution_id="exec-1",
             task_id="task-1",
             project_path="/test/project",
@@ -432,7 +436,8 @@ class TestContractBuilder:
 
     def test_build_lifecycle_contract_with_evidence(self):
         """测试构建带证据的契约"""
-        contract = build_lifecycle_contract(
+        service = LifecycleRootService(project_path="/test/project")
+        contract = service.build_lifecycle_contract(
             execution_id="exec-1",
             task_id="task-1",
             project_path="/test/project",
@@ -456,8 +461,4 @@ class TestStateMachineBuilder:
         assert hasattr(machine, "next_stages")
         assert hasattr(machine, "is_terminal")
 
-    def test_build_lifecycle_machine_alias(self):
-        """测试旧别名函数"""
-        machine = build_lifecycle_machine()
 
-        assert machine is not None

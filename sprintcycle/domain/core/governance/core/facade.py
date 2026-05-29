@@ -11,7 +11,7 @@ from typing import Any, Dict, Optional
 from ..hitl.facade import HitlFacade, create_hitl_facade
 from .runner import GovernanceRunner
 from ..suggestion import create_suggestion_facade
-from ..suggestion.service import SuggestionService
+from ..suggestion.facade import SuggestionFacade
 
 
 class GovernanceFacade:
@@ -27,7 +27,7 @@ class GovernanceFacade:
         config: Any,
         hitl: Optional[HitlFacade] = None,
         runner: Optional[GovernanceRunner] = None,
-        suggestion: Optional[SuggestionService] = None,
+        suggestion: Optional[SuggestionFacade] = None,
     ) -> None:
         self._project_path = project_path
         self._config = config
@@ -48,9 +48,9 @@ class GovernanceFacade:
         return self._runner
 
     @property
-    def suggestion(self) -> SuggestionService:
+    def suggestion(self) -> SuggestionFacade:
         if self._suggestion is None:
-            self._suggestion = SuggestionService(create_suggestion_facade())
+            self._suggestion = create_suggestion_facade(self._project_path, self._config)
         return self._suggestion
 
     async def observe(self, **kwargs: Any) -> None:

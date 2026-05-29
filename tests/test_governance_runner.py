@@ -17,7 +17,7 @@ from sprintcycle.domain.core.governance.core.runner import (
     run_governance_check_and_persist,
     emit_governance_gate_cli_sync,
 )
-from sprintcycle.domain.core.governance.arch_guard.model import GuardReport, GuardFinding
+from sprintcycle.domain.core.governance.common.model import Report as GuardReport, Finding as GuardFinding
 
 
 class MockRuntimeConfig:

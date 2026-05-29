@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from sprintcycle.domain.generic.models import ReleasePlan
-from .model import GuardFinding
+from sprintcycle.domain.core.governance.common.model import Finding as GuardFinding
 
 
 def check_release_plan(release_plan: ReleasePlan) -> List[GuardFinding]:

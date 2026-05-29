@@ -46,7 +46,8 @@ from sprintcycle.domain.core.evolution.measurement import MeasurementResult
 from sprintcycle.domain.core.lifecycle import (
     create_lifecycle,
     LifecycleStage,
-    LifecycleStateMachineService,
+    LifecycleStateMachine,
+    get_lifecycle_state_machine,
 )
 from sprintcycle.domain.ports.orchestration import OrchestrationDependencies
 

@@ -68,7 +68,7 @@ def build_plan_artifact(
     service = LifecycleStateMachineService()
     
     if isinstance(contract_or_lifecycle, LifecycleRoot):
-        contract_dict = service.lifecycle_to_dict(contract_or_lifecycle)
+        contract_dict = contract_or_lifecycle.to_dict()
         execution_id = contract_or_lifecycle.execution_id
         task_id = contract_or_lifecycle.task_id
         project_path = contract_or_lifecycle.project_path
@@ -82,6 +82,13 @@ def build_plan_artifact(
         intent = str(contract_dict.get('intent') or '')
         input_refs = dict(contract_dict.get('input_refs', {}))
 
+    current_stage = contract_dict.get('stage', 'new')
+    
+    if current_stage == 'new':
+        contract_dict = service.transition(
+            contract_dict, "normalized", status="running", reason="normalized for planning"
+        )
+    
     planned = service.transition(
         contract_dict, "planned", status="success", reason="plan built", metadata={"phase": "plan"}
     )

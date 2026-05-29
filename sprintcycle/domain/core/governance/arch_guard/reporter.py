@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .model import GuardFinding, GuardReport
+from sprintcycle.domain.core.governance.common.model import Finding as GuardFinding, Report as GuardReport
 
 
 class GovernanceReportAdapter:

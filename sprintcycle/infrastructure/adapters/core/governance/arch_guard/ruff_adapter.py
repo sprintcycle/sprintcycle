@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from typing import List
 
-from sprintcycle.domain.core.governance.arch_guard.model import GuardFinding
+from sprintcycle.domain.core.governance.common.model import Finding as GuardFinding
 
 
 class RuffAdapter:

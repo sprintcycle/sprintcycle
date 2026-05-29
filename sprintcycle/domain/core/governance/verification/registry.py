@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
-from .model import VerificationFinding, VerificationRule
+from sprintcycle.domain.core.governance.common.model import Finding as VerificationFinding, Rule as VerificationRule
 
 
 @dataclass

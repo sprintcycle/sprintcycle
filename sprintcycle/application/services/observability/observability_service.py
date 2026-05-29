@@ -13,7 +13,7 @@ from sprintcycle.domain.ports.state_store import StateStoreProtocol
 from sprintcycle.domain.core.lifecycle import (
     create_lifecycle,
     LifecycleStage,
-    LifecycleStateMachineService,
+    LifecycleStateMachine,
     CorrelationContext,
 )
 from ..execution.phase_workflow import build_observe_artifact

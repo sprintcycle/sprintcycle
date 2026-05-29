@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
-from .model import GuardFinding, GuardRule
+from sprintcycle.domain.core.governance.common.model import Finding as GuardFinding, Rule as GuardRule
 
 
 @dataclass

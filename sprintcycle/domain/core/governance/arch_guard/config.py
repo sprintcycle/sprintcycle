@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List
 
-from .model import GuardPolicy
+from sprintcycle.domain.core.governance.common.model import Policy as GuardPolicy
 
 
 @dataclass

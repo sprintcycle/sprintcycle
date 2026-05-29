@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 from loguru import logger
 
 from sprintcycle.domain.generic.interfaces import ExecutionStatus
-from sprintcycle.domain.core.execution.core.lifecycle_transitions import ExecutionStateMachine
+from sprintcycle.domain.core.lifecycle import ExecutionStateMachine
 
 if TYPE_CHECKING:
     from ...config.runtime_config import RuntimeConfig

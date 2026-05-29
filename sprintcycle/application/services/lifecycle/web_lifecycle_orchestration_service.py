@@ -68,8 +68,8 @@ class WebLifecycleOrchestrationService:
         # 推进到 normalized 阶段
         lifecycle = self.root_service.advance_to_normalized(lifecycle)
         
-        # 转换为兼容格式
-        contract_dict = self.root_service.lifecycle_to_dict(lifecycle)
+        # 转换为字典格式
+        contract_dict = lifecycle.to_dict()
         
         # 保持向后兼容的字段
         contract_dict.update({
@@ -179,8 +179,8 @@ class WebLifecycleOrchestrationService:
             metadata={"source": "web", "phase": "plan"},
         )
         
-        # 转换为兼容格式
-        contract_dict = self.root_service.lifecycle_to_dict(lifecycle)
+        # 转换为字典格式
+        contract_dict = lifecycle.to_dict()
         
         # 补充向后兼容的字段
         contract_dict.update({

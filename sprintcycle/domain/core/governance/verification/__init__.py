@@ -3,10 +3,14 @@
 from . import providers
 from .engine import VerificationEngine
 from .config import VerificationConfig
-from .model import VerificationReport, VerificationFinding, VerificationRule
 from .reporter import VerificationReportAdapter
 from .registry import VerificationRegistry
 from .hooks import VerificationSprintHooks
+from sprintcycle.domain.core.governance.common.model import (
+    Report as VerificationReport,
+    Finding as VerificationFinding,
+    Rule as VerificationRule,
+)
 
 __all__ = [
     "providers",

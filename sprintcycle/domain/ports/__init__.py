@@ -1,26 +1,32 @@
-"""Domain 层端口定义 - DDD 六边形架构的核心接口
+"""Domain 层端口定义 - DDD 六边形架构的外部端口 (Ports)
 
-定义 Domain 层与外部世界交互的协议，由 Infrastructure 层实现并通过工厂注入。
+**职责边界:**
+- 定义 Domain 层与外部世界交互的协议
+- 六边形架构的输入/输出端口
+- 由 Infrastructure 层实现并通过工厂注入
 
-端口分类：
-- 状态存储端口 (state_store.py)
-- 缓存端口 (cache.py)
-- 架构守卫端口 (governance.py)
-- 配置端口 (config.py)
-- 集成适配器端口 (integrations.py)
-- 限流端口 (rate_limit.py)
-- 审计端口 (audit.py)
-- LLM 引擎端口 (llm.py)
-- 部署端口 (deploy.py)
-- 诊断端口 (diagnostics.py)
-- 演化端口 (evolution.py)
-- 治理端口 (governance.py)
-- HITL 端口 (hitl.py)
-- 知识端口 (knowledge.py)
-- 编排端口 (orchestration.py)
-- 注册端口 (registry.py)
-- 建议端口 (suggestion.py)
-- 可观测性端口 (observability.py)
+**与 domain/generic/interfaces 的区别:**
+- `domain/ports/`: 外部端口，定义与外部系统的交互协议（如数据库、缓存、LLM、第三方服务）
+- `domain/generic/interfaces/`: 领域层内部的通用接口，定义子域间的协作契约
+
+**端口分类:**
+- 状态存储端口 (state_store.py): 持久化存储
+- 缓存端口 (cache.py): 缓存服务
+- 架构守卫端口 (governance.py): 架构检查工具适配器
+- 配置端口 (config.py): 运行时配置
+- 集成适配器端口 (integrations.py): 第三方服务集成（LangGraph、Phoenix 等）
+- 限流端口 (rate_limit.py): 限流服务
+- 审计端口 (audit.py): 审计日志
+- LLM 引擎端口 (llm.py): LLM 引擎调用
+- 部署端口 (deploy.py): 部署服务
+- 诊断端口 (diagnostics.py): 诊断服务
+- 演化端口 (evolution.py): 版本演化
+- HITL 端口 (hitl.py): 人类在环服务
+- 知识端口 (knowledge.py): 知识管理
+- 编排端口 (orchestration.py): 执行编排
+- 注册端口 (registry.py): 运行时注册
+- 建议端口 (suggestion.py): 建议存储
+- 可观测性端口 (observability.py): 可观测性集成
 """
 
 from .state_store import StateStoreProtocol, ExecutionState

@@ -22,7 +22,7 @@ from .invariants import (
     check_spec_refs,
 )
 from .loader import GuardPackLoader
-from .model import GuardFinding, GuardReport
+from sprintcycle.domain.core.governance.common.model import Finding as GuardFinding, Report as GuardReport
 from .registry import GuardRegistry
 
 
@@ -39,7 +39,7 @@ class ArchGuardEngine:
         self._register_pack_rules()
 
     def _register_builtin_rules(self) -> None:
-        from .model import GuardRule
+        from sprintcycle.domain.core.governance.common.model import Rule as GuardRule
 
         builtin = [
             GuardRule(

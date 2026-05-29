@@ -27,7 +27,7 @@ class PlatformSummaryService:
 
     def _get_state_machine_summary(self) -> Dict[str, Any]:
         """获取状态机摘要"""
-        from sprintcycle.domain.core.execution.core.lifecycle_transitions import summarize_state_machine
+        from sprintcycle.domain.core.lifecycle import summarize_execution_state_machine as summarize_state_machine
         return summarize_state_machine()
 
     def platform_overview(self) -> Dict[str, Any]:

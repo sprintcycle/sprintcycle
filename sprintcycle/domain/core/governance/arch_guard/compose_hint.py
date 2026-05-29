@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import List
 
-from .model import GuardFinding
+from sprintcycle.domain.core.governance.common.model import Finding as GuardFinding
 
 
 def check_compose_hints(cfile: str, text: str) -> List[GuardFinding]:

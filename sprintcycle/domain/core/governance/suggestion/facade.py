@@ -1,4 +1,7 @@
-"""Suggestion governance facade."""
+"""Suggestion governance facade.
+
+简化后的结构：SuggestionFacade 直接继承 SuggestionService，消除冗余层。
+"""
 
 from __future__ import annotations
 
@@ -14,48 +17,19 @@ from .models import (
 from .service import SuggestionService
 
 if TYPE_CHECKING:
-    pass
+    from sprintcycle.domain.ports.suggestion import SuggestionStoreProtocol
 
 
-class SuggestionFacade:
-    def __init__(self, service: SuggestionService) -> None:
-        self._service = service
+class SuggestionFacade(SuggestionService):
+    """简化的 Suggestion Facade - 直接继承 SuggestionService。
+    
+    消除了冗余的三层结构：
+    - 之前：SuggestionFacadeService → SuggestionFacade → SuggestionService
+    - 现在：SuggestionFacadeService → SuggestionFacade (继承自 SuggestionService)
+    """
 
-    async def capture_suggestion(self, suggestion: Suggestion) -> Suggestion:
-        return await self._service.capture_suggestion(suggestion)
-
-    async def capture_from_execution_event(self, event: Any) -> dict[str, Any]:
-        return await self._service.capture_from_execution_event(event)
-
-    async def list_suggestions(
-        self,
-        status: Optional[SuggestionStatus] = None,
-        source_type: Optional[SuggestionSourceType] = None,
-        limit: int = 50,
-        offset: int = 0,
-    ) -> List[Suggestion]:
-        return await self._service.list_suggestions(status=status, source_type=source_type, limit=limit, offset=offset)
-
-    async def get_suggestion(self, suggestion_id: str) -> Optional[Suggestion]:
-        return await self._service.get_suggestion(suggestion_id)
-
-    async def review_suggestion(self, suggestion_id: str) -> SuggestionReviewContext:
-        return await self._service.review_suggestion(suggestion_id)
-
-    async def approve_suggestion(self, suggestion_id: str, approver: str, notes: str = ""):
-        return await self._service.approve_suggestion(suggestion_id, approver, notes)
-
-    async def reject_suggestion(self, suggestion_id: str, approver: str, notes: str = ""):
-        return await self._service.reject_suggestion(suggestion_id, approver, notes)
-
-    async def archive_suggestion(self, suggestion_id: str) -> None:
-        return await self._service.archive_suggestion(suggestion_id)
-
-    async def promote_suggestion(self, suggestion_id: str, project_path: str):
-        return await self._service.promote_suggestion(suggestion_id, project_path)
-
-    async def overview(self) -> SuggestionOverviewResult:
-        return await self._service.overview()
+    def __init__(self, store: SuggestionStoreProtocol, *, evolution_facade: Any = None) -> None:
+        super().__init__(store, evolution_facade=evolution_facade)
 
 
 def create_suggestion_facade(project_path: str, config: Any, evolution_facade: Any = None) -> SuggestionFacade:
@@ -64,5 +38,4 @@ def create_suggestion_facade(project_path: str, config: Any, evolution_facade: A
         getattr(getattr(config, "governance_suggestion", None), "root_dir", None)
         or ".sprintcycle/governance/suggestion"
     )
-    service = SuggestionService(get_suggestion_store(store_root), evolution_facade=evolution_facade)
-    return SuggestionFacade(service)
+    return SuggestionFacade(get_suggestion_store(store_root), evolution_facade=evolution_facade)

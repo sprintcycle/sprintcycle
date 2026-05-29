@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 from sprintcycle.domain.core.governance.quality_spec.context import build_quality_context
 from sprintcycle.domain.core.governance.quality_spec.providers.property_provider import HypothesisProvider
 from .config import VerificationConfig
-from .model import VerificationFinding, VerificationReport, VerificationRule
+from sprintcycle.domain.core.governance.common.model import Finding as VerificationFinding, Report as VerificationReport, Rule as VerificationRule
 from .providers.arch_provider import ArchProvider
 from .providers.cli_provider import CliProvider
 from .providers.playwright_provider import PlaywrightProvider

@@ -1,8 +1,14 @@
-"""Lifecycle contract models for SprintCycle.
+"""Lifecycle contract DTO for SprintCycle.
 
-This module centralizes the minimal structured payload used to keep the
-Web -> plan -> execute -> observe -> deliver -> runtime -> suggestion ->
-evolution chain consistent across services.
+This module provides the LifecycleContract DTO for data transfer between
+the domain layer and external interfaces (API, Dashboard, etc.).
+
+**DDD Architecture:**
+- LifecycleContract: Pure DTO for serialization/deserialization
+- LifecycleRoot: Domain aggregate root with business logic
+- Conversion: Handled by application layer services
+
+This DTO maintains backward compatibility with existing API contracts.
 """
 
 from __future__ import annotations
@@ -10,9 +16,12 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Optional
 
-from .state_machine import LIFECYCLE_STAGES, LifecycleStateMachine, build_default_correlation
-from .lifecycle_root import create_lifecycle, LifecycleStage
-from .services import LifecycleStateMachineService
+from .state_machine import (
+    LIFECYCLE_STAGES,
+    LifecycleStateMachine,
+    build_default_correlation,
+    FAILURE_KIND_BY_STAGE,
+)
 
 STAGE_EVIDENCE_SCHEMA: Dict[str, tuple[str, ...]] = {
     "normalized": ("normalized",),
@@ -47,24 +56,6 @@ STAGE_EVIDENCE_TRUTHY_KEYS: Dict[str, tuple[str, ...]] = {
     "evolution": ("versioned", "version_id", "present"),
 }
 
-
-FAILURE_KIND_BY_STAGE: Dict[str, str] = {
-    "new": "",
-    "normalized": "",
-    "planned": "",
-    "prepared": "",
-    "decomposed": "",
-    "executing": "execution_error",
-    "observing": "observation_error",
-    "diagnosed": "diagnosis_error",
-    "repairing": "repair_error",
-    "verifying": "verification_error",
-    "delivering": "delivery_error",
-    "runtime_linked": "integration_error",
-    "governing": "policy_error",
-    "promotion_ready": "policy_error",
-    "promoted": "",
-}
 
 STAGE_EVIDENCE_KEYS: tuple[str, ...] = (
     "normalized",
@@ -150,6 +141,22 @@ def ensure_lifecycle_evidence(evidence: Optional[Dict[str, Any]] = None) -> Dict
 
 @dataclass
 class LifecycleContract:
+    """
+    Lifecycle Contract DTO - Pure data transfer object.
+    
+    This class is designed for serialization/deserialization between
+    external interfaces and the domain layer. It should NOT contain
+    business logic - validation and business rules belong in the domain.
+    
+    **Backward Compatibility:**
+    This DTO maintains compatibility with existing API contracts and
+    should be used when interfacing with external systems.
+    
+    **Conversion:**
+    - Use application layer services to convert between LifecycleContract
+      and LifecycleRoot (domain aggregate).
+    """
+    
     execution_id: str
     task_id: str
     project_path: str
@@ -188,49 +195,46 @@ class LifecycleContract:
     failure_code: str = ""
 
     def validate(self) -> List[str]:
+        """Validate the contract structure (schema validation only).
+        
+        This is schema-level validation for DTO purposes, not business rule validation.
+        Business validation should be done in the domain layer using LifecycleRoot.
+        """
         errors: List[str] = []
         machine = LifecycleStateMachine()
         valid_stages = set(LIFECYCLE_STAGES) | {"failed", "aborted", "cancelled"}
         valid_statuses = {"pending", "running", "success", "failed", "cancelled", "promoted"}
+        
         if not self.execution_id:
             errors.append("execution_id is required")
         if not self.task_id:
             errors.append("task_id is required")
         if not self.project_path:
             errors.append("project_path is required")
+        
         normalized_stage = machine.normalize_stage(self.stage)
         if str(self.stage).strip().lower() not in valid_stages:
             errors.append(f"invalid stage: {self.stage}")
         if normalized_stage != self.stage:
             errors.append(f"stage is not normalized: {self.stage}")
+        
         if self.status not in valid_statuses:
             errors.append(f"invalid status: {self.status}")
+        
         if self.status in TERMINAL_STATUSES and not machine.is_terminal(self.stage):
             errors.append(f"terminal status requires terminal stage: {self.status}/{self.stage}")
+        
         if self.allowed_next_stages and any(stage not in valid_stages for stage in self.allowed_next_stages):
             errors.append("allowed_next_stages contains invalid stage")
-        if self.stage_history and not isinstance(self.stage_history, list):
-            errors.append("stage_history must be a list")
-        if self.stage_history and machine.stage_index(self.stage) < 0:
-            errors.append("stage_history present but stage is invalid")
-        if self.stage_history:
-            order = {stage: idx for idx, stage in enumerate(REQUIRED_STAGE_SEQUENCE)}
-            seen = [str(item.get("to") or "").strip().lower() for item in self.stage_history if isinstance(item, dict)]
-            valid_seen = [stage for stage in seen if stage in order]
-            if valid_seen:
-                last_index = -1
-                for stage in valid_seen:
-                    index = order[stage]
-                    if index < last_index:
-                        errors.append("stage_history is out of order")
-                        break
-                    last_index = index
+        
         return errors
 
     def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for serialization."""
         machine = LifecycleStateMachine()
         d = asdict(self)
         validation_errors = self.validate()
+        
         d["is_terminal"] = machine.is_terminal(self.stage) or self.status in TERMINAL_STATUSES
         d["stage_index"] = machine.stage_index(self.stage)
         d["stage_hints"] = {
@@ -238,43 +242,57 @@ class LifecycleContract:
             "failure_kind": self.failure_kind or FAILURE_KIND_BY_STAGE.get(self.stage, ""),
         }
         d["allowed_next_stages"] = list(self.allowed_next_stages or machine.next_stages(self.stage))
-        d["plan_hints"] = dict(self.plan_refs or {})
-        d["execution_hints"] = dict(self.execution_refs or {})
-        d["observation_hints"] = dict(self.observation_refs or {})
-        d["recovery_hints"] = dict(self.recovery_refs or {})
-        d["recovery_plan_hints"] = dict(self.recovery_plan_refs or {})
-        d["delivery_hints"] = dict(self.delivery_refs or {})
-        d["runtime_hints"] = dict(self.runtime_refs or {})
-        d["governance_hints"] = dict(self.governance_refs or {})
-        d["evolution_hints"] = dict(self.evolution_refs or {})
         d["evidence"] = ensure_lifecycle_evidence(self.evidence)
-        d["suggestion_hints"] = list(self.suggestion_refs or [])
-        d["skill_hints"] = {
-            "skill_refs": list(self.skill_refs or []),
-            "skill_matches": list(self.skill_matches or []),
-            "skill_review_checklists": list(self.skill_review_checklists or []),
-            "skill_trace": dict(self.skill_trace or {}),
-        }
         d["validation"] = {"ok": not validation_errors, "errors": validation_errors}
-        d["validation_refs"] = {
-            **dict(d.get("validation_refs") or {}),
-            "schema_valid": not validation_errors,
-            "normalized": d.get("stage") == "normalized",
-            "trace_present": bool(
-                d.get("trace")
-                or d.get("evidence", {}).get("stages", {}).get("execute", {}).get("trace")
-                or d.get("evidence", {}).get("stages", {}).get("observe", {}).get("trace")
-            ),
-            "versioned_evolution": bool(
-                d.get("evidence", {}).get("evolution", {}).get("versioned")
-                or d.get("evolution_refs", {}).get("versioned")
-            ),
-        }
+        
         if not d.get("correlation"):
             d["correlation"] = build_default_correlation(
                 {"execution_id": self.execution_id, "task_id": self.task_id, "metadata": self.metadata}
             ).to_dict()
+        
         return d
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "LifecycleContract":
+        """Create from dictionary."""
+        return cls(
+            execution_id=data.get("execution_id", ""),
+            task_id=data.get("task_id", ""),
+            project_path=data.get("project_path", ""),
+            task_type=data.get("task_type", "project_optimization"),
+            intent=data.get("intent", ""),
+            stage=data.get("stage", "new"),
+            status=data.get("status", "pending"),
+            failure_kind=data.get("failure_kind", ""),
+            failure_reason=data.get("failure_reason", ""),
+            plan_refs=dict(data.get("plan_refs", {})),
+            execution_refs=dict(data.get("execution_refs", {})),
+            observation_refs=dict(data.get("observation_refs", {})),
+            recovery_refs=dict(data.get("recovery_refs", {})),
+            recovery_plan_refs=dict(data.get("recovery_plan_refs", {})),
+            delivery_refs=dict(data.get("delivery_refs", {})),
+            runtime_refs=dict(data.get("runtime_refs", {})),
+            governance_refs=dict(data.get("governance_refs", {})),
+            evolution_refs=dict(data.get("evolution_refs", {})),
+            evidence=dict(data.get("evidence", {})),
+            suggestion_refs=list(data.get("suggestion_refs", [])),
+            skill_refs=list(data.get("skill_refs", [])),
+            skill_matches=list(data.get("skill_matches", [])),
+            skill_review_checklists=list(data.get("skill_review_checklists", [])),
+            skill_trace=dict(data.get("skill_trace", {})),
+            trace=dict(data.get("trace", {})),
+            diagnostics=dict(data.get("diagnostics", {})),
+            metrics=dict(data.get("metrics", {})),
+            metadata=dict(data.get("metadata", {})),
+            correlation=dict(data.get("correlation", {})),
+            stage_history=list(data.get("stage_history", [])),
+            allowed_next_stages=list(data.get("allowed_next_stages", [])),
+            validation_refs=dict(data.get("validation_refs", {})),
+            input_refs=dict(data.get("input_refs", {})),
+            output_refs=dict(data.get("output_refs", {})),
+            transition_reason=data.get("transition_reason", ""),
+            failure_code=data.get("failure_code", ""),
+        )
 
 
 def next_stage(stage: str) -> str:
@@ -348,167 +366,7 @@ def build_lifecycle_state_machine() -> LifecycleStateMachine:
     return LifecycleStateMachine()
 
 
-# Backwards-compatible alias for external callers that use the older helper name.
-build_lifecycle_machine = build_lifecycle_state_machine
 
-
-def build_lifecycle_contract(
-    *,
-    execution_id: str,
-    task_id: str,
-    project_path: str,
-    stage: str,
-    status: str,
-    metadata: Optional[Dict[str, Any]] = None,
-    failure_kind: str = "",
-    failure_reason: str = "",
-    delivery_refs: Optional[Dict[str, Any]] = None,
-    runtime_refs: Optional[Dict[str, Any]] = None,
-    suggestion_refs: Optional[List[Dict[str, Any]]] = None,
-    skill_refs: Optional[List[Dict[str, Any]]] = None,
-    skill_matches: Optional[List[Dict[str, Any]]] = None,
-    skill_review_checklists: Optional[List[Dict[str, Any]]] = None,
-    skill_trace: Optional[Dict[str, Any]] = None,
-    evolution_refs: Optional[Dict[str, Any]] = None,
-    evidence: Optional[Dict[str, Any]] = None,
-    recovery_refs: Optional[Dict[str, Any]] = None,
-    recovery_plan_refs: Optional[Dict[str, Any]] = None,
-    governance_refs: Optional[Dict[str, Any]] = None,
-    trace: Optional[Dict[str, Any]] = None,
-    diagnostics: Optional[Dict[str, Any]] = None,
-    metrics: Optional[Dict[str, Any]] = None,
-    correlation: Optional[Dict[str, Any]] = None,
-    stage_history: Optional[List[Dict[str, Any]]] = None,
-    allowed_next_stages: Optional[List[str]] = None,
-    validation_refs: Optional[Dict[str, Any]] = None,
-    input_refs: Optional[Dict[str, Any]] = None,
-    output_refs: Optional[Dict[str, Any]] = None,
-    transition_reason: str = "",
-    failure_code: str = "",
-) -> LifecycleContract:
-    """构建生命周期合约 - 完全迁移到新架构。
-    
-    此函数现在内部完全使用新的 LifecycleRoot 聚合根，但保持外部接口兼容。
-    """
-    meta = normalize_lifecycle_metadata(metadata)
-    
-    # 使用新的 DDD 实现
-    root = create_lifecycle(
-        execution_id=execution_id,
-        task_id=task_id,
-        project_path=project_path,
-        task_type=str(meta.get("task_type") or "project_optimization"),
-        intent=str(meta.get("intent") or ""),
-        metadata=meta,
-    )
-    
-    # 转换到目标阶段
-    service = LifecycleStateMachineService()
-    
-    try:
-        target_stage = LifecycleStage.from_string(stage)
-        if target_stage != root.stage:
-            # 逐步转换阶段
-            stages = list(LifecycleStage)
-            start_idx = stages.index(root.stage)
-            end_idx = stages.index(target_stage)
-            for i in range(start_idx, end_idx):
-                next_stage = stages[i + 1]
-                if service.can_transition(root.stage.value, next_stage.value):
-                    root = root.transition_to(next_stage)
-    except Exception:
-        pass
-    
-    # 构建证据和其他字段
-    evidence_payload = ensure_lifecycle_evidence(evidence)
-    
-    # 处理额外的引用和数据（保存到 metadata）
-    extra_metadata = dict(root.metadata)
-    if delivery_refs:
-        extra_metadata["delivery_refs"] = dict(delivery_refs)
-    if runtime_refs:
-        extra_metadata["runtime_refs"] = dict(runtime_refs)
-    if suggestion_refs:
-        extra_metadata["suggestion_refs"] = list(suggestion_refs)
-    if skill_refs:
-        extra_metadata["skill_refs"] = list(skill_refs)
-    if skill_matches:
-        extra_metadata["skill_matches"] = list(skill_matches)
-    if skill_review_checklists:
-        extra_metadata["skill_review_checklists"] = list(skill_review_checklists)
-    if skill_trace:
-        extra_metadata["skill_trace"] = dict(skill_trace)
-    if evolution_refs:
-        extra_metadata["evolution_refs"] = dict(evolution_refs)
-    if recovery_refs:
-        extra_metadata["recovery_refs"] = dict(recovery_refs)
-    if recovery_plan_refs:
-        extra_metadata["recovery_plan_refs"] = dict(recovery_plan_refs)
-    if governance_refs:
-        extra_metadata["governance_refs"] = dict(governance_refs)
-    if trace:
-        extra_metadata["trace"] = dict(trace)
-    if diagnostics:
-        extra_metadata["diagnostics"] = dict(diagnostics)
-    if metrics:
-        extra_metadata["metrics"] = dict(metrics)
-    if validation_refs:
-        extra_metadata["validation_refs"] = dict(validation_refs)
-    if input_refs:
-        extra_metadata["input_refs"] = dict(input_refs)
-    if output_refs:
-        extra_metadata["output_refs"] = dict(output_refs)
-    
-    # 添加阶段历史
-    history_from_root = [
-        {"from": h.from_stage, "to": h.to_stage, "at": h.at, "reason": h.reason}
-        for h in root.stage_history
-    ]
-    full_history = list(stage_history or []) + history_from_root
-    
-    # 构建兼容的旧合约对象
-    contract = LifecycleContract(
-        execution_id=root.execution_id,
-        task_id=root.task_id,
-        project_path=root.project_path,
-        task_type=root.task_type,
-        intent=root.intent,
-        stage=root.stage.value,
-        status=status or root.status.value,
-        failure_kind=failure_kind or root.failure_kind,
-        failure_reason=failure_reason or root.failure_reason,
-        delivery_refs=dict(delivery_refs or extra_metadata.get("delivery_refs", {})),
-        runtime_refs=dict(runtime_refs or extra_metadata.get("runtime_refs", {})),
-        suggestion_refs=list(suggestion_refs or extra_metadata.get("suggestion_refs", [])),
-        skill_refs=list(skill_refs or extra_metadata.get("skill_refs", [])),
-        skill_matches=list(skill_matches or extra_metadata.get("skill_matches", [])),
-        skill_review_checklists=list(skill_review_checklists or extra_metadata.get("skill_review_checklists", [])),
-        skill_trace=dict(skill_trace or extra_metadata.get("skill_trace", {})),
-        evolution_refs=dict(evolution_refs or extra_metadata.get("evolution_refs", {})),
-        evidence=evidence_payload,
-        recovery_refs=dict(recovery_refs or extra_metadata.get("recovery_refs", {})),
-        recovery_plan_refs=dict(recovery_plan_refs or extra_metadata.get("recovery_plan_refs", {})),
-        governance_refs=dict(governance_refs or extra_metadata.get("governance_refs", {})),
-        trace=dict(trace or extra_metadata.get("trace", {})),
-        diagnostics=dict(diagnostics or extra_metadata.get("diagnostics", {})),
-        metrics=dict(metrics or extra_metadata.get("metrics", {})),
-        metadata=extra_metadata,
-        correlation=root.correlation.to_dict() if root.correlation else (correlation or {}),
-        stage_history=full_history,
-        allowed_next_stages=list(allowed_next_stages or root.allowed_next_stages),
-        validation_refs=dict(validation_refs or extra_metadata.get("validation_refs", {})),
-        input_refs=dict(input_refs or extra_metadata.get("input_refs", {})),
-        output_refs=dict(output_refs or extra_metadata.get("output_refs", {})),
-        transition_reason=transition_reason or root.transition_reason,
-        failure_code=failure_code or root.failure_code,
-    )
-    
-    if not contract.correlation:
-        contract.correlation = build_default_correlation(
-            {"execution_id": execution_id, "task_id": task_id, "metadata": meta}
-        ).to_dict()
-    
-    return contract
 
 
 __all__ = [
@@ -527,6 +385,4 @@ __all__ = [
     "normalize_lifecycle_metadata",
     "validate_lifecycle_evidence",
     "build_lifecycle_state_machine",
-    "build_lifecycle_machine",
-    "build_lifecycle_contract",
 ]

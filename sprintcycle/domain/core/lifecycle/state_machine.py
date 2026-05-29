@@ -12,8 +12,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
+
+from .values import CorrelationContext
 
 LIFECYCLE_STAGES: tuple[str, ...] = (
     "new",
@@ -45,6 +47,7 @@ RECOVERY_TARGETS: Dict[str, str] = {
     "runtime_linked": "repairing",
     "governing": "repairing",
     "promotion_ready": "repairing",
+    "failed": "repairing",
 }
 
 TERMINAL_STAGES: tuple[str, ...] = ("promoted", "failed", "aborted", "cancelled")
@@ -91,44 +94,56 @@ CORRELATION_KEY_FIELDS: tuple[str, ...] = (
     "version_id",
 )
 
-
-@dataclass(slots=True)
-class CorrelationContext:
-    request_id: str = ""
-    execution_id: str = ""
-    task_id: str = ""
-    suggestion_id: str = ""
-    runtime_id: str = ""
-    version_id: str = ""
-    trace_id: str = ""
-    parent_id: str = ""
-    source: str = "web"
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "request_id": self.request_id,
-            "execution_id": self.execution_id,
-            "task_id": self.task_id,
-            "suggestion_id": self.suggestion_id,
-            "runtime_id": self.runtime_id,
-            "version_id": self.version_id,
-            "trace_id": self.trace_id,
-            "parent_id": self.parent_id,
-            "source": self.source,
-            "metadata": dict(self.metadata),
-        }
+FAILURE_KIND_BY_STAGE: Dict[str, str] = {
+    "new": "",
+    "normalized": "",
+    "planned": "",
+    "prepared": "",
+    "decomposed": "",
+    "executing": "execution_error",
+    "observing": "observation_error",
+    "diagnosed": "diagnosis_error",
+    "repairing": "repair_error",
+    "verifying": "verification_error",
+    "delivering": "delivery_error",
+    "runtime_linked": "integration_error",
+    "governing": "policy_error",
+    "promotion_ready": "policy_error",
+    "promoted": "",
+}
 
 
 @dataclass(slots=True)
 class LifecycleStateMachine:
-    stage: str = "new"
+    """
+    Authoritative lifecycle state machine.
+    
+    This class provides the single source of truth for lifecycle stage
+    transitions and validation rules. It combines the functionality
+    previously split between LifecycleStateMachine and LifecycleStateMachineService.
+    
+    **Design Principles:**
+    - Stateless domain service (no internal state beyond configuration)
+    - Methods are pure functions where possible
+    - Single source of truth for all transition rules
+    """
+    
+    # Class-level constants for reference
+    STAGES = LIFECYCLE_STAGES
+    TERMINAL_STAGES = TERMINAL_STAGES
+    TRANSITIONS = STAGE_TRANSITIONS
+    RECOVERY_TARGETS = RECOVERY_TARGETS
 
     def normalize_stage(self, stage: object) -> str:
-        value = str(stage or "").strip().lower()
+        """Normalize a stage value to canonical string form."""
+        if hasattr(stage, 'value'):
+            value = str(stage.value).strip().lower()
+        else:
+            value = str(stage or "").strip().lower()
         return value if value in STAGE_TRANSITIONS else "new"
 
     def can_transition(self, from_stage: object, to_stage: object) -> bool:
+        """Check if a transition is valid."""
         frm = self.normalize_stage(from_stage)
         to = self.normalize_stage(to_stage)
         if frm == to:
@@ -136,18 +151,26 @@ class LifecycleStateMachine:
         return to in STAGE_TRANSITIONS.get(frm, ())
 
     def validate_transition(self, from_stage: object, to_stage: object) -> Optional[str]:
+        """Validate a stage transition. Returns None if valid, or error message."""
         frm = self.normalize_stage(from_stage)
         to = self.normalize_stage(to_stage)
-        if not frm or not to:
+        
+        if not frm:
             return "stage cannot be empty"
+        if not to:
+            return "target stage cannot be empty"
+
         if self.can_transition(frm, to):
             return None
+
         return f"illegal lifecycle transition: {frm} -> {to}"
 
     def next_stages(self, stage: object) -> tuple[str, ...]:
+        """Get the valid next stages for a given stage."""
         return STAGE_TRANSITIONS.get(self.normalize_stage(stage), ())
 
     def stage_index(self, stage: object) -> int:
+        """Get the index of a stage in the lifecycle sequence."""
         normalized = self.normalize_stage(stage)
         try:
             return LIFECYCLE_STAGES.index(normalized)
@@ -155,7 +178,35 @@ class LifecycleStateMachine:
             return -1
 
     def is_terminal(self, stage: object) -> bool:
-        return self.normalize_stage(stage) in TERMINAL_STAGES or self.normalize_stage(stage) in FAILURE_STAGES
+        """Check if a stage is terminal (no further transitions)."""
+        normalized = self.normalize_stage(stage)
+        return (
+            normalized in TERMINAL_STAGES or normalized in FAILURE_STAGES
+        )
+
+    def is_failure(self, stage: object) -> bool:
+        """Check if a stage represents a failure state."""
+        return self.normalize_stage(stage) in FAILURE_STAGES
+
+    def is_recovery(self, stage: object) -> bool:
+        """Check if a stage is a recovery stage."""
+        return self.normalize_stage(stage) in RECOVERY_STAGES
+
+    def get_recovery_target(self, stage: object) -> str:
+        """Get the recovery target stage for a given stage."""
+        normalized = self.normalize_stage(stage)
+        return RECOVERY_TARGETS.get(normalized, "repairing")
+
+    def get_failure_kind(self, stage: object) -> str:
+        """Get the failure kind for a given stage."""
+        return FAILURE_KIND_BY_STAGE.get(self.normalize_stage(stage), "")
+
+    def get_allowed_next_stages(self, stage: object) -> List[str]:
+        """Get a list of allowed next stages (excludes failure states by default)."""
+        all_next = list(self.next_stages(stage))
+        return [
+            s for s in all_next if s not in FAILURE_STAGES
+        ]
 
     def transition(
         self,
@@ -166,44 +217,75 @@ class LifecycleStateMachine:
         reason: str = "",
         metadata: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
+        """
+        Transition a contract dictionary to a new stage.
+        
+        This is the primary method for advancing the lifecycle state.
+        It validates the transition before applying it.
+        """
         contract = dict(contract or {})
-        current = self.normalize_stage(contract.get("stage") or contract.get("current_stage") or "new")
-        target = self.normalize_stage(to_stage)
-        if current == "failed" and target == "repairing":
-            err = None
+        from_stage = contract.get("stage", "new")
+        
+        if from_stage == "failed" and to_stage == "repairing":
+            pass
         else:
-            err = self.validate_transition(current, target)
-        if err:
-            raise ValueError(err)
-        history = list(contract.get("stage_history") or [])
-        now = datetime.now(timezone.utc).isoformat()
-        if current != target:
-            history.append({"from": current, "to": target, "at": now, "reason": reason})
-        contract["stage"] = target
-        contract["status"] = status or contract.get("status") or "pending"
-        contract["stage_history"] = history
-        contract["stage_index"] = self.stage_index(target)
-        contract["is_terminal"] = self.is_terminal(target) or str(contract.get("status") or "").lower() in {
-            "success",
-            "failed",
-            "cancelled",
-            "promoted",
-        }
-        contract.setdefault("metadata", {})
+            error = self.validate_transition(from_stage, to_stage)
+            if error:
+                raise ValueError(error)
+        
+        result = dict(contract)
+        
+        result["stage"] = to_stage
+        if status:
+            result["status"] = status
+        elif to_stage in TERMINAL_STAGES or to_stage in FAILURE_STAGES:
+            result["status"] = "failed" if to_stage in FAILURE_STAGES else "success"
+        
+        result.setdefault("metadata", {})
         if metadata:
-            contract["metadata"].update(metadata)
-        contract["transition_reason"] = reason
-        contract["updated_at"] = now
-        return contract
+            result["metadata"].update(dict(metadata))
+        
+        result.setdefault("stage_history", [])
+        if from_stage != to_stage:
+            result["stage_history"].append({
+                "from": from_stage,
+                "to": to_stage,
+                "at": datetime.now(timezone.utc).isoformat(),
+                "reason": reason
+            })
+        
+        result["is_terminal"] = self.is_terminal(to_stage)
+        result["stage_index"] = self.stage_index(to_stage)
+        
+        if to_stage in FAILURE_STAGES:
+            result["failure_kind"] = self.get_failure_kind(from_stage)
+        
+        return result
 
-    def failure_to_recovery_target(self, stage: object) -> str:
-        normalized = self.normalize_stage(stage)
-        return REPAIR_ROUTE_BY_STAGE.get(normalized, "repairing")
+    def build_transition_event(
+        self,
+        from_stage: str,
+        to_stage: str,
+        reason: str = "",
+        correlation: Optional[Dict[str, Any]] = None,
+        source: str = "web",
+    ) -> Dict[str, Any]:
+        """Build a transition event dictionary."""
+        return {
+            "from": from_stage,
+            "to": to_stage,
+            "reason": reason,
+            "at": datetime.now(timezone.utc).isoformat(),
+            "correlation": dict(correlation or {}),
+            "source": source,
+        }
 
     def ensure_correlation(self, payload: Dict[str, Any]) -> CorrelationContext:
+        """Build a CorrelationContext from a payload."""
         payload = dict(payload or {})
         metadata = dict(payload.get("metadata") or {})
         trace_id = str(payload.get("trace_id") or metadata.get("trace_id") or uuid4())
+        
         return CorrelationContext(
             request_id=str(payload.get("request_id") or metadata.get("request_id") or ""),
             execution_id=str(payload.get("execution_id") or metadata.get("execution_id") or ""),
@@ -217,7 +299,21 @@ class LifecycleStateMachine:
             metadata=metadata,
         )
 
-    def attach_correlation(self, contract: Dict[str, Any], correlation: CorrelationContext) -> Dict[str, Any]:
+    def build_default_correlation(
+        self, payload: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """Build a default correlation dictionary from a payload."""
+        correlation = self.ensure_correlation(payload)
+        return correlation.to_dict()
+
+    def attach_correlation(self, contract: Dict[str, Any], correlation: Dict[str, Any]) -> Dict[str, Any]:
+        """Attach correlation to a contract dictionary."""
+        from .values import CorrelationContext
+        corr = CorrelationContext.from_dict(correlation)
+        return self._attach_correlation(contract, corr)
+
+    def _attach_correlation(self, contract: Dict[str, Any], correlation: CorrelationContext) -> Dict[str, Any]:
+        """Attach correlation to a contract dictionary (internal)."""
         contract = dict(contract or {})
         contract["correlation"] = correlation.to_dict()
         contract.setdefault("metadata", {})
@@ -236,6 +332,7 @@ class LifecycleStateMachine:
         correlation: Optional[CorrelationContext] = None,
         source: str = "web",
     ) -> Dict[str, Any]:
+        """Build a lifecycle event dictionary."""
         corr = correlation or CorrelationContext(source=source)
         return {
             "event_id": str(uuid4()),
@@ -250,14 +347,33 @@ class LifecycleStateMachine:
 
 
 def build_default_correlation(payload: Optional[Dict[str, Any]] = None) -> CorrelationContext:
+    """Build a default correlation context from a payload."""
     return LifecycleStateMachine().ensure_correlation(payload or {})
 
 
+# Singleton instance for convenience
+_default_machine: Optional[LifecycleStateMachine] = None
+
+
+def get_lifecycle_state_machine() -> LifecycleStateMachine:
+    """Get or create the default lifecycle state machine instance."""
+    global _default_machine
+    if _default_machine is None:
+        _default_machine = LifecycleStateMachine()
+    return _default_machine
+
+
 __all__ = [
-    "CorrelationContext",
     "LifecycleStateMachine",
     "LIFECYCLE_STAGES",
     "STAGE_TRANSITIONS",
     "TERMINAL_STAGES",
+    "FAILURE_STAGES",
+    "RECOVERY_STAGES",
+    "RECOVERY_TARGETS",
+    "REPAIR_ROUTE_BY_STAGE",
+    "CORRELATION_KEY_FIELDS",
+    "FAILURE_KIND_BY_STAGE",
     "build_default_correlation",
+    "get_lifecycle_state_machine",
 ]

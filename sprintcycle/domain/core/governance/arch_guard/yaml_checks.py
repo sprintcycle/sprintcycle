@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
-from .model import GuardFinding
+from sprintcycle.domain.core.governance.common.model import Finding as GuardFinding
 
 
 def checks_for_gate(data: Dict[str, Any], gate: str) -> List[Any]:

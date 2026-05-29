@@ -4,7 +4,7 @@ import importlib.util
 from pathlib import Path
 from typing import Iterable, List
 
-from .model import GuardRule
+from sprintcycle.domain.core.governance.common.model import Rule as GuardRule
 
 
 class GuardPackLoader:

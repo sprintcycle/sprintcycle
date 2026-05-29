@@ -7,7 +7,7 @@ It encapsulates all state and behavior related to the execution lifecycle.
 - LifecycleRoot is responsible for stage transitions
 - Cross-subdomain references use IDs (not objects)
 - Immutable update methods return new instances
-- State machine logic is delegated to LifecycleStateMachineService
+- State machine logic is delegated to LifecycleStateMachine
 """
 
 from __future__ import annotations
@@ -17,11 +17,12 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
 
-from .services import (
-    LifecycleStateMachineService,
+from .state_machine import (
+    LifecycleStateMachine,
     LIFECYCLE_STAGES,
     TERMINAL_STAGES,
     FAILURE_KIND_BY_STAGE,
+    get_lifecycle_state_machine,
 )
 from .values import (
     StageEvidence,
@@ -169,8 +170,8 @@ class LifecycleRoot:
         """Initialize derived fields after construction."""
         # Set up allowed next stages
         if not self.allowed_next_stages:
-            service = LifecycleStateMachineService()
-            self.allowed_next_stages = service.next_stages(self.stage)
+            machine = get_lifecycle_state_machine()
+            self.allowed_next_stages = machine.next_stages(self.stage)
 
     # =========================================================================
     # Identity
@@ -224,8 +225,8 @@ class LifecycleRoot:
                 f"Cannot transition from terminal state: {self.stage.value}"
             )
 
-        service = LifecycleStateMachineService()
-        error = service.validate_transition(self.stage.value, new_stage.value)
+        machine = get_lifecycle_state_machine()
+        error = machine.validate_transition(self.stage.value, new_stage.value)
         if error:
             raise ValueError(error)
 
@@ -264,7 +265,7 @@ class LifecycleRoot:
             correlation=self.correlation,
             metrics=dict(self.metrics),
             metadata=dict(self.metadata),
-            allowed_next_stages=service.next_stages(new_stage),
+            allowed_next_stages=machine.next_stages(new_stage),
             transition_reason=reason,
             validation_errors=(),
         )
@@ -283,13 +284,13 @@ class LifecycleRoot:
 
     def can_advance_to(self, target_stage: LifecycleStage) -> bool:
         """Check if we can advance to a target stage."""
-        service = LifecycleStateMachineService()
-        return service.can_transition(self.stage.value, target_stage.value)
+        machine = get_lifecycle_state_machine()
+        return machine.can_transition(self.stage.value, target_stage.value)
 
     def get_next_stage(self) -> Optional[LifecycleStage]:
         """Get the next stage in the normal flow."""
-        service = LifecycleStateMachineService()
-        next_stages = service.next_stages(self.stage)
+        machine = get_lifecycle_state_machine()
+        next_stages = machine.next_stages(self.stage)
         for stage_str in next_stages:
             if stage_str not in ("failed", "cancelled"):
                 return LifecycleStage.from_string(stage_str)
@@ -310,8 +311,8 @@ class LifecycleRoot:
         Recovery transitions the lifecycle to the appropriate
         recovery stage (typically 'repairing' or 'verifying').
         """
-        service = LifecycleStateMachineService()
-        recovery_target = service.get_recovery_target(self.stage)
+        machine = get_lifecycle_state_machine()
+        recovery_target = machine.get_recovery_target(self.stage)
 
         return LifecycleRoot(
             contract_id=self.contract_id,
@@ -333,7 +334,7 @@ class LifecycleRoot:
             correlation=self.correlation,
             metrics=dict(self.metrics),
             metadata=dict(self.metadata),
-            allowed_next_stages=service.next_stages(LifecycleStage.from_string(recovery_target)),
+            allowed_next_stages=machine.next_stages(LifecycleStage.from_string(recovery_target)),
             transition_reason=f"Recovery: {reason}",
             validation_errors=(),
         )
@@ -514,8 +515,8 @@ class LifecycleRoot:
             errors.append("project_path is required")
 
         # Stage validation
-        service = LifecycleStateMachineService()
-        normalized = service.normalize_stage(self.stage.value)
+        machine = get_lifecycle_state_machine()
+        normalized = machine.normalize_stage(self.stage.value)
         if normalized != self.stage.value:
             errors.append(f"stage is not normalized: {self.stage.value}")
 
@@ -533,7 +534,6 @@ class LifecycleRoot:
 
         # Next stages validation
         if self.allowed_next_stages:
-            LifecycleStateMachineService()
             valid_stages_set = set(LIFECYCLE_STAGES) | {"failed", "aborted", "cancelled"}
             if any(stage not in valid_stages_set for stage in self.allowed_next_stages):
                 errors.append("allowed_next_stages contains invalid stage")
@@ -552,7 +552,7 @@ class LifecycleRoot:
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary (for serialization)."""
         errors = self.validate()
-        service = LifecycleStateMachineService()
+        machine = get_lifecycle_state_machine()
 
         return {
             "contract_id": self.contract_id,
@@ -583,7 +583,7 @@ class LifecycleRoot:
             "is_terminal": self.is_terminal,
             "is_valid": not errors,
             "validation_errors": errors,
-            "stage_index": service.stage_index(self.stage),
+            "stage_index": machine.stage_index(self.stage),
             "next_stage": self.get_next_stage().value if self.get_next_stage() else None,
         }
 
@@ -674,7 +674,7 @@ def create_lifecycle(
     This is the preferred way to create LifecycleRoot instances
     as it handles all the initialization correctly.
     """
-    service = LifecycleStateMachineService()
+    machine = get_lifecycle_state_machine()
     correlation = CorrelationContext(
         execution_id=execution_id,
         task_id=task_id,
@@ -692,7 +692,7 @@ def create_lifecycle(
         status=LifecycleStatus.PENDING,
         correlation=correlation,
         metadata=dict(metadata or {}),
-        allowed_next_stages=service.next_stages(LifecycleStage.NEW),
+        allowed_next_stages=machine.next_stages(LifecycleStage.NEW),
     )
 
 

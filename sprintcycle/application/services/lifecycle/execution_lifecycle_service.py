@@ -3,6 +3,16 @@
 This service provides a minimal bridge between execution state, runtime linkage,
 and dashboard-facing lifecycle snapshots.
 
+**职责边界**：
+- 执行启动与状态管理
+- 运行时注册与更新
+- 可观测性追踪
+- Hook 触发与事件发布
+
+**与 LifecycleDeliveryService 的分工**：
+- ExecutionLifecycleService：聚焦执行层面（启动、状态、追踪）
+- LifecycleDeliveryService：聚焦交付层面（运行时生命周期、治理、发布）
+
 **分层**：ExecutionLifecycleService 通过构造函数接收依赖。
 """
 

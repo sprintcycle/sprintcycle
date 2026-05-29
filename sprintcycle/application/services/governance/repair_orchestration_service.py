@@ -15,7 +15,7 @@ from typing import Any, Dict, Optional
 from sprintcycle.domain.ports.observability import ObservabilityFacadeProtocol
 from sprintcycle.domain.core.lifecycle import (
     LifecycleStage,
-    LifecycleStateMachineService,
+    LifecycleStateMachine,
     create_lifecycle,
 )
 from ..execution.phase_workflow import build_diagnose_artifact, build_observe_artifact, build_repair_artifact

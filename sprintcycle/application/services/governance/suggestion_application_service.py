@@ -40,7 +40,8 @@ from sprintcycle.domain.core.evolution.models import VersionArtifact
 from sprintcycle.domain.core.lifecycle import (
     create_lifecycle,
     LifecycleStage,
-    LifecycleStateMachineService,
+    LifecycleStateMachine,
+    get_lifecycle_state_machine,
     CorrelationContext,
 )
 from sprintcycle.domain.core.governance.promotion_policy import PromotionPolicy
@@ -422,7 +423,7 @@ class SuggestionApplicationService:
         lifecycle = lifecycle.transition_to(LifecycleStage.SUGGESTING)
         
         # 获取字典格式
-        service = LifecycleStateMachineService()
+        service = get_lifecycle_state_machine()
         contract_dict = {
             "contract_id": lifecycle.contract_id,
             "execution_id": lifecycle.execution_id,

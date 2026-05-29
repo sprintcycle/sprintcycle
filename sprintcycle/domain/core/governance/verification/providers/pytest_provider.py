@@ -4,7 +4,7 @@ import subprocess
 from pathlib import Path
 from typing import Any, Dict, List
 
-from ..model import VerificationFinding
+from sprintcycle.domain.core.governance.common.model import Finding as VerificationFinding
 
 
 class PytestProvider:

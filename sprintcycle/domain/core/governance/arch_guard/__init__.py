@@ -1,14 +1,16 @@
+from __future__ import annotations
+
 from .config import ArchGuardConfig
 from .engine import ArchGuardEngine
-from .model import (
-    GuardAction,
-    GuardFinding,
-    GuardPolicy,
-    GuardReport,
-    GuardRule,
-    GuardSeverity,
-)
 from .reporter import GovernanceReportAdapter
+from sprintcycle.domain.core.governance.common.model import (
+    Rule as GuardRule,
+    Finding as GuardFinding,
+    Policy as GuardPolicy,
+    Report as GuardReport,
+    Action as GuardAction,
+    Severity as GuardSeverity,
+)
 
 __all__ = [
     "ArchGuardConfig",
