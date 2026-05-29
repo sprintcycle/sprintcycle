@@ -1,7 +1,4 @@
-"""Observability application service.
-
-完全使用新架构：LifecycleRoot + LifecycleStateMachineService
-"""
+"""Observability application service."""
 
 from __future__ import annotations
 
@@ -131,7 +128,7 @@ class ObservabilityService:
             lifecycle_root = lifecycle_root.transition_to(target_stage)
         
         # 获取字典格式
-        service = LifecycleStateMachineService()
+        service = LifecycleStateMachine()
         contract_dict = {
             "contract_id": lifecycle_root.contract_id,
             "execution_id": lifecycle_root.execution_id,

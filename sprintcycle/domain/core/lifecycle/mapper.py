@@ -94,14 +94,14 @@ class LifecycleMapper:
                 runtime=runtime_ref or RuntimeRef(),
                 governance=governance_ref or GovernanceRef(),
                 evolution=evolution_ref or EvolutionRef(),
-                trace={},
-                diagnostics={},
-                recovery=contract.recovery_refs or {},
+                trace=contract.trace or {},
+                diagnostics=contract.diagnostics or {},
+                recovery={},
                 suggestion={},
             ),
             stage_history=(),
             correlation=correlation,
-            metrics={},
+            metrics=contract.metrics or {},
             metadata=contract.metadata,
             allowed_next_stages=tuple(contract.allowed_next_stages or []),
             transition_reason=contract.transition_reason,
@@ -119,44 +119,56 @@ class LifecycleMapper:
             A new LifecycleContract instance with values from the root
         """
         return LifecycleContract(
+            # Core identity fields
             execution_id=root.execution_id,
             task_id=root.task_id,
             project_path=root.project_path,
-            task_type=root.task_type,
-            intent=root.intent,
+            
+            # Core state fields
             stage=root.stage.value,
             status=root.status.value,
+            
+            # Metadata fields
+            task_type=root.task_type,
+            intent=root.intent,
+            
+            # Failure information
             failure_kind=root.failure_kind,
             failure_reason=root.failure_reason,
             failure_code=root.failure_code,
-            plan_refs={},
-            execution_refs={},
-            observation_refs={},
-            recovery_refs=root.evidence.recovery if root.evidence else {},
-            recovery_plan_refs={},
-            delivery_refs={},
-            runtime_refs={},
-            governance_refs={},
-            evolution_refs={},
+            
+            # Cross-subdomain references
+            governance_refs={
+                "governance_session_id": root.governance_ref.governance_session_id if root.governance_ref else "",
+                "gate": root.governance_ref.gate if root.governance_ref else "",
+                "approved": root.governance_ref.approved if root.governance_ref else False,
+            } if root.governance_ref else {},
+            evolution_refs={
+                "evolution_request_id": root.evolution_ref.evolution_request_id if root.evolution_ref else "",
+                "version_id": root.evolution_ref.version_id if root.evolution_ref else "",
+            } if root.evolution_ref else {},
+            runtime_refs={
+                "runtime_id": root.runtime_ref.runtime_id if root.runtime_ref else "",
+                "linked": root.runtime_ref.linked if root.runtime_ref else False,
+                "healthy": root.runtime_ref.healthy if root.runtime_ref else False,
+            } if root.runtime_ref else {},
+            
+            # Evidence and trace
             evidence=root.evidence.to_dict() if root.evidence else {},
-            suggestion_refs=[],
-            skill_refs=[],
-            skill_matches=[],
-            skill_review_checklists=[],
-            skill_trace={},
-            trace={},
-            diagnostics={},
+            trace=root.evidence.trace if root.evidence else {},
+            diagnostics=root.evidence.diagnostics if root.evidence else {},
+            
+            # Metadata and metrics
             metrics=root.metrics,
             metadata=root.metadata,
             correlation=root.correlation.to_dict(),
+            
+            # Transition information
             stage_history=[
                 {"from": h.from_stage, "to": h.to_stage, "at": h.at, "reason": h.reason}
                 for h in root.stage_history
             ],
             allowed_next_stages=list(root.allowed_next_stages),
-            validation_refs={},
-            input_refs={},
-            output_refs={},
             transition_reason=root.transition_reason,
         )
 

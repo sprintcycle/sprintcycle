@@ -360,7 +360,7 @@ class SprintOrchestrator:
         lifecycle = lifecycle.transition_to(LifecycleStage.DELIVERING)
         
         # 获取字典格式
-        service = LifecycleStateMachineService()
+        service = LifecycleStateMachine()
         contract_dict = {
             "contract_id": lifecycle.contract_id,
             "execution_id": lifecycle.execution_id,

@@ -1,7 +1,5 @@
 """Service aggregator for HTTP handlers.
 
-完全使用新架构：LifecycleRoot + LifecycleStateMachineService
-
 ServiceAggregator 只依赖 application 层服务，不直接依赖 domain 层。
 """
 

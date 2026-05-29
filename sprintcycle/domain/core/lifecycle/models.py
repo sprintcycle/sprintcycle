@@ -148,51 +148,57 @@ class LifecycleContract:
     external interfaces and the domain layer. It should NOT contain
     business logic - validation and business rules belong in the domain.
     
-    **Backward Compatibility:**
-    This DTO maintains compatibility with existing API contracts and
-    should be used when interfacing with external systems.
+    **Design Principles:**
+    - Flat structure for easy serialization
+    - Contains only fields needed for external interfaces
+    - Uses primitive types (strings) for cross-system compatibility
+    - Separated from domain aggregate to avoid coupling
+    
+    **DTO vs Aggregate Boundary:**
+    - DTO (this class): External interface data, flat structure, string-based
+    - LifecycleRoot: Domain aggregate, business logic, type-safe enums
     
     **Conversion:**
-    - Use application layer services to convert between LifecycleContract
-      and LifecycleRoot (domain aggregate).
+    - Use LifecycleMapper to convert between LifecycleContract and LifecycleRoot
     """
     
+    # Core identity fields
     execution_id: str
     task_id: str
     project_path: str
-    task_type: str = "project_optimization"
-    intent: str = ""
+    
+    # Core state fields (string-based for external compatibility)
     stage: str = "new"
     status: str = "pending"
+    
+    # Metadata fields
+    task_type: str = "project_optimization"
+    intent: str = ""
+    
+    # Failure information
     failure_kind: str = ""
     failure_reason: str = ""
-    plan_refs: Dict[str, Any] = field(default_factory=dict)
-    execution_refs: Dict[str, Any] = field(default_factory=dict)
-    observation_refs: Dict[str, Any] = field(default_factory=dict)
-    recovery_refs: Dict[str, Any] = field(default_factory=dict)
-    recovery_plan_refs: Dict[str, Any] = field(default_factory=dict)
-    delivery_refs: Dict[str, Any] = field(default_factory=dict)
-    runtime_refs: Dict[str, Any] = field(default_factory=dict)
+    failure_code: str = ""
+    
+    # Cross-subdomain references (flat dictionaries)
     governance_refs: Dict[str, Any] = field(default_factory=dict)
     evolution_refs: Dict[str, Any] = field(default_factory=dict)
+    runtime_refs: Dict[str, Any] = field(default_factory=dict)
+    
+    # Evidence and trace
     evidence: Dict[str, Any] = field(default_factory=dict)
-    suggestion_refs: List[Dict[str, Any]] = field(default_factory=list)
-    skill_refs: List[Dict[str, Any]] = field(default_factory=list)
-    skill_matches: List[Dict[str, Any]] = field(default_factory=list)
-    skill_review_checklists: List[Dict[str, Any]] = field(default_factory=list)
-    skill_trace: Dict[str, Any] = field(default_factory=dict)
     trace: Dict[str, Any] = field(default_factory=dict)
     diagnostics: Dict[str, Any] = field(default_factory=dict)
+    
+    # Metadata and metrics
     metrics: Dict[str, Any] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
     correlation: Dict[str, Any] = field(default_factory=dict)
+    
+    # Transition information
     stage_history: List[Dict[str, Any]] = field(default_factory=list)
     allowed_next_stages: List[str] = field(default_factory=list)
-    validation_refs: Dict[str, Any] = field(default_factory=dict)
-    input_refs: Dict[str, Any] = field(default_factory=dict)
-    output_refs: Dict[str, Any] = field(default_factory=dict)
     transition_reason: str = ""
-    failure_code: str = ""
 
     def validate(self) -> List[str]:
         """Validate the contract structure (schema validation only).
@@ -256,42 +262,43 @@ class LifecycleContract:
     def from_dict(cls, data: Dict[str, Any]) -> "LifecycleContract":
         """Create from dictionary."""
         return cls(
+            # Core identity fields
             execution_id=data.get("execution_id", ""),
             task_id=data.get("task_id", ""),
             project_path=data.get("project_path", ""),
-            task_type=data.get("task_type", "project_optimization"),
-            intent=data.get("intent", ""),
+            
+            # Core state fields
             stage=data.get("stage", "new"),
             status=data.get("status", "pending"),
+            
+            # Metadata fields
+            task_type=data.get("task_type", "project_optimization"),
+            intent=data.get("intent", ""),
+            
+            # Failure information
             failure_kind=data.get("failure_kind", ""),
             failure_reason=data.get("failure_reason", ""),
-            plan_refs=dict(data.get("plan_refs", {})),
-            execution_refs=dict(data.get("execution_refs", {})),
-            observation_refs=dict(data.get("observation_refs", {})),
-            recovery_refs=dict(data.get("recovery_refs", {})),
-            recovery_plan_refs=dict(data.get("recovery_plan_refs", {})),
-            delivery_refs=dict(data.get("delivery_refs", {})),
-            runtime_refs=dict(data.get("runtime_refs", {})),
+            failure_code=data.get("failure_code", ""),
+            
+            # Cross-subdomain references
             governance_refs=dict(data.get("governance_refs", {})),
             evolution_refs=dict(data.get("evolution_refs", {})),
+            runtime_refs=dict(data.get("runtime_refs", {})),
+            
+            # Evidence and trace
             evidence=dict(data.get("evidence", {})),
-            suggestion_refs=list(data.get("suggestion_refs", [])),
-            skill_refs=list(data.get("skill_refs", [])),
-            skill_matches=list(data.get("skill_matches", [])),
-            skill_review_checklists=list(data.get("skill_review_checklists", [])),
-            skill_trace=dict(data.get("skill_trace", {})),
             trace=dict(data.get("trace", {})),
             diagnostics=dict(data.get("diagnostics", {})),
+            
+            # Metadata and metrics
             metrics=dict(data.get("metrics", {})),
             metadata=dict(data.get("metadata", {})),
             correlation=dict(data.get("correlation", {})),
+            
+            # Transition information
             stage_history=list(data.get("stage_history", [])),
             allowed_next_stages=list(data.get("allowed_next_stages", [])),
-            validation_refs=dict(data.get("validation_refs", {})),
-            input_refs=dict(data.get("input_refs", {})),
-            output_refs=dict(data.get("output_refs", {})),
             transition_reason=data.get("transition_reason", ""),
-            failure_code=data.get("failure_code", ""),
         )
 
 

@@ -1,14 +1,11 @@
-"""Phase 2 workflow helpers for plan / prepare / decompose.
-
-完全使用新架构：LifecycleRoot + LifecycleStateMachineService
-"""
+"""Phase 2 workflow helpers for plan / prepare / decompose."""
 
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Optional
 
-from sprintcycle.domain.core.lifecycle import LifecycleRoot, LifecycleStateMachineService
+from sprintcycle.domain.core.lifecycle import LifecycleRoot, LifecycleStateMachine
 
 
 @dataclass
@@ -64,8 +61,8 @@ def build_plan_artifact(
     dependencies: Optional[List[str]] = None,
     version: str = "v1",
 ) -> Dict[str, Any]:
-    """Build plan artifact using new architecture."""
-    service = LifecycleStateMachineService()
+    """Build plan artifact."""
+    service = LifecycleStateMachine()
     
     if isinstance(contract_or_lifecycle, LifecycleRoot):
         contract_dict = contract_or_lifecycle.to_dict()
@@ -130,7 +127,7 @@ def build_plan_artifact(
 def build_prepare_artifact(
     contract_payload: Dict[str, Any], *, checks: Optional[Dict[str, Any]] = None, blockers: Optional[List[str]] = None
 ) -> Dict[str, Any]:
-    service = LifecycleStateMachineService()
+    service = LifecycleStateMachine()
     prepared = service.transition(
         dict(contract_payload or {}),
         "prepared",
@@ -172,7 +169,7 @@ def build_prepare_artifact(
 def build_decompose_artifact(
     contract_payload: Dict[str, Any], *, subtasks: Optional[List[Dict[str, Any]]] = None
 ) -> Dict[str, Any]:
-    service = LifecycleStateMachineService()
+    service = LifecycleStateMachine()
     decomposed = service.transition(
         dict(contract_payload or {}),
         "decomposed",

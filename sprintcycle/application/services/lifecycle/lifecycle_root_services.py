@@ -108,7 +108,7 @@ class LifecycleRootService:
         )
         
         # 尝试转换到目标阶段
-        service = LifecycleStateMachineService()
+        service = LifecycleStateMachine()
         try:
             target_stage = LifecycleStage.from_string(stage)
             if target_stage != lifecycle.stage:
@@ -255,7 +255,7 @@ class LifecycleRootService:
         # 转换到目标阶段
         try:
             target_stage = LifecycleStage.from_string(contract.stage)
-            service = LifecycleStateMachineService()
+            service = LifecycleStateMachine()
             if target_stage != lifecycle.stage:
                 stages = list(LifecycleStage)
                 start_idx = stages.index(lifecycle.stage)

@@ -238,7 +238,7 @@ class LifecycleRoot:
         )
 
         # Determine status
-        final_status = new_status or self._derive_status(new_stage)
+        final_status = new_status or LifecycleStatus(machine.derive_status(new_stage))
 
         # Determine failure kind if transitioning to failure
         failure_kind = self.failure_kind
@@ -269,18 +269,6 @@ class LifecycleRoot:
             transition_reason=reason,
             validation_errors=(),
         )
-
-    def _derive_status(self, new_stage: LifecycleStage) -> LifecycleStatus:
-        """Derive status from stage."""
-        if new_stage == LifecycleStage.PROMOTED:
-            return LifecycleStatus.PROMOTED
-        if new_stage in (LifecycleStage.FAILED, LifecycleStage.ABORTED):
-            return LifecycleStatus.FAILED
-        if new_stage == LifecycleStage.CANCELLED:
-            return LifecycleStatus.CANCELLED
-        if new_stage == LifecycleStage.NEW:
-            return LifecycleStatus.PENDING
-        return LifecycleStatus.RUNNING
 
     def can_advance_to(self, target_stage: LifecycleStage) -> bool:
         """Check if we can advance to a target stage."""
@@ -314,16 +302,18 @@ class LifecycleRoot:
         machine = get_lifecycle_state_machine()
         recovery_target = machine.get_recovery_target(self.stage)
 
+        recovery_stage = LifecycleStage.from_string(recovery_target)
+        
         return LifecycleRoot(
             contract_id=self.contract_id,
             execution_id=self.execution_id,
             task_id=self.task_id,
             project_path=self.project_path,
-            stage=LifecycleStage.from_string(recovery_target),
-            status=LifecycleStatus.RUNNING,
+            stage=recovery_stage,
+            status=LifecycleStatus(machine.derive_status(recovery_stage)),
             task_type=self.task_type,
             intent=self.intent,
-            failure_kind=failure_kind or self.stage.get_failure_kind(),
+            failure_kind=failure_kind or machine.get_failure_kind(self.stage),
             failure_reason=reason,
             failure_code=self.failure_code,
             governance_ref=self.governance_ref,
@@ -334,7 +324,7 @@ class LifecycleRoot:
             correlation=self.correlation,
             metrics=dict(self.metrics),
             metadata=dict(self.metadata),
-            allowed_next_stages=machine.next_stages(LifecycleStage.from_string(recovery_target)),
+            allowed_next_stages=machine.next_stages(recovery_stage),
             transition_reason=f"Recovery: {reason}",
             validation_errors=(),
         )

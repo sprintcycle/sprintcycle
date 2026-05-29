@@ -3,8 +3,6 @@
 Implements an explicit repair -> verify -> observe loop for lifecycle recovery.
 
 **分层**：RepairOrchestrationService 通过构造函数接收依赖。
-
-使用新架构：LifecycleRoot + LifecycleStateMachineService
 """
 
 from __future__ import annotations
@@ -88,8 +86,8 @@ class RepairOrchestrationService:
         # 转换到 observing 阶段
         lifecycle = lifecycle.transition_to(LifecycleStage.OBSERVING)
         
-        # 使用服务获取字典格式
-        service = LifecycleStateMachineService()
+        # 使用状态机获取字典格式
+        service = LifecycleStateMachine()
         lifecycle_dict = {
             "contract_id": lifecycle.contract_id,
             "execution_id": lifecycle.execution_id,

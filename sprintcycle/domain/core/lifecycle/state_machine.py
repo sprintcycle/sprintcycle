@@ -201,6 +201,30 @@ class LifecycleStateMachine:
         """Get the failure kind for a given stage."""
         return FAILURE_KIND_BY_STAGE.get(self.normalize_stage(stage), "")
 
+    def derive_status(self, stage: object) -> str:
+        """
+        Derive the lifecycle status from a stage.
+        
+        This method provides the canonical mapping from stage to status.
+        Status is derived based on whether the stage represents:
+        - A terminal success state
+        - A failure state
+        - A cancelled state
+        - A pending state
+        - An active running state
+        """
+        normalized_stage = self.normalize_stage(stage)
+        
+        if normalized_stage == "promoted":
+            return "promoted"
+        if normalized_stage in FAILURE_STAGES:
+            if normalized_stage == "cancelled":
+                return "cancelled"
+            return "failed"
+        if normalized_stage == "new":
+            return "pending"
+        return "running"
+
     def get_allowed_next_stages(self, stage: object) -> List[str]:
         """Get a list of allowed next stages (excludes failure states by default)."""
         all_next = list(self.next_stages(stage))
@@ -376,4 +400,5 @@ __all__ = [
     "FAILURE_KIND_BY_STAGE",
     "build_default_correlation",
     "get_lifecycle_state_machine",
+    # State machine methods are available through the class instance
 ]
