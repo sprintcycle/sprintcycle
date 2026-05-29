@@ -12,7 +12,7 @@ from typing import Any, Dict, Optional
 
 from sprintcycle.domain.ports.observability import ObservabilityFacadeProtocol
 from sprintcycle.domain.core.lifecycle import (
-    LifecycleStage,
+    LifecycleSubstage,
     LifecycleStateMachine,
     create_lifecycle,
 )
@@ -78,13 +78,13 @@ class RepairOrchestrationService:
         )
         
         # 转换到 repairing 阶段
-        lifecycle = lifecycle.transition_to(LifecycleStage.REPAIRING)
+        lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.REPAIRING)
         
         # 转换到 verifying 阶段
-        lifecycle = lifecycle.transition_to(LifecycleStage.VERIFYING)
+        lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.VERIFYING)
         
         # 转换到 observing 阶段
-        lifecycle = lifecycle.transition_to(LifecycleStage.OBSERVING)
+        lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.OBSERVING)
         
         # 使用状态机获取字典格式
         service = LifecycleStateMachine()

@@ -103,7 +103,7 @@ class TestRepairOrchestrationService:
 
     def test_repair_requires_failed_state(self):
         """测试修复方法需要从failed状态开始"""
-        from sprintcycle.domain.core.lifecycle import LifecycleStage
+        from sprintcycle.domain.core.lifecycle import LifecycleSubstage
         from sprintcycle.domain.core.lifecycle.state_machine import LifecycleStateMachine
         
         machine = LifecycleStateMachine()
@@ -216,7 +216,7 @@ class TestRecoveryLifecycleTransitions:
 
     def test_failed_state_can_recover_to_repairing(self):
         """测试failed状态可以通过trigger_recovery转换到repairing"""
-        from sprintcycle.domain.core.lifecycle import LifecycleStage, create_lifecycle
+        from sprintcycle.domain.core.lifecycle import LifecycleSubstage, create_lifecycle
         from sprintcycle.domain.core.lifecycle.state_machine import LifecycleStateMachine
         
         machine = LifecycleStateMachine()
@@ -224,39 +224,39 @@ class TestRecoveryLifecycleTransitions:
         assert machine.can_transition("failed", "repairing") is True
         
         lifecycle = create_lifecycle("test-exec", "test-task", "/test/project")
-        lifecycle = lifecycle.transition_to(LifecycleStage.FAILED)
+        lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.FAILED)
         
-        assert lifecycle.stage == LifecycleStage.FAILED
+        assert lifecycle.substage == LifecycleSubstage.FAILED
         
         lifecycle = lifecycle.trigger_recovery(failure_kind="test_error", reason="test recovery")
         
-        assert lifecycle.stage == LifecycleStage.REPAIRING
+        assert lifecycle.substage == LifecycleSubstage.REPAIRING
 
     def test_recovery_flow_completes(self):
         """测试完整的恢复流程：failed -> repairing -> verifying -> observing"""
-        from sprintcycle.domain.core.lifecycle import LifecycleStage, create_lifecycle
+        from sprintcycle.domain.core.lifecycle import LifecycleSubstage, create_lifecycle
         
         lifecycle = create_lifecycle("test-exec", "test-task", "/test/project")
-        lifecycle = lifecycle.transition_to(LifecycleStage.FAILED)
+        lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.FAILED)
         
         lifecycle = lifecycle.trigger_recovery(failure_kind="test_error")
         
-        assert lifecycle.stage == LifecycleStage.REPAIRING
+        assert lifecycle.substage == LifecycleSubstage.REPAIRING
         
-        lifecycle = lifecycle.transition_to(LifecycleStage.VERIFYING)
+        lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.VERIFYING)
         
-        assert lifecycle.stage == LifecycleStage.VERIFYING
+        assert lifecycle.substage == LifecycleSubstage.VERIFYING
         
-        lifecycle = lifecycle.transition_to(LifecycleStage.OBSERVING)
+        lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.OBSERVING)
         
-        assert lifecycle.stage == LifecycleStage.OBSERVING
+        assert lifecycle.substage == LifecycleSubstage.OBSERVING
 
     def test_recovery_transition_reason_recorded(self):
         """测试恢复转换原因被正确记录"""
-        from sprintcycle.domain.core.lifecycle import LifecycleStage, create_lifecycle
+        from sprintcycle.domain.core.lifecycle import LifecycleSubstage, create_lifecycle
         
         lifecycle = create_lifecycle("test-exec", "test-task", "/test/project")
-        lifecycle = lifecycle.transition_to(LifecycleStage.FAILED)
+        lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.FAILED)
         
         lifecycle = lifecycle.trigger_recovery(failure_kind="network_error", reason="network timeout")
         

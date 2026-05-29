@@ -8,6 +8,14 @@ It encapsulates all state and behavior related to the execution lifecycle.
 - Cross-subdomain references use IDs (not objects)
 - Immutable update methods return new instances
 - State machine logic is delegated to LifecycleStateMachine
+- Uses phase-substage hierarchy for better organization
+
+**Phase-Substage Architecture:**
+- INITIALIZING: NEW → NORMALIZED → PLANNED → DECOMPOSED
+- EXECUTING: RUNNING → OBSERVING → DIAGNOSED → REPAIRING → VERIFYING
+- DELIVERING: DELIVERING → RUNTIME_LINKED
+- GOVERNING: GOVERNING → PROMOTION_READY
+- TERMINAL: PROMOTED, FAILED, ABORTED, CANCELLED
 """
 
 from __future__ import annotations
@@ -19,10 +27,13 @@ from uuid import uuid4
 
 from .state_machine import (
     LifecycleStateMachine,
+    LifecyclePhase,
+    LifecycleSubstage,
     LIFECYCLE_STAGES,
     TERMINAL_STAGES,
     FAILURE_KIND_BY_STAGE,
     get_lifecycle_state_machine,
+    get_phase_for_substage,
 )
 from .values import (
     StageEvidence,
@@ -36,7 +47,7 @@ from .values import (
 
 
 # =============================================================================
-# Enums
+# Status Enumeration
 # =============================================================================
 
 
@@ -49,50 +60,6 @@ class LifecycleStatus(Enum):
     FAILED = "failed"
     CANCELLED = "cancelled"
     PROMOTED = "promoted"
-
-
-class LifecycleStage(Enum):
-    """Lifecycle stage enumeration."""
-
-    NEW = "new"
-    NORMALIZED = "normalized"
-    PLANNED = "planned"
-    PREPARED = "prepared"
-    DECOMPOSED = "decomposed"
-    EXECUTING = "executing"
-    OBSERVING = "observing"
-    DIAGNOSED = "diagnosed"
-    REPAIRING = "repairing"
-    VERIFYING = "verifying"
-    DELIVERING = "delivering"
-    RUNTIME_LINKED = "runtime_linked"
-    GOVERNING = "governing"
-    PROMOTION_READY = "promotion_ready"
-    PROMOTED = "promoted"
-    FAILED = "failed"
-    ABORTED = "aborted"
-    CANCELLED = "cancelled"
-
-    @classmethod
-    def from_string(cls, value: str) -> "LifecycleStage":
-        """Create stage from string."""
-        normalized = value.strip().lower()
-        for stage in cls:
-            if stage.value == normalized:
-                return stage
-        return cls.NEW
-
-    def to_string(self) -> str:
-        """Convert to string value."""
-        return self.value
-
-    def is_terminal(self) -> bool:
-        """Check if this is a terminal stage."""
-        return self.value in TERMINAL_STAGES
-
-    def get_failure_kind(self) -> str:
-        """Get the failure kind for this stage."""
-        return FAILURE_KIND_BY_STAGE.get(self.value, "")
 
 
 # =============================================================================
@@ -109,7 +76,7 @@ class LifecycleRoot:
     from initialization through promotion or termination.
 
     **Key Responsibilities:**
-    1. Maintain current stage and status
+    1. Maintain current phase, substage and status
     2. Validate and execute stage transitions
     3. Track stage history
     4. Manage cross-subdomain references (by ID)
@@ -118,6 +85,13 @@ class LifecycleRoot:
     **Immutable Updates:**
     All state-modifying methods return new instances.
     This makes the aggregate thread-safe and easier to test.
+
+    **Phase-Substage Architecture:**
+    - INITIALIZING: NEW → NORMALIZED → PLANNED → DECOMPOSED
+    - EXECUTING: RUNNING → OBSERVING → DIAGNOSED → REPAIRING → VERIFYING
+    - DELIVERING: DELIVERING → RUNTIME_LINKED
+    - GOVERNING: GOVERNING → PROMOTION_READY
+    - TERMINAL: PROMOTED, FAILED, ABORTED, CANCELLED
     """
 
     # Identity
@@ -126,11 +100,12 @@ class LifecycleRoot:
     task_id: str
     project_path: str
 
-    # State
-    stage: LifecycleStage = LifecycleStage.NEW
+    # State (phase-substage model)
+    phase: LifecyclePhase = LifecyclePhase.INITIALIZING
+    substage: LifecycleSubstage = LifecycleSubstage.NEW
     status: LifecycleStatus = LifecycleStatus.PENDING
 
-    # Task type (preserved from original LifecycleContract)
+    # Task type
     task_type: str = "project_optimization"
     intent: str = ""
 
@@ -161,6 +136,7 @@ class LifecycleRoot:
 
     # Transition tracking
     allowed_next_stages: Tuple[str, ...] = field(default_factory=lambda: ())
+    allowed_next_substages: Tuple[LifecycleSubstage, ...] = field(default_factory=lambda: ())
     transition_reason: str = ""
 
     # Validation
@@ -168,10 +144,17 @@ class LifecycleRoot:
 
     def __post_init__(self) -> None:
         """Initialize derived fields after construction."""
-        # Set up allowed next stages
+        # Ensure phase is derived from substage
+        self.phase = get_phase_for_substage(self.substage)
+        
+        # Set up allowed next stages/substages
         if not self.allowed_next_stages:
             machine = get_lifecycle_state_machine()
-            self.allowed_next_stages = machine.next_stages(self.stage)
+            self.allowed_next_stages = machine.next_stages(self.substage)
+        
+        if not self.allowed_next_substages:
+            machine = get_lifecycle_state_machine()
+            self.allowed_next_substages = machine.next_substages(self.substage)
 
     # =========================================================================
     # Identity
@@ -180,7 +163,7 @@ class LifecycleRoot:
     @property
     def is_terminal(self) -> bool:
         """Check if lifecycle is in a terminal state."""
-        return self.stage.is_terminal() or self.status in (
+        return self.substage.is_terminal() or self.status in (
             LifecycleStatus.SUCCESS,
             LifecycleStatus.FAILED,
             LifecycleStatus.CANCELLED,
@@ -193,6 +176,11 @@ class LifecycleRoot:
         return self.status == LifecycleStatus.RUNNING
 
     @property
+    def current_stage_value(self) -> str:
+        """Get the current stage value."""
+        return self.substage.value
+
+    @property
     def contract_id_or_default(self) -> str:
         """Get contract_id or generate a default."""
         return self.contract_id or f"lifecycle-{uuid4()}"
@@ -201,14 +189,14 @@ class LifecycleRoot:
     # Stage Transitions
     # =========================================================================
 
-    def transition_to(
+    def transition_to_substage(
         self,
-        new_stage: LifecycleStage,
+        new_substage: LifecycleSubstage,
         reason: str = "",
         new_status: Optional[LifecycleStatus] = None,
     ) -> "LifecycleRoot":
         """
-        Transition to a new stage.
+        Transition to a new substage.
 
         This is the primary method for advancing the lifecycle.
         It validates the transition and records history.
@@ -216,41 +204,46 @@ class LifecycleRoot:
         **Rules:**
         - Transition must be valid according to state machine
         - History is recorded for each transition
+        - Phase is automatically derived from substage
         - Status can be explicitly set or derived
 
         Returns a new LifecycleRoot instance with the transition applied.
         """
         if self.is_terminal:
             raise ValueError(
-                f"Cannot transition from terminal state: {self.stage.value}"
+                f"Cannot transition from terminal state: {self.substage.value}"
             )
 
         machine = get_lifecycle_state_machine()
-        error = machine.validate_transition(self.stage.value, new_stage.value)
+        error = machine.validate_substage_transition(self.substage, new_substage)
         if error:
             raise ValueError(error)
 
         # Build history entry
         history_entry = StageHistoryEntry(
-            from_stage=self.stage.value,
-            to_stage=new_stage.value,
+            from_stage=self.substage.value,
+            to_stage=new_substage.value,
             reason=reason,
         )
 
+        # Determine phase from substage
+        new_phase = get_phase_for_substage(new_substage)
+
         # Determine status
-        final_status = new_status or LifecycleStatus(machine.derive_status(new_stage))
+        final_status = new_status or LifecycleStatus(machine.derive_status_from_substage(new_substage))
 
         # Determine failure kind if transitioning to failure
         failure_kind = self.failure_kind
-        if new_stage in (LifecycleStage.FAILED, LifecycleStage.ABORTED):
-            failure_kind = new_stage.get_failure_kind()
+        if new_substage.is_failure():
+            failure_kind = machine.get_failure_kind_for_substage(new_substage)
 
         return LifecycleRoot(
             contract_id=self.contract_id,
             execution_id=self.execution_id,
             task_id=self.task_id,
             project_path=self.project_path,
-            stage=new_stage,
+            phase=new_phase,
+            substage=new_substage,
             status=final_status,
             task_type=self.task_type,
             intent=self.intent,
@@ -265,24 +258,21 @@ class LifecycleRoot:
             correlation=self.correlation,
             metrics=dict(self.metrics),
             metadata=dict(self.metadata),
-            allowed_next_stages=machine.next_stages(new_stage),
+            allowed_next_stages=machine.next_stages(new_substage),
+            allowed_next_substages=machine.next_substages(new_substage),
             transition_reason=reason,
             validation_errors=(),
         )
 
-    def can_advance_to(self, target_stage: LifecycleStage) -> bool:
-        """Check if we can advance to a target stage."""
+    def can_transition_to_substage(self, target_substage: LifecycleSubstage) -> bool:
+        """Check if we can transition to a target substage."""
         machine = get_lifecycle_state_machine()
-        return machine.can_transition(self.stage.value, target_stage.value)
+        return machine.can_transition_substage(self.substage, target_substage)
 
-    def get_next_stage(self) -> Optional[LifecycleStage]:
-        """Get the next stage in the normal flow."""
+    def get_next_substage(self) -> Optional[LifecycleSubstage]:
+        """Get the next substage in the normal flow."""
         machine = get_lifecycle_state_machine()
-        next_stages = machine.next_stages(self.stage)
-        for stage_str in next_stages:
-            if stage_str not in ("failed", "cancelled"):
-                return LifecycleStage.from_string(stage_str)
-        return None
+        return machine.get_next_substage(self.substage)
 
     # =========================================================================
     # Recovery
@@ -294,26 +284,27 @@ class LifecycleRoot:
         reason: str = "",
     ) -> "LifecycleRoot":
         """
-        Trigger recovery flow for the current stage.
+        Trigger recovery flow for the current substage.
 
         Recovery transitions the lifecycle to the appropriate
-        recovery stage (typically 'repairing' or 'verifying').
+        recovery substage (typically 'repairing' or 'verifying').
         """
         machine = get_lifecycle_state_machine()
-        recovery_target = machine.get_recovery_target(self.stage)
+        recovery_target_substage = machine.get_recovery_target_substage(self.substage)
 
-        recovery_stage = LifecycleStage.from_string(recovery_target)
+        new_phase = get_phase_for_substage(recovery_target_substage)
         
         return LifecycleRoot(
             contract_id=self.contract_id,
             execution_id=self.execution_id,
             task_id=self.task_id,
             project_path=self.project_path,
-            stage=recovery_stage,
-            status=LifecycleStatus(machine.derive_status(recovery_stage)),
+            phase=new_phase,
+            substage=recovery_target_substage,
+            status=LifecycleStatus(machine.derive_status_from_substage(recovery_target_substage)),
             task_type=self.task_type,
             intent=self.intent,
-            failure_kind=failure_kind or machine.get_failure_kind(self.stage),
+            failure_kind=failure_kind or machine.get_failure_kind_for_substage(self.substage),
             failure_reason=reason,
             failure_code=self.failure_code,
             governance_ref=self.governance_ref,
@@ -324,7 +315,8 @@ class LifecycleRoot:
             correlation=self.correlation,
             metrics=dict(self.metrics),
             metadata=dict(self.metadata),
-            allowed_next_stages=machine.next_stages(recovery_stage),
+            allowed_next_stages=machine.next_stages(recovery_target_substage),
+            allowed_next_substages=machine.next_substages(recovery_target_substage),
             transition_reason=f"Recovery: {reason}",
             validation_errors=(),
         )
@@ -334,7 +326,7 @@ class LifecycleRoot:
     # =========================================================================
 
     def add_stage_evidence(self, evidence: StageEvidence) -> "LifecycleRoot":
-        """Add evidence for the current stage."""
+        """Add evidence for the current substage."""
         new_stages = dict(self.evidence.stages)
         new_stages[evidence.stage] = evidence
 
@@ -355,7 +347,8 @@ class LifecycleRoot:
             execution_id=self.execution_id,
             task_id=self.task_id,
             project_path=self.project_path,
-            stage=self.stage,
+            phase=self.phase,
+            substage=self.substage,
             status=self.status,
             task_type=self.task_type,
             intent=self.intent,
@@ -396,7 +389,8 @@ class LifecycleRoot:
             execution_id=self.execution_id,
             task_id=self.task_id,
             project_path=self.project_path,
-            stage=self.stage,
+            phase=self.phase,
+            substage=self.substage,
             status=self.status,
             task_type=self.task_type,
             intent=self.intent,
@@ -412,6 +406,7 @@ class LifecycleRoot:
             metrics=dict(self.metrics),
             metadata=dict(self.metadata),
             allowed_next_stages=self.allowed_next_stages,
+            allowed_next_substages=self.allowed_next_substages,
             transition_reason=self.transition_reason,
             validation_errors=self.validation_errors,
         )
@@ -431,7 +426,8 @@ class LifecycleRoot:
             execution_id=self.execution_id,
             task_id=self.task_id,
             project_path=self.project_path,
-            stage=self.stage,
+            phase=self.phase,
+            substage=self.substage,
             status=self.status,
             task_type=self.task_type,
             intent=self.intent,
@@ -447,6 +443,7 @@ class LifecycleRoot:
             metrics=dict(self.metrics),
             metadata=dict(self.metadata),
             allowed_next_stages=self.allowed_next_stages,
+            allowed_next_substages=self.allowed_next_substages,
             transition_reason=self.transition_reason,
             validation_errors=self.validation_errors,
         )
@@ -468,7 +465,8 @@ class LifecycleRoot:
             execution_id=self.execution_id,
             task_id=self.task_id,
             project_path=self.project_path,
-            stage=self.stage,
+            phase=self.phase,
+            substage=self.substage,
             status=self.status,
             task_type=self.task_type,
             intent=self.intent,
@@ -484,6 +482,7 @@ class LifecycleRoot:
             metrics=dict(self.metrics),
             metadata=dict(self.metadata),
             allowed_next_stages=self.allowed_next_stages,
+            allowed_next_substages=self.allowed_next_substages,
             transition_reason=self.transition_reason,
             validation_errors=self.validation_errors,
         )
@@ -504,12 +503,6 @@ class LifecycleRoot:
         if not self.project_path:
             errors.append("project_path is required")
 
-        # Stage validation
-        machine = get_lifecycle_state_machine()
-        normalized = machine.normalize_stage(self.stage.value)
-        if normalized != self.stage.value:
-            errors.append(f"stage is not normalized: {self.stage.value}")
-
         # Status validation
         valid_statuses = {"pending", "running", "success", "failed", "cancelled", "promoted"}
         if self.status.value not in valid_statuses:
@@ -517,9 +510,9 @@ class LifecycleRoot:
 
         # Terminal consistency
         if self.status.value in ("success", "failed", "cancelled", "promoted"):
-            if not self.stage.is_terminal():
+            if not self.substage.is_terminal():
                 errors.append(
-                    f"terminal status requires terminal stage: {self.status.value}/{self.stage.value}"
+                    f"terminal status requires terminal stage: {self.status.value}/{self.substage.value}"
                 )
 
         # Next stages validation
@@ -551,7 +544,8 @@ class LifecycleRoot:
             "project_path": self.project_path,
             "task_type": self.task_type,
             "intent": self.intent,
-            "stage": self.stage.value,
+            "phase": self.phase.value,
+            "substage": self.substage.value,
             "status": self.status.value,
             "failure_kind": self.failure_kind,
             "failure_reason": self.failure_reason,
@@ -568,13 +562,15 @@ class LifecycleRoot:
             "metrics": dict(self.metrics),
             "metadata": dict(self.metadata),
             "allowed_next_stages": list(self.allowed_next_stages),
+            "allowed_next_substages": [s.value for s in self.allowed_next_substages],
             "transition_reason": self.transition_reason,
             # Derived fields
             "is_terminal": self.is_terminal,
             "is_valid": not errors,
             "validation_errors": errors,
-            "stage_index": machine.stage_index(self.stage),
-            "next_stage": self.get_next_stage().value if self.get_next_stage() else None,
+            "stage_index": machine.stage_index(self.substage),
+            "substage_index": machine.substage_index(self.substage),
+            "next_substage": self.get_next_substage().value if self.get_next_substage() else None,
         }
 
     @classmethod
@@ -619,6 +615,17 @@ class LifecycleRoot:
                     ),
                 )
 
+        # Parse substage (prefer new model, fall back to legacy stage)
+        substage_value = data.get("substage", data.get("stage", "new"))
+        substage = LifecycleSubstage.from_string(substage_value)
+        phase = get_phase_for_substage(substage)
+        
+        # Parse allowed_next_substages
+        allowed_next_substages_data = data.get("allowed_next_substages", [])
+        allowed_next_substages = tuple(
+            LifecycleSubstage.from_string(s) for s in allowed_next_substages_data
+        )
+
         return cls(
             contract_id=data.get("contract_id", ""),
             execution_id=data.get("execution_id", ""),
@@ -626,7 +633,8 @@ class LifecycleRoot:
             project_path=data.get("project_path", ""),
             task_type=data.get("task_type", "project_optimization"),
             intent=data.get("intent", ""),
-            stage=LifecycleStage.from_string(data.get("stage", "new")),
+            phase=phase,
+            substage=substage,
             status=LifecycleStatus(data.get("status", "pending")),
             failure_kind=data.get("failure_kind", ""),
             failure_reason=data.get("failure_reason", ""),
@@ -640,6 +648,7 @@ class LifecycleRoot:
             metrics=dict(data.get("metrics", {})),
             metadata=dict(data.get("metadata", {})),
             allowed_next_stages=tuple(data.get("allowed_next_stages", [])),
+            allowed_next_substages=allowed_next_substages,
             transition_reason=data.get("transition_reason", ""),
             validation_errors=tuple(data.get("validation_errors", [])),
         )
@@ -678,17 +687,20 @@ def create_lifecycle(
         project_path=project_path,
         task_type=task_type,
         intent=intent,
-        stage=LifecycleStage.NEW,
+        phase=LifecyclePhase.INITIALIZING,
+        substage=LifecycleSubstage.NEW,
         status=LifecycleStatus.PENDING,
         correlation=correlation,
         metadata=dict(metadata or {}),
-        allowed_next_stages=machine.next_stages(LifecycleStage.NEW),
+        allowed_next_stages=machine.next_stages(LifecycleSubstage.NEW),
+        allowed_next_substages=machine.next_substages(LifecycleSubstage.NEW),
     )
 
 
 __all__ = [
-    "LifecycleStage",
     "LifecycleStatus",
+    "LifecyclePhase",
+    "LifecycleSubstage",
     "LifecycleRoot",
     "create_lifecycle",
 ]

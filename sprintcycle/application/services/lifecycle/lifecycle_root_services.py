@@ -20,7 +20,6 @@ from typing import Any, Callable, Dict, List, Optional
 
 from sprintcycle.domain.core.lifecycle import (
     LifecycleRoot,
-    LifecycleStage,
     create_lifecycle,
     LifecycleStateMachine,
     StageEvidence,
@@ -28,6 +27,7 @@ from sprintcycle.domain.core.lifecycle import (
     LifecycleContract,
     ensure_lifecycle_evidence,
     normalize_lifecycle_metadata,
+    LifecycleSubstage,
 )
 
 
@@ -68,6 +68,7 @@ class LifecycleRootService:
         metadata: Optional[Dict[str, Any]] = None,
         failure_kind: str = "",
         failure_reason: str = "",
+        reason: str = "",
         delivery_refs: Optional[Dict[str, Any]] = None,
         runtime_refs: Optional[Dict[str, Any]] = None,
         suggestion_refs: Optional[List[Dict[str, Any]]] = None,
@@ -110,16 +111,10 @@ class LifecycleRootService:
         # 尝试转换到目标阶段
         service = LifecycleStateMachine()
         try:
-            target_stage = LifecycleStage.from_string(stage)
-            if target_stage != lifecycle.stage:
-                # 构建转换路径
-                stages = list(LifecycleStage)
-                start_idx = stages.index(lifecycle.stage)
-                end_idx = stages.index(target_stage)
-                for i in range(start_idx, end_idx):
-                    next_stage = stages[i + 1]
-                    if service.can_transition(lifecycle.stage.value, next_stage.value):
-                        lifecycle = lifecycle.transition_to(next_stage)
+            target_substage = LifecycleSubstage.from_string(stage)
+            if target_substage != lifecycle.substage:
+                # 直接转换到目标子状态
+                lifecycle = lifecycle.transition_to_substage(target_substage, reason=reason)
         except Exception:
             # 如果转换失败，保持原样
             pass
@@ -193,7 +188,7 @@ class LifecycleRootService:
             project_path=lifecycle.project_path,
             task_type=lifecycle.task_type,
             intent=lifecycle.intent,
-            stage=lifecycle.stage.value,
+            stage=lifecycle.substage.value,
             status=lifecycle.status.value,
             failure_kind=lifecycle.failure_kind,
             failure_reason=lifecycle.failure_reason,
@@ -228,7 +223,7 @@ class LifecycleRootService:
         
         用于从外部数据重建领域对象。
         """
-        from sprintcycle.domain.core.lifecycle import LifecycleStage, LifecycleStatus
+        from sprintcycle.domain.core.lifecycle import LifecycleSubstage, LifecycleStatus
         
         metadata = dict(contract.metadata)
         
@@ -252,18 +247,11 @@ class LifecycleRootService:
             metadata=metadata,
         )
         
-        # 转换到目标阶段
+        # 转换到目标子状态
         try:
-            target_stage = LifecycleStage.from_string(contract.stage)
-            service = LifecycleStateMachine()
-            if target_stage != lifecycle.stage:
-                stages = list(LifecycleStage)
-                start_idx = stages.index(lifecycle.stage)
-                end_idx = stages.index(target_stage)
-                for i in range(start_idx, end_idx):
-                    next_stage = stages[i + 1]
-                    if service.can_transition(lifecycle.stage.value, next_stage.value):
-                        lifecycle = lifecycle.transition_to(next_stage)
+            target_substage = LifecycleSubstage.from_string(contract.stage)
+            if target_substage != lifecycle.substage:
+                lifecycle = lifecycle.transition_to_substage(target_substage)
         except Exception:
             pass
         
@@ -391,7 +379,7 @@ class LifecycleRootService:
             project_path=lifecycle.project_path,
             task_type=lifecycle.task_type,
             intent=lifecycle.intent,
-            stage=lifecycle.stage.value,
+            stage=lifecycle.substage.value,
             status=status or lifecycle.status.value,
             failure_kind=failure_kind or lifecycle.failure_kind,
             failure_reason=failure_reason or lifecycle.failure_reason,
@@ -428,11 +416,11 @@ class LifecycleRootService:
         evidence: Optional[Dict[str, Any]] = None,
     ) -> LifecycleRoot:
         """将生命周期推进到 normalized 阶段。"""
-        updated_lifecycle = lifecycle.transition_to(LifecycleStage.NORMALIZED)
+        updated_lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.NORMALIZED)
         
         if evidence:
             stage_evidence = StageEvidence(
-                stage=LifecycleStage.NORMALIZED.value,
+                stage=LifecycleSubstage.NORMALIZED.value,
                 present=True,
                 evidence=evidence,
             )
@@ -447,11 +435,11 @@ class LifecycleRootService:
         evidence: Optional[Dict[str, Any]] = None,
     ) -> LifecycleRoot:
         """将生命周期推进到 planned 阶段。"""
-        updated_lifecycle = lifecycle.transition_to(LifecycleStage.PLANNED)
+        updated_lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.PLANNED)
         
         if evidence:
             stage_evidence = StageEvidence(
-                stage=LifecycleStage.PLANNED.value,
+                stage=LifecycleSubstage.PLANNED.value,
                 present=True,
                 evidence=evidence,
             )
@@ -459,12 +447,12 @@ class LifecycleRootService:
         
         return updated_lifecycle
 
-    def advance_to_executing(
+    def advance_to_running(
         self,
         lifecycle: LifecycleRoot,
     ) -> LifecycleRoot:
-        """将生命周期推进到 executing 阶段。"""
-        return lifecycle.transition_to(LifecycleStage.EXECUTING)
+        """将生命周期推进到 running 阶段。"""
+        return lifecycle.transition_to_substage(LifecycleSubstage.RUNNING)
 
     def complete_execution(
         self,
@@ -474,7 +462,7 @@ class LifecycleRootService:
     ) -> LifecycleRoot:
         """完成执行阶段。"""
         if success:
-            lifecycle = lifecycle.transition_to(LifecycleStage.OBSERVING)
+            lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.OBSERVING)
         
         return lifecycle
 
@@ -487,7 +475,7 @@ class LifecycleRootService:
         """完成整个生命周期。"""
         if success:
             try:
-                lifecycle = lifecycle.transition_to(LifecycleStage.PROMOTED)
+                lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.PROMOTED)
             except Exception:
                 pass
         

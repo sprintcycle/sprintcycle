@@ -47,7 +47,7 @@ from sprintcycle.domain.core.evolution.aggregates import (
 
 from sprintcycle.domain.core.lifecycle import (
     create_lifecycle,
-    LifecycleStage,
+    LifecycleSubstage,
 )
 
 
@@ -313,8 +313,8 @@ class LifecycleOrchestrator:
             project_path=project_path,
         )
         
-        # Transition through stages
-        lifecycle = lifecycle.transition_to(LifecycleStage.NORMALIZED)
+        # Transition through substages
+        lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.NORMALIZED)
         await self._bus.publish(StageTransitioned(
             execution_id=execution_id,
             task_id=task_id,
@@ -322,7 +322,7 @@ class LifecycleOrchestrator:
             to_stage="normalized",
         ))
         
-        lifecycle = lifecycle.transition_to(LifecycleStage.PLANNED)
+        lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.PLANNED)
         await self._bus.publish(StageTransitioned(
             execution_id=execution_id,
             task_id=task_id,

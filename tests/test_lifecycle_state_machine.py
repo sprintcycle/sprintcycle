@@ -24,10 +24,9 @@ class TestLifecycleStateTransitions:
         transitions = [
             ("new", "normalized"),
             ("normalized", "planned"),
-            ("planned", "prepared"),
-            ("prepared", "decomposed"),
-            ("decomposed", "executing"),
-            ("executing", "observing"),
+            ("planned", "decomposed"),
+            ("decomposed", "running"),
+            ("running", "observing"),
             ("observing", "delivering"),
             ("delivering", "runtime_linked"),
             ("runtime_linked", "governing"),
@@ -81,9 +80,9 @@ class TestInvalidTransitions:
         contract = {"stage": "new"}
 
         invalid_transitions = [
-            ("new", "executing"),
+            ("new", "running"),
             ("normalized", "delivering"),
-            ("executing", "planned"),
+            ("running", "planned"),
             ("promoted", "governing"),
         ]
 
@@ -96,8 +95,8 @@ class TestInvalidTransitions:
         """测试validate_transition方法返回正确的错误消息"""
         machine = LifecycleStateMachine()
 
-        result = machine.validate_transition("new", "executing")
-        assert result == "illegal lifecycle transition: new -> executing"
+        result = machine.validate_transition("new", "running")
+        assert result == "illegal lifecycle transition: new -> running"
 
         result = machine.validate_transition("new", "normalized")
         assert result is None
@@ -256,7 +255,7 @@ class TestStateMachineHelpers:
         machine = LifecycleStateMachine()
 
         assert machine.normalize_stage("NEW") == "new"
-        assert machine.normalize_stage("Executing") == "executing"
+        assert machine.normalize_stage("Running") == "running"
         assert machine.normalize_stage("  OBSERVING  ") == "observing"
         assert machine.normalize_stage("unknown") == "new"
         assert machine.normalize_stage(None) == "new"
@@ -273,8 +272,8 @@ class TestStateMachineHelpers:
         machine = LifecycleStateMachine()
 
         assert machine.stage_index("new") == 0
-        assert machine.stage_index("executing") == 5
-        assert machine.stage_index("promoted") == 14
+        assert machine.stage_index("running") == 4
+        assert machine.stage_index("promoted") == 13
         assert machine.stage_index("unknown") == 0
 
     def test_is_terminal(self):
@@ -285,15 +284,15 @@ class TestStateMachineHelpers:
         assert machine.is_terminal("failed") is True
         assert machine.is_terminal("aborted") is True
         assert machine.is_terminal("cancelled") is True
-        assert machine.is_terminal("executing") is False
+        assert machine.is_terminal("running") is False
         assert machine.is_terminal("governing") is False
 
     def test_failure_to_recovery_target(self):
         """测试失败状态到恢复目标的映射"""
         machine = LifecycleStateMachine()
 
-        assert machine.failure_to_recovery_target("executing") == "repairing"
-        assert machine.failure_to_recovery_target("observing") == "repairing"
-        assert machine.failure_to_recovery_target("diagnosed") == "repairing"
-        assert machine.failure_to_recovery_target("delivering") == "repairing"
-        assert machine.failure_to_recovery_target("promoted") == "repairing"
+        assert machine.get_recovery_target("running") == "repairing"
+        assert machine.get_recovery_target("observing") == "repairing"
+        assert machine.get_recovery_target("diagnosed") == "repairing"
+        assert machine.get_recovery_target("delivering") == "repairing"
+        assert machine.get_recovery_target("promoted") == "repairing"

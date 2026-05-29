@@ -39,10 +39,10 @@ from sprintcycle.domain.generic.interfaces.hooks import (
 from sprintcycle.domain.core.evolution.models import VersionArtifact
 from sprintcycle.domain.core.lifecycle import (
     create_lifecycle,
-    LifecycleStage,
     LifecycleStateMachine,
     get_lifecycle_state_machine,
     CorrelationContext,
+    LifecycleSubstage,
 )
 from sprintcycle.domain.core.governance.promotion_policy import PromotionPolicy
 
@@ -419,8 +419,8 @@ class SuggestionApplicationService:
             },
         )
         
-        # 转换到 suggesting 阶段
-        lifecycle = lifecycle.transition_to(LifecycleStage.SUGGESTING)
+        # 转换到 diagnosed 阶段（建议是诊断后的动作）
+        lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.DIAGNOSED)
         
         # 获取字典格式
         service = get_lifecycle_state_machine()

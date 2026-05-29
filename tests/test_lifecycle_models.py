@@ -188,7 +188,7 @@ class TestStageHelpers:
         """测试获取下一阶段"""
         assert next_stage("new") == "normalized"
         assert next_stage("normalized") == "planned"
-        assert next_stage("executing") == "observing"
+        assert next_stage("running") == "observing"
         assert next_stage("promoted") == ""
         assert next_stage("unknown") == ""
 
@@ -249,7 +249,7 @@ class TestConstants:
 
     def test_failure_kind_by_stage(self):
         """测试失败类型定义"""
-        assert FAILURE_KIND_BY_STAGE["executing"] == "execution_error"
+        assert FAILURE_KIND_BY_STAGE["running"] == "execution_error"
         assert FAILURE_KIND_BY_STAGE["observing"] == "observation_error"
         assert FAILURE_KIND_BY_STAGE["repairing"] == "repair_error"
         assert FAILURE_KIND_BY_STAGE["verifying"] == "verification_error"
@@ -280,7 +280,7 @@ class TestConstants:
 
     def test_recovery_stage_targets(self):
         """测试恢复阶段目标"""
-        assert RECOVERY_STAGE_TARGETS["executing"] == "repair"
+        assert RECOVERY_STAGE_TARGETS["running"] == "repair"
         assert RECOVERY_STAGE_TARGETS["observing"] == "repair"
         assert RECOVERY_STAGE_TARGETS["diagnosed"] == "repair"
         assert RECOVERY_STAGE_TARGETS["repairing"] == "verify"

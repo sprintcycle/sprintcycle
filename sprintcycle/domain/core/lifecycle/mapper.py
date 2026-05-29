@@ -13,7 +13,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from .lifecycle_root import LifecycleRoot, LifecycleStage, LifecycleStatus, create_lifecycle
+from .lifecycle_root import LifecycleRoot, LifecycleStatus, create_lifecycle
+from .state_machine import LifecycleSubstage, get_phase_for_substage
 from .models import LifecycleContract
 from .values import CorrelationContext, GovernanceRef, EvolutionRef, RuntimeRef, LifecycleEvidence
 
@@ -73,6 +74,9 @@ class LifecycleMapper:
             metadata=contract.metadata,
         )
 
+        substage = LifecycleSubstage.from_string(contract.stage)
+        phase = get_phase_for_substage(substage)
+        
         return LifecycleRoot(
             contract_id=f"lifecycle-{contract.execution_id}",
             execution_id=contract.execution_id,
@@ -80,7 +84,8 @@ class LifecycleMapper:
             project_path=contract.project_path,
             task_type=contract.task_type,
             intent=contract.intent,
-            stage=LifecycleStage.from_string(contract.stage),
+            phase=phase,
+            substage=substage,
             status=LifecycleStatus(contract.status),
             failure_kind=contract.failure_kind,
             failure_reason=contract.failure_reason,
@@ -125,7 +130,7 @@ class LifecycleMapper:
             project_path=root.project_path,
             
             # Core state fields
-            stage=root.stage.value,
+            stage=root.substage.value,
             status=root.status.value,
             
             # Metadata fields

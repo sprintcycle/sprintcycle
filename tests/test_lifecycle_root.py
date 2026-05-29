@@ -6,9 +6,12 @@ import pytest
 
 from sprintcycle.domain.core.lifecycle.lifecycle_root import (
     LifecycleRoot,
-    LifecycleStage,
     LifecycleStatus,
     create_lifecycle,
+)
+from sprintcycle.domain.core.lifecycle.state_machine import (
+    LifecyclePhase,
+    LifecycleSubstage,
 )
 from sprintcycle.domain.core.lifecycle.values import (
     StageEvidence,
@@ -39,7 +42,7 @@ class TestLifecycleRootCreation:
         assert lifecycle.task_type == "project_optimization"
         assert lifecycle.intent == "test intent"
         assert lifecycle.metadata == {"author": "test"}
-        assert lifecycle.stage == LifecycleStage.NEW
+        assert lifecycle.substage == LifecycleSubstage.NEW
         assert lifecycle.status == LifecycleStatus.PENDING
         assert lifecycle.contract_id.startswith("lifecycle-")
         assert lifecycle.correlation.execution_id == "test-exec-1"
@@ -60,17 +63,16 @@ class TestLifecycleRootCreation:
     def test_lifecycle_root_terminal_check(self):
         """测试终端状态检查"""
         lifecycle = create_lifecycle("test-exec", "test-task", "/test/project")
-        lifecycle = lifecycle.transition_to(LifecycleStage.NORMALIZED)
-        lifecycle = lifecycle.transition_to(LifecycleStage.PLANNED)
-        lifecycle = lifecycle.transition_to(LifecycleStage.PREPARED)
-        lifecycle = lifecycle.transition_to(LifecycleStage.DECOMPOSED)
-        lifecycle = lifecycle.transition_to(LifecycleStage.EXECUTING)
-        lifecycle = lifecycle.transition_to(LifecycleStage.OBSERVING)
-        lifecycle = lifecycle.transition_to(LifecycleStage.DELIVERING)
-        lifecycle = lifecycle.transition_to(LifecycleStage.RUNTIME_LINKED)
-        lifecycle = lifecycle.transition_to(LifecycleStage.GOVERNING)
-        lifecycle = lifecycle.transition_to(LifecycleStage.PROMOTION_READY)
-        lifecycle = lifecycle.transition_to(LifecycleStage.PROMOTED)
+        lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.NORMALIZED)
+        lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.PLANNED)
+        lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.DECOMPOSED)
+        lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.RUNNING)
+        lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.OBSERVING)
+        lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.DELIVERING)
+        lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.RUNTIME_LINKED)
+        lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.GOVERNING)
+        lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.PROMOTION_READY)
+        lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.PROMOTED)
 
         assert lifecycle.is_terminal is True
         assert lifecycle.status == LifecycleStatus.PROMOTED
@@ -79,73 +81,72 @@ class TestLifecycleRootCreation:
 class TestStageTransitions:
     """测试阶段转换"""
 
-    def test_transition_to_valid_stage(self):
+    def test_transition_to_valid_substage(self):
         """测试有效状态转换"""
         lifecycle = create_lifecycle("test-exec", "test-task", "/test/project")
 
-        lifecycle = lifecycle.transition_to(LifecycleStage.NORMALIZED, reason="normalized")
+        lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.NORMALIZED, reason="normalized")
 
-        assert lifecycle.stage == LifecycleStage.NORMALIZED
+        assert lifecycle.substage == LifecycleSubstage.NORMALIZED
         assert lifecycle.status == LifecycleStatus.RUNNING
         assert lifecycle.transition_reason == "normalized"
         assert len(lifecycle.stage_history) == 1
         assert lifecycle.stage_history[0].from_stage == "new"
         assert lifecycle.stage_history[0].to_stage == "normalized"
 
-    def test_transition_to_invalid_stage(self):
+    def test_transition_to_invalid_substage(self):
         """测试无效状态转换"""
         lifecycle = create_lifecycle("test-exec", "test-task", "/test/project")
 
         with pytest.raises(ValueError, match="illegal lifecycle transition"):
-            lifecycle.transition_to(LifecycleStage.EXECUTING)
+            lifecycle.transition_to_substage(LifecycleSubstage.RUNNING)
 
-    def test_transition_from_terminal_stage(self):
+    def test_transition_from_terminal_substage(self):
         """测试从终端状态转换"""
         lifecycle = create_lifecycle("test-exec", "test-task", "/test/project")
-        lifecycle = lifecycle.transition_to(LifecycleStage.NORMALIZED)
-        lifecycle = lifecycle.transition_to(LifecycleStage.PLANNED)
-        lifecycle = lifecycle.transition_to(LifecycleStage.PREPARED)
-        lifecycle = lifecycle.transition_to(LifecycleStage.DECOMPOSED)
-        lifecycle = lifecycle.transition_to(LifecycleStage.EXECUTING)
-        lifecycle = lifecycle.transition_to(LifecycleStage.OBSERVING)
-        lifecycle = lifecycle.transition_to(LifecycleStage.DELIVERING)
-        lifecycle = lifecycle.transition_to(LifecycleStage.RUNTIME_LINKED)
-        lifecycle = lifecycle.transition_to(LifecycleStage.GOVERNING)
-        lifecycle = lifecycle.transition_to(LifecycleStage.PROMOTION_READY)
-        lifecycle = lifecycle.transition_to(LifecycleStage.PROMOTED)
+        lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.NORMALIZED)
+        lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.PLANNED)
+        lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.DECOMPOSED)
+        lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.RUNNING)
+        lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.OBSERVING)
+        lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.DELIVERING)
+        lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.RUNTIME_LINKED)
+        lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.GOVERNING)
+        lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.PROMOTION_READY)
+        lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.PROMOTED)
 
         with pytest.raises(ValueError, match="Cannot transition from terminal state"):
-            lifecycle.transition_to(LifecycleStage.NORMALIZED)
+            lifecycle.transition_to_substage(LifecycleSubstage.NORMALIZED)
 
     def test_transition_with_explicit_status(self):
         """测试带显式状态的转换"""
         lifecycle = create_lifecycle("test-exec", "test-task", "/test/project")
 
-        lifecycle = lifecycle.transition_to(
-            LifecycleStage.NORMALIZED,
+        lifecycle = lifecycle.transition_to_substage(
+            LifecycleSubstage.NORMALIZED,
             reason="test",
             new_status=LifecycleStatus.RUNNING,
         )
 
         assert lifecycle.status == LifecycleStatus.RUNNING
 
-    def test_can_advance_to(self):
-        """测试can_advance_to方法"""
+    def test_can_transition_to_substage(self):
+        """测试can_transition_to_substage方法"""
         lifecycle = create_lifecycle("test-exec", "test-task", "/test/project")
 
-        assert lifecycle.can_advance_to(LifecycleStage.NORMALIZED) is True
-        assert lifecycle.can_advance_to(LifecycleStage.EXECUTING) is False
+        assert lifecycle.can_transition_to_substage(LifecycleSubstage.NORMALIZED) is True
+        assert lifecycle.can_transition_to_substage(LifecycleSubstage.RUNNING) is False
 
-    def test_get_next_stage(self):
+    def test_get_next_substage(self):
         """测试获取下一阶段"""
         lifecycle = create_lifecycle("test-exec", "test-task", "/test/project")
 
-        next_stage = lifecycle.get_next_stage()
-        assert next_stage == LifecycleStage.NORMALIZED
+        next_substage = lifecycle.get_next_substage()
+        assert next_substage == LifecycleSubstage.NORMALIZED
 
-        lifecycle = lifecycle.transition_to(LifecycleStage.NORMALIZED)
-        next_stage = lifecycle.get_next_stage()
-        assert next_stage == LifecycleStage.PLANNED
+        lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.NORMALIZED)
+        next_substage = lifecycle.get_next_substage()
+        assert next_substage == LifecycleSubstage.PLANNED
 
 
 class TestRecoveryFlow:
@@ -154,14 +155,14 @@ class TestRecoveryFlow:
     def test_trigger_recovery_from_failed(self):
         """测试从失败状态触发恢复"""
         lifecycle = create_lifecycle("test-exec", "test-task", "/test/project")
-        lifecycle = lifecycle.transition_to(LifecycleStage.FAILED)
+        lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.FAILED)
 
         lifecycle = lifecycle.trigger_recovery(
             failure_kind="test_error",
             reason="test recovery",
         )
 
-        assert lifecycle.stage == LifecycleStage.REPAIRING
+        assert lifecycle.substage == LifecycleSubstage.REPAIRING
         assert lifecycle.status == LifecycleStatus.RUNNING
         assert lifecycle.failure_kind == "test_error"
         assert "Recovery" in lifecycle.transition_reason
@@ -169,7 +170,7 @@ class TestRecoveryFlow:
     def test_trigger_recovery_default_failure_kind(self):
         """测试恢复时使用默认失败类型 - FAILED状态的默认失败类型为空"""
         lifecycle = create_lifecycle("test-exec", "test-task", "/test/project")
-        lifecycle = lifecycle.transition_to(LifecycleStage.FAILED)
+        lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.FAILED)
 
         lifecycle = lifecycle.trigger_recovery(reason="test")
 
@@ -313,7 +314,7 @@ class TestValidation:
         """测试终端状态与非终端阶段的一致性"""
         lifecycle = create_lifecycle("test-exec", "test-task", "/test/project")
         lifecycle.status = LifecycleStatus.SUCCESS
-        lifecycle.stage = LifecycleStage.EXECUTING
+        lifecycle.substage = LifecycleSubstage.RUNNING
 
         errors = lifecycle.validate()
 
@@ -327,13 +328,14 @@ class TestSerialization:
         """测试转换为字典"""
         lifecycle = create_lifecycle("test-exec", "test-task", "/test/project")
         lifecycle = lifecycle.attach_governance("gov-1", "review", True)
-        lifecycle = lifecycle.transition_to(LifecycleStage.NORMALIZED, reason="test")
+        lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.NORMALIZED, reason="test")
 
         result = lifecycle.to_dict()
 
         assert result["execution_id"] == "test-exec"
         assert result["task_id"] == "test-task"
-        assert result["stage"] == "normalized"
+        assert result["substage"] == "normalized"
+        assert result["phase"] == "initializing"
         assert result["status"] == "running"
         assert result["governance_ref"]["governance_session_id"] == "gov-1"
         assert len(result["stage_history"]) == 1
@@ -363,7 +365,7 @@ class TestSerialization:
 
         assert lifecycle.contract_id == "test-contract"
         assert lifecycle.execution_id == "test-exec"
-        assert lifecycle.stage == LifecycleStage.NORMALIZED
+        assert lifecycle.substage == LifecycleSubstage.NORMALIZED
         assert lifecycle.status == LifecycleStatus.RUNNING
         assert lifecycle.governance_ref.governance_session_id == "gov-1"
         assert len(lifecycle.stage_history) == 1
@@ -374,41 +376,41 @@ class TestSerialization:
         lifecycle = lifecycle.attach_governance("gov-1")
         lifecycle = lifecycle.attach_evolution("evo-1", "v1")
         lifecycle = lifecycle.attach_runtime("rt-1", True, True)
-        lifecycle = lifecycle.transition_to(LifecycleStage.NORMALIZED)
+        lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.NORMALIZED)
 
         data = lifecycle.to_dict()
         lifecycle2 = LifecycleRoot.from_dict(data)
 
         assert lifecycle.execution_id == lifecycle2.execution_id
-        assert lifecycle.stage == lifecycle2.stage
+        assert lifecycle.substage == lifecycle2.substage
         assert lifecycle.status == lifecycle2.status
         assert lifecycle.governance_ref.governance_session_id == lifecycle2.governance_ref.governance_session_id
         assert lifecycle.evolution_ref.evolution_request_id == lifecycle2.evolution_ref.evolution_request_id
         assert lifecycle.runtime_ref.runtime_id == lifecycle2.runtime_ref.runtime_id
 
 
-class TestLifecycleStageEnum:
-    """测试生命周期阶段枚举"""
+class TestLifecycleSubstageEnum:
+    """测试生命周期子状态枚举"""
 
-    def test_stage_from_string(self):
-        """测试从字符串创建阶段"""
-        assert LifecycleStage.from_string("NEW") == LifecycleStage.NEW
-        assert LifecycleStage.from_string("normalized") == LifecycleStage.NORMALIZED
-        assert LifecycleStage.from_string("  EXECUTING  ") == LifecycleStage.EXECUTING
-        assert LifecycleStage.from_string("unknown") == LifecycleStage.NEW
+    def test_substage_from_string(self):
+        """测试从字符串创建子状态"""
+        assert LifecycleSubstage.from_string("NEW") == LifecycleSubstage.NEW
+        assert LifecycleSubstage.from_string("normalized") == LifecycleSubstage.NORMALIZED
+        assert LifecycleSubstage.from_string("  RUNNING  ") == LifecycleSubstage.RUNNING
+        assert LifecycleSubstage.from_string("unknown") == LifecycleSubstage.NEW
 
-    def test_stage_is_terminal(self):
-        """测试终端阶段判断"""
-        assert LifecycleStage.PROMOTED.is_terminal() is True
-        assert LifecycleStage.FAILED.is_terminal() is True
-        assert LifecycleStage.CANCELLED.is_terminal() is True
-        assert LifecycleStage.EXECUTING.is_terminal() is False
+    def test_substage_is_terminal(self):
+        """测试终端子状态判断"""
+        assert LifecycleSubstage.PROMOTED.is_terminal() is True
+        assert LifecycleSubstage.FAILED.is_terminal() is True
+        assert LifecycleSubstage.CANCELLED.is_terminal() is True
+        assert LifecycleSubstage.RUNNING.is_terminal() is False
 
-    def test_get_failure_kind(self):
-        """测试获取失败类型"""
-        assert LifecycleStage.FAILED.get_failure_kind() == ""
-        assert LifecycleStage.ABORTED.get_failure_kind() == ""
-        assert LifecycleStage.EXECUTING.get_failure_kind() == "execution_error"
+    def test_substage_is_recovery(self):
+        """测试恢复子状态判断"""
+        assert LifecycleSubstage.REPAIRING.is_recovery() is True
+        assert LifecycleSubstage.VERIFYING.is_recovery() is True
+        assert LifecycleSubstage.RUNNING.is_recovery() is False
 
 
 class TestStatusDerivation:
@@ -418,26 +420,25 @@ class TestStatusDerivation:
         """测试状态从阶段推导"""
         lifecycle = create_lifecycle("test-exec", "test-task", "/test/project")
 
-        lifecycle = lifecycle.transition_to(LifecycleStage.NORMALIZED)
+        lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.NORMALIZED)
         assert lifecycle.status == LifecycleStatus.RUNNING
 
-        lifecycle = lifecycle.transition_to(LifecycleStage.FAILED)
+        lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.FAILED)
         assert lifecycle.status == LifecycleStatus.FAILED
 
         lifecycle2 = create_lifecycle("test-exec2", "test-task2", "/test/project")
-        lifecycle2 = lifecycle2.transition_to(LifecycleStage.CANCELLED)
+        lifecycle2 = lifecycle2.transition_to_substage(LifecycleSubstage.CANCELLED)
         assert lifecycle2.status == LifecycleStatus.CANCELLED
 
         lifecycle3 = create_lifecycle("test-exec3", "test-task3", "/test/project")
-        lifecycle3 = lifecycle3.transition_to(LifecycleStage.NORMALIZED)
-        lifecycle3 = lifecycle3.transition_to(LifecycleStage.PLANNED)
-        lifecycle3 = lifecycle3.transition_to(LifecycleStage.PREPARED)
-        lifecycle3 = lifecycle3.transition_to(LifecycleStage.DECOMPOSED)
-        lifecycle3 = lifecycle3.transition_to(LifecycleStage.EXECUTING)
-        lifecycle3 = lifecycle3.transition_to(LifecycleStage.OBSERVING)
-        lifecycle3 = lifecycle3.transition_to(LifecycleStage.DELIVERING)
-        lifecycle3 = lifecycle3.transition_to(LifecycleStage.RUNTIME_LINKED)
-        lifecycle3 = lifecycle3.transition_to(LifecycleStage.GOVERNING)
-        lifecycle3 = lifecycle3.transition_to(LifecycleStage.PROMOTION_READY)
-        lifecycle3 = lifecycle3.transition_to(LifecycleStage.PROMOTED)
+        lifecycle3 = lifecycle3.transition_to_substage(LifecycleSubstage.NORMALIZED)
+        lifecycle3 = lifecycle3.transition_to_substage(LifecycleSubstage.PLANNED)
+        lifecycle3 = lifecycle3.transition_to_substage(LifecycleSubstage.DECOMPOSED)
+        lifecycle3 = lifecycle3.transition_to_substage(LifecycleSubstage.RUNNING)
+        lifecycle3 = lifecycle3.transition_to_substage(LifecycleSubstage.OBSERVING)
+        lifecycle3 = lifecycle3.transition_to_substage(LifecycleSubstage.DELIVERING)
+        lifecycle3 = lifecycle3.transition_to_substage(LifecycleSubstage.RUNTIME_LINKED)
+        lifecycle3 = lifecycle3.transition_to_substage(LifecycleSubstage.GOVERNING)
+        lifecycle3 = lifecycle3.transition_to_substage(LifecycleSubstage.PROMOTION_READY)
+        lifecycle3 = lifecycle3.transition_to_substage(LifecycleSubstage.PROMOTED)
         assert lifecycle3.status == LifecycleStatus.PROMOTED

@@ -2,28 +2,154 @@
 
 This module is the canonical lifecycle transition source for web-triggered
 execution chains. It provides:
-- a single stage vocabulary
+- a single stage vocabulary with phase-substage hierarchy
 - authoritative transition rules
 - correlation model helpers
 - contract mutation helpers
+
+**DDD Design:**
+- LifecyclePhase: Primary phase grouping (INITIALIZING, EXECUTING, DELIVERING, GOVERNING, TERMINAL)
+- LifecycleSubstage: Detailed sub-state within each phase
+- State transitions are validated at substage level
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
 
 from .values import CorrelationContext
 
+
+# =============================================================================
+# Phase and Substage Enumerations (DDD Domain Concepts)
+# =============================================================================
+
+class LifecyclePhase(Enum):
+    """
+    Primary lifecycle phases.
+    
+    Phases represent high-level groupings of the lifecycle flow,
+    providing a clearer structure for understanding the overall process.
+    """
+    INITIALIZING = "initializing"
+    EXECUTING = "executing"
+    DELIVERING = "delivering"
+    GOVERNING = "governing"
+    TERMINAL = "terminal"
+
+    @classmethod
+    def from_string(cls, value: str) -> "LifecyclePhase":
+        normalized = str(value or "").strip().lower()
+        for phase in cls:
+            if phase.value == normalized:
+                return phase
+        return cls.INITIALIZING
+
+    def to_string(self) -> str:
+        return self.value
+
+
+class LifecycleSubstage(Enum):
+    """
+    Detailed sub-states within each lifecycle phase.
+    
+    Substages provide fine-grained tracking while maintaining
+    the broader phase context.
+    """
+    # INITIALIZING substages
+    NEW = "new"
+    NORMALIZED = "normalized"
+    PLANNED = "planned"
+    DECOMPOSED = "decomposed"
+    
+    # EXECUTING substages
+    RUNNING = "running"
+    OBSERVING = "observing"
+    DIAGNOSED = "diagnosed"
+    REPAIRING = "repairing"
+    VERIFYING = "verifying"
+    
+    # DELIVERING substages
+    DELIVERING = "delivering"
+    RUNTIME_LINKED = "runtime_linked"
+    
+    # GOVERNING substages
+    GOVERNING = "governing"
+    PROMOTION_READY = "promotion_ready"
+    
+    # TERMINAL substages
+    PROMOTED = "promoted"
+    FAILED = "failed"
+    ABORTED = "aborted"
+    CANCELLED = "cancelled"
+
+    @classmethod
+    def from_string(cls, value: str) -> "LifecycleSubstage":
+        normalized = str(value or "").strip().lower()
+        for substage in cls:
+            if substage.value == normalized:
+                return substage
+        return cls.NEW
+
+    def to_string(self) -> str:
+        return self.value
+
+    def is_terminal(self) -> bool:
+        return self in (self.PROMOTED, self.FAILED, self.ABORTED, self.CANCELLED)
+
+    def is_recovery(self) -> bool:
+        return self in (self.REPAIRING, self.VERIFYING)
+
+    def is_failure(self) -> bool:
+        return self in (self.FAILED, self.ABORTED)
+
+
+# =============================================================================
+# State Machine Configuration
+# =============================================================================
+
+# Mapping of phases to their substages
+PHASE_SUBSTAGES: Dict[LifecyclePhase, Tuple[LifecycleSubstage, ...]] = {
+    LifecyclePhase.INITIALIZING: (
+        LifecycleSubstage.NEW,
+        LifecycleSubstage.NORMALIZED,
+        LifecycleSubstage.PLANNED,
+        LifecycleSubstage.DECOMPOSED,
+    ),
+    LifecyclePhase.EXECUTING: (
+        LifecycleSubstage.RUNNING,
+        LifecycleSubstage.OBSERVING,
+        LifecycleSubstage.DIAGNOSED,
+        LifecycleSubstage.REPAIRING,
+        LifecycleSubstage.VERIFYING,
+    ),
+    LifecyclePhase.DELIVERING: (
+        LifecycleSubstage.DELIVERING,
+        LifecycleSubstage.RUNTIME_LINKED,
+    ),
+    LifecyclePhase.GOVERNING: (
+        LifecycleSubstage.GOVERNING,
+        LifecycleSubstage.PROMOTION_READY,
+    ),
+    LifecyclePhase.TERMINAL: (
+        LifecycleSubstage.PROMOTED,
+        LifecycleSubstage.FAILED,
+        LifecycleSubstage.ABORTED,
+        LifecycleSubstage.CANCELLED,
+    ),
+}
+
+# Legacy stage list for backward compatibility
 LIFECYCLE_STAGES: tuple[str, ...] = (
     "new",
     "normalized",
     "planned",
-    "prepared",
     "decomposed",
-    "executing",
+    "running",
     "observing",
     "diagnosed",
     "repairing",
@@ -37,8 +163,9 @@ LIFECYCLE_STAGES: tuple[str, ...] = (
 
 RECOVERY_STAGES: tuple[str, ...] = ("repairing", "verifying")
 FAILURE_STAGES: tuple[str, ...] = ("failed", "aborted", "cancelled")
+
 RECOVERY_TARGETS: Dict[str, str] = {
-    "executing": "repairing",
+    "running": "repairing",
     "observing": "repairing",
     "diagnosed": "repairing",
     "repairing": "verifying",
@@ -52,14 +179,14 @@ RECOVERY_TARGETS: Dict[str, str] = {
 
 TERMINAL_STAGES: tuple[str, ...] = ("promoted", "failed", "aborted", "cancelled")
 
-STAGE_TRANSITIONS: Dict[str, tuple[str, ...]] = {
+# Updated transitions using new substage naming
+SUBSTAGE_TRANSITIONS: Dict[str, tuple[str, ...]] = {
     "new": ("normalized", "failed", "cancelled"),
     "normalized": ("planned", "failed", "cancelled"),
-    "planned": ("prepared", "failed", "cancelled"),
-    "prepared": ("decomposed", "failed", "cancelled"),
-    "decomposed": ("executing", "failed", "cancelled"),
-    "executing": ("observing", "diagnosed", "delivering", "failed", "cancelled"),
-    "observing": ("diagnosed", "delivering", "failed", "cancelled"),
+    "planned": ("decomposed", "failed", "cancelled"),
+    "decomposed": ("running", "failed", "cancelled"),
+    "running": ("observing", "diagnosed", "repairing", "failed", "cancelled"),
+    "observing": ("diagnosed", "delivering", "repairing", "failed", "cancelled"),
     "diagnosed": ("repairing", "delivering", "failed", "cancelled"),
     "repairing": ("verifying", "observing", "failed", "cancelled"),
     "verifying": ("observing", "delivering", "failed", "cancelled"),
@@ -72,8 +199,12 @@ STAGE_TRANSITIONS: Dict[str, tuple[str, ...]] = {
     "aborted": (),
     "cancelled": (),
 }
+
+# Legacy STAGE_TRANSITIONS for backward compatibility
+STAGE_TRANSITIONS: Dict[str, tuple[str, ...]] = SUBSTAGE_TRANSITIONS
+
 REPAIR_ROUTE_BY_STAGE: Dict[str, str] = {
-    "executing": "repairing",
+    "running": "repairing",
     "observing": "repairing",
     "diagnosed": "repairing",
     "repairing": "verifying",
@@ -98,9 +229,8 @@ FAILURE_KIND_BY_STAGE: Dict[str, str] = {
     "new": "",
     "normalized": "",
     "planned": "",
-    "prepared": "",
     "decomposed": "",
-    "executing": "execution_error",
+    "running": "execution_error",
     "observing": "observation_error",
     "diagnosed": "diagnosis_error",
     "repairing": "repair_error",
@@ -111,6 +241,21 @@ FAILURE_KIND_BY_STAGE: Dict[str, str] = {
     "promotion_ready": "policy_error",
     "promoted": "",
 }
+
+
+def get_phase_for_substage(substage: LifecycleSubstage) -> LifecyclePhase:
+    """Get the phase that contains the given substage."""
+    for phase, substages in PHASE_SUBSTAGES.items():
+        if substage in substages:
+            return phase
+    return LifecyclePhase.INITIALIZING
+
+
+def get_substage_index(substage: LifecycleSubstage) -> int:
+    """Get the index of a substage within its phase."""
+    phase = get_phase_for_substage(substage)
+    substages = PHASE_SUBSTAGES[phase]
+    return substages.index(substage) if substage in substages else -1
 
 
 @dataclass(slots=True)
@@ -126,6 +271,14 @@ class LifecycleStateMachine:
     - Stateless domain service (no internal state beyond configuration)
     - Methods are pure functions where possible
     - Single source of truth for all transition rules
+    - Supports both phase-substage hierarchy and legacy flat stage model
+    
+    **Phase-Substage Architecture:**
+    - INITIALIZING: NEW → NORMALIZED → PLANNED → DECOMPOSED
+    - EXECUTING: RUNNING → OBSERVING → DIAGNOSED → REPAIRING → VERIFYING (recovery loop)
+    - DELIVERING: DELIVERING → RUNTIME_LINKED
+    - GOVERNING: GOVERNING → PROMOTION_READY
+    - TERMINAL: PROMOTED, FAILED, ABORTED, CANCELLED
     """
     
     # Class-level constants for reference
@@ -133,6 +286,12 @@ class LifecycleStateMachine:
     TERMINAL_STAGES = TERMINAL_STAGES
     TRANSITIONS = STAGE_TRANSITIONS
     RECOVERY_TARGETS = RECOVERY_TARGETS
+    PHASES = tuple(LifecyclePhase)
+    PHASE_SUBSTAGES = PHASE_SUBSTAGES
+
+    # =========================================================================
+    # Phase/Substage Normalization
+    # =========================================================================
 
     def normalize_stage(self, stage: object) -> str:
         """Normalize a stage value to canonical string form."""
@@ -140,15 +299,55 @@ class LifecycleStateMachine:
             value = str(stage.value).strip().lower()
         else:
             value = str(stage or "").strip().lower()
+        
         return value if value in STAGE_TRANSITIONS else "new"
 
+    def normalize_phase(self, phase: object) -> LifecyclePhase:
+        """Normalize a phase value to LifecyclePhase enum."""
+        if isinstance(phase, LifecyclePhase):
+            return phase
+        return LifecyclePhase.from_string(str(phase or ""))
+
+    def normalize_substage(self, substage: object) -> LifecycleSubstage:
+        """Normalize a substage value to LifecycleSubstage enum."""
+        if isinstance(substage, LifecycleSubstage):
+            return substage
+        return LifecycleSubstage.from_string(str(substage or ""))
+
+    def get_phase_for_substage(self, substage: object) -> LifecyclePhase:
+        """Get the phase that contains the given substage."""
+        normalized = self.normalize_substage(substage)
+        return get_phase_for_substage(normalized)
+
+    def get_substages_for_phase(self, phase: object) -> Tuple[LifecycleSubstage, ...]:
+        """Get all substages for a given phase."""
+        normalized = self.normalize_phase(phase)
+        return PHASE_SUBSTAGES.get(normalized, ())
+
+    def derive_phase(self, substage: object) -> str:
+        """Derive the phase from a substage."""
+        phase = self.get_phase_for_substage(substage)
+        return phase.value
+
+    # =========================================================================
+    # Transition Validation (Substage Level)
+    # =========================================================================
+
     def can_transition(self, from_stage: object, to_stage: object) -> bool:
-        """Check if a transition is valid."""
+        """Check if a transition is valid (works with both stage strings and enums)."""
         frm = self.normalize_stage(from_stage)
         to = self.normalize_stage(to_stage)
         if frm == to:
             return True
-        return to in STAGE_TRANSITIONS.get(frm, ())
+        return to in SUBSTAGE_TRANSITIONS.get(frm, ())
+
+    def can_transition_substage(
+        self,
+        from_substage: LifecycleSubstage,
+        to_substage: LifecycleSubstage,
+    ) -> bool:
+        """Check if a substage transition is valid."""
+        return self.can_transition(from_substage.value, to_substage.value)
 
     def validate_transition(self, from_stage: object, to_stage: object) -> Optional[str]:
         """Validate a stage transition. Returns None if valid, or error message."""
@@ -165,9 +364,38 @@ class LifecycleStateMachine:
 
         return f"illegal lifecycle transition: {frm} -> {to}"
 
+    def validate_substage_transition(
+        self,
+        from_substage: LifecycleSubstage,
+        to_substage: LifecycleSubstage,
+    ) -> Optional[str]:
+        """Validate a substage transition. Returns None if valid, or error message."""
+        return self.validate_transition(from_substage.value, to_substage.value)
+
+    # =========================================================================
+    # Next Stage Resolution
+    # =========================================================================
+
     def next_stages(self, stage: object) -> tuple[str, ...]:
         """Get the valid next stages for a given stage."""
-        return STAGE_TRANSITIONS.get(self.normalize_stage(stage), ())
+        return SUBSTAGE_TRANSITIONS.get(self.normalize_stage(stage), ())
+
+    def next_substages(self, substage: LifecycleSubstage) -> Tuple[LifecycleSubstage, ...]:
+        """Get the valid next substages for a given substage."""
+        next_stage_strings = self.next_stages(substage)
+        return tuple(LifecycleSubstage.from_string(s) for s in next_stage_strings)
+
+    def get_next_substage(self, substage: LifecycleSubstage) -> Optional[LifecycleSubstage]:
+        """Get the next substage in the normal flow (skipping failure states)."""
+        next_substages = self.next_substages(substage)
+        for s in next_substages:
+            if s not in (LifecycleSubstage.FAILED, LifecycleSubstage.CANCELLED):
+                return s
+        return None
+
+    # =========================================================================
+    # Stage/Substage Indexing
+    # =========================================================================
 
     def stage_index(self, stage: object) -> int:
         """Get the index of a stage in the lifecycle sequence."""
@@ -177,6 +405,14 @@ class LifecycleStateMachine:
         except ValueError:
             return -1
 
+    def substage_index(self, substage: LifecycleSubstage) -> int:
+        """Get the index of a substage within its phase."""
+        return get_substage_index(substage)
+
+    # =========================================================================
+    # State Classification
+    # =========================================================================
+
     def is_terminal(self, stage: object) -> bool:
         """Check if a stage is terminal (no further transitions)."""
         normalized = self.normalize_stage(stage)
@@ -184,22 +420,55 @@ class LifecycleStateMachine:
             normalized in TERMINAL_STAGES or normalized in FAILURE_STAGES
         )
 
+    def is_terminal_substage(self, substage: LifecycleSubstage) -> bool:
+        """Check if a substage is terminal."""
+        return substage.is_terminal()
+
     def is_failure(self, stage: object) -> bool:
         """Check if a stage represents a failure state."""
         return self.normalize_stage(stage) in FAILURE_STAGES
 
+    def is_failure_substage(self, substage: LifecycleSubstage) -> bool:
+        """Check if a substage represents a failure state."""
+        return substage.is_failure()
+
     def is_recovery(self, stage: object) -> bool:
         """Check if a stage is a recovery stage."""
         return self.normalize_stage(stage) in RECOVERY_STAGES
+
+    def is_recovery_substage(self, substage: LifecycleSubstage) -> bool:
+        """Check if a substage is a recovery stage."""
+        return substage.is_recovery()
+
+    # =========================================================================
+    # Recovery Logic
+    # =========================================================================
 
     def get_recovery_target(self, stage: object) -> str:
         """Get the recovery target stage for a given stage."""
         normalized = self.normalize_stage(stage)
         return RECOVERY_TARGETS.get(normalized, "repairing")
 
+    def get_recovery_target_substage(self, substage: LifecycleSubstage) -> LifecycleSubstage:
+        """Get the recovery target substage for a given substage."""
+        target_str = self.get_recovery_target(substage)
+        return LifecycleSubstage.from_string(target_str)
+
+    # =========================================================================
+    # Failure Handling
+    # =========================================================================
+
     def get_failure_kind(self, stage: object) -> str:
         """Get the failure kind for a given stage."""
         return FAILURE_KIND_BY_STAGE.get(self.normalize_stage(stage), "")
+
+    def get_failure_kind_for_substage(self, substage: LifecycleSubstage) -> str:
+        """Get the failure kind for a given substage."""
+        return self.get_failure_kind(substage.value)
+
+    # =========================================================================
+    # Status Derivation
+    # =========================================================================
 
     def derive_status(self, stage: object) -> str:
         """
@@ -225,11 +494,26 @@ class LifecycleStateMachine:
             return "pending"
         return "running"
 
+    def derive_status_from_substage(self, substage: LifecycleSubstage) -> str:
+        """Derive the lifecycle status from a substage."""
+        return self.derive_status(substage.value)
+
+    # =========================================================================
+    # Allowed Stages
+    # =========================================================================
+
     def get_allowed_next_stages(self, stage: object) -> List[str]:
         """Get a list of allowed next stages (excludes failure states by default)."""
         all_next = list(self.next_stages(stage))
         return [
             s for s in all_next if s not in FAILURE_STAGES
+        ]
+
+    def get_allowed_next_substages(self, substage: LifecycleSubstage) -> List[LifecycleSubstage]:
+        """Get a list of allowed next substages (excludes failure states by default)."""
+        all_next = self.next_substages(substage)
+        return [
+            s for s in all_next if not s.is_failure() and s != LifecycleSubstage.CANCELLED
         ]
 
     def transition(
@@ -388,17 +672,29 @@ def get_lifecycle_state_machine() -> LifecycleStateMachine:
 
 
 __all__ = [
+    # Enumerations
+    "LifecyclePhase",
+    "LifecycleSubstage",
+    
+    # State machine
     "LifecycleStateMachine",
+    
+    # Configuration constants
     "LIFECYCLE_STAGES",
+    "SUBSTAGE_TRANSITIONS",
     "STAGE_TRANSITIONS",
     "TERMINAL_STAGES",
     "FAILURE_STAGES",
     "RECOVERY_STAGES",
     "RECOVERY_TARGETS",
+    "PHASE_SUBSTAGES",
     "REPAIR_ROUTE_BY_STAGE",
     "CORRELATION_KEY_FIELDS",
     "FAILURE_KIND_BY_STAGE",
+    
+    # Helper functions
+    "get_phase_for_substage",
+    "get_substage_index",
     "build_default_correlation",
     "get_lifecycle_state_machine",
-    # State machine methods are available through the class instance
 ]

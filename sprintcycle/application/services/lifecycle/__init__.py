@@ -13,7 +13,7 @@
 
 from sprintcycle.domain.core.lifecycle import (
     LifecycleRoot,
-    LifecycleStage,
+    LifecycleSubstage,
     LifecycleStatus,
     create_lifecycle,
     LifecycleStateMachine,
@@ -30,7 +30,7 @@ from .recovery_lifecycle_service import RecoveryLifecycleService
 
 __all__ = [
     "LifecycleRoot",
-    "LifecycleStage",
+    "LifecycleSubstage",
     "LifecycleStatus",
     "create_lifecycle",
     "LifecycleStateMachine",

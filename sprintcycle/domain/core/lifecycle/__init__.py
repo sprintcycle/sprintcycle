@@ -58,13 +58,16 @@ from .services import (
 
 from .state_machine import (
     LifecycleStateMachine,
+    LifecyclePhase,
+    LifecycleSubstage,
     get_lifecycle_state_machine,
     build_default_correlation,
+    PHASE_SUBSTAGES,
+    SUBSTAGE_TRANSITIONS,
 )
 
 from .lifecycle_root import (
     LifecycleRoot,
-    LifecycleStage,
     LifecycleStatus,
     create_lifecycle,
 )
@@ -112,6 +115,8 @@ __all__ = [
     "LifecycleStateMachine",
     "LIFECYCLE_STAGES",
     "STAGE_TRANSITIONS",
+    "SUBSTAGE_TRANSITIONS",
+    "PHASE_SUBSTAGES",
     "TERMINAL_STAGES",
     "FAILURE_STAGES",
     "RECOVERY_STAGES",
@@ -121,9 +126,11 @@ __all__ = [
     "get_lifecycle_state_machine",
     "build_default_correlation",
     "validate_transition",
+    # Phase-Substage Enumerations
+    "LifecyclePhase",
+    "LifecycleSubstage",
     # Lifecycle Root Aggregate
     "LifecycleRoot",
-    "LifecycleStage",
     "LifecycleStatus",
     "create_lifecycle",
     # Mapper

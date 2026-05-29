@@ -17,10 +17,10 @@ from sprintcycle.domain.core.lifecycle.state_machine import (
 )
 from sprintcycle.domain.core.lifecycle.lifecycle_root import (
     LifecycleRoot,
-    LifecycleStage,
     LifecycleStatus,
     create_lifecycle,
 )
+from sprintcycle.domain.core.lifecycle.state_machine import LifecycleSubstage
 from sprintcycle.domain.core.lifecycle.values import CorrelationContext
 
 
@@ -49,10 +49,10 @@ class TestLifecycleStateMachineBasic:
         machine = LifecycleStateMachine()
 
         assert machine.normalize_stage("NEW") == "new"
-        assert machine.normalize_stage("Executing") == "executing"
+        assert machine.normalize_stage("Running") == "running"
         assert machine.normalize_stage("  OBSERVING  ") == "observing"
-        assert machine.normalize_stage(LifecycleStage.NEW) == "new"
-        assert machine.normalize_stage(LifecycleStage.EXECUTING) == "executing"
+        assert machine.normalize_stage(LifecycleSubstage.NEW) == "new"
+        assert machine.normalize_stage(LifecycleSubstage.RUNNING) == "running"
         assert machine.normalize_stage("unknown") == "new"
         assert machine.normalize_stage(None) == "new"
         assert machine.normalize_stage("") == "new"
@@ -62,8 +62,8 @@ class TestLifecycleStateMachineBasic:
         machine = LifecycleStateMachine()
 
         assert machine.can_transition("new", "normalized") is True
-        assert machine.can_transition("new", "executing") is False
-        assert machine.can_transition("executing", "observing") is True
+        assert machine.can_transition("new", "running") is False
+        assert machine.can_transition("running", "observing") is True
         assert machine.can_transition("promoted", "governing") is False
         assert machine.can_transition("failed", "repairing") is True
         assert machine.can_transition("repairing", "verifying") is True
@@ -73,14 +73,14 @@ class TestLifecycleStateMachineBasic:
         machine = LifecycleStateMachine()
 
         assert machine.can_transition("new", "new") is True
-        assert machine.can_transition("executing", "executing") is True
+        assert machine.can_transition("running", "running") is True
 
     def test_validate_transition(self):
         """测试转换验证 - 空字符串被规范化为new"""
         machine = LifecycleStateMachine()
 
         assert machine.validate_transition("new", "normalized") is None
-        assert machine.validate_transition("new", "executing") == "illegal lifecycle transition: new -> executing"
+        assert machine.validate_transition("new", "running") == "illegal lifecycle transition: new -> running"
         assert machine.validate_transition("", "normalized") is None  # empty normalized to new
         assert machine.validate_transition("new", "") is None  # empty normalized to new
 
@@ -89,19 +89,19 @@ class TestLifecycleStateMachineBasic:
         machine = LifecycleStateMachine()
 
         assert machine.next_stages("new") == ("normalized", "failed", "cancelled")
-        assert machine.next_stages("executing") == ("observing", "diagnosed", "delivering", "failed", "cancelled")
+        assert machine.next_stages("running") == ("observing", "diagnosed", "repairing", "failed", "cancelled")
         assert machine.next_stages("promoted") == ()
-        assert machine.next_stages(LifecycleStage.NEW) == ("normalized", "failed", "cancelled")
+        assert machine.next_stages(LifecycleSubstage.NEW) == ("normalized", "failed", "cancelled")
 
     def test_stage_index(self):
         """测试阶段索引"""
         machine = LifecycleStateMachine()
 
         assert machine.stage_index("new") == 0
-        assert machine.stage_index("executing") == 5
-        assert machine.stage_index("promoted") == 14
+        assert machine.stage_index("running") == 4
+        assert machine.stage_index("promoted") == 13
         assert machine.stage_index("unknown") == 0  # unknown is normalized to new
-        assert machine.stage_index(LifecycleStage.EXECUTING) == 5
+        assert machine.stage_index(LifecycleSubstage.RUNNING) == 4
 
     def test_is_terminal(self):
         """测试终端状态判断"""
@@ -111,9 +111,9 @@ class TestLifecycleStateMachineBasic:
         assert machine.is_terminal("failed") is True
         assert machine.is_terminal("aborted") is True
         assert machine.is_terminal("cancelled") is True
-        assert machine.is_terminal("executing") is False
+        assert machine.is_terminal("running") is False
         assert machine.is_terminal("governing") is False
-        assert machine.is_terminal(LifecycleStage.PROMOTED) is True
+        assert machine.is_terminal(LifecycleSubstage.PROMOTED) is True
 
     def test_is_failure(self):
         """测试失败状态判断"""
@@ -122,7 +122,7 @@ class TestLifecycleStateMachineBasic:
         assert machine.is_failure("failed") is True
         assert machine.is_failure("aborted") is True
         assert machine.is_failure("cancelled") is True
-        assert machine.is_failure("executing") is False
+        assert machine.is_failure("running") is False
         assert machine.is_failure("repairing") is False
 
     def test_is_recovery(self):
@@ -131,27 +131,27 @@ class TestLifecycleStateMachineBasic:
 
         assert machine.is_recovery("repairing") is True
         assert machine.is_recovery("verifying") is True
-        assert machine.is_recovery("executing") is False
+        assert machine.is_recovery("running") is False
         assert machine.is_recovery("observing") is False
 
     def test_get_recovery_target(self):
         """测试获取恢复目标"""
         machine = LifecycleStateMachine()
 
-        assert machine.get_recovery_target("executing") == "repairing"
+        assert machine.get_recovery_target("running") == "repairing"
         assert machine.get_recovery_target("observing") == "repairing"
         assert machine.get_recovery_target("diagnosed") == "repairing"
         assert machine.get_recovery_target("repairing") == "verifying"
         assert machine.get_recovery_target("verifying") == "observing"
         assert machine.get_recovery_target("failed") == "repairing"
         assert machine.get_recovery_target("unknown") == "repairing"  # default
-        assert machine.get_recovery_target(LifecycleStage.EXECUTING) == "repairing"
+        assert machine.get_recovery_target(LifecycleSubstage.RUNNING) == "repairing"
 
     def test_get_failure_kind(self):
         """测试获取失败类型"""
         machine = LifecycleStateMachine()
 
-        assert machine.get_failure_kind("executing") == "execution_error"
+        assert machine.get_failure_kind("running") == "execution_error"
         assert machine.get_failure_kind("observing") == "observation_error"
         assert machine.get_failure_kind("diagnosed") == "diagnosis_error"
         assert machine.get_failure_kind("repairing") == "repair_error"
@@ -159,14 +159,14 @@ class TestLifecycleStateMachineBasic:
         assert machine.get_failure_kind("delivering") == "delivery_error"
         assert machine.get_failure_kind("new") == ""
         assert machine.get_failure_kind("promoted") == ""
-        assert machine.get_failure_kind(LifecycleStage.EXECUTING) == "execution_error"
+        assert machine.get_failure_kind(LifecycleSubstage.RUNNING) == "execution_error"
 
     def test_get_allowed_next_stages(self):
         """测试获取允许的下一阶段（排除失败状态）"""
         machine = LifecycleStateMachine()
 
         assert machine.get_allowed_next_stages("new") == ["normalized"]
-        assert machine.get_allowed_next_stages("executing") == ["observing", "diagnosed", "delivering"]
+        assert machine.get_allowed_next_stages("running") == ["observing", "diagnosed", "repairing"]
         assert machine.get_allowed_next_stages("promoted") == []
 
 
@@ -178,14 +178,14 @@ class TestTransitionMethods:
         machine = LifecycleStateMachine()
 
         event = machine.build_transition_event(
-            from_stage="executing",
+            from_stage="running",
             to_stage="observing",
             reason="test transition",
             correlation={"request_id": "req-1"},
             source="api",
         )
 
-        assert event["from"] == "executing"
+        assert event["from"] == "running"
         assert event["to"] == "observing"
         assert event["reason"] == "test transition"
         assert event["source"] == "api"
@@ -256,7 +256,7 @@ class TestTransitionMethods:
         contract = {"stage": "new"}
 
         with pytest.raises(ValueError, match="illegal lifecycle transition"):
-            machine.transition(contract, "executing")
+            machine.transition(contract, "running")
 
     def test_transition_with_status(self):
         """测试带状态的转换"""
@@ -272,7 +272,7 @@ class TestTransitionMethods:
         """测试转换到失败状态"""
         machine = LifecycleStateMachine()
 
-        contract = {"stage": "executing"}
+        contract = {"stage": "running"}
 
         result = machine.transition(contract, "failed")
 
@@ -306,7 +306,8 @@ class TestLifecycleToDict:
         assert result["contract_id"] == lifecycle.contract_id
         assert result["execution_id"] == "exec-1"
         assert result["task_id"] == "task-1"
-        assert result["stage"] == "new"
+        assert result["substage"] == "new"
+        assert result["phase"] == "initializing"
         assert result["status"] == "pending"
         assert result["is_terminal"] is False
         assert result["stage_index"] == 0
@@ -314,7 +315,7 @@ class TestLifecycleToDict:
     def test_lifecycle_to_dict_with_history(self):
         """测试带历史记录的转换"""
         lifecycle = create_lifecycle("exec-1", "task-1", "/test/project")
-        lifecycle = lifecycle.transition_to(LifecycleStage.NORMALIZED, reason="test")
+        lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.NORMALIZED, reason="test")
 
         result = lifecycle.to_dict()
 
@@ -341,8 +342,8 @@ class TestConstants:
         stages = list(LIFECYCLE_STAGES)
         
         assert stages.index("new") == 0
-        assert stages.index("executing") == 5
-        assert stages.index("promoted") == 14
+        assert stages.index("running") == 4
+        assert stages.index("promoted") == 13
 
     def test_terminal_stages(self):
         """测试终端阶段"""
@@ -370,7 +371,7 @@ class TestConstants:
     def test_recovery_targets_coverage(self):
         """测试恢复目标覆盖 - 部分阶段不在恢复目标中"""
         covered_stages = {
-            "executing", "observing", "diagnosed", "repairing", "verifying",
+            "running", "observing", "diagnosed", "repairing", "verifying",
             "delivering", "runtime_linked", "governing", "promotion_ready", "failed"
         }
         for stage in covered_stages:
@@ -378,7 +379,7 @@ class TestConstants:
 
     def test_failure_kind_by_stage(self):
         """测试失败类型定义"""
-        assert FAILURE_KIND_BY_STAGE["executing"] == "execution_error"
+        assert FAILURE_KIND_BY_STAGE["running"] == "execution_error"
         assert FAILURE_KIND_BY_STAGE["verifying"] == "verification_error"
         assert FAILURE_KIND_BY_STAGE["new"] == ""
         assert FAILURE_KIND_BY_STAGE["promoted"] == ""

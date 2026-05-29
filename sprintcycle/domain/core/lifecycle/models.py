@@ -105,7 +105,7 @@ REQUIRED_STAGE_SEQUENCE: tuple[str, ...] = (
     "evolution",
 )
 RECOVERY_STAGE_TARGETS: Dict[str, str] = {
-    "executing": "repair",
+    "running": "repair",
     "observing": "repair",
     "diagnosed": "repair",
     "repairing": "verify",
@@ -184,6 +184,19 @@ class LifecycleContract:
     governance_refs: Dict[str, Any] = field(default_factory=dict)
     evolution_refs: Dict[str, Any] = field(default_factory=dict)
     runtime_refs: Dict[str, Any] = field(default_factory=dict)
+    delivery_refs: Dict[str, Any] = field(default_factory=dict)
+    recovery_refs: Dict[str, Any] = field(default_factory=dict)
+    recovery_plan_refs: Dict[str, Any] = field(default_factory=dict)
+    validation_refs: Dict[str, Any] = field(default_factory=dict)
+    input_refs: Dict[str, Any] = field(default_factory=dict)
+    output_refs: Dict[str, Any] = field(default_factory=dict)
+    
+    # Skill-related references (lists)
+    suggestion_refs: List[Dict[str, Any]] = field(default_factory=list)
+    skill_refs: List[Dict[str, Any]] = field(default_factory=list)
+    skill_matches: List[Dict[str, Any]] = field(default_factory=list)
+    skill_review_checklists: List[Dict[str, Any]] = field(default_factory=list)
+    skill_trace: Dict[str, Any] = field(default_factory=dict)
     
     # Evidence and trace
     evidence: Dict[str, Any] = field(default_factory=dict)
@@ -284,6 +297,19 @@ class LifecycleContract:
             governance_refs=dict(data.get("governance_refs", {})),
             evolution_refs=dict(data.get("evolution_refs", {})),
             runtime_refs=dict(data.get("runtime_refs", {})),
+            delivery_refs=dict(data.get("delivery_refs", {})),
+            recovery_refs=dict(data.get("recovery_refs", {})),
+            recovery_plan_refs=dict(data.get("recovery_plan_refs", {})),
+            validation_refs=dict(data.get("validation_refs", {})),
+            input_refs=dict(data.get("input_refs", {})),
+            output_refs=dict(data.get("output_refs", {})),
+            
+            # Skill-related references
+            suggestion_refs=list(data.get("suggestion_refs", [])),
+            skill_refs=list(data.get("skill_refs", [])),
+            skill_matches=list(data.get("skill_matches", [])),
+            skill_review_checklists=list(data.get("skill_review_checklists", [])),
+            skill_trace=dict(data.get("skill_trace", {})),
             
             # Evidence and trace
             evidence=dict(data.get("evidence", {})),

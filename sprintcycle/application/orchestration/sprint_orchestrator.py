@@ -45,9 +45,9 @@ from sprintcycle.domain.core.evolution.intent_evolution_loop import UserIntentEv
 from sprintcycle.domain.core.evolution.measurement import MeasurementResult
 from sprintcycle.domain.core.lifecycle import (
     create_lifecycle,
-    LifecycleStage,
     LifecycleStateMachine,
     get_lifecycle_state_machine,
+    LifecycleSubstage,
 )
 from sprintcycle.domain.ports.orchestration import OrchestrationDependencies
 
@@ -357,7 +357,7 @@ class SprintOrchestrator:
         )
         
         # 转换到 delivering 阶段
-        lifecycle = lifecycle.transition_to(LifecycleStage.DELIVERING)
+        lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.DELIVERING)
         
         # 获取字典格式
         service = LifecycleStateMachine()

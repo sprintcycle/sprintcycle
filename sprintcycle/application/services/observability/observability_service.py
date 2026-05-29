@@ -9,7 +9,7 @@ from sprintcycle.domain.ports.observability import ObservabilityFacadeProtocol
 from sprintcycle.domain.ports.state_store import StateStoreProtocol
 from sprintcycle.domain.core.lifecycle import (
     create_lifecycle,
-    LifecycleStage,
+    LifecycleSubstage,
     LifecycleStateMachine,
     CorrelationContext,
 )
@@ -122,10 +122,10 @@ class ObservabilityService:
             },
         )
         
-        # 转换到目标阶段
-        target_stage = LifecycleStage.from_string(lifecycle_stage)
-        if lifecycle_root.stage != target_stage:
-            lifecycle_root = lifecycle_root.transition_to(target_stage)
+        # 转换到目标子状态
+        target_substage = LifecycleSubstage.from_string(lifecycle_stage)
+        if lifecycle_root.substage != target_substage:
+            lifecycle_root = lifecycle_root.transition_to_substage(target_substage)
         
         # 获取字典格式
         service = LifecycleStateMachine()
