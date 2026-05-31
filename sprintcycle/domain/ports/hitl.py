@@ -71,29 +71,7 @@ class HitlStoreProtocol(ABC):
         ...
 
 
-# 工厂函数注册
-_hitl_store_factory: Optional[callable] = None
-
-
-def register_hitl_store_factory(factory: callable) -> None:
-    """注册 HITL store 工厂（由 Infrastructure 层调用）"""
-    global _hitl_store_factory
-    _hitl_store_factory = factory
-
-
-def get_hitl_store(project_path: Optional[str] = None) -> HitlStoreProtocol:
-    """获取 HITL store 实例"""
-    if _hitl_store_factory is not None:
-        return _hitl_store_factory(project_path)
-    raise RuntimeError(
-        "HITL store factory not registered. "
-        "Please call register_hitl_store_factory() from Infrastructure layer before using."
-    )
-
-
 __all__ = [
     "HitlRequestRecordLike",
     "HitlStoreProtocol",
-    "register_hitl_store_factory",
-    "get_hitl_store",
 ]

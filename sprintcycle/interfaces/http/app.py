@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, StreamingResponse
 
 from sprintcycle.application.composition import initialize_http_infrastructure
+from sprintcycle.application.composition.di_container import container
 from sprintcycle.interfaces.http.handlers import (
     ServiceAggregator,
     ExecutionHandler,
@@ -23,7 +24,6 @@ from sprintcycle.interfaces.http.handlers import (
 )
 from sprintcycle.interfaces.http.request_context import RequestContext
 from sprintcycle.interfaces.http.middleware import rate_limit_middleware, audit_middleware
-from sprintcycle.domain.ports.observability import get_observability_facade
 from pydantic import BaseModel
 
 _DASHBOARD_DEV = os.environ.get("SPRINTCYCLE_ENV", "production") == "development"
@@ -116,7 +116,7 @@ def build_overview_router() -> APIRouter:
     @router.get("/api/clients")
     async def api_clients(request: Request) -> Dict[str, Any]:
         try:
-            facade = get_observability_facade()
+            facade = container.observability.observability_facade()
             count = facade.get_client_count() if hasattr(facade, "get_client_count") else 0
         except Exception:
             count = 0

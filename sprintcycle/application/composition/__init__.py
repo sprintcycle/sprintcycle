@@ -15,13 +15,19 @@ from __future__ import annotations
 __all__ = [
     "initialize_http_infrastructure",
     "InfrastructureFactory",
-    "create_default_evolution_facade",
-    "create_orchestration_dependencies",
+    "Container",
+    "container",
+    "create_container",
+    "get_container",
 ]
 
 from sprintcycle.application.composition.http_factory import (
     InfrastructureFactory,
     initialize_http_infrastructure,
 )
-from sprintcycle.application.composition.evolution_factory import create_default_evolution_facade
-from sprintcycle.application.composition.orchestration_factory import create_orchestration_dependencies
+from sprintcycle.application.composition.di_container import (
+    Container,
+    container,
+    create_container,
+    get_container,
+)

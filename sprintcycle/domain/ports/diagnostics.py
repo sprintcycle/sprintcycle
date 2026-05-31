@@ -26,15 +26,6 @@ class DiagnosticPort(Protocol):
         ...
 
 
-def register_diagnostic_adapter(adapter: DiagnosticPort) -> None:
-    """Register the diagnostic adapter implementation."""
-    global _diagnostic_adapter
-    _diagnostic_adapter = adapter
-
-
-def get_diagnostic_adapter() -> DiagnosticPort:
-    """Get the registered diagnostic adapter."""
-    return _diagnostic_adapter
-
-
-_diagnostic_adapter: DiagnosticPort | None = None
+__all__ = [
+    "DiagnosticPort",
+]

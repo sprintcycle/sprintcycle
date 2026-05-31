@@ -18,28 +18,6 @@ class PlatformLaunchServiceProtocol(ABC):
         ...
 
 
-# 工厂函数注册
-_platform_launch_factory: Optional[callable] = None
-
-
-def register_platform_launch_factory(factory: callable) -> None:
-    """注册平台启动服务工厂（由 Infrastructure 层调用）"""
-    global _platform_launch_factory
-    _platform_launch_factory = factory
-
-
-def create_platform_launch_service() -> PlatformLaunchServiceProtocol:
-    """创建平台启动服务实例"""
-    if _platform_launch_factory is not None:
-        return _platform_launch_factory()
-    raise RuntimeError(
-        "Platform launch factory not registered. "
-        "Please call register_platform_launch_factory() from Infrastructure layer before using."
-    )
-
-
 __all__ = [
     "PlatformLaunchServiceProtocol",
-    "register_platform_launch_factory",
-    "create_platform_launch_service",
 ]

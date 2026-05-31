@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from .services import ServiceAggregator
+from sprintcycle.application.composition.di_container import container
 
 
 class ExecutionHandler:
@@ -57,20 +58,20 @@ class ExecutionHandler:
         return self._services.dashboard_views.execution_workspace(self, execution_id=execution_id, limit=limit)
 
     def dashboard_platform_workspace(self) -> Any:
-        return self._services.dashboard_views.platform_workspace(self.platform_overview())
+        return self._services.dashboard_workbench.platform_workspace(self.platform_overview())
 
     def diagnose(self, execution_id: str = "") -> Any:
-        from sprintcycle.domain.ports.diagnostics import get_diagnostic_adapter
-        
-        adapter = get_diagnostic_adapter()
+        adapter = container.observability.diagnostic_adapter(
+            project_path=self._services.project_path
+        )
         return adapter.diagnose(execution_id=execution_id)
 
     def stop_execution(self, execution_id: str = "") -> Any:
-        from sprintcycle.domain.ports.state_store import get_state_store, ExecutionStatus
         from sprintcycle.application.dto.results import StopResult
+        from sprintcycle.domain.generic.interfaces import ExecutionStatus
 
+        store = container.infrastructure.state_store()
         if execution_id:
-            store = get_state_store()
             state = store.load(execution_id)
             if state is None:
                 return StopResult(
@@ -96,9 +97,8 @@ class ExecutionHandler:
 
     def rollback(self, execution_id: str) -> Any:
         from sprintcycle.application.dto.results import RollbackResult
-        from sprintcycle.domain.ports.state_store import get_state_store
 
-        store = get_state_store()
+        store = container.infrastructure.state_store()
         state = store.load(execution_id)
         if state is None:
             return RollbackResult(

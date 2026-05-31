@@ -12,7 +12,7 @@ from fastapi import APIRouter, Request
 
 from sprintcycle.interfaces.http.handlers.governance import GovernanceHandler
 from sprintcycle.interfaces.http.request_context import RequestContext
-from sprintcycle.domain.ports.config import get_runtime_config
+from sprintcycle.application.composition.di_container import container
 
 
 def build_governance_router(handler: GovernanceHandler, project_path: str) -> APIRouter:
@@ -30,7 +30,7 @@ def build_governance_router(handler: GovernanceHandler, project_path: str) -> AP
     @router.get("/api/governance/latest")
     async def governance_latest(request: Request) -> dict:
         _ctx(request)
-        cfg = get_runtime_config(project_path)
+        cfg = container.runtime_config_container.runtime_config(project_path=project_path)
         root = Path(project_path).expanduser().resolve()
         rel = (cfg.governance_report_dir or ".sprintcycle").strip() or ".sprintcycle"
         out_dir = (root / rel).resolve() if not Path(rel).is_absolute() else Path(rel)

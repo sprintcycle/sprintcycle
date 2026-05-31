@@ -9,7 +9,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 
-from sprintcycle.domain.ports.config import RuntimeConfigProtocol, get_runtime_config
+from sprintcycle.domain.ports.config import RuntimeConfigProtocol
+from sprintcycle.application.composition.di_container import container
 
 
 class ConfigService:
@@ -25,7 +26,7 @@ class ConfigService:
 
     def _get_runtime_config(self) -> RuntimeConfigProtocol:
         """获取运行时配置（通过端口工厂注入）"""
-        return get_runtime_config(str(self.project_path))
+        return container.runtime_config_container.runtime_config(project_path=str(self.project_path))
 
     def load_config(self) -> Dict[str, Any]:
         """Load and normalize runtime configuration.

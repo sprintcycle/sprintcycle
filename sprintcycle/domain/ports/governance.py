@@ -62,84 +62,6 @@ class TypeCheckAdapterProtocol(ABC):
         ...
 
 
-# 工厂函数注册
-_archguard_adapter_factory: Optional[callable] = None
-_grimp_adapter_factory: Optional[callable] = None
-_import_linter_adapter_factory: Optional[callable] = None
-_ruff_adapter_factory: Optional[callable] = None
-_typecheck_adapter_factory: Optional[callable] = None
-
-
-def register_archguard_adapter_factory(factory: callable) -> None:
-    global _archguard_adapter_factory
-    _archguard_adapter_factory = factory
-
-
-def register_grimp_adapter_factory(factory: callable) -> None:
-    global _grimp_adapter_factory
-    _grimp_adapter_factory = factory
-
-
-def register_import_linter_adapter_factory(factory: callable) -> None:
-    global _import_linter_adapter_factory
-    _import_linter_adapter_factory = factory
-
-
-def register_ruff_adapter_factory(factory: callable) -> None:
-    global _ruff_adapter_factory
-    _ruff_adapter_factory = factory
-
-
-def register_typecheck_adapter_factory(factory: callable) -> None:
-    global _typecheck_adapter_factory
-    _typecheck_adapter_factory = factory
-
-
-def get_archguard_adapter() -> ArchGuardAdapterProtocol:
-    if _archguard_adapter_factory is not None:
-        return _archguard_adapter_factory()
-    raise RuntimeError(
-        "ArchGuard adapter factory not registered. "
-        "Please call register_archguard_adapter_factory() from Infrastructure layer before using."
-    )
-
-
-def get_grimp_adapter() -> GrimpAdapterProtocol:
-    if _grimp_adapter_factory is not None:
-        return _grimp_adapter_factory()
-    raise RuntimeError(
-        "Grimp adapter factory not registered. "
-        "Please call register_grimp_adapter_factory() from Infrastructure layer before using."
-    )
-
-
-def get_import_linter_adapter() -> ImportLinterAdapterProtocol:
-    if _import_linter_adapter_factory is not None:
-        return _import_linter_adapter_factory()
-    raise RuntimeError(
-        "Import Linter adapter factory not registered. "
-        "Please call register_import_linter_adapter_factory() from Infrastructure layer before using."
-    )
-
-
-def get_ruff_adapter() -> RuffAdapterProtocol:
-    if _ruff_adapter_factory is not None:
-        return _ruff_adapter_factory()
-    raise RuntimeError(
-        "Ruff adapter factory not registered. "
-        "Please call register_ruff_adapter_factory() from Infrastructure layer before using."
-    )
-
-
-def get_typecheck_adapter() -> TypeCheckAdapterProtocol:
-    if _typecheck_adapter_factory is not None:
-        return _typecheck_adapter_factory()
-    raise RuntimeError(
-        "TypeCheck adapter factory not registered. "
-        "Please call register_typecheck_adapter_factory() from Infrastructure layer before using."
-    )
-
-
 __all__ = [
     "GuardFindingLike",
     "ArchGuardAdapterProtocol",
@@ -147,14 +69,4 @@ __all__ = [
     "ImportLinterAdapterProtocol",
     "RuffAdapterProtocol",
     "TypeCheckAdapterProtocol",
-    "register_archguard_adapter_factory",
-    "register_grimp_adapter_factory",
-    "register_import_linter_adapter_factory",
-    "register_ruff_adapter_factory",
-    "register_typecheck_adapter_factory",
-    "get_archguard_adapter",
-    "get_grimp_adapter",
-    "get_import_linter_adapter",
-    "get_ruff_adapter",
-    "get_typecheck_adapter",
 ]

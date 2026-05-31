@@ -5,256 +5,111 @@ ServiceAggregator 只依赖 application 层服务，不直接依赖 domain 层�
 
 from __future__ import annotations
 
+from typing import Any
 
-from sprintcycle.application.services.observability.observability_service import ObservabilityService
-from sprintcycle.application.services.dashboard.platform_summary_service import PlatformSummaryService
-from sprintcycle.application.services.dashboard.management_overview_service import ManagementOverviewService
-from sprintcycle.application.services.dashboard.dashboard_view_service import DashboardViewService
-from sprintcycle.application.services.dashboard.dashboard_workbench_service import DashboardWorkbenchService
-from sprintcycle.application.services.config_service import ConfigService
-from sprintcycle.application.services.lifecycle.lifecycle_evolution_service import LifecycleEvolutionService
-from sprintcycle.application.services.lifecycle.lifecycle_root_services import LifecycleRootService
-from sprintcycle.application.services.lifecycle.web_lifecycle_orchestration_service import WebLifecycleOrchestrationService
-from sprintcycle.application.services.lifecycle.runtime_lifecycle_service import RuntimeLifecycleService
-from sprintcycle.application.services.lifecycle.governance_lifecycle_service import GovernanceLifecycleService
-from sprintcycle.application.services.lifecycle.promotion_lifecycle_service import PromotionLifecycleService
-from sprintcycle.application.services.lifecycle.recovery_lifecycle_service import RecoveryLifecycleService
-from sprintcycle.application.services.governance.repair_orchestration_service import RepairOrchestrationService
-from sprintcycle.application.services.lifecycle.execution_lifecycle_service import ExecutionLifecycleService
-from sprintcycle.application.services.governance.governance_orchestration_service import GovernanceOrchestrationService
-from sprintcycle.application.services.evolution.evolution_version_service import EvolutionVersionService
-from sprintcycle.application.services.governance.suggestion_application_service import SuggestionApplicationService
-from sprintcycle.application.services.governance.governance_facade_service import GovernanceFacadeService
-from sprintcycle.application.services.governance.suggestion_facade_service import SuggestionFacadeService
-from sprintcycle.application.services.lifecycle.hook_service import HookService
-from sprintcycle.application.services.lifecycle.promotion_policy_service import PromotionPolicyService
-from sprintcycle.domain.ports.config import get_runtime_config
-from sprintcycle.domain.ports.observability import get_observability_facade
-from sprintcycle.domain.ports.registry import create_runtime_registry
-from sprintcycle.domain.ports.evolution import create_evolution_registry
+from sprintcycle.application.composition.di_container import container
 
 
 class ServiceAggregator:
     """Aggregates all application services for HTTP handlers.
-    
+
     只依赖 application 层服务，不直接依赖 domain 层。
     """
 
     def __init__(self, project_path: str):
         self.project_path = project_path
         
-        self._config = get_runtime_config(project_path)
-        self._observability = get_observability_facade()
-        self._runtime_registry = create_runtime_registry(self._config)
-        self._hooks = HookService()
-        self._evolution_registry = create_evolution_registry(self._config)
-
-        self._init_state_store()
+        # 确保容器配置正确
+        from sprintcycle.application.composition.di_container import create_container
+        create_container(project_path=project_path)
         
-        self._config_service = ConfigService(project_path)
+        self._application_services = container.application_services
         
-        self._governance = GovernanceFacadeService(
-            project_path=project_path,
-            config=self._config,
-        )
-        
-        self._suggestion = SuggestionFacadeService(
-            project_path=project_path,
-            config=self._config,
-            evolution_facade=None,
-        )
-
-        from sprintcycle.domain.ports.deploy import create_platform_launch_service
-        self._platform_launch = create_platform_launch_service()
-
-        self._dashboard_views = DashboardViewService(project_path=project_path)
-        self._dashboard_workbench = DashboardWorkbenchService(view_service=self._dashboard_views)
-
-        self._repair_orchestration = RepairOrchestrationService(
-            observability=self._observability,
-        )
-
-        self._execution_lifecycle = ExecutionLifecycleService(
-            project_path=project_path,
-            config=self._config,
-            observability=self._observability,
-            runtime_registry=self._runtime_registry,
-            state_store=self._state_store,
-            hooks=self._hooks.registry,
-        )
-
-        self._observability_service = ObservabilityService(
-            observability=self._observability,
-            state_store=self._state_store,
-        )
-
-        self._platform_summary = PlatformSummaryService(
-            project_path=project_path,
-            dashboard_views=self._dashboard_views,
-            dashboard_workbench=self._dashboard_workbench,
-            state_store=self._state_store,
-        )
-
-        self._governance_orchestration = GovernanceOrchestrationService(
-            project_path=project_path,
-            config=self._config,
-            governance=self._governance.facade,
-            hooks=self._hooks.registry,
-        )
-
-        self._suggestion_application = SuggestionApplicationService(
-            suggestion=self._suggestion.facade,
-            governance=self._governance.facade,
-            version_registry=self._evolution_registry,
-        )
-
-        self._promotion_policy = PromotionPolicyService()
-        self._lifecycle_evolution = LifecycleEvolutionService(
-            observability=self._observability,
-            runtime_registry=self._runtime_registry,
-            promotion_policy=self._promotion_policy.policy,
-        )
-
-        self._lifecycle_root = LifecycleRootService(project_path=project_path)
-
-        self._web_lifecycle = WebLifecycleOrchestrationService(
-            project_path=project_path,
-            start_execution_run=lambda *args, **kwargs: self._execution_lifecycle.start_execution_run(*args, **kwargs),
-            runtime_lifecycle=lambda eid: self._execution_lifecycle.status(eid),
-            observability_trace=lambda eid: self._observability_service.trace(eid),
-            evaluate_sprint_contract=lambda payload: self._lifecycle_root.evaluate_sprint_contract(payload),
-        )
-
-        # 创建拆分后的新服务
-        self._runtime_lifecycle = RuntimeLifecycleService(
-            project_path=project_path,
-            runtime_registry=self._runtime_registry,
-            runtime_latest=lambda: self._execution_lifecycle.runtime_latest(),
-        )
-
-        self._governance_lifecycle = GovernanceLifecycleService(
-            project_path=project_path,
-            governance_orchestration=self._governance_orchestration,
-        )
-
-        self._promotion_lifecycle = PromotionLifecycleService(
-            project_path=project_path,
-            runtime_lifecycle_service=self._runtime_lifecycle,
-            governance_lifecycle_service=self._governance_lifecycle,
-            lifecycle_evolution=self._lifecycle_evolution,
-            platform_launch=self._platform_launch,
-            deploy_view=lambda: self._dashboard_views.deploy_view({}),
-            lifecycle_contract=lambda rid: self._lifecycle_root.create_lifecycle(rid, rid, "").to_dict() if rid else {},
-            evaluate_promotion=lambda eid, **kwargs: self._lifecycle_evolution.promote(eid, **kwargs),
-        )
-
-        self._recovery_lifecycle = RecoveryLifecycleService(
-            project_path=project_path,
-            repair_orchestration=self._repair_orchestration,
-            promotion_lifecycle_service=self._promotion_lifecycle,
-            observability_trace=lambda eid: self._observability_service.trace(eid),
-            observe_execution=lambda eid: self._execution_lifecycle.execution_detail(eid),
-            evaluate_promotion=lambda eid, **kwargs: self._lifecycle_evolution.promote(eid, **kwargs),
-        )
-
-        self._evolution_version = EvolutionVersionService(
-            config=self._config,
-            registry=self._evolution_registry,
-        )
-
-        self._management_overview = ManagementOverviewService(
-            suggestion=self._suggestion.facade,
-            evolution_dashboard=lambda: self._lifecycle_evolution.overview(),
-            evolution_cli=lambda: self._lifecycle_evolution.overview_cli(),
-        )
-
-    def _init_state_store(self) -> None:
-        from sprintcycle.domain.ports.state_store import get_state_store
-        self._state_store = get_state_store()
+    @property
+    def execution_lifecycle(self):
+        return self._application_services.execution_lifecycle_service()
 
     @property
-    def execution_lifecycle(self) -> ExecutionLifecycleService:
-        return self._execution_lifecycle
+    def dashboard_views(self):
+        return self._application_services.dashboard_view_service()
 
     @property
-    def dashboard_views(self) -> DashboardViewService:
-        return self._dashboard_views
+    def dashboard_workbench(self):
+        return self._application_services.dashboard_workbench_service()
 
     @property
-    def dashboard_workbench(self) -> DashboardWorkbenchService:
-        return self._dashboard_workbench
+    def platform_summary(self):
+        return self._application_services.platform_summary_service()
 
     @property
-    def platform_summary(self) -> PlatformSummaryService:
-        return self._platform_summary
+    def governance_orchestration(self):
+        return self._application_services.governance_orchestration_service()
 
     @property
-    def governance_orchestration(self) -> GovernanceOrchestrationService:
-        return self._governance_orchestration
+    def lifecycle_root(self):
+        return self._application_services.lifecycle_root_service()
 
     @property
-    def lifecycle_root(self) -> LifecycleRootService:
-        return self._lifecycle_root
+    def web_lifecycle(self):
+        return self._application_services.web_lifecycle_service()
 
     @property
-    def web_lifecycle(self) -> WebLifecycleOrchestrationService:
-        return self._web_lifecycle
+    def runtime_lifecycle(self):
+        return self._application_services.runtime_lifecycle_service()
 
     @property
-    def runtime_lifecycle(self) -> RuntimeLifecycleService:
-        return self._runtime_lifecycle
+    def governance_lifecycle(self):
+        return self._application_services.governance_lifecycle_service()
 
     @property
-    def governance_lifecycle(self) -> GovernanceLifecycleService:
-        return self._governance_lifecycle
+    def promotion_lifecycle(self):
+        return self._application_services.promotion_lifecycle_service()
 
     @property
-    def promotion_lifecycle(self) -> PromotionLifecycleService:
-        return self._promotion_lifecycle
+    def recovery_lifecycle(self):
+        return self._application_services.recovery_lifecycle_service()
 
     @property
-    def recovery_lifecycle(self) -> RecoveryLifecycleService:
-        return self._recovery_lifecycle
+    def repair_orchestration(self):
+        return self._application_services.repair_orchestration_service()
 
     @property
-    def repair_orchestration(self) -> RepairOrchestrationService:
-        return self._repair_orchestration
+    def observability_service(self):
+        return self._application_services.observability_service()
 
     @property
-    def observability_service(self) -> ObservabilityService:
-        return self._observability_service
+    def management_overview(self):
+        return self._application_services.management_overview_service()
 
     @property
-    def management_overview(self) -> ManagementOverviewService:
-        return self._management_overview
+    def suggestion_application(self):
+        return self._application_services.suggestion_application_service()
 
     @property
-    def suggestion_application(self) -> SuggestionApplicationService:
-        return self._suggestion_application
+    def lifecycle_evolution(self):
+        return self._application_services.lifecycle_evolution_service()
 
     @property
-    def lifecycle_evolution(self) -> LifecycleEvolutionService:
-        return self._lifecycle_evolution
+    def evolution_version(self):
+        return self._application_services.evolution_version_service()
 
     @property
-    def evolution_version(self) -> EvolutionVersionService:
-        return self._evolution_version
-
-    @property
-    def config_service(self) -> ConfigService:
-        return self._config_service
+    def config_service(self):
+        return self._application_services.config_service()
 
     @property
     def suggestion(self):
-        return self._suggestion.facade
+        return self._application_services.suggestion_facade_service().facade
 
     @property
     def observability(self):
-        return self._observability
+        return container.observability.observability_facade()
 
     @property
     def runtime_registry(self):
-        return self._runtime_registry
+        return container.runtime_config_container.runtime_registry(
+            config=container.runtime_config_container.runtime_config(project_path=self.project_path)
+        )
 
 
 def create_service_aggregator(project_path: str) -> ServiceAggregator:

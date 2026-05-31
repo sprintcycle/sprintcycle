@@ -6,7 +6,7 @@ from typing import Awaitable, Callable
 
 from fastapi import Request, Response
 
-from sprintcycle.domain.ports.rate_limit import get_rate_limit_adapter
+from sprintcycle.application.composition.di_container import container
 
 
 async def rate_limit_middleware(
@@ -19,7 +19,7 @@ async def rate_limit_middleware(
     This middleware checks if the request should be rate limited before
     passing it to the next handler.
     """
-    adapter = get_rate_limit_adapter()
+    adapter = container.runtime_config_container.rate_limit_adapter()
     route = request.url.path
     
     context = {

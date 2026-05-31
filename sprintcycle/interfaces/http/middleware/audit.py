@@ -6,7 +6,7 @@ from typing import Awaitable, Callable
 
 from fastapi import Request, Response
 
-from sprintcycle.domain.ports.audit import get_audit_adapter
+from sprintcycle.application.composition.di_container import container
 
 
 async def audit_middleware(
@@ -19,7 +19,7 @@ async def audit_middleware(
     This middleware automatically logs audit events for all HTTP requests,
     capturing request details and outcome.
     """
-    adapter = get_audit_adapter()
+    adapter = container.runtime_config_container.audit_adapter()
     
     request_id = request.headers.get("x-request-id", "")
     caller = request.client.host if request.client else ""

@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 
 class RuntimeConfigProtocol(ABC):
@@ -34,24 +34,4 @@ class RuntimeConfigProtocol(ABC):
         ...
 
 
-# 工厂函数注册
-_runtime_config_factory: Optional[callable] = None
-
-
-def register_runtime_config_factory(factory: callable) -> None:
-    """注册运行时配置工厂（由 Infrastructure 层调用）"""
-    global _runtime_config_factory
-    _runtime_config_factory = factory
-
-
-def get_runtime_config(project_path: Optional[str] = None) -> RuntimeConfigProtocol:
-    """获取运行时配置实例"""
-    if _runtime_config_factory is not None:
-        return _runtime_config_factory(project_path)
-    raise RuntimeError(
-        "Runtime config factory not registered. "
-        "Please call register_runtime_config_factory() from Infrastructure layer before using."
-    )
-
-
-__all__ = ["RuntimeConfigProtocol", "register_runtime_config_factory", "get_runtime_config"]
+__all__ = ["RuntimeConfigProtocol"]

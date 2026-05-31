@@ -50,15 +50,7 @@ class AuditPort(Protocol):
         ...
 
 
-def register_audit_adapter(adapter: AuditPort) -> None:
-    """Register the audit adapter implementation."""
-    global _audit_adapter
-    _audit_adapter = adapter
-
-
-def get_audit_adapter() -> AuditPort:
-    """Get the registered audit adapter."""
-    return _audit_adapter
-
-
-_audit_adapter: AuditPort | None = None
+__all__ = [
+    "AuditRecord",
+    "AuditPort",
+]

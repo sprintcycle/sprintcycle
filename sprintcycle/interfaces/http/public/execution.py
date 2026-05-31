@@ -11,7 +11,7 @@ from fastapi import APIRouter, Request
 from sprintcycle.interfaces.http.handlers.execution import ExecutionHandler
 from sprintcycle.interfaces.http.request_context import RequestContext
 from sprintcycle.application.orchestration.sprint_orchestrator import SprintOrchestrator
-from sprintcycle.domain.ports.config import get_runtime_config
+from sprintcycle.application.composition.di_container import container
 
 
 def build_public_execution_router(handler: ExecutionHandler, project_path: str) -> APIRouter:
@@ -47,7 +47,7 @@ def build_public_execution_router(handler: ExecutionHandler, project_path: str) 
             dict: Plan result.
         """
         _ctx(request)
-        config = get_runtime_config(project_path)
+        config = container.runtime_config_container.runtime_config(project_path=project_path)
         orchestrator = SprintOrchestrator(project_path=project_path, config=config)
         result = orchestrator.plan(
             intent=payload.get("intent", ""),
@@ -73,7 +73,7 @@ def build_public_execution_router(handler: ExecutionHandler, project_path: str) 
             dict: Run result.
         """
         _ctx(request)
-        config = get_runtime_config(project_path)
+        config = container.runtime_config_container.runtime_config(project_path=project_path)
         orchestrator = SprintOrchestrator(project_path=project_path, config=config)
         result = orchestrator.run(
             intent=payload.get("intent"),

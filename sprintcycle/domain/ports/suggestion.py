@@ -76,29 +76,7 @@ class SuggestionStoreProtocol(ABC):
         ...
 
 
-# 工厂函数注册
-_suggestion_store_factory: Optional[callable] = None
-
-
-def register_suggestion_store_factory(factory: callable) -> None:
-    """注册 Suggestion store 工厂（由 Infrastructure 层调用）"""
-    global _suggestion_store_factory
-    _suggestion_store_factory = factory
-
-
-def get_suggestion_store(store_root: Optional[str] = None) -> SuggestionStoreProtocol:
-    """获取 Suggestion store 实例"""
-    if _suggestion_store_factory is not None:
-        return _suggestion_store_factory(store_root)
-    raise RuntimeError(
-        "Suggestion store factory not registered. "
-        "Please call register_suggestion_store_factory() from Infrastructure layer before using."
-    )
-
-
 __all__ = [
     "SuggestionLike",
     "SuggestionStoreProtocol",
-    "register_suggestion_store_factory",
-    "get_suggestion_store",
 ]

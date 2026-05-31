@@ -66,29 +66,7 @@ class ObservabilityFacadeProtocol(ABC):
         ...
 
 
-# 工厂函数注册
-_observability_facade_factory: Optional[callable] = None
-
-
-def register_observability_facade_factory(factory: callable) -> None:
-    """注册 Observability facade 工厂（由 Infrastructure 层调用）"""
-    global _observability_facade_factory
-    _observability_facade_factory = factory
-
-
-def get_observability_facade(project_path: Optional[str] = None, config: Any = None) -> ObservabilityFacadeProtocol:
-    """获取 Observability facade 实例"""
-    if _observability_facade_factory is not None:
-        return _observability_facade_factory(project_path, config)
-    raise RuntimeError(
-        "Observability facade factory not registered. "
-        "Please call register_observability_facade_factory() from Infrastructure layer before using."
-    )
-
-
 __all__ = [
     "ObservabilityEventLike",
     "ObservabilityFacadeProtocol",
-    "register_observability_facade_factory",
-    "get_observability_facade",
 ]

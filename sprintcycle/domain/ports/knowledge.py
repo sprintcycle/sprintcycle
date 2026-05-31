@@ -68,7 +68,6 @@ class KnowledgeRepositoryProtocol(ABC):
         ...
 
 
-# Sprint outcome card 持久化协议
 class SprintOutcomeCardProtocol(ABC):
     """Sprint 结果卡片持久化协议"""
 
@@ -87,45 +86,8 @@ class SprintOutcomeCardProtocol(ABC):
         ...
 
 
-# 工厂函数注册
-_knowledge_repository_factory: Optional[callable] = None
-_sprint_outcome_card_factory: Optional[callable] = None
-
-
-def register_knowledge_repository_factory(factory: callable) -> None:
-    """注册知识仓库工厂（由 Infrastructure 层调用）"""
-    global _knowledge_repository_factory
-    _knowledge_repository_factory = factory
-
-
-def register_sprint_outcome_card_factory(factory: callable) -> None:
-    """注册 Sprint outcome card 工厂（由 Infrastructure 层调用）"""
-    global _sprint_outcome_card_factory
-    _sprint_outcome_card_factory = factory
-
-
-def get_knowledge_repository(db_path: Optional[str] = None) -> KnowledgeRepositoryProtocol:
-    """获取知识仓库实例"""
-    if _knowledge_repository_factory is not None:
-        return _knowledge_repository_factory(db_path)
-    raise RuntimeError(
-        "Knowledge repository factory not registered. "
-        "Please call register_knowledge_repository_factory() from Infrastructure layer before using."
-    )
-
-
-def get_sprint_outcome_card_persister() -> SprintOutcomeCardProtocol:
-    """获取 Sprint outcome card 持久化实例"""
-    if _sprint_outcome_card_factory is not None:
-        return _sprint_outcome_card_factory()
-    raise RuntimeError(
-        "Sprint outcome card factory not registered. "
-        "Please call register_sprint_outcome_card_factory() from Infrastructure layer before using."
-    )
-
-
 class SprintOutcomeCardAdapter(SprintOutcomeCardProtocol):
-    """Sprint outcome card 适配器"""
+    """Sprint 结果卡片适配器"""
 
     def __init__(self, impl: callable) -> None:
         self._impl = impl
@@ -155,9 +117,5 @@ __all__ = [
     "KnowledgeCardLike",
     "KnowledgeRepositoryProtocol",
     "SprintOutcomeCardProtocol",
-    "register_knowledge_repository_factory",
-    "register_sprint_outcome_card_factory",
-    "get_knowledge_repository",
-    "get_sprint_outcome_card_persister",
     "SprintOutcomeCardAdapter",
 ]

@@ -3,13 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from sprintcycle.domain.ports.governance import (
-    get_archguard_adapter,
-    get_grimp_adapter,
-    get_import_linter_adapter,
-    get_ruff_adapter,
-    get_typecheck_adapter,
-)
 from .config import ArchGuardConfig
 from .invariants import (
     check_compatibility_flags,
@@ -30,13 +23,23 @@ class ArchGuardEngine:
     def __init__(self, config: ArchGuardConfig):
         self.config = config
         self.registry = GuardRegistry()
-        self._import_linter = get_import_linter_adapter()
-        self._grimp = get_grimp_adapter()
-        self._archon = get_archguard_adapter()
-        self._ruff = get_ruff_adapter()
-        self._typecheck = get_typecheck_adapter()
+        self._import_linter = None
+        self._grimp = None
+        self._archon = None
+        self._ruff = None
+        self._typecheck = None
         self._register_builtin_rules()
         self._register_pack_rules()
+
+    def _load_adapters(self) -> None:
+        """延迟加载适配器以避免循环导入"""
+        from sprintcycle.application.composition.di_container import container
+        if self._import_linter is None:
+            self._import_linter = container.governance.import_linter_adapter()
+            self._grimp = container.governance.grimp_adapter()
+            self._archon = container.governance.archguard_adapter()
+            self._ruff = container.governance.ruff_adapter()
+            self._typecheck = container.governance.typecheck_adapter()
 
     def _register_builtin_rules(self) -> None:
         from sprintcycle.domain.core.governance.common.model import Rule as GuardRule
@@ -138,6 +141,7 @@ class ArchGuardEngine:
     ) -> GuardReport:
         findings: List[GuardFinding] = []
         root = Path(project_root)
+        self._load_adapters()
 
         findings.extend(self._to_findings(check_release_plan(release_plan)))
         findings.extend(self._to_findings(check_spec_refs(root, release_plan)))
@@ -170,6 +174,7 @@ class ArchGuardEngine:
         context: Optional[Dict[str, Any]] = None,
     ) -> GuardReport:
         findings: List[GuardFinding] = []
+        self._load_adapters()
 
         if self.config.use_import_linter:
             findings.extend(self._import_linter.run(project_root))

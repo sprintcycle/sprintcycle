@@ -3,7 +3,7 @@
 **职责边界:**
 - 定义 Domain 层与外部世界交互的协议
 - 六边形架构的输入/输出端口
-- 由 Infrastructure 层实现并通过工厂注入
+- 由 Infrastructure 层实现并通过 Container 注入
 
 **与 domain/generic/interfaces 的区别:**
 - `domain/ports/`: 外部端口，定义与外部系统的交互协议（如数据库、缓存、LLM、第三方服务）
@@ -53,8 +53,6 @@ from .llm import (
     EngineResult,
     EngineAdapterConfig,
     EngineAdapterProtocol,
-    register_engine_adapter_factory,
-    resolve_engine_adapter,
 )
 from .deploy import PlatformLaunchServiceProtocol
 from .evolution import EvolutionRegistryProtocol, VersionManifestProtocol
@@ -97,8 +95,6 @@ __all__ = [
     "EngineResult",
     "EngineAdapterConfig",
     "EngineAdapterProtocol",
-    "register_engine_adapter_factory",
-    "resolve_engine_adapter",
     # 部署端口
     "PlatformLaunchServiceProtocol",
     # 演化端口

@@ -42,15 +42,7 @@ class RateLimitPort(Protocol):
         ...
 
 
-def register_rate_limit_adapter(adapter: RateLimitPort) -> None:
-    """Register the rate limit adapter implementation."""
-    global _rate_limit_adapter
-    _rate_limit_adapter = adapter
-
-
-def get_rate_limit_adapter() -> RateLimitPort:
-    """Get the registered rate limit adapter."""
-    return _rate_limit_adapter
-
-
-_rate_limit_adapter: RateLimitPort | None = None
+__all__ = [
+    "RateLimitState",
+    "RateLimitPort",
+]

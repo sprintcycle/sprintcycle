@@ -49,8 +49,6 @@ def load_project_config(project_path: str) -> ConfigProtocol:
     """从项目目录加载配置。"""
     if _config_loader is not None:
         return _config_loader(project_path)
-    # 使用 Ports 接口获取配置
-    from sprintcycle.domain.ports.config import get_runtime_config
-    return get_runtime_config(project_path)
-
-
+    # 使用新的 DI Container 获取配置
+    from sprintcycle.application.composition.di_container import container
+    return container.runtime_config_container.runtime_config(project_path=project_path)

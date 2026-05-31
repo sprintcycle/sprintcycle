@@ -41,33 +41,8 @@ class EngineAdapterProtocol(ABC):
         ...
 
 
-# 工厂函数注册
-_engine_adapter_factory: Optional[callable] = None
-
-
-def register_engine_adapter_factory(factory: callable) -> None:
-    """注册引擎适配器工厂（由 Infrastructure 层调用）"""
-    global _engine_adapter_factory
-    _engine_adapter_factory = factory
-
-
-def resolve_engine_adapter(
-    engine: str,
-    config: EngineAdapterConfig,
-) -> EngineAdapterProtocol:
-    """解析引擎适配器"""
-    if _engine_adapter_factory is not None:
-        return _engine_adapter_factory(engine, config)
-    raise RuntimeError(
-        "Engine adapter factory not registered. "
-        "Please call register_engine_adapter_factory() from Infrastructure layer before using."
-    )
-
-
 __all__ = [
     "EngineResult",
     "EngineAdapterConfig",
     "EngineAdapterProtocol",
-    "register_engine_adapter_factory",
-    "resolve_engine_adapter",
 ]
