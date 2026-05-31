@@ -21,12 +21,16 @@ When you encounter these phrases, activate optimization mode:
 
 ### Core Optimization Principles
 
-1. **Logic Preservation** - Never remove business logic without verification
+1. **Logic Preservation** - Never remove business logic without verification (100% preservation required)
 2. **DDD + Hexagonal Compliance** - All changes must align with `.cursor/rules/sprintcycle-architecture-orchestration.mdc`
-3. **Incremental Changes** - Prefer small, safe, reversible modifications
-4. **Test-Driven Validation** - Always run tests to verify changes
-5. **Field Consolidation** - Merge redundant fields with semantic meaning
-6. **Frontend-Backend Alignment** - Keep frontend and backend synchronized
+3. **No Compatibility Layers** - **Do NOT add compatibility code or transition layers** - implement final state directly
+4. **Direct Final State** - Implement the end-state solution in one go, no incremental transitions
+5. **Test-Driven Validation** - Always run tests to verify changes
+6. **Field Consolidation** - Merge redundant fields with semantic meaning
+7. **Frontend-Backend Alignment** - Keep frontend and backend synchronized
+8. **HITL Requirements Confirmation** - Must confirm requirements with user (via AskUserQuestion) before proceeding
+9. **HITL PRD Confirmation** - Must get human approval on PRD before entering design phase
+10. **HITL Design Confirmation** - Must get human approval on technical design before implementation
 
 ### Field Consolidation Patterns
 
@@ -44,10 +48,12 @@ skill_context: Dict[str, Any]
 
 **Consolidation Rules:**
 1. Group semantically related fields
-2. Create unified context structure
-3. Update all call sites (frontend + backend)
-4. Remove legacy field parameters
-5. Validate with tests
+2. Create unified context structure (final state)
+3. Update ALL call sites (frontend + backend) **in one go**
+4. **Do NOT add compatibility code or transition layers**
+5. Remove legacy field parameters completely
+6. Validate with tests
+7. Ensure 100% business logic preservation
 
 ### Compatibility Cleanup Rules
 
@@ -58,11 +64,12 @@ skill_context: Dict[str, Any]
 - No external dependencies on old format
 
 **Cleanup Process:**
-1. Identify compatibility helpers (e.g., `_consolidate_*`, `_merge_*`)
-2. Find all usages (frontend + backend)
-3. Update call sites to use new structure
-4. Remove helper methods
-5. Run tests
+1. Identify ALL compatibility helpers (e.g., `_consolidate_*`, `_merge_*`, `_legacy_*`)
+2. Find ALL usages (frontend + backend)
+3. Replace with final state structure **in one go**
+4. **Remove helper methods completely** - NO transitional code
+5. Ensure 100% business logic preservation
+6. Run comprehensive tests
 
 ### Architecture Compliance
 
@@ -80,6 +87,9 @@ skill_context: Dict[str, Any]
 - Direct infra access from app layer
 - Mixing adapter impl with factory wiring
 - Frontend-backend contract mismatch
+- **Adding compatibility code or transition layers**
+- **Preserving legacy API versions for optimization changes**
+- **Incremental transitions without HITL approval**
 
 ### Frontend-Backend Alignment Rules
 
@@ -104,10 +114,14 @@ skill_context: Dict[str, Any]
 
 - [ ] Code compiles without errors (Python + TypeScript)
 - [ ] Related tests pass (pytest + frontend tests)
-- [ ] Business logic preserved
+- [ ] **Business logic 100% preserved**
 - [ ] Architecture boundaries maintained
 - [ ] Frontend-backend contracts aligned
-- [ ] No breaking changes to contracts
+- [ ] **No compatibility code or transition layers added**
+- [ ] **Legacy code completely removed**
+- [ ] **HITL requirements confirmation completed**
+- [ ] **HITL PRD confirmation completed**
+- [ ] **HITL design confirmation completed**
 - [ ] **Documentation synchronized (see below)**
 - [ ] Clear commit message
 
@@ -207,12 +221,16 @@ Is this a general optimization?
 
 ### 核心优化原则
 
-1. **逻辑保留** - 未经验证不得删除业务逻辑
+1. **逻辑保留** - 未经验证不得删除业务逻辑（要求 100% 保留）
 2. **DDD + 六边形合规** - 所有变更必须符合 `.cursor/rules/sprintcycle-architecture-orchestration.mdc`
-3. **增量变更** - 优先小步快跑、可逆修改
-4. **测试验证** - 始终运行测试验证变更
-5. **字段整合** - 用语义化方式合并冗余字段
-6. **前后端对齐** - 保持前端与后端同步
+3. **无兼容层** - **禁止添加兼容代码或过渡层**，直接实现终态方案
+4. **直接终态** - 一次性实现最终方案，不进行增量过渡
+5. **测试验证** - 始终运行测试验证变更
+6. **字段整合** - 用语义化方式合并冗余字段
+7. **前后端对齐** - 保持前端与后端同步
+8. **HITL 需求确认** - 必须通过 AskUserQuestion 与用户确认需求后才能继续
+9. **HITL PRD 确认** - 必须在进入设计阶段前获得人工对 PRD 的批准
+10. **HITL 设计确认** - 必须在实施前获得人工对技术设计的批准
 
 ### 字段整合模式
 
@@ -230,10 +248,12 @@ skill_context: Dict[str, Any]
 
 **整合规则：**
 1. 分组语义相关的字段
-2. 创建统一的上下文结构
-3. 更新所有调用点（前端 + 后端）
-4. 移除旧字段参数
-5. 用测试验证
+2. 创建统一的上下文结构（终态）
+3. **一次性更新所有调用点（前端 + 后端）**
+4. **禁止添加兼容代码或过渡层**
+5. 彻底移除旧字段参数
+6. 用测试验证
+7. 确保业务逻辑 100% 保留
 
 ### 兼容清理规则
 
@@ -244,11 +264,12 @@ skill_context: Dict[str, Any]
 - 无外部依赖旧格式
 
 **清理流程：**
-1. 识别兼容辅助方法（如 `_consolidate_*`, `_merge_*`）
+1. 识别所有兼容辅助方法（如 `_consolidate_*`, `_merge_*`, `_legacy_*`）
 2. 找到所有使用处（前端 + 后端）
-3. 更新调用点使用新结构
-4. 移除辅助方法
-5. 运行测试
+3. **一次性替换为终态结构**
+4. **彻底移除辅助方法** - 禁止保留过渡代码
+5. 确保业务逻辑 100% 保留
+6. 运行全面测试
 
 ### 架构合规检查
 
@@ -266,6 +287,9 @@ skill_context: Dict[str, Any]
 - 应用层直接访问基础设施
 - 适配器实现与工厂组装混合
 - 前后端契约不匹配
+- **添加兼容代码或过渡层**
+- **为优化变更保留旧的 API 版本**
+- **未经 HITL 批准的增量过渡**
 
 ### 前后端对齐规则
 
@@ -290,10 +314,14 @@ skill_context: Dict[str, Any]
 
 - [ ] 代码编译无误（Python + TypeScript）
 - [ ] 相关测试通过（pytest + 前端测试）
-- [ ] 业务逻辑保留
+- [ ] **业务逻辑 100% 保留**
 - [ ] 架构边界保持
 - [ ] 前后端契约对齐
-- [ ] 无破坏性变更
+- [ ] **未添加任何兼容代码或过渡层**
+- [ ] **旧代码已彻底移除**
+- [ ] **HITL 需求确认已完成**
+- [ ] **HITL PRD 确认已完成**
+- [ ] **HITL 设计确认已完成**
 - [ ] **文档已同步更新（见下方）**
 - [ ] 提交信息清晰
 
