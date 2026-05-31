@@ -1,26 +1,25 @@
 ---
-description: Require the project .venv for all Python commands and pytest runs
+description: Require uv for all Python commands and pytest runs
 alwaysApply: true
 ---
 
-# Python Environment Policy
+# Python Environment Policy (uv)
 
-- Always use the repository `.venv` for Python work.
-- Prefer explicit paths like `.venv/bin/python` and `.venv/bin/pytest`.
-- Do not use the system Python interpreter.
-- Do not invoke global `pytest`.
-- If a shell command needs activation, source `.venv/bin/activate` first.
+- Always use `uv run` for Python work in this project.
+- Do not use the system Python interpreter directly.
+- Do not invoke global `pytest` or other tools.
+- Install dependencies with `uv sync` (with appropriate `--extra` flags).
 
 ## Examples
 
 ```bash
-.venv/bin/python -m pytest
+uv run pytest
 ```
 
 ```bash
-source .venv/bin/activate && python -m pytest
+uv run python script.py
 ```
 
 ```bash
-.venv/bin/python script.py
+uv sync --extra dev --extra dashboard
 ```

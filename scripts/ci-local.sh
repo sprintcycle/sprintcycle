@@ -11,9 +11,6 @@ cd "$ROOT"
 
 PHASE="${CI_LOCAL_PHASE:-all}"
 SKIP_E2E="${CI_LOCAL_SKIP_E2E:-0}"
-VENV="${ROOT}/.venv"
-PY="${VENV}/bin/python"
-PIP="${VENV}/bin/pip"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -35,10 +32,9 @@ record_exit() {
   echo "$1" > "${ROOT}/.cursor/.ci-local-last-exit"
 }
 
-require_venv() {
-  if [[ ! -x "${PY}" ]]; then
-    echo "Missing .venv — create and install dev deps first:" >&2
-    echo "  python3.12 -m venv .venv && .venv/bin/pip install -e '.[dev,dashboard]'" >&2
+require_uv() {
+  if ! command -v uv >/dev/null 2>&1; then
+    echo "Missing uv — install: https://docs.astral.sh/uv/getting-started/installation" >&2
     fail 2
   fi
 }
@@ -51,7 +47,7 @@ require_dev_setup_marker() {
 
 run_arch_gate() {
   log "architecture-gate: lint-imports"
-  if ! "${VENV}/bin/lint-imports" 2>&1; then
+  if ! uv run lint-imports 2>&1; then
     fail 1 "lint-imports"
   fi
   ok "lint-imports"
@@ -59,8 +55,7 @@ run_arch_gate() {
 
 run_ruff() {
   log "ruff check sprintcycle tests"
-  "${PIP}" install -q ruff 2>/dev/null || true
-  if ! "${PY}" -m ruff check sprintcycle tests 2>&1; then
+  if ! uv run ruff check sprintcycle tests 2>&1; then
     fail 1 "ruff"
   fi
   ok "ruff"
@@ -68,7 +63,7 @@ run_ruff() {
 
 run_pytest() {
   log "pytest tests/"
-  if ! "${PY}" -m pytest tests/ -q --tb=short 2>&1; then
+  if ! uv run pytest tests/ -q --tb=short 2>&1; then
     fail 1 "pytest"
   fi
   ok "pytest"
@@ -102,9 +97,9 @@ run_e2e() {
 }
 
 ensure_deps() {
-  require_venv
-  log "ensure pip install -e '.[dev,dashboard]'"
-  "${PIP}" install -q -e ".[dev,dashboard]"
+  require_uv
+  log "ensure uv sync --extra dev --extra dashboard"
+  uv sync --extra dev --extra dashboard
 }
 
 main() {

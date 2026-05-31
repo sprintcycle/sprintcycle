@@ -4,7 +4,7 @@
 	ci-local ci-local-quick ci-smoke arch-gate ci-fix-loop-start ci-fix-loop-stop
 
 install:
-	python -m pip install -e ".[dev,dashboard]"
+	uv sync --extra dev --extra dashboard
 	$(MAKE) install-frontend
 
 install-frontend:
@@ -17,13 +17,13 @@ build: build-frontend
 	@echo "Frontend built into sprintcycle/dashboard/static/"
 
 test:
-	python -m pytest tests/ -q --tb=short
+	uv run pytest tests/ -q --tb=short
 
 lint-frontend:
 	cd frontend && npm ci && npm run lint
 
 export-openapi:
-	python scripts/export_dashboard_openapi.py
+	uv run python scripts/export_dashboard_openapi.py
 
 e2e: build-frontend
 	cd frontend && npx playwright install chromium && npm run test:e2e

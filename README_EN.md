@@ -711,16 +711,16 @@ sprintcycle/
 
 ```bash
 # Install development dependencies
-pip install -e "[dev]"
+uv sync --extra dev
 
 # Run tests
-python -m pytest tests/ -v
+uv run pytest tests/ -v
 
 # Run lint
-ruff check sprintcycle/
+uv run ruff check sprintcycle/
 
 # Type checking
-mypy sprintcycle/
+uv run mypy sprintcycle/
 ```
 
 ---
