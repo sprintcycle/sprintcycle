@@ -5,10 +5,8 @@ from __future__ import annotations
 import pytest
 
 from sprintcycle.domain.core.lifecycle.models import (
-    LifecycleContract,
     STAGE_EVIDENCE_SCHEMA,
     STAGE_EVIDENCE_TRUTHY_KEYS,
-    FAILURE_KIND_BY_STAGE,
     STAGE_EVIDENCE_KEYS,
     CANONICAL_EVIDENCE_KEYS,
     TERMINAL_STATUSES,
@@ -19,20 +17,24 @@ from sprintcycle.domain.core.lifecycle.models import (
     validate_lifecycle_evidence,
     next_stage,
     normalize_lifecycle_metadata,
-    build_lifecycle_state_machine,
 )
-
-from sprintcycle.application.services.lifecycle.lifecycle_root_services import (
-    LifecycleRootService,
+from sprintcycle.domain.core.lifecycle.state_machine import (
+    FAILURE_KIND_BY_STAGE,
+    get_lifecycle_state_machine,
 )
+from sprintcycle.domain.core.lifecycle.lifecycle_root import (
+    LifecycleRoot,
+    create_lifecycle,
+)
+from sprintcycle.application.services.lifecycle import LifecycleService
 
 
-class TestLifecycleContract:
-    """测试 LifecycleContract 数据模型"""
+class TestLifecycleRoot:
+    """测试 LifecycleRoot 数据模型"""
 
-    def test_contract_creation(self):
-        """测试契约创建"""
-        contract = LifecycleContract(
+    def test_root_creation(self):
+        """测试聚合根创建"""
+        root = create_lifecycle(
             execution_id="exec-1",
             task_id="task-1",
             project_path="/test/project",
@@ -40,103 +42,58 @@ class TestLifecycleContract:
             intent="test intent",
         )
 
-        assert contract.execution_id == "exec-1"
-        assert contract.task_id == "task-1"
-        assert contract.project_path == "/test/project"
-        assert contract.task_type == "project_optimization"
-        assert contract.intent == "test intent"
-        assert contract.stage == "new"
-        assert contract.status == "pending"
+        assert root.execution_id == "exec-1"
+        assert root.task_id == "task-1"
+        assert root.project_path == "/test/project"
+        assert root.task_type == "project_optimization"
+        assert root.intent == "test intent"
+        assert root.substage.value == "new"
+        assert root.status.value == "pending"
 
-    def test_contract_validate_valid(self):
-        """测试验证有效契约"""
-        contract = LifecycleContract(
+    def test_root_validate_valid(self):
+        """测试验证有效根"""
+        root = create_lifecycle(
             execution_id="exec-1",
             task_id="task-1",
             project_path="/test/project",
-            stage="normalized",
-            status="running",
         )
 
-        errors = contract.validate()
+        errors = root.validate()
 
         assert len(errors) == 0
 
-    def test_contract_validate_missing_required(self):
+    def test_root_validate_missing_required(self):
         """测试验证缺少必需字段"""
-        contract = LifecycleContract(
+        root = LifecycleRoot(
+            contract_id="",
             execution_id="",
             task_id="",
             project_path="",
         )
 
-        errors = contract.validate()
+        errors = root.validate()
 
         assert "execution_id is required" in errors
         assert "task_id is required" in errors
         assert "project_path is required" in errors
 
-    def test_contract_validate_invalid_stage(self):
-        """测试验证无效阶段"""
-        contract = LifecycleContract(
-            execution_id="exec-1",
-            task_id="task-1",
-            project_path="/test/project",
-            stage="invalid_stage",
-        )
-
-        errors = contract.validate()
-
-        assert "invalid stage: invalid_stage" in errors
-
-    def test_contract_validate_invalid_status(self):
-        """测试验证无效状态"""
-        contract = LifecycleContract(
-            execution_id="exec-1",
-            task_id="task-1",
-            project_path="/test/project",
-            status="invalid_status",
-        )
-
-        errors = contract.validate()
-
-        assert "invalid status: invalid_status" in errors
-
-    def test_contract_validate_terminal_status_non_terminal_stage(self):
-        """测试终端状态与非终端阶段的一致性"""
-        contract = LifecycleContract(
-            execution_id="exec-1",
-            task_id="task-1",
-            project_path="/test/project",
-            stage="executing",
-            status="success",
-        )
-
-        errors = contract.validate()
-
-        assert any("terminal status requires terminal stage" in error for error in errors)
-
-    def test_contract_to_dict(self):
+    def test_root_to_dict(self):
         """测试转换为字典"""
-        contract = LifecycleContract(
+        root = create_lifecycle(
             execution_id="exec-1",
             task_id="task-1",
             project_path="/test/project",
-            stage="normalized",
-            status="running",
         )
 
-        result = contract.to_dict()
+        result = root.to_dict()
 
         assert result["execution_id"] == "exec-1"
         assert result["task_id"] == "task-1"
-        assert result["stage"] == "normalized"
-        assert result["status"] == "running"
+        assert result["stage"] == "new"
+        assert result["status"] == "pending"
         assert "is_terminal" in result
         assert "stage_index" in result
-        assert "stage_hints" in result
-        assert "validation" in result
-        assert result["validation"]["ok"] is True
+        assert "is_valid" in result
 
 
 class TestLifecycleEvidenceHelpers:
@@ -394,60 +351,22 @@ class TestEvidenceValidation:
         assert "evidence.governance.approved must be truthy" in errors
 
 
-class TestContractBuilder:
-    """测试契约构建函数"""
+class TestRootBuilder:
+    """测试根构建函数"""
 
-    def test_build_lifecycle_contract(self):
-        """测试构建生命周期契约"""
-        service = LifecycleRootService(project_path="/test/project")
-        contract = service.build_lifecycle_contract(
+    def test_create_lifecycle(self):
+        """测试创建生命周期"""
+        root = create_lifecycle(
             execution_id="exec-1",
             task_id="task-1",
             project_path="/test/project",
-            stage="normalized",
-            status="running",
             metadata={"custom": "value"},
         )
 
-        assert isinstance(contract, LifecycleContract)
-        assert contract.execution_id == "exec-1"
-        assert contract.task_id == "task-1"
-        assert contract.project_path == "/test/project"
-        assert contract.stage == "normalized"
-        assert contract.status == "running"
-
-    def test_build_lifecycle_contract_with_refs(self):
-        """测试构建带引用的契约"""
-        service = LifecycleRootService(project_path="/test/project")
-        contract = service.build_lifecycle_contract(
-            execution_id="exec-1",
-            task_id="task-1",
-            project_path="/test/project",
-            stage="normalized",
-            status="running",
-            delivery_refs={"key": "value"},
-            runtime_refs={"runtime_key": "runtime_value"},
-            suggestion_refs=[{"id": "sug-1"}],
-        )
-
-        assert contract.delivery_refs == {"key": "value"}
-        assert contract.runtime_refs == {"runtime_key": "runtime_value"}
-        assert contract.suggestion_refs == [{"id": "sug-1"}]
-
-    def test_build_lifecycle_contract_with_evidence(self):
-        """测试构建带证据的契约"""
-        service = LifecycleRootService(project_path="/test/project")
-        contract = service.build_lifecycle_contract(
-            execution_id="exec-1",
-            task_id="task-1",
-            project_path="/test/project",
-            stage="normalized",
-            status="running",
-            evidence={"contract": {"normalized": True}},
-        )
-
-        assert contract.evidence is not None
-        assert contract.evidence.get("contract", {}).get("normalized") is True
+        assert isinstance(root, LifecycleRoot)
+        assert root.execution_id == "exec-1"
+        assert root.task_id == "task-1"
+        assert root.project_path == "/test/project"
 
 
 class TestStateMachineBuilder:
@@ -455,10 +374,8 @@ class TestStateMachineBuilder:
 
     def test_build_lifecycle_state_machine(self):
         """测试构建状态机"""
-        machine = build_lifecycle_state_machine()
+        machine = get_lifecycle_state_machine()
 
         assert machine is not None
         assert hasattr(machine, "next_stages")
         assert hasattr(machine, "is_terminal")
-
-

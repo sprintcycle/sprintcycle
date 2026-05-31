@@ -16,6 +16,11 @@ It encapsulates all state and behavior related to the execution lifecycle.
 - DELIVERING: DELIVERING → RUNTIME_LINKED
 - GOVERNING: GOVERNING → PROMOTION_READY
 - TERMINAL: PROMOTED, FAILED, ABORTED, CANCELLED
+
+**External Interface Compatibility:**
+- to_dict(): Produces JSON-serializable output for API/Dashboard
+- from_dict(): Reconstructs from external data
+- This single class replaces the previous LifecycleRoot + LifecycleContract duality
 """
 
 from __future__ import annotations
@@ -50,7 +55,6 @@ from .values import (
 # Status Enumeration
 # =============================================================================
 
-
 class LifecycleStatus(Enum):
     """Lifecycle execution status."""
 
@@ -65,7 +69,6 @@ class LifecycleStatus(Enum):
 # =============================================================================
 # Aggregate Root
 # =============================================================================
-
 
 @dataclass
 class LifecycleRoot:
@@ -144,10 +147,8 @@ class LifecycleRoot:
 
     def __post_init__(self) -> None:
         """Initialize derived fields after construction."""
-        # Ensure phase is derived from substage
         self.phase = get_phase_for_substage(self.substage)
         
-        # Set up allowed next stages/substages
         if not self.allowed_next_stages:
             machine = get_lifecycle_state_machine()
             self.allowed_next_stages = machine.next_stages(self.substage)
@@ -219,20 +220,16 @@ class LifecycleRoot:
         if error:
             raise ValueError(error)
 
-        # Build history entry
         history_entry = StageHistoryEntry(
             from_stage=self.substage.value,
             to_stage=new_substage.value,
             reason=reason,
         )
 
-        # Determine phase from substage
         new_phase = get_phase_for_substage(new_substage)
 
-        # Determine status
         final_status = new_status or LifecycleStatus(machine.derive_status_from_substage(new_substage))
 
-        # Determine failure kind if transitioning to failure
         failure_kind = self.failure_kind
         if new_substage.is_failure():
             failure_kind = machine.get_failure_kind_for_substage(new_substage)
@@ -495,7 +492,6 @@ class LifecycleRoot:
         """Validate the lifecycle state and return errors."""
         errors: List[str] = []
 
-        # Required fields
         if not self.execution_id:
             errors.append("execution_id is required")
         if not self.task_id:
@@ -503,19 +499,16 @@ class LifecycleRoot:
         if not self.project_path:
             errors.append("project_path is required")
 
-        # Status validation
         valid_statuses = {"pending", "running", "success", "failed", "cancelled", "promoted"}
         if self.status.value not in valid_statuses:
             errors.append(f"invalid status: {self.status.value}")
 
-        # Terminal consistency
         if self.status.value in ("success", "failed", "cancelled", "promoted"):
             if not self.substage.is_terminal():
                 errors.append(
                     f"terminal status requires terminal stage: {self.status.value}/{self.substage.value}"
                 )
 
-        # Next stages validation
         if self.allowed_next_stages:
             valid_stages_set = set(LIFECYCLE_STAGES) | {"failed", "aborted", "cancelled"}
             if any(stage not in valid_stages_set for stage in self.allowed_next_stages):
@@ -529,41 +522,59 @@ class LifecycleRoot:
         return not self.validate()
 
     # =========================================================================
-    # Conversion
+    # Conversion - External Interface (replaces LifecycleContract)
     # =========================================================================
 
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary (for serialization)."""
+    def to_dict(self, include_evidence: bool = True) -> Dict[str, Any]:
+        """Convert to dictionary for serialization (API/Dashboard compatible).
+
+        This method produces JSON-serializable output suitable for external interfaces,
+        replacing the previous LifecycleContract DTO.
+
+        Args:
+            include_evidence: Whether to include full evidence details
+        """
         errors = self.validate()
         machine = get_lifecycle_state_machine()
 
-        return {
+        result: Dict[str, Any] = {
+            # Core identity
             "contract_id": self.contract_id,
             "execution_id": self.execution_id,
             "task_id": self.task_id,
             "project_path": self.project_path,
+            
+            # Core state
             "task_type": self.task_type,
             "intent": self.intent,
             "phase": self.phase.value,
-            "substage": self.substage.value,
+            "stage": self.substage.value,
             "status": self.status.value,
+            
+            # Failure info
             "failure_kind": self.failure_kind,
             "failure_reason": self.failure_reason,
             "failure_code": self.failure_code,
-            "governance_ref": self.governance_ref.to_dict() if self.governance_ref else None,
-            "evolution_ref": self.evolution_ref.to_dict() if self.evolution_ref else None,
-            "runtime_ref": self.runtime_ref.to_dict() if self.runtime_ref else None,
-            "evidence": self.evidence.to_dict(),
+            
+            # Cross-domain refs
+            "governance_refs": self.governance_ref.to_dict() if self.governance_ref else {},
+            "evolution_refs": self.evolution_ref.to_dict() if self.evolution_ref else {},
+            "runtime_refs": self.runtime_ref.to_dict() if self.runtime_ref else {},
+            
+            # Metadata
+            "metrics": dict(self.metrics),
+            "metadata": dict(self.metadata),
+            "correlation": self.correlation.to_dict(),
+            
+            # Transition info
             "stage_history": [
                 {"from": h.from_stage, "to": h.to_stage, "at": h.at, "reason": h.reason}
                 for h in self.stage_history
             ],
-            "correlation": self.correlation.to_dict(),
-            "metrics": dict(self.metrics),
-            "metadata": dict(self.metadata),
             "allowed_next_stages": list(self.allowed_next_stages),
             "allowed_next_substages": [s.value for s in self.allowed_next_substages],
             "transition_reason": self.transition_reason,
+            
             # Derived fields
             "is_terminal": self.is_terminal,
             "is_valid": not errors,
@@ -573,36 +584,49 @@ class LifecycleRoot:
             "next_substage": self.get_next_substage().value if self.get_next_substage() else None,
         }
 
+        # Evidence (optional)
+        if include_evidence:
+            result["evidence"] = self.evidence.to_dict()
+            result["trace"] = dict(self.evidence.trace)
+            result["diagnostics"] = dict(self.evidence.diagnostics)
+
+        return result
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "LifecycleRoot":
-        """Create from dictionary."""
+        """Create from dictionary (reconstruct from external data).
+
+        This method replaces the previous LifecycleContract.from_dict() and
+        map_contract_to_root() functions.
+        """
         governance_ref = None
-        if data.get("governance_ref"):
-            gr = data["governance_ref"]
+        if data.get("governance_ref") or data.get("governance_refs"):
+            gr = data.get("governance_refs", data.get("governance_ref", {}))
             governance_ref = GovernanceRef(
                 governance_session_id=gr.get("governance_session_id", ""),
                 gate=gr.get("gate", ""),
                 approved=gr.get("approved", False),
+                approved_at=gr.get("approved_at"),
             )
 
         evolution_ref = None
-        if data.get("evolution_ref"):
-            er = data["evolution_ref"]
+        if data.get("evolution_ref") or data.get("evolution_refs"):
+            er = data.get("evolution_refs", data.get("evolution_ref", {}))
             evolution_ref = EvolutionRef(
                 evolution_request_id=er.get("evolution_request_id", ""),
                 version_id=er.get("version_id", ""),
+                versioned=er.get("versioned", False),
             )
 
         runtime_ref = None
-        if data.get("runtime_ref"):
-            rr = data["runtime_ref"]
+        if data.get("runtime_ref") or data.get("runtime_refs"):
+            rr = data.get("runtime_refs", data.get("runtime_ref", {}))
             runtime_ref = RuntimeRef(
                 runtime_id=rr.get("runtime_id", ""),
                 linked=rr.get("linked", False),
                 healthy=rr.get("healthy", False),
             )
 
-        # Parse stage history
         history = ()
         for entry in data.get("stage_history", []):
             if isinstance(entry, dict):
@@ -615,12 +639,10 @@ class LifecycleRoot:
                     ),
                 )
 
-        # Parse substage (prefer new model, fall back to legacy stage)
         substage_value = data.get("substage", data.get("stage", "new"))
         substage = LifecycleSubstage.from_string(substage_value)
         phase = get_phase_for_substage(substage)
         
-        # Parse allowed_next_substages
         allowed_next_substages_data = data.get("allowed_next_substages", [])
         allowed_next_substages = tuple(
             LifecycleSubstage.from_string(s) for s in allowed_next_substages_data
@@ -657,7 +679,6 @@ class LifecycleRoot:
 # =============================================================================
 # Factory
 # =============================================================================
-
 
 def create_lifecycle(
     execution_id: str,

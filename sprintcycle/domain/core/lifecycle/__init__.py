@@ -1,32 +1,46 @@
-"""生命周期子域 - Lifecycle subdomain.
+"""Lifecycle domain module - SprintCycle's core lifecycle orchestration.
 
-这是新架构的核心入口，完全使用 DDD 模式实现。
+This module provides:
+1. **State Management**: Unified state machine for execution and lifecycle states
+2. **Aggregate Root**: LifecycleRoot as the single source of lifecycle truth
+3. **Value Objects**: Evidence, correlation, and cross-domain references
+4. **Request Builders**: Data classes for parameter grouping
 
-**状态机层次结构:**
-- ExecutionStateMachine: 任务/执行级别的运行时状态管理
-- LifecycleStateMachine: 业务生命周期阶段管理
+**Architecture:**
+- LifecycleRoot: Aggregate root managing lifecycle state
+- LifecycleStateMachine: Unified state machine for both execution and business stages
+- StageEvidence: Immutable evidence collection per stage
+- CorrelationContext: Cross-request correlation tracking
+- Governance/Evolution/RuntimeRef: Cross-subdomain references
 
-两者形成层次关系，ExecutionStateMachine 作为 LifecycleStateMachine 的内部组件。
+**Design Principles:**
+- DDD: Rich domain model with behavior
+- Immutable: Value objects are frozen dataclasses
+- Unified: Single state machine handles both execution and lifecycle contexts
+- Single Source of Truth: LifecycleRoot is the sole aggregate root
 """
 
-from .models import (
-    LifecycleContract,
-    STAGE_EVIDENCE_SCHEMA,
-    STAGE_EVIDENCE_TRUTHY_KEYS,
-    FAILURE_KIND_BY_STAGE,
-    STAGE_EVIDENCE_KEYS,
-    CANONICAL_EVIDENCE_KEYS,
-    TERMINAL_STATUSES,
-    REQUIRED_EVIDENCE_SECTIONS,
-    REQUIRED_STAGE_SEQUENCE,
-    RECOVERY_STAGE_TARGETS,
-    ensure_lifecycle_evidence,
-    next_stage,
-    normalize_lifecycle_metadata,
-    validate_lifecycle_evidence,
-    build_lifecycle_state_machine,
+from .lifecycle_root import (
+    LifecycleRoot,
+    LifecycleStatus,
+    create_lifecycle,
 )
-
+from .state_machine import (
+    LifecycleStateMachine,
+    LifecyclePhase,
+    LifecycleSubstage,
+    ExecutionStatus,
+    LIFECYCLE_STAGES,
+    SUBSTAGE_TRANSITIONS,
+    TERMINAL_STAGES,
+    FAILURE_STAGES,
+    RECOVERY_STAGES,
+    RECOVERY_TARGETS,
+    PHASE_SUBSTAGES,
+    CORRELATION_KEY_FIELDS,
+    FAILURE_KIND_BY_STAGE,
+    get_lifecycle_state_machine,
+)
 from .values import (
     StageEvidence,
     StageHistoryEntry,
@@ -37,71 +51,58 @@ from .values import (
     LifecycleEvidence,
     FailureInfo,
 )
-
+from .requests import (
+    BuildLifecycleRequest,
+    BuildLifecycleRequestBuilder,
+    TransitionRequest,
+    TransitionRequestBuilder,
+    WebLifecycleRequest,
+    WebLifecycleRequestBuilder,
+    RecoveryRequest,
+    RecoveryRequestBuilder,
+)
+from .models import (
+    STAGE_EVIDENCE_SCHEMA,
+    STAGE_EVIDENCE_TRUTHY_KEYS,
+    STAGE_EVIDENCE_KEYS,
+    CANONICAL_EVIDENCE_KEYS,
+    TERMINAL_STATUSES,
+    REQUIRED_EVIDENCE_SECTIONS,
+    REQUIRED_STAGE_SEQUENCE,
+    RECOVERY_STAGE_TARGETS,
+    ensure_lifecycle_evidence,
+    next_stage,
+    normalize_lifecycle_metadata,
+    validate_lifecycle_evidence,
+)
 from .services import (
-    ExecutionStatus,
-    EXECUTION_TRANSITIONS,
-    TASK_TRANSITIONS,
     StateTransition,
-    ExecutionStateMachine,
-    summarize_execution_state_machine,
-    LIFECYCLE_STAGES,
-    STAGE_TRANSITIONS,
-    TERMINAL_STAGES,
-    FAILURE_STAGES,
-    RECOVERY_STAGES,
-    RECOVERY_TARGETS,
-    REPAIR_ROUTE_BY_STAGE,
-    CORRELATION_KEY_FIELDS,
-    validate_transition,
 )
 
-from .state_machine import (
-    LifecycleStateMachine,
-    LifecyclePhase,
-    LifecycleSubstage,
-    get_lifecycle_state_machine,
-    build_default_correlation,
-    PHASE_SUBSTAGES,
-    SUBSTAGE_TRANSITIONS,
-)
-
-from .lifecycle_root import (
-    LifecycleRoot,
-    LifecycleStatus,
-    create_lifecycle,
-)
-
-from .mapper import (
-    LifecycleMapper,
-    map_contract_to_root,
-    map_root_to_contract,
-)
 
 __all__ = [
-    # Execution State Machine (Runtime States)
+    # Core Aggregate
+    "LifecycleRoot",
+    "LifecycleStatus",
+    "create_lifecycle",
+
+    # State Machine
+    "LifecycleStateMachine",
+    "LifecyclePhase",
+    "LifecycleSubstage",
     "ExecutionStatus",
-    "EXECUTION_TRANSITIONS",
-    "TASK_TRANSITIONS",
-    "StateTransition",
-    "ExecutionStateMachine",
-    "summarize_execution_state_machine",
-    # Lifecycle Models (DTOs)
-    "LifecycleContract",
-    "STAGE_EVIDENCE_SCHEMA",
-    "STAGE_EVIDENCE_TRUTHY_KEYS",
+
+    # Configuration Constants
+    "LIFECYCLE_STAGES",
+    "SUBSTAGE_TRANSITIONS",
+    "TERMINAL_STAGES",
+    "FAILURE_STAGES",
+    "RECOVERY_STAGES",
+    "RECOVERY_TARGETS",
+    "PHASE_SUBSTAGES",
+    "CORRELATION_KEY_FIELDS",
     "FAILURE_KIND_BY_STAGE",
-    "STAGE_EVIDENCE_KEYS",
-    "CANONICAL_EVIDENCE_KEYS",
-    "TERMINAL_STATUSES",
-    "REQUIRED_EVIDENCE_SECTIONS",
-    "REQUIRED_STAGE_SEQUENCE",
-    "RECOVERY_STAGE_TARGETS",
-    "ensure_lifecycle_evidence",
-    "next_stage",
-    "normalize_lifecycle_metadata",
-    "validate_lifecycle_evidence",
-    "build_lifecycle_state_machine",
+
     # Value Objects
     "StageEvidence",
     "StageHistoryEntry",
@@ -111,30 +112,34 @@ __all__ = [
     "RuntimeRef",
     "LifecycleEvidence",
     "FailureInfo",
-    # Lifecycle State Machine
-    "LifecycleStateMachine",
-    "LIFECYCLE_STAGES",
-    "STAGE_TRANSITIONS",
-    "SUBSTAGE_TRANSITIONS",
-    "PHASE_SUBSTAGES",
-    "TERMINAL_STAGES",
-    "FAILURE_STAGES",
-    "RECOVERY_STAGES",
-    "RECOVERY_TARGETS",
-    "REPAIR_ROUTE_BY_STAGE",
-    "CORRELATION_KEY_FIELDS",
+
+    # Request Builders
+    "BuildLifecycleRequest",
+    "BuildLifecycleRequestBuilder",
+    "TransitionRequest",
+    "TransitionRequestBuilder",
+    "WebLifecycleRequest",
+    "WebLifecycleRequestBuilder",
+    "RecoveryRequest",
+    "RecoveryRequestBuilder",
+
+    # Evidence Schema
+    "STAGE_EVIDENCE_SCHEMA",
+    "STAGE_EVIDENCE_TRUTHY_KEYS",
+    "STAGE_EVIDENCE_KEYS",
+    "CANONICAL_EVIDENCE_KEYS",
+    "TERMINAL_STATUSES",
+    "REQUIRED_EVIDENCE_SECTIONS",
+    "REQUIRED_STAGE_SEQUENCE",
+    "RECOVERY_STAGE_TARGETS",
+
+    # Helper Functions
     "get_lifecycle_state_machine",
-    "build_default_correlation",
-    "validate_transition",
-    # Phase-Substage Enumerations
-    "LifecyclePhase",
-    "LifecycleSubstage",
-    # Lifecycle Root Aggregate
-    "LifecycleRoot",
-    "LifecycleStatus",
-    "create_lifecycle",
-    # Mapper
-    "LifecycleMapper",
-    "map_contract_to_root",
-    "map_root_to_contract",
+    "ensure_lifecycle_evidence",
+    "next_stage",
+    "normalize_lifecycle_metadata",
+    "validate_lifecycle_evidence",
+
+    # Domain Services
+    "StateTransition",
 ]

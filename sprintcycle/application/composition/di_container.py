@@ -1,321 +1,431 @@
-"""
-SprintCycle 依赖注入容器 - 基于 dependency-injector 的六边形架构 DI 容器
+"""Dependency injection container for SprintCycle application.
 
-本模块统一管理所有依赖注入，提供：
-1. 声明式依赖配置
-2. 自动依赖图验证
-3. 生命周期管理（Singleton/Factory）
-4. 配置注入支持
-5. 测试友好的 Override 机制
+This module provides centralized dependency injection configuration
+following hexagonal architecture principles.
 
-使用方式：
+**Design Principles:**
+- Single source of truth for dependency wiring
+- Follows hexagonal architecture (ports and adapters)
+- Separates domain services from infrastructure implementations
+- Supports both singleton and transient scopes
+
+**Container Structure:**
+- domain_container: Domain-level dependencies
+- application_container: Application service dependencies
+- infrastructure_container: Infrastructure/adapter dependencies
+- governance_container: Governance adapter dependencies
+- observability_container: Observability dependencies
+- runtime_config_container: Runtime configuration dependencies
+
+**Usage:**
 ```python
-from sprintcycle.application.composition.di_container import Container, container
+from sprintcycle.application.composition.di_container import container, get_container
 
-# 获取子容器中的服务
+# Get services
+lifecycle_service = container.lifecycle_service()
 cache = container.infrastructure.cache_backend()
-governance = container.governance.archguard_adapter()
-
-# 测试时覆盖
-with container.infrastructure.cache_backend.override(MockCache()):
-    service = MyService()
 ```
 """
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
-
-from dependency_injector import containers, providers
-
-
-# 工厂函数（不是类方法）
-def _create_cache_backend(runtime: Any = None, project_path: str = ".") -> Any:
-    from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
-    from sprintcycle.infrastructure.adapters.generic.cache.factory import build_cache_backend
-    effective_runtime = runtime or RuntimeConfig()
-    return build_cache_backend(effective_runtime, project_path)
-
-
-def _create_state_store(store_dir: Optional[str] = None) -> Any:
-    from sprintcycle.infrastructure.adapters.core.execution.state_store import get_state_store
-    return get_state_store(store_dir)
-
-
-def _create_archguard_adapter() -> Any:
-    from sprintcycle.infrastructure.adapters.core.governance.arch_guard import ArchonAdapter
-    return ArchonAdapter()
-
-
-def _create_grimp_adapter() -> Any:
-    from sprintcycle.infrastructure.adapters.core.governance.arch_guard import GrimpAdapter
-    return GrimpAdapter()
-
-
-def _create_import_linter_adapter() -> Any:
-    from sprintcycle.infrastructure.adapters.core.governance.arch_guard import ImportLinterAdapter
-    return ImportLinterAdapter()
-
-
-def _create_ruff_adapter() -> Any:
-    from sprintcycle.infrastructure.adapters.core.governance.arch_guard import RuffAdapter
-    return RuffAdapter()
-
-
-def _create_typecheck_adapter() -> Any:
-    from sprintcycle.infrastructure.adapters.core.governance.arch_guard import TypeCheckAdapter
-    return TypeCheckAdapter()
-
-
-def _compile_intent_graph(**kwargs) -> Any:
-    from sprintcycle.infrastructure.adapters.generic.integrations.langgraph.compiler import compile_intent_graph
-    return compile_intent_graph(**kwargs)
-
-
-def _compile_sprint_graph(**kwargs) -> Any:
-    from sprintcycle.infrastructure.adapters.generic.integrations.langgraph.compiler import compile_sprint_graph
-    return compile_sprint_graph(**kwargs)
-
-
-def _create_plan_runtime(**kwargs) -> Any:
-    from sprintcycle.infrastructure.adapters.generic.integrations.langgraph.plan_runtime import PlanRuntime
-    return PlanRuntime(**kwargs)
-
-
-def _create_hitl_store(project_path: Optional[str] = None) -> Any:
-    from sprintcycle.infrastructure.adapters.core.governance.hitl_store import (
-        HitlSqliteStore,
-        default_hitl_db_path,
-    )
-    return HitlSqliteStore(default_hitl_db_path(project_path))
-
-
-def _create_suggestion_store(store_root: Optional[str] = None) -> Any:
-    from sprintcycle.infrastructure.adapters.core.governance.suggestion_store import SuggestionStore
-    root = store_root or ".sprintcycle/governance/suggestion"
-    return SuggestionStore(root)
-
-
-def _create_knowledge_repository(db_path: Optional[str] = None) -> Any:
-    from sprintcycle.infrastructure.adapters.generic.knowledge.knowledge_repository import KnowledgeCardRepository
-    path = db_path or ".sprintcycle/knowledge.db"
-    return KnowledgeCardRepository(path)
-
-
-def _create_sprint_outcome_card() -> Any:
-    from sprintcycle.infrastructure.adapters.generic.knowledge.sprint_knowledge_card import persist_sprint_outcome_card
-    from sprintcycle.domain.ports.knowledge import SprintOutcomeCardAdapter
-    return SprintOutcomeCardAdapter(persist_sprint_outcome_card)
-
-
-def _create_observability_facade() -> Any:
-    from sprintcycle.infrastructure.adapters.generic.observability.facade import ObservabilityFacade
-    return ObservabilityFacade()
-
-
-def _create_phoenix_trace_runtime(exporter_spec: Any) -> Any:
-    from sprintcycle.infrastructure.adapters.generic.integrations.phoenix.trace_runtime import PhoenixTraceRuntime
-    return PhoenixTraceRuntime(exporter_spec)
-
-
-def _create_diagnostic_adapter(project_path: str = ".") -> Any:
-    from sprintcycle.infrastructure.adapters.generic.observability.diagnostics.adapter import DiagnosticAdapter
-    return DiagnosticAdapter(project_path)
-
-
-def _create_runtime_config(project_path: Optional[str] = None) -> Any:
-    from sprintcycle.infrastructure.adapters.generic.config.runtime_config import RuntimeConfig
-    if project_path:
-        return RuntimeConfig.from_project(project_path)
-    return RuntimeConfig()
-
-
-def _create_rate_limit_adapter() -> Any:
-    from sprintcycle.infrastructure.adapters.generic.config.rate_limit import RateLimitAdapter
-    return RateLimitAdapter()
-
-
-def _create_audit_adapter() -> Any:
-    from sprintcycle.infrastructure.adapters.generic.integrations.audit import AuditAdapter
-    return AuditAdapter()
-
-
-def _create_runtime_registry(config: Any) -> Any:
-    from sprintcycle.infrastructure.adapters.generic.config.runtime_registry import RuntimeRegistry
-    return RuntimeRegistry(config)
-
-
-def _create_evolution_registry(config: Any) -> Any:
-    from sprintcycle.infrastructure.adapters.core.evolution.evolution_registry_access import create_evolution_registry
-    return create_evolution_registry(config)
-
-
-def _create_autogpt_compose_spec(project_name: str = "sprintcycle") -> Any:
-    from sprintcycle.infrastructure.adapters.generic.integrations.autogpt.compose_spec import build_default_compose_spec
-    return build_default_compose_spec(project_name)
-
-
-def _create_autogpt_runtime_spec(project_name: str = "sprintcycle") -> Any:
-    from sprintcycle.infrastructure.adapters.generic.integrations.autogpt.runtime_spec import create_autogpt_runtime_spec
-    return create_autogpt_runtime_spec(project_name)
-
-
-def _create_langgraph_adapter(graph_name: str) -> Any:
-    from sprintcycle.infrastructure.adapters.generic.integrations.langgraph.adapter import create_langgraph_adapter
-    return create_langgraph_adapter(graph_name)
-
-
-def _create_phoenix_exporter_spec(project_name: str = "sprintcycle") -> Any:
-    from sprintcycle.infrastructure.adapters.generic.integrations.phoenix.exporter_spec import create_phoenix_exporter_spec
-    return create_phoenix_exporter_spec(project_name)
-
-
-def _create_platform_launch_service() -> Any:
-    from sprintcycle.infrastructure.adapters.generic.deploy.platform_launch_service import PlatformLaunchService
-    from sprintcycle.infrastructure.adapters.generic.deploy.deployment_spec_service import DeploymentSpecService
-    return PlatformLaunchService(spec_service=DeploymentSpecService())
-
-
-class CoreInfrastructureContainer(containers.DeclarativeContainer):
-    """核心基础设施容器 - 提供底层技术依赖"""
-
-    config = providers.Configuration()
-    cache_backend = providers.Singleton(_create_cache_backend)
-    state_store = providers.Singleton(_create_state_store)
-
-
-class GovernanceAdaptersContainer(containers.DeclarativeContainer):
-    """治理适配器容器 - 提供架构检查和质量门禁依赖"""
-
-    archguard_adapter = providers.Singleton(_create_archguard_adapter)
-    grimp_adapter = providers.Singleton(_create_grimp_adapter)
-    import_linter_adapter = providers.Singleton(_create_import_linter_adapter)
-    ruff_adapter = providers.Singleton(_create_ruff_adapter)
-    typecheck_adapter = providers.Singleton(_create_typecheck_adapter)
-
-
-class IntegrationAdaptersContainer(containers.DeclarativeContainer):
-    """集成适配器容器 - 提供第三方服务集成依赖"""
-
-    compiled_graph_runtime = providers.Callable(_compile_intent_graph)
-    compiled_sprint_graph = providers.Callable(_compile_sprint_graph)
-    plan_runtime = providers.Factory(_create_plan_runtime)
-    autogpt_compose_spec = providers.Factory(_create_autogpt_compose_spec)
-    autogpt_runtime_spec = providers.Factory(_create_autogpt_runtime_spec)
-    langgraph_adapter = providers.Factory(_create_langgraph_adapter)
-    phoenix_exporter_spec = providers.Factory(_create_phoenix_exporter_spec)
-    platform_launch_service = providers.Singleton(_create_platform_launch_service)
-
-
-class StorageAdaptersContainer(containers.DeclarativeContainer):
-    """存储适配器容器 - 提供持久化依赖"""
-
-    hitl_store = providers.Factory(_create_hitl_store)
-    suggestion_store = providers.Singleton(_create_suggestion_store)
-    knowledge_repository = providers.Singleton(_create_knowledge_repository)
-    sprint_outcome_card = providers.Singleton(_create_sprint_outcome_card)
-
-
-class ObservabilityAdaptersContainer(containers.DeclarativeContainer):
-    """可观测性适配器容器 - 提供监控和追踪依赖"""
-
-    observability_facade = providers.Singleton(_create_observability_facade)
-    phoenix_trace_runtime = providers.Factory(_create_phoenix_trace_runtime)
-    diagnostic_adapter = providers.Singleton(_create_diagnostic_adapter)
-
-
-class RuntimeConfigContainer(containers.DeclarativeContainer):
-    """运行时配置容器 - 提供配置依赖"""
-
-    config = providers.Configuration()
-    runtime_config = providers.Singleton(_create_runtime_config)
-    rate_limit_adapter = providers.Singleton(_create_rate_limit_adapter)
-    audit_adapter = providers.Singleton(_create_audit_adapter)
-    runtime_registry = providers.Factory(_create_runtime_registry)
-    evolution_registry = providers.Factory(_create_evolution_registry)
-
-
-class Container(containers.DeclarativeContainer):
+from typing import Any, Callable, Optional
+
+
+# =============================================================================
+# Container Singleton Instance
+# =============================================================================
+
+_container_instance: Optional["SprintCycleContainer"] = None
+
+
+def get_container() -> "SprintCycleContainer":
+    """Get the singleton container instance."""
+    global _container_instance
+    if _container_instance is None:
+        _container_instance = SprintCycleContainer()
+    return _container_instance
+
+
+def create_container(project_path: str = ".") -> "SprintCycleContainer":
+    """Create and initialize a new container instance."""
+    global _container_instance
+    _container_instance = SprintCycleContainer(project_path=project_path)
+    return _container_instance
+
+
+# =============================================================================
+# Override Context Manager for Testing
+# =============================================================================
+
+class OverrideContext:
+    """Context manager for overriding container services during testing."""
+    
+    def __init__(self, provider: Callable, override_value: Any):
+        self.provider = provider
+        self.override_value = override_value
+        self._original_value = None
+    
+    def __enter__(self):
+        self._original_value = getattr(self.provider, '_override', None)
+        setattr(self.provider, '_override', self.override_value)
+        return self.override_value
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        setattr(self.provider, '_override', self._original_value)
+
+
+class OverrideProvider:
+    """Wrapper for service providers that supports overriding."""
+    
+    def __init__(self, provider: Callable):
+        self._provider = provider
+        self._override = None
+    
+    def __call__(self, *args, **kwargs):
+        if self._override is not None:
+            return self._override
+        return self._provider(*args, **kwargs)
+    
+    def override(self, value: Any) -> OverrideContext:
+        """Return a context manager to override this provider."""
+        return OverrideContext(self, value)
+
+
+# =============================================================================
+# Infrastructure Sub-container
+# =============================================================================
+
+class InfrastructureContainer:
+    """Container for infrastructure/adapter services."""
+    
+    def __init__(self, project_path: str = "."):
+        self._project_path = project_path
+        self._cache_backend = None
+        self._state_store = None
+    
+    @property
+    def cache_backend(self) -> OverrideProvider:
+        """Get the cache backend provider."""
+        def _get_cache_backend(runtime: Optional[Any] = None, project_path: str = ".") -> Any:
+            nonlocal self
+            if self._cache_backend is None:
+                from sprintcycle.infrastructure.adapters.generic.cache.factory import (
+                    create_cache_backend
+                )
+                self._cache_backend = create_cache_backend(
+                    runtime=runtime, 
+                    project_path=project_path or self._project_path
+                )
+            return self._cache_backend
+        return OverrideProvider(_get_cache_backend)
+    
+    @property
+    def state_store(self) -> OverrideProvider:
+        """Get the state store provider."""
+        def _get_state_store(store_dir: Optional[str] = None) -> Any:
+            nonlocal self
+            if self._state_store is None:
+                from sprintcycle.infrastructure.adapters.core.execution.state_store import (
+                    create_state_store
+                )
+                self._state_store = create_state_store(store_dir=store_dir)
+            return self._state_store
+        return OverrideProvider(_get_state_store)
+
+
+# =============================================================================
+# Governance Sub-container
+# =============================================================================
+
+class GovernanceContainer:
+    """Container for governance adapter services."""
+    
+    def __init__(self):
+        self._archguard_adapter = None
+        self._grimp_adapter = None
+        self._import_linter_adapter = None
+        self._ruff_adapter = None
+        self._typecheck_adapter = None
+    
+    @property
+    def archguard_adapter(self) -> OverrideProvider:
+        """Get the ArchGuard adapter provider."""
+        def _get_archguard_adapter() -> Any:
+            nonlocal self
+            if self._archguard_adapter is None:
+                from sprintcycle.infrastructure.adapters.core.governance.arch_guard.archon_adapter import (
+                    ArchonAdapter
+                )
+                self._archguard_adapter = ArchonAdapter()
+            return self._archguard_adapter
+        return OverrideProvider(_get_archguard_adapter)
+    
+    @property
+    def grimp_adapter(self) -> OverrideProvider:
+        """Get the Grimp adapter provider."""
+        def _get_grimp_adapter() -> Any:
+            nonlocal self
+            if self._grimp_adapter is None:
+                from sprintcycle.infrastructure.adapters.core.governance.arch_guard.grimp_adapter import (
+                    GrimpAdapter
+                )
+                self._grimp_adapter = GrimpAdapter()
+            return self._grimp_adapter
+        return OverrideProvider(_get_grimp_adapter)
+    
+    @property
+    def import_linter_adapter(self) -> OverrideProvider:
+        """Get the Import Linter adapter provider."""
+        def _get_import_linter_adapter() -> Any:
+            nonlocal self
+            if self._import_linter_adapter is None:
+                from sprintcycle.infrastructure.adapters.core.governance.arch_guard.import_linter import (
+                    ImportLinterAdapter
+                )
+                self._import_linter_adapter = ImportLinterAdapter()
+            return self._import_linter_adapter
+        return OverrideProvider(_get_import_linter_adapter)
+    
+    @property
+    def ruff_adapter(self) -> OverrideProvider:
+        """Get the Ruff adapter provider."""
+        def _get_ruff_adapter() -> Any:
+            nonlocal self
+            if self._ruff_adapter is None:
+                from sprintcycle.infrastructure.adapters.core.governance.arch_guard.ruff_adapter import (
+                    RuffAdapter
+                )
+                self._ruff_adapter = RuffAdapter()
+            return self._ruff_adapter
+        return OverrideProvider(_get_ruff_adapter)
+    
+    @property
+    def typecheck_adapter(self) -> OverrideProvider:
+        """Get the TypeCheck adapter provider."""
+        def _get_typecheck_adapter() -> Any:
+            nonlocal self
+            if self._typecheck_adapter is None:
+                from sprintcycle.infrastructure.adapters.core.governance.arch_guard.typecheck_adapter import (
+                    TypecheckAdapter
+                )
+                self._typecheck_adapter = TypecheckAdapter()
+            return self._typecheck_adapter
+        return OverrideProvider(_get_typecheck_adapter)
+
+
+# =============================================================================
+# Runtime Config Sub-container
+# =============================================================================
+
+class RuntimeConfigContainer:
+    """Container for runtime configuration services."""
+    
+    def __init__(self, project_path: str = "."):
+        self._project_path = project_path
+        self._runtime_config = None
+        self._rate_limit_adapter = None
+        self._audit_adapter = None
+    
+    @property
+    def runtime_config(self) -> OverrideProvider:
+        """Get the runtime config provider."""
+        def _get_runtime_config(project_path: Optional[str] = None) -> Any:
+            nonlocal self
+            if self._runtime_config is None:
+                from sprintcycle.infrastructure.adapters.generic.config.runtime_config import (
+                    get_runtime_config
+                )
+                self._runtime_config = get_runtime_config(
+                    project_path=project_path or self._project_path
+                )
+            return self._runtime_config
+        return OverrideProvider(_get_runtime_config)
+    
+    @property
+    def rate_limit_adapter(self) -> OverrideProvider:
+        """Get the rate limit adapter provider."""
+        def _get_rate_limit_adapter() -> Any:
+            nonlocal self
+            if self._rate_limit_adapter is None:
+                from sprintcycle.infrastructure.adapters.generic.config.rate_limit import (
+                    RateLimitAdapter
+                )
+                self._rate_limit_adapter = RateLimitAdapter()
+            return self._rate_limit_adapter
+        return OverrideProvider(_get_rate_limit_adapter)
+    
+    @property
+    def audit_adapter(self) -> OverrideProvider:
+        """Get the audit adapter provider."""
+        def _get_audit_adapter() -> Any:
+            nonlocal self
+            if self._audit_adapter is None:
+                from sprintcycle.infrastructure.adapters.generic.integrations.audit import (
+                    AuditAdapter
+                )
+                self._audit_adapter = AuditAdapter()
+            return self._audit_adapter
+        return OverrideProvider(_get_audit_adapter)
+
+
+# =============================================================================
+# Observability Sub-container
+# =============================================================================
+
+class ObservabilityContainer:
+    """Container for observability services."""
+    
+    def __init__(self):
+        self._observability_facade = None
+        self._diagnostic_adapter = None
+    
+    @property
+    def observability_facade(self) -> OverrideProvider:
+        """Get the observability facade provider."""
+        def _get_observability_facade() -> Any:
+            nonlocal self
+            if self._observability_facade is None:
+                from sprintcycle.infrastructure.adapters.generic.observability.facade import (
+                    ObservabilityFacade
+                )
+                self._observability_facade = ObservabilityFacade()
+            return self._observability_facade
+        return OverrideProvider(_get_observability_facade)
+    
+    @property
+    def diagnostic_adapter(self) -> OverrideProvider:
+        """Get the diagnostic adapter provider."""
+        def _get_diagnostic_adapter() -> Any:
+            nonlocal self
+            if self._diagnostic_adapter is None:
+                from sprintcycle.infrastructure.adapters.generic.observability.diagnostics.adapter import (
+                    DiagnosticAdapter
+                )
+                self._diagnostic_adapter = DiagnosticAdapter()
+            return self._diagnostic_adapter
+        return OverrideProvider(_get_diagnostic_adapter)
+
+
+# =============================================================================
+# Main Container Class
+# =============================================================================
+
+class SprintCycleContainer:
     """
-    SprintCycle 主容器 - 统一管理所有依赖注入
-
-    容器结构：
-    - infrastructure: 核心基础设施（缓存、状态存储）
-    - governance: 治理适配器
-    - integrations: 第三方集成
-    - storage: 持久化存储
-    - observability: 可观测性
-    - runtime_config: 运行时配置
-
-    生命周期策略：
-    - Singleton: 共享实例（配置、缓存、适配器）
-    - Factory: 每次创建新实例（无状态服务）
-    - Callable: 工具函数（编译、转换）
+    Dependency injection container for SprintCycle.
+    
+    Provides access to all application services and dependencies.
+    
+    **Usage:**
+    ```python
+    container = SprintCycleContainer()
+    
+    # Get lifecycle service
+    service = container.lifecycle_service()
+    
+    # Get infrastructure services
+    cache = container.infrastructure.cache_backend()
+    
+    # Get governance services
+    archguard = container.governance.archguard_adapter()
+    
+    # Testing with override
+    with container.infrastructure.cache_backend.override(MockCache()):
+        # Test code
+        pass
+    ```
     """
+    
+    def __init__(self, project_path: str = "."):
+        self._project_path = project_path
+        self._lifecycle_state_machine = None
+        self._lifecycle_service = None
+        
+        # Initialize sub-containers
+        self._infrastructure = InfrastructureContainer(project_path=project_path)
+        self._governance = GovernanceContainer()
+        self._runtime_config_container = RuntimeConfigContainer(project_path=project_path)
+        self._observability = ObservabilityContainer()
+    
+    @property
+    def infrastructure(self) -> InfrastructureContainer:
+        """Get the infrastructure sub-container."""
+        return self._infrastructure
+    
+    @property
+    def governance(self) -> GovernanceContainer:
+        """Get the governance sub-container."""
+        return self._governance
+    
+    @property
+    def runtime_config_container(self) -> RuntimeConfigContainer:
+        """Get the runtime config sub-container."""
+        return self._runtime_config_container
+    
+    @property
+    def observability(self) -> ObservabilityContainer:
+        """Get the observability sub-container."""
+        return self._observability
+    
+    @property
+    def lifecycle_state_machine(self) -> OverrideProvider:
+        """Get the lifecycle state machine provider."""
+        def _get_state_machine() -> Any:
+            nonlocal self
+            if self._lifecycle_state_machine is None:
+                from sprintcycle.domain.core.lifecycle import get_lifecycle_state_machine
+                self._lifecycle_state_machine = get_lifecycle_state_machine()
+            return self._lifecycle_state_machine
+        return OverrideProvider(_get_state_machine)
+    
+    @property
+    def lifecycle_service(self) -> OverrideProvider:
+        """Get the lifecycle service provider."""
+        def _get_lifecycle_service() -> Any:
+            nonlocal self
+            if self._lifecycle_service is None:
+                from sprintcycle.application.services.lifecycle import LifecycleService
+                self._lifecycle_service = LifecycleService(
+                    state_machine=self._lifecycle_state_machine or self.lifecycle_state_machine()
+                )
+            return self._lifecycle_service
+        return OverrideProvider(_get_lifecycle_service)
 
-    config = providers.Configuration()
 
-    infrastructure = providers.Container(CoreInfrastructureContainer)
+# =============================================================================
+# Global Container Instance
+# =============================================================================
 
-    governance = providers.Container(GovernanceAdaptersContainer)
-
-    integrations = providers.Container(IntegrationAdaptersContainer)
-
-    storage = providers.Container(StorageAdaptersContainer)
-
-    observability = providers.Container(ObservabilityAdaptersContainer)
-
-    runtime_config_container = providers.Container(RuntimeConfigContainer)
+container = get_container()
 
 
-_container: Optional[Container] = None
+# =============================================================================
+# Module Exports
+# =============================================================================
 
-
-def create_container(
-    project_path: str = ".",
-    state_store_dir: Optional[str] = None,
-    runtime_config: Optional[Any] = None,
-) -> Container:
-    """
-    创建并配置 SprintCycle 容器
-
-    Args:
-        project_path: 项目根目录路径
-        state_store_dir: 状态存储目录
-        runtime_config: 运行时配置对象
-
-    Returns:
-        Container: 配置好的依赖注入容器
-    """
-    container = Container()
-
-    container.config.runtime.from_value(runtime_config)
-    container.config.project_path.from_value(project_path)
-    container.config.state_store_dir.from_value(state_store_dir)
-
-    return container
-
-
-def get_container() -> Container:
-    """获取全局容器实例"""
-    global _container
-    if _container is None:
-        _container = create_container()
-    return _container
-
-
-container: Container = get_container()
-
+Container = SprintCycleContainer
 
 __all__ = [
+    "SprintCycleContainer",
     "Container",
-    "CoreInfrastructureContainer",
-    "GovernanceAdaptersContainer",
-    "IntegrationAdaptersContainer",
-    "StorageAdaptersContainer",
-    "ObservabilityAdaptersContainer",
-    "RuntimeConfigContainer",
-    "create_container",
     "get_container",
+    "create_container",
     "container",
+    "lifecycle_service",
+    "lifecycle_state_machine",
 ]
+
+
+# =============================================================================
+# Backward-compatible module-level providers
+# =============================================================================
+
+def lifecycle_service() -> Any:
+    """Get the lifecycle service (backward compatible)."""
+    return container.lifecycle_service()
+
+
+def lifecycle_state_machine() -> Any:
+    """Get the lifecycle state machine (backward compatible)."""
+    return container.lifecycle_state_machine()

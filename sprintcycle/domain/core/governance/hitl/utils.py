@@ -1,18 +1,12 @@
-"""HITL 通用工具。"""
+"""HITL 通用工具。
+
+**已精简**：本模块保留用于向后兼容，实际函数已合并到 coordinator.py。
+"""
 
 from __future__ import annotations
 
 from typing import Any, Dict
 
+from .coordinator import compact_dict
 
-def compact_dict(data: Dict[str, Any], max_items: int = 20) -> Dict[str, Any]:
-    if len(data) <= max_items:
-        return dict(data)
-    out = {}
-    for i, (k, v) in enumerate(data.items()):
-        if i >= max_items:
-            break
-        out[k] = v
-    out["_truncated"] = True
-    out["_total_keys"] = len(data)
-    return out
+__all__ = ["compact_dict"]

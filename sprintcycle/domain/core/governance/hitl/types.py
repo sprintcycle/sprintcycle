@@ -211,3 +211,22 @@ def apply_after_sprint_decision(ctx: Dict[str, Any], decision: HitlDecision) -> 
         ctx[CTX_HITL_REQUEST_CHANGES] = True
     elif decision == HitlDecision.RETRY:
         ctx[CTX_HITL_RETRY_TARGET] = "after_sprint"
+
+
+def is_hitl_enabled(config: Any, gate: str) -> bool:
+    try:
+        return hitl_gate_enabled(config, HitlGate(gate))
+    except Exception:
+        return False
+
+
+def get_hitl_timeout_seconds(config: Any) -> int:
+    return int(getattr(config, "hitl_default_timeout_seconds", 300) or 300)
+
+
+def get_hitl_timeout_behavior(config: Any) -> str:
+    return str(getattr(config, "hitl_timeout_behavior", "approve") or "approve")
+
+
+def get_hitl_gates(config: Any):
+    return parse_hitl_gates(getattr(config, "hitl_gates", "") or "")

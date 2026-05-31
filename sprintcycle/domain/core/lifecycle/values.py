@@ -7,13 +7,14 @@ separate identity. They are defined by their attributes.
 - All value objects are frozen dataclasses
 - Equality is based on attribute values
 - No side effects in methods
+- Evidence system is unified - StageEvidence is a simple dict now
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional
 
 
 # =============================================================================
@@ -43,29 +44,6 @@ class StageEvidence:
     present: bool = False
     evidence: Dict[str, Any] = field(default_factory=dict)
 
-    # Stage-specific evidence key requirements
-    EXECUTE_EVIDENCE_KEYS: Tuple[str, ...] = ("trace", "present")
-    OBSERVE_EVIDENCE_KEYS: Tuple[str, ...] = ("trace", "diagnostics", "present")
-    DIAGNOSE_EVIDENCE_KEYS: Tuple[str, ...] = (
-        "root_causes",
-        "repair_ready",
-        "confidence",
-        "recommendations",
-        "present",
-    )
-    REPAIR_EVIDENCE_KEYS: Tuple[str, ...] = (
-        "attempted",
-        "closed_loop",
-        "verify_result",
-        "present",
-    )
-    VERIFY_EVIDENCE_KEYS: Tuple[str, ...] = ("closed_loop", "verify_result", "present")
-    DELIVER_EVIDENCE_KEYS: Tuple[str, ...] = ("outputs", "runtime_linkage", "present")
-    RUNTIME_EVIDENCE_KEYS: Tuple[str, ...] = ("linked", "healthy", "present")
-    GOVERNANCE_EVIDENCE_KEYS: Tuple[str, ...] = ("approved", "present")
-    PROMOTION_EVIDENCE_KEYS: Tuple[str, ...] = ("evidence", "completion_score")
-    EVOLUTION_EVIDENCE_KEYS: Tuple[str, ...] = ("versioned", "version_id", "present")
-
     def with_evidence(self, **kwargs: Any) -> "StageEvidence":
         """Return a new StageEvidence with additional evidence."""
         new_evidence = dict(self.evidence)
@@ -74,37 +52,11 @@ class StageEvidence:
             stage=self.stage, present=self.present or bool(kwargs), evidence=new_evidence
         )
 
-    def get_required_keys(self) -> Tuple[str, ...]:
-        """Get the required evidence keys for this stage."""
-        stage_lower = self.stage.lower()
-        if stage_lower == "execute":
-            return self.EXECUTE_EVIDENCE_KEYS
-        elif stage_lower == "observe":
-            return self.OBSERVE_EVIDENCE_KEYS
-        elif stage_lower == "diagnose":
-            return self.DIAGNOSE_EVIDENCE_KEYS
-        elif stage_lower == "repair":
-            return self.REPAIR_EVIDENCE_KEYS
-        elif stage_lower == "verify":
-            return self.VERIFY_EVIDENCE_KEYS
-        elif stage_lower == "deliver":
-            return self.DELIVER_EVIDENCE_KEYS
-        elif stage_lower in ("runtime", "runtime_linked"):
-            return self.RUNTIME_EVIDENCE_KEYS
-        elif stage_lower in ("governance", "governing"):
-            return self.GOVERNANCE_EVIDENCE_KEYS
-        elif stage_lower == "promotion":
-            return self.PROMOTION_EVIDENCE_KEYS
-        elif stage_lower == "evolution":
-            return self.EVOLUTION_EVIDENCE_KEYS
-        return ()
-
-    def is_complete(self) -> bool:
+    def is_complete(self, required_keys: tuple[str, ...]) -> bool:
         """Check if this stage has all required evidence."""
-        required = self.get_required_keys()
-        if not required:
+        if not required_keys:
             return self.present
-        return all(self.evidence.get(key) for key in required if key != "present")
+        return all(self.evidence.get(key) for key in required_keys if key != "present")
 
 
 @dataclass(frozen=True)
@@ -284,7 +236,7 @@ class RuntimeRef:
 
 
 # =============================================================================
-# Lifecycle Evidence Container
+# Lifecycle Evidence Container (Unified)
 # =============================================================================
 
 
@@ -295,6 +247,11 @@ class LifecycleEvidence:
 
     This value object aggregates evidence from all stages
     and provides convenient access patterns.
+
+    **Unified Design:**
+    - Stages are stored as simple dictionaries for simplicity
+    - Cross-subdomain references are stored directly
+    - Trace, diagnostics, recovery, and suggestion are separate sections
     """
 
     contract: Dict[str, Any] = field(default_factory=dict)

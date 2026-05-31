@@ -138,7 +138,7 @@ ports/ (端口协议定义)
 
 | 子域 | 聚合根 | 值对象 | 领域服务 |
 |------|--------|--------|----------|
-| **lifecycle** | `LifecycleRoot`（不可变设计，Phase-Substage 架构） | `StageEvidence`, `StageHistoryEntry`, `CorrelationContext`, `LifecycleEvidence`, `FailureInfo`, `RuntimeRef`, `GovernanceRef`, `EvolutionRef` | `LifecycleStateMachineService` |
+| **lifecycle** | `LifecycleRoot`（不可变设计，统一状态机 - Phase-Substage 架构） | `StageEvidence`, `StageHistoryEntry`, `CorrelationContext`, `LifecycleEvidence`, `FailureInfo`, `RuntimeRef`, `GovernanceRef`, `EvolutionRef` | `StateTransition` |
 | **execution** | `SprintAggregate`, `ReleasePlanAggregate`（不可变设计） | `TaskResult`, `SprintResult` | - |
 | **evolution** | `EvolutionRequest`, `SandboxSession`（不可变设计） | `VersionArtifact`, `ValidationCheck`, `SandboxSpec`, `GovernanceRef`, `SandboxRef`, `VersionRef` | - |
 | **governance** | `GovernanceSession`, `RuleSetAggregate`（不可变设计） | `GovernanceRule`, `RuleEvaluation`, `Finding`, `VerificationFinding`, `VerificationRule`, `VerificationReport` | - |
@@ -151,12 +151,38 @@ ports/ (端口协议定义)
 4. **事件驱动**：子域间通过 `DomainEvent` 通信，解耦依赖
 5. **ID 引用**：跨聚合引用使用 ID 而非直接对象引用，防止循环依赖
 
-### 3.3 LifecycleRoot Phase-Substage 架构
+### 3.3 LifecycleRoot Phase-Substage 架构与统一状态机
+
+**统一状态机设计：**
+
+`LifecycleStateMachine` 是统一的单一状态机，通过 `context` 参数区分不同上下文：
+
+```python
+# domain/core/lifecycle/state_machine.py
+
+class LifecycleStateMachine:
+    """
+    统一生命周期状态机。
+
+    通过 context 参数区分执行运行时状态和业务生命周期阶段：
+    - context="execution": 使用 EXECUTION_TRANSITIONS 或 TASK_TRANSITIONS
+    - context="lifecycle": 使用 SUBSTAGE_TRANSITIONS
+    """
+    context: str = "lifecycle"
+
+    # Execution context constants
+    EXECUTION_STATES = tuple(s.value for s in ExecutionStatus)
+    EXECUTION_TRANSITIONS = EXECUTION_TRANSITIONS
+    TASK_TRANSITIONS = TASK_TRANSITIONS
+
+    # Lifecycle context constants
+    STAGES = LIFECYCLE_STAGES
+    TRANSITIONS = SUBSTAGE_TRANSITIONS
+```
 
 **Phase-Substage 架构定义：**
 
 ```python
-# domain/core/lifecycle/state_machine.py
 class LifecyclePhase(Enum):
     """生命周期阶段分组"""
     INITIALIZING = "initializing"
@@ -172,27 +198,39 @@ class LifecycleSubstage(Enum):
     NORMALIZED = "normalized"
     PLANNED = "planned"
     DECOMPOSED = "decomposed"
-    
+
     # EXECUTING Phase
     RUNNING = "running"
     OBSERVING = "observing"
     DIAGNOSED = "diagnosed"
     REPAIRING = "repairing"
     VERIFYING = "verifying"
-    
+
     # DELIVERING Phase
     DELIVERING = "delivering"
     RUNTIME_LINKED = "runtime_linked"
-    
+
     # GOVERNING Phase
     GOVERNING = "governing"
     PROMOTION_READY = "promotion_ready"
-    
+
     # TERMINAL Phase
     PROMOTED = "promoted"
     FAILED = "failed"
     ABORTED = "aborted"
     CANCELLED = "cancelled"
+
+class ExecutionStatus(Enum):
+    """执行状态枚举 - 用于任务/执行级状态管理"""
+    PENDING = "pending"
+    RUNNING = "running"
+    PAUSED = "paused"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+    SUCCESS = "success"
+    SKIPPED = "skipped"
+    TIMEOUT = "timeout"
 ```
 
 **Phase-Substage 映射：**
@@ -565,9 +603,11 @@ lifecycle = lifecycle.transition_to(LifecycleSubstage.NORMALIZED)
 | 主入口 | `sprintcycle/api.py` |
 | 组合根 | `sprintcycle/application/composition/http_factory.py` |
 | 聚合根 | `sprintcycle/domain/core/lifecycle/lifecycle_root.py` |
-| 状态机 | `sprintcycle/domain/core/lifecycle/state_machine.py` |
+| 统一状态机 | `sprintcycle/domain/core/lifecycle/state_machine.py` |
 | 领域服务 | `sprintcycle/domain/core/lifecycle/services.py` |
 | 值对象 | `sprintcycle/domain/core/lifecycle/values.py` |
+| 请求数据类 | `sprintcycle/domain/core/lifecycle/requests.py` |
+| 证据常量 | `sprintcycle/domain/core/lifecycle/models.py` |
 | 事件总线 | `sprintcycle/domain/core/events/handlers.py` |
 | 执行聚合 | `sprintcycle/domain/core/execution/aggregates/execution_aggregates.py` |
 | 治理聚合 | `sprintcycle/domain/core/governance/aggregates/governance_aggregates.py` |
@@ -582,6 +622,7 @@ lifecycle = lifecycle.transition_to(LifecycleSubstage.NORMALIZED)
 
 | 版本 | 日期 | 变更说明 |
 |------|------|----------|
+| v6.0 | 2026-06-01 | 统一状态机：合并 ExecutionStateMachine 和 LifecycleStateMachine；移除 LifecycleContract，统一使用 LifecycleRoot；添加 ExecutionStatus 枚举 |
 | v5.0 | 2026-05-31 | 引入 Phase-Substage 架构，完善 LifecycleRoot 设计，更新端口-适配器映射 |
 | v4.0 | 2026-05-27 | 完成六边形架构改造，端口层升级为 `domain/ports/`，组合根移入 `application/composition/` |
 | v3.0 | 2026-05-26 | 引入 DDD 聚合根设计，重构 lifecycle、execution、governance、evolution 子域 |
@@ -590,7 +631,7 @@ lifecycle = lifecycle.transition_to(LifecycleSubstage.NORMALIZED)
 
 ---
 
-> **版本**：v5.0  
-> **更新日期**：2026-05-31  
-> **维护者**：架构团队  
-> **变更说明**：引入 Phase-Substage 架构，完善 LifecycleRoot 聚合根设计，更新端口-适配器映射关系，确保文档与代码实现完全一致
+> **版本**：v6.0
+> **更新日期**：2026-06-01
+> **维护者**：架构团队
+> **变更说明**：统一状态机设计，移除 LifecycleContract，统一使用 LifecycleRoot，添加 ExecutionStatus 枚举，完善 DDD 聚合根设计

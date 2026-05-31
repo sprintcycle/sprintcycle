@@ -2,7 +2,7 @@
 
 [中文](README.md)
 
-**SprintCycle** is a self-evolving contract-driven agile development platform that transforms "natural language requirements" into "traceable software delivery", using `LifecycleContract` to connect the complete closed loop from intent to versioned evolution.
+**SprintCycle** is a self-evolving contract-driven agile development platform that transforms "natural language requirements" into "traceable software delivery", using `LifecycleRoot` to connect the complete closed loop from intent to versioned evolution.
 
 Current Version: **0.9.2** (matches `sprintcycle.__version__`)
 
@@ -25,20 +25,20 @@ SprintCycle is a self-evolving contract-driven agile development platform — tu
 **SprintCycle IS:**
 
 - **Intent-to-delivery closed-loop orchestrator**: Input natural language intent, output versioned deliverables with evidence
-- **Contract-driven**: `LifecycleContract` is the single source of truth across the entire pipeline — from requirements to code to testing to deployment, everything revolves around the same contract
+- **Contract-driven**: `LifecycleRoot` is the single source of truth across the entire pipeline — from requirements to code to testing to deployment, everything revolves around the same root
 - **Self-evolving**: Execute → Observe → Diagnose → Repair → Deliver → Govern → Promote, forming a traceable, replayable, promotable evolution loop
 
 ### Core Problems & Solutions
 
 | Problem | SprintCycle Solution |
 |---------|---------------------|
-| Intent fragmentation: Requirements only exist in chat history, AI doesn't know context, starts from zero each time | `LifecycleContract` is created from the requirement stage, all subsequent phases revolve around the same contract |
+| Intent fragmentation: Requirements only exist in chat history, AI doesn't know context, starts from zero each time | `LifecycleRoot` is created from the requirement stage, all subsequent phases revolve around the same root |
 | Execution fragmentation: AI writes code but has no evidence chain — don't know what changed, why, or if it's correct | Unified state machine + evidence chain, each stage produces verifiable evidence |
 | Evolution fragmentation: No versioned knowledge accumulation, changes are lost after each iteration, cannot build up | Versioned evolution — each promotion writes to version registry |
 
 ### Core Concepts
 
-#### LifecycleContract
+#### LifecycleRoot (Lifecycle Aggregate Root)
 
 The single source of truth across the entire pipeline. Created from intent, flows through all stages, and ultimately becomes versioned evolution.
 
@@ -524,10 +524,11 @@ result = await api.run("Refactor the authentication module")
 ```python
 from sprintcycle.domain.core.lifecycle import (
     LifecycleRoot,
-    LifecycleStage,
-    LifecycleStatus,
+    LifecycleStateMachine,
+    LifecyclePhase,
+    LifecycleSubstage,
+    ExecutionStatus,
     create_lifecycle,
-    LifecycleStateMachineService,
     StageEvidence,
     CorrelationContext,
 )
@@ -540,9 +541,13 @@ lifecycle = create_lifecycle(
     intent="optimize code"
 )
 
-# State transitions (immutable, returns new instance)
-lifecycle = lifecycle.transition_to(LifecycleStage.NORMALIZED)
-lifecycle = lifecycle.transition_to(LifecycleStage.PLANNED)
+# Unified state machine (context parameter switches execution/lifecycle)
+machine = LifecycleStateMachine(context="lifecycle")
+print(machine.STAGES)
+
+# Execution context state machine
+exec_machine = LifecycleStateMachine(context="execution")
+print(exec_machine.EXECUTION_STATES)
 ```
 
 ---
@@ -557,7 +562,7 @@ sprintcycle/
 │   ├── services/               # Core business services (organized by domain)
 │   │   ├── execution/          # Execution-related services (phase_workflow, evaluator_agent)
 │   │   ├── governance/         # Governance-related services (governance_facade, repair_orchestration, suggestion_facade)
-│   │   ├── lifecycle/          # Lifecycle-related services (execution_lifecycle, promotion_policy, web_lifecycle_orchestration)
+│   │   ├── lifecycle/          # Lifecycle-related services (lifecycle_service, delivery_service, hook_service, lifecycle_evolution, promotion_policy_service, recovery_lifecycle_service)
 │   │   ├── evolution/          # Version evolution services (evolution_promotion, evolution_version)
 │   │   ├── dashboard/          # Dashboard view services (dashboard_view, management_overview, platform_summary)
 │   │   ├── observability/      # Observability services
@@ -571,12 +576,13 @@ sprintcycle/
 │       └── orchestration_factory.py # Orchestrator dependency assembly
 ├── domain/                     # Domain models (DDD Domain Layer)
 │   ├── core/                   # Core subdomains
-│   │   ├── lifecycle/          # Lifecycle contracts and state machine (Phase-Substage Architecture)
+│   │   ├── lifecycle/          # Lifecycle contracts and state machine (Unified State Machine - Phase-Substage Architecture)
 │   │   │   ├── lifecycle_root.py    # LifecycleRoot aggregate root (immutable design)
-│   │   │   ├── state_machine.py     # LifecycleStateMachine (Phase-Substage definitions)
-│   │   │   ├── services.py          # LifecycleStateMachineService (domain service)
+│   │   │   ├── state_machine.py     # LifecycleStateMachine (unified, context-switching)
+│   │   │   ├── services.py          # Domain services (StateTransition)
 │   │   │   ├── values.py            # Value objects (StageEvidence, CorrelationContext, GovernanceRef, EvolutionRef, RuntimeRef, LifecycleEvidence, FailureInfo)
-│   │   │   └── models.py            # Business constants
+│   │   │   ├── models.py            # Business constants (evidence schema, stage sequences)
+│   │   │   └── requests.py          # Request data classes (BuildLifecycleRequest, TransitionRequest)
 │   │   ├── execution/          # Execution engine and task orchestration
 │   │   │   ├── aggregates/          # SprintAggregate, ReleasePlanAggregate (immutable design)
 │   │   │   ├── agents/              # 5 Agent types (coder/tester/architect/analyzer/regression_tester)

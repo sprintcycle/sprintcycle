@@ -47,10 +47,25 @@ You are working on SprintCycle, an intent-driven closed-loop production platform
   - `orchestration.py`: RuntimeConfigPort, TraceRuntimePort
 
 ### DDD Aggregate Roots
-- **lifecycle**: `LifecycleRoot` - immutable aggregate root for lifecycle management (Phase-Substage Architecture)
+- **lifecycle**: `LifecycleRoot` - immutable aggregate root for lifecycle management (Unified State Machine with context switching)
 - **execution**: `SprintAggregate`, `ReleasePlanAggregate` - immutable execution aggregates
 - **evolution**: `EvolutionRequest`, `SandboxSession` - immutable evolution aggregates
 - **governance**: `GovernanceSession`, `RuleSetAggregate` - immutable governance aggregates
+
+### Unified State Machine Architecture
+`LifecycleStateMachine` is a single unified state machine that handles both execution and lifecycle contexts:
+
+```python
+# Lifecycle context (Phase-Substage)
+machine = LifecycleStateMachine(context="lifecycle")
+print(machine.STAGES)  # 14 lifecycle stages
+print(machine.TRANSITIONS)  # SUBSTAGE_TRANSITIONS
+
+# Execution context (Runtime states)
+exec_machine = LifecycleStateMachine(context="execution")
+print(exec_machine.EXECUTION_STATES)  # 9 execution states
+print(exec_machine.EXECUTION_TRANSITIONS)  # Execution transitions
+```
 
 ### Phase-Substage Architecture
 `LifecycleRoot` adopts a Phase-Substage architecture for better organization:
@@ -67,7 +82,8 @@ You are working on SprintCycle, an intent-driven closed-loop production platform
 - **evolution**: `VersionArtifact`, `EvolutionEvidence`
 
 ### Domain Services
-- `LifecycleStateMachineService` - stateless service for lifecycle state transitions (Phase-Substage Architecture)
+- `StateTransition` - state transition record in `services.py`
+- `LifecycleStateMachine` - unified state machine with context switching (Phase-Substage + Execution)
 - `EventBus` - event publish/subscribe mechanism for inter-subdomain communication
 
 ### Non-negotiable boundaries
@@ -84,6 +100,7 @@ You are working on SprintCycle, an intent-driven closed-loop production platform
 - **Do not use direct object references between aggregates; use ID references instead.**
 - **Do not access infrastructure implementations directly from application layer; use port protocols.**
 - **Do not bypass Phase-Substage architecture in LifecycleRoot; follow the defined phase transitions.**
+- **Do not introduce ExecutionStateMachine; use LifecycleStateMachine with context="execution" instead.**
 
 ### Layer ownership (DDD Hexagonal Architecture)
 - **`api.py`**: thin public facade for normalization, routing, delegation, and aggregation.
@@ -328,10 +345,25 @@ You are working on SprintCycle, an intent-driven closed-loop production platform
   - `orchestration.py`: RuntimeConfigPort, TraceRuntimePort
 
 ### DDD 聚合根
-- **lifecycle**：`LifecycleRoot` - 生命周期管理的不可变聚合根
+- **lifecycle**：`LifecycleRoot` - 生命周期管理的不可变聚合根（统一状态机，context 切换）
 - **execution**：`SprintAggregate`、`ReleasePlanAggregate` - 不可变执行聚合
 - **evolution**：`EvolutionRequest`、`SandboxSession` - 不可变演化聚合
 - **governance**：`GovernanceSession`、`RuleSetAggregate` - 不可变治理聚合
+
+### 统一状态机架构
+`LifecycleStateMachine` 是统一的单一状态机，通过 `context` 参数处理执行和生命周期两种上下文：
+
+```python
+# 生命周期上下文 (Phase-Substage)
+machine = LifecycleStateMachine(context="lifecycle")
+print(machine.STAGES)  # 14 个生命周期阶段
+print(machine.TRANSITIONS)  # SUBSTAGE_TRANSITIONS
+
+# 执行上下文 (运行时状态)
+exec_machine = LifecycleStateMachine(context="execution")
+print(exec_machine.EXECUTION_STATES)  # 9 个执行状态
+print(exec_machine.EXECUTION_TRANSITIONS)  # 执行转换
+```
 
 ### DDD 值对象
 - **lifecycle**：`StageEvidence`、`CorrelationContext`、`LifecycleEvidence`、`FailureInfo`、`RuntimeRef`、`GovernanceRef`、`EvolutionRef`
@@ -340,7 +372,8 @@ You are working on SprintCycle, an intent-driven closed-loop production platform
 - **evolution**：`VersionArtifact`、`EvolutionEvidence`
 
 ### 领域服务
-- `LifecycleStateMachineService` - 生命周期状态转换的无状态服务
+- `StateTransition` - 状态转换记录，位于 `services.py`
+- `LifecycleStateMachine` - 统一状态机，支持 context 切换（Phase-Substage + Execution）
 - `EventBus` - 子域间通信的事件发布/订阅机制
 
 ### 不可协商的边界
@@ -356,6 +389,8 @@ You are working on SprintCycle, an intent-driven closed-loop production platform
 - **不要使聚合根可变；所有状态更改必须返回新实例。**
 - **不要在聚合之间使用直接对象引用；而是使用 ID 引用。**
 - **不要从应用层直接访问基础设施实现；使用端口协议。**
+- **不要绕过 LifecycleRoot 的 Phase-Substage 架构；遵循定义的阶段转换。**
+- **不要引入 ExecutionStateMachine；改用 context="execution" 的 LifecycleStateMachine。**
 
 ### 层所有权（DDD 六边形架构）
 - **`api.py`**：用于归一化、路由、委托和聚合的简洁公共门面。
