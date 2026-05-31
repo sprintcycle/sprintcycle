@@ -20,7 +20,7 @@
 |------|--------|------|
 | `domain/core/execution` | 80+ | 执行引擎、状态管理、事件总线、agents、hooks、orchestrator、聚合根 |
 | `domain/core/governance` | 78+ | 治理、HITL、建议、版本控制、arch_guard、聚合根、验证引擎 |
-| `domain/core/lifecycle` | 10+ | 生命周期契约、状态机、聚合根、值对象、领域服务 |
+| `domain/core/lifecycle` | 10+ | 生命周期契约、状态机（Phase-Substage 架构）、聚合根、值对象、领域服务 |
 | `infrastructure` | 62+ | 配置、持久化、集成、部署、可观测性适配器 |
 | `application` | 47 | 服务编排（按领域组织：lifecycle、governance、evolution、dashboard） |
 | `interfaces/http` | 14 | HTTP 接口层（dashboard 按领域划分路由） |
@@ -65,7 +65,7 @@
 | **infrastructure** | 最内层 | 数据库、缓存、外部集成、适配器实现 | 输出端口适配器 |
 
 **领域层子域划分：**
-- **Core Domains（核心子域）**: lifecycle, execution, evolution, governance（含 verification）
+- **Core Domains（核心子域）**: lifecycle（Phase-Substage 架构）, execution, evolution, governance（含 verification）
 - **Supporting Domains（支撑子域）**: intent, fitness  
 - **Generic Domains（通用子域）**: errors, prompts, models, platform, interfaces
 - **Ports（端口层）**: `domain/ports/` - 所有外部依赖的协议接口定义（17个端口）
@@ -113,15 +113,15 @@ ports/ (端口协议定义)
 | `ObservabilityFacadeProtocol` | `domain/ports/observability.py` | `ObservabilityFacade` | `infrastructure/adapters/generic/observability/` |
 | `RuntimeRegistryProtocol` | `domain/ports/registry.py` | `RuntimeRegistry` | `infrastructure/adapters/generic/config/runtime_registry.py` |
 | `KnowledgeRepositoryProtocol` | `domain/ports/knowledge.py` | `KnowledgeRepository` | `infrastructure/adapters/generic/knowledge/` |
-| `EvolutionPort` | `domain/ports/evolution.py` | `EvolutionAdapter` | `infrastructure/adapters/core/evolution/` |
-| `HitlPort` | `domain/ports/hitl.py` | `HitlAdapter` | `infrastructure/adapters/core/governance/hitl/` |
+| `EvolutionRegistryProtocol` | `domain/ports/evolution.py` | `EvolutionAdapter` | `infrastructure/adapters/core/evolution/` |
+| `HitlStoreProtocol` | `domain/ports/hitl.py` | `HitlAdapter` | `infrastructure/adapters/core/governance/hitl/` |
 | `AuditPort` | `domain/ports/audit.py` | `AuditAdapter` | `infrastructure/adapters/generic/observability/` |
-| `RuntimeConfigPort` | `domain/ports/config.py` | `RuntimeConfigAdapter` | `infrastructure/adapters/generic/config/` |
-| `DeployPort` | `domain/ports/deploy.py` | `DeployAdapter` | `infrastructure/adapters/generic/deploy/` |
+| `RuntimeConfigProtocol` | `domain/ports/config.py` | `RuntimeConfigAdapter` | `infrastructure/adapters/generic/config/` |
+| `PlatformLaunchServiceProtocol` | `domain/ports/deploy.py` | `DeployAdapter` | `infrastructure/adapters/generic/deploy/` |
 | `RateLimitPort` | `domain/ports/rate_limit.py` | `RateLimitAdapter` | `infrastructure/adapters/generic/observability/` |
-| `DiagnosticsPort` | `domain/ports/diagnostics.py` | `DiagnosticsAdapter` | `infrastructure/adapters/generic/observability/` |
-| `SuggestionPort` | `domain/ports/suggestion.py` | `SuggestionAdapter` | `infrastructure/adapters/core/governance/suggestion/` |
-| `OrchestrationPort` | `domain/ports/orchestration.py` | `OrchestrationAdapter` | `infrastructure/adapters/core/orchestration/` |
+| `DiagnosticPort` | `domain/ports/diagnostics.py` | `DiagnosticsAdapter` | `infrastructure/adapters/generic/observability/` |
+| `SuggestionStoreProtocol` | `domain/ports/suggestion.py` | `SuggestionAdapter` | `infrastructure/adapters/core/governance/suggestion/` |
+| `RuntimeConfigPort`, `TraceRuntimePort` | `domain/ports/orchestration.py` | `OrchestrationAdapter` | `infrastructure/adapters/core/orchestration/` |
 
 **禁止**：
 - domain 层依赖 application 层或 interfaces 层
@@ -138,7 +138,7 @@ ports/ (端口协议定义)
 
 | 子域 | 聚合根 | 值对象 | 领域服务 |
 |------|--------|--------|----------|
-| **lifecycle** | `LifecycleRoot`（不可变设计） | `StageEvidence`, `StageHistoryEntry`, `CorrelationContext`, `LifecycleEvidence`, `FailureInfo`, `RuntimeRef`, `GovernanceRef`, `EvolutionRef` | `LifecycleStateMachineService` |
+| **lifecycle** | `LifecycleRoot`（不可变设计，Phase-Substage 架构） | `StageEvidence`, `StageHistoryEntry`, `CorrelationContext`, `LifecycleEvidence`, `FailureInfo`, `RuntimeRef`, `GovernanceRef`, `EvolutionRef` | `LifecycleStateMachineService` |
 | **execution** | `SprintAggregate`, `ReleasePlanAggregate`（不可变设计） | `TaskResult`, `SprintResult` | - |
 | **evolution** | `EvolutionRequest`, `SandboxSession`（不可变设计） | `VersionArtifact`, `ValidationCheck`, `SandboxSpec`, `GovernanceRef`, `SandboxRef`, `VersionRef` | - |
 | **governance** | `GovernanceSession`, `RuleSetAggregate`（不可变设计） | `GovernanceRule`, `RuleEvaluation`, `Finding`, `VerificationFinding`, `VerificationRule`, `VerificationReport` | - |
@@ -146,11 +146,66 @@ ports/ (端口协议定义)
 ### 3.2 聚合根设计原则
 
 1. **不可变设计**：所有状态修改返回新实例，保证线程安全（使用 `@dataclass(frozen=True)`）
-2. **值对象**：无身份标识，通过属性值相等判断
-3. **事件驱动**：子域间通过 `DomainEvent` 通信，解耦依赖
-4. **ID 引用**：跨聚合引用使用 ID 而非直接对象引用，防止循环依赖
+2. **Phase-Substage 架构**：`LifecycleRoot` 采用阶段-子阶段分层架构，提供更好的组织结构
+3. **值对象**：无身份标识，通过属性值相等判断
+4. **事件驱动**：子域间通过 `DomainEvent` 通信，解耦依赖
+5. **ID 引用**：跨聚合引用使用 ID 而非直接对象引用，防止循环依赖
 
-### 3.3 领域事件系统
+### 3.3 LifecycleRoot Phase-Substage 架构
+
+**Phase-Substage 架构定义：**
+
+```python
+# domain/core/lifecycle/state_machine.py
+class LifecyclePhase(Enum):
+    """生命周期阶段分组"""
+    INITIALIZING = "initializing"
+    EXECUTING = "executing"
+    DELIVERING = "delivering"
+    GOVERNING = "governing"
+    TERMINAL = "terminal"
+
+class LifecycleSubstage(Enum):
+    """生命周期子阶段"""
+    # INITIALIZING Phase
+    NEW = "new"
+    NORMALIZED = "normalized"
+    PLANNED = "planned"
+    DECOMPOSED = "decomposed"
+    
+    # EXECUTING Phase
+    RUNNING = "running"
+    OBSERVING = "observing"
+    DIAGNOSED = "diagnosed"
+    REPAIRING = "repairing"
+    VERIFYING = "verifying"
+    
+    # DELIVERING Phase
+    DELIVERING = "delivering"
+    RUNTIME_LINKED = "runtime_linked"
+    
+    # GOVERNING Phase
+    GOVERNING = "governing"
+    PROMOTION_READY = "promotion_ready"
+    
+    # TERMINAL Phase
+    PROMOTED = "promoted"
+    FAILED = "failed"
+    ABORTED = "aborted"
+    CANCELLED = "cancelled"
+```
+
+**Phase-Substage 映射：**
+
+| Phase | Substages |
+|-------|-----------|
+| INITIALIZING | NEW → NORMALIZED → PLANNED → DECOMPOSED |
+| EXECUTING | RUNNING → OBSERVING → DIAGNOSED → REPAIRING → VERIFYING |
+| DELIVERING | DELIVERING → RUNTIME_LINKED |
+| GOVERNING | GOVERNING → PROMOTION_READY |
+| TERMINAL | PROMOTED, FAILED, ABORTED, CANCELLED |
+
+### 3.4 领域事件系统
 
 | 事件基类 | 位置 | 说明 |
 |----------|------|------|
@@ -175,8 +230,8 @@ SprintCycle 不可替代的核心功能：
 | 能力 | 位置 | 说明 |
 |------|------|------|
 | 阶段编排 | `application/services/execution/phase_workflow.py` | 统一执行流程编排 |
-| 状态机 | `domain/core/lifecycle/services.py` | 18 个生命周期阶段定义 |
-| 聚合根 | `domain/core/lifecycle/lifecycle_root.py` | `LifecycleRoot` 不可变聚合根 |
+| 状态机 | `domain/core/lifecycle/state_machine.py` | Phase-Substage 架构定义 |
+| 聚合根 | `domain/core/lifecycle/lifecycle_root.py` | `LifecycleRoot` 不可变聚合根（Phase-Substage 架构） |
 | 恢复机制 | `application/services/governance/repair_orchestration_service.py` | 失败自动恢复路由 |
 | 证据收集 | `domain/core/lifecycle/values.py` | `StageEvidence` 值对象 |
 
@@ -244,12 +299,19 @@ SprintCycle 不可替代的核心功能：
 ### 6.1 生命周期契约
 
 ```python
+# Phase-Substage 架构
+class LifecyclePhase(Enum):
+    INITIALIZING = "initializing"
+    EXECUTING = "executing"
+    DELIVERING = "delivering"
+    GOVERNING = "governing"
+    TERMINAL = "terminal"
+
 # 阶段序列（不可更改顺序）
-REQUIRED_STAGE_SEQUENCE = (
-    "new", "normalized", "planned", "prepared", "decomposed",
-    "executing", "observing", "diagnosed", "repairing", "verifying",
-    "delivering", "runtime_linked", "governing", "promotion_ready", "promoted"
-)
+INITIALIZING_SEQUENCE = (NEW, NORMALIZED, PLANNED, DECOMPOSED)
+EXECUTING_SEQUENCE = (RUNNING, OBSERVING, DIAGNOSED, REPAIRING, VERIFYING)
+DELIVERING_SEQUENCE = (DELIVERING, RUNTIME_LINKED)
+GOVERNING_SEQUENCE = (GOVERNING, PROMOTION_READY)
 
 # 阶段证据 schema
 STAGE_EVIDENCE_SCHEMA = {
@@ -265,13 +327,12 @@ STAGE_EVIDENCE_SCHEMA = {
 ### 6.2 状态机契约
 
 ```python
-# 状态转移规则（部分）
-STAGE_TRANSITIONS = {
-    "new": ("normalized", "failed", "cancelled"),
-    "executing": ("observing", "diagnosed", "delivering", "failed", "cancelled"),
-    "governing": ("promotion_ready", "failed", "cancelled"),
-    "promotion_ready": ("promoted", "failed", "cancelled"),
-    ...
+# 状态转移规则（Phase-Substage 架构）
+PHASE_TRANSITIONS = {
+    LifecyclePhase.INITIALIZING: (LifecyclePhase.EXECUTING, LifecyclePhase.TERMINAL),
+    LifecyclePhase.EXECUTING: (LifecyclePhase.DELIVERING, LifecyclePhase.TERMINAL),
+    LifecyclePhase.DELIVERING: (LifecyclePhase.GOVERNING, LifecyclePhase.TERMINAL),
+    LifecyclePhase.GOVERNING: (LifecyclePhase.TERMINAL,),
 }
 
 # 恢复路由
@@ -286,14 +347,15 @@ RECOVERY_TARGETS = {
 ### 6.3 聚合根契约
 
 ```python
-# LifecycleRoot 聚合根核心字段
+# LifecycleRoot 聚合根核心字段（Phase-Substage 架构）
 @dataclass(frozen=True)
 class LifecycleRoot:
     contract_id: str
     execution_id: str
     task_id: str
     project_path: str
-    stage: LifecycleStage
+    phase: LifecyclePhase          # 当前阶段
+    substage: LifecycleSubstage    # 当前子阶段
     status: LifecycleStatus
     intent: str
     evidence: LifecycleEvidence
@@ -321,6 +383,7 @@ class LifecycleRoot:
 | `aggregate:immutable` | 聚合根必须使用不可变设计 | error |
 | `aggregate:identity` | 聚合根必须有唯一标识 | error |
 | `aggregate:value_object` | 值对象必须通过属性值相等判断 | error |
+| `aggregate:phase_substage` | LifecycleRoot 必须遵循 Phase-Substage 架构 | error |
 
 ### 7.3 依赖规则
 
@@ -340,11 +403,12 @@ class LifecycleRoot:
 **位置**：`domain/core/lifecycle/lifecycle_root.py`
 
 ```python
-# 聚合根模式
+# 聚合根模式（Phase-Substage 架构）
 class LifecycleRoot:
-    def transition_to(self, stage: LifecycleStage) -> LifecycleRoot:
+    def transition_to(self, substage: LifecycleSubstage) -> LifecycleRoot:
         # 返回新实例（不可变设计）
-        return LifecycleRoot(..., stage=stage)
+        # 验证 Phase-Substage 转换规则
+        return LifecycleRoot(..., substage=substage)
 ```
 
 ### 8.2 观察者模式（Event-Driven）
@@ -391,8 +455,8 @@ class RuntimeConfigAdapter(RuntimeConfigPort):
 
 ```python
 # 组合根 - 依赖注入组装
-class HttpFactory:
-    def create_app(self) -> FastAPI:
+class InfrastructureFactory:
+    def _register_infrastructure_factories(self) -> None:
         # 注册基础设施适配器（通过端口工厂）
         # 创建应用服务（依赖端口接口）
         # 返回配置好的应用
@@ -421,7 +485,7 @@ class HttpFactory:
 ### 9.2 DDD 聚合根 API
 
 ```python
-# 创建聚合根
+# 创建聚合根（Phase-Substage 架构）
 lifecycle = create_lifecycle(
     execution_id="exec-123",
     task_id="task-456",
@@ -430,7 +494,7 @@ lifecycle = create_lifecycle(
 )
 
 # 状态转换（不可变）
-lifecycle = lifecycle.transition_to(LifecycleStage.NORMALIZED)
+lifecycle = lifecycle.transition_to(LifecycleSubstage.NORMALIZED)
 ```
 
 ---
@@ -452,7 +516,8 @@ lifecycle = lifecycle.transition_to(LifecycleStage.NORMALIZED)
 1. **必须**：聚合根使用不可变设计（frozen dataclass）
 2. **必须**：状态修改返回新实例
 3. **必须**：跨聚合引用使用 ID
-4. **禁止**：聚合根直接引用其他聚合根
+4. **必须**：LifecycleRoot 遵循 Phase-Substage 架构
+5. **禁止**：聚合根直接引用其他聚合根
 
 ### 10.3 事件规范
 
@@ -473,6 +538,7 @@ lifecycle = lifecycle.transition_to(LifecycleStage.NORMALIZED)
 | 绕过 Hook 直接修改状态 | 破坏扩展机制 |
 | composition 层包含业务逻辑 | 违反组合根模式 |
 | application 层直接依赖基础设施实现 | 违反端口-适配器模式 |
+| 破坏 Phase-Substage 架构 | 破坏状态机设计 |
 
 ### 11.2 聚合根破坏
 
@@ -481,6 +547,7 @@ lifecycle = lifecycle.transition_to(LifecycleStage.NORMALIZED)
 | 修改聚合根的可变字段 | 破坏不可变设计 |
 | 跨聚合直接引用对象 | 破坏 ID 引用原则 |
 | 删除聚合根必需字段 | 破坏聚合契约 |
+| 绕过 Phase-Substage 转换规则 | 破坏状态机架构 |
 
 ### 11.3 事件破坏
 
@@ -498,6 +565,7 @@ lifecycle = lifecycle.transition_to(LifecycleStage.NORMALIZED)
 | 主入口 | `sprintcycle/api.py` |
 | 组合根 | `sprintcycle/application/composition/http_factory.py` |
 | 聚合根 | `sprintcycle/domain/core/lifecycle/lifecycle_root.py` |
+| 状态机 | `sprintcycle/domain/core/lifecycle/state_machine.py` |
 | 领域服务 | `sprintcycle/domain/core/lifecycle/services.py` |
 | 值对象 | `sprintcycle/domain/core/lifecycle/values.py` |
 | 事件总线 | `sprintcycle/domain/core/events/handlers.py` |
@@ -514,6 +582,7 @@ lifecycle = lifecycle.transition_to(LifecycleStage.NORMALIZED)
 
 | 版本 | 日期 | 变更说明 |
 |------|------|----------|
+| v5.0 | 2026-05-31 | 引入 Phase-Substage 架构，完善 LifecycleRoot 设计，更新端口-适配器映射 |
 | v4.0 | 2026-05-27 | 完成六边形架构改造，端口层升级为 `domain/ports/`，组合根移入 `application/composition/` |
 | v3.0 | 2026-05-26 | 引入 DDD 聚合根设计，重构 lifecycle、execution、governance、evolution 子域 |
 | v2.1 | 2026-05-25 | 适配器与工厂分离 |
@@ -521,7 +590,7 @@ lifecycle = lifecycle.transition_to(LifecycleStage.NORMALIZED)
 
 ---
 
-> **版本**：v4.0  
-> **更新日期**：2026-05-27  
+> **版本**：v5.0  
+> **更新日期**：2026-05-31  
 > **维护者**：架构团队  
-> **变更说明**：完成六边形架构改造，端口层从 `domain/generic/ports/` 升级为 `domain/ports/`，组合根从独立目录移入 `application/composition/`，完善端口-适配器模式实现，17个端口定义完整
+> **变更说明**：引入 Phase-Substage 架构，完善 LifecycleRoot 聚合根设计，更新端口-适配器映射关系，确保文档与代码实现完全一致

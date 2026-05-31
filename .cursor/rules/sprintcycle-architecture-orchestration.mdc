@@ -47,10 +47,18 @@ You are working on SprintCycle, an intent-driven closed-loop production platform
   - `orchestration.py`: RuntimeConfigPort, TraceRuntimePort
 
 ### DDD Aggregate Roots
-- **lifecycle**: `LifecycleRoot` - immutable aggregate root for lifecycle management
+- **lifecycle**: `LifecycleRoot` - immutable aggregate root for lifecycle management (Phase-Substage Architecture)
 - **execution**: `SprintAggregate`, `ReleasePlanAggregate` - immutable execution aggregates
 - **evolution**: `EvolutionRequest`, `SandboxSession` - immutable evolution aggregates
 - **governance**: `GovernanceSession`, `RuleSetAggregate` - immutable governance aggregates
+
+### Phase-Substage Architecture
+`LifecycleRoot` adopts a Phase-Substage architecture for better organization:
+- **INITIALIZING Phase**: NEW → NORMALIZED → PLANNED → DECOMPOSED
+- **EXECUTING Phase**: RUNNING → OBSERVING → DIAGNOSED → REPAIRING → VERIFYING
+- **DELIVERING Phase**: DELIVERING → RUNTIME_LINKED
+- **GOVERNING Phase**: GOVERNING → PROMOTION_READY
+- **TERMINAL Phase**: PROMOTED, FAILED, ABORTED, CANCELLED
 
 ### DDD Value Objects
 - **lifecycle**: `StageEvidence`, `CorrelationContext`, `LifecycleEvidence`, `FailureInfo`, `RuntimeRef`, `GovernanceRef`, `EvolutionRef`
@@ -59,7 +67,7 @@ You are working on SprintCycle, an intent-driven closed-loop production platform
 - **evolution**: `VersionArtifact`, `EvolutionEvidence`
 
 ### Domain Services
-- `LifecycleStateMachineService` - stateless service for lifecycle state transitions
+- `LifecycleStateMachineService` - stateless service for lifecycle state transitions (Phase-Substage Architecture)
 - `EventBus` - event publish/subscribe mechanism for inter-subdomain communication
 
 ### Non-negotiable boundaries
@@ -75,6 +83,7 @@ You are working on SprintCycle, an intent-driven closed-loop production platform
 - **Do not make Aggregate Roots mutable; all state changes must return new instances.**
 - **Do not use direct object references between aggregates; use ID references instead.**
 - **Do not access infrastructure implementations directly from application layer; use port protocols.**
+- **Do not bypass Phase-Substage architecture in LifecycleRoot; follow the defined phase transitions.**
 
 ### Layer ownership (DDD Hexagonal Architecture)
 - **`api.py`**: thin public facade for normalization, routing, delegation, and aggregation.
@@ -122,6 +131,7 @@ You are working on SprintCycle, an intent-driven closed-loop production platform
 - **All state transitions must return new instances**
 - **Cross-aggregate references must use ID references**, not direct object references
 - **Aggregate Roots must have a unique identity** (e.g., `contract_id`, `execution_id`)
+- **LifecycleRoot must follow Phase-Substage Architecture** with proper phase and substage transitions
 
 ### Value Object Rules
 - **Value Objects have no identity** - equality is based on attribute values

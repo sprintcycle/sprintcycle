@@ -48,14 +48,31 @@ Intent → Contract → Plan → Execute → Observe → Repair → Deliver → 
 
 #### LifecycleStage
 
-18 stages covering the complete closed loop from "new requirement" to "promoted":
+Adopts **Phase-Substage Architecture**, covering the complete closed loop from "new requirement" to "promoted":
 
+**INITIALIZING Phase**:
 ```text
-NEW → NORMALIZED → PLANNED → PREPARED → DECOMPOSED → EXECUTING
-   ↕                                                    ↕
-OBSERVING ← VERIFYING ← REPAIRING ← DIAGNOSED         │
-   ↓                                                     │
-DELIVERING → RUNTIME_LINKED → GOVERNING → PROMOTION_READY → PROMOTED
+NEW → NORMALIZED → PLANNED → DECOMPOSED
+```
+
+**EXECUTING Phase**:
+```text
+RUNNING → OBSERVING → DIAGNOSED → REPAIRING → VERIFYING
+```
+
+**DELIVERING Phase**:
+```text
+DELIVERING → RUNTIME_LINKED
+```
+
+**GOVERNING Phase**:
+```text
+GOVERNING → PROMOTION_READY
+```
+
+**TERMINAL Phase**:
+```text
+PROMOTED, FAILED, ABORTED, CANCELLED
 ```
 
 **Key recovery path**: Failure at any stage → DIAGNOSED → REPAIRING → VERIFYING → OBSERVING → Continue
@@ -147,7 +164,7 @@ It's not about making AI write code faster — it's about making every line of c
 
 | Version | Milestone | Status |
 |---------|-----------|--------|
-| 0.9.x | Hexagonal Architecture completed, DDD Aggregate Root design | ✅ Current |
+| 0.9.x | Hexagonal Architecture completed, DDD Aggregate Root design, Phase-Substage Architecture | ✅ Current |
 | 1.0.0 | OpenHands integration + production ready | ⏳ |
 | 1.1.0 | Multi-project workspace support | 🔮 |
 | 2.0.0 | Self-evolving closed loop validation (measurement → evolution automatic cycle) | 🔮 |
@@ -165,7 +182,7 @@ Hexagonal Architecture (Ports & Adapters) + DDD (Domain-Driven Design), 4-layer 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    interfaces/http/                        │ ← Input Port Adapters
-│   (dashboard/[execution, governance, lifecycle,           │
+│   (HTTP API: dashboard/[execution, governance, lifecycle, │
 │    hitl, suggestions] / public/ / middleware/)            │
 ├─────────────────────────────────────────────────────────────┤
 │                     application/                           │ ← Application Services
@@ -199,7 +216,7 @@ Intent → Normalize → Plan → Prepare → Decompose → Execute → Observe 
 
 - **Intent-driven**: Start from natural language intent and generate executable plans
 - **Unified contract**: `LifecycleContract` is the single source of truth for lifecycle facts
-- **Unified state machine**: `LifecycleStateMachine` defines canonical lifecycle stages and transitions
+- **Unified state machine**: `LifecycleStateMachine` defines canonical lifecycle stages and transitions (Phase-Substage Architecture)
 - **Unified recovery**: any failed stage can route into `repair → verify → observe`
 - **Unified final snapshot**: `final_snapshot` captures the complete, promotable end state of an iteration
 - **Unified promotion gate**: promotion only accepts evidence-complete contracts with a valid final snapshot
@@ -219,7 +236,7 @@ SprintCycle follows DDD Hexagonal Architecture with subdomain partitioning:
 
 | Subdomain | Responsibility | Aggregate Roots | Value Objects |
 |-----------|---------------|-----------------|---------------|
-| **lifecycle** | Lifecycle contracts and state machine | `LifecycleRoot` | `StageEvidence`, `CorrelationContext`, `LifecycleEvidence`, `FailureInfo`, `RuntimeRef`, `GovernanceRef`, `EvolutionRef` |
+| **lifecycle** | Lifecycle contracts and state machine (Phase-Substage Architecture) | `LifecycleRoot` | `StageEvidence`, `CorrelationContext`, `LifecycleEvidence`, `FailureInfo`, `RuntimeRef`, `GovernanceRef`, `EvolutionRef` |
 | **execution** | Execution engine and task orchestration | `SprintAggregate`, `ReleasePlanAggregate` | `TaskResult`, `SprintResult` |
 | **evolution** | Version evolution and promotion | `EvolutionRequest`, `SandboxSession` | `VersionArtifact`, `EvolutionEvidence` |
 | **governance** | Governance and suggestion handling (includes verification engine) | `GovernanceSession`, `RuleSetAggregate` | `GovernanceRule`, `RuleEvaluation`, `Finding`, `VerificationFinding`, `VerificationRule`, `VerificationReport` |
@@ -250,33 +267,34 @@ All external dependency interfaces are defined in `domain/ports/` (17 ports):
 | `state_store.py` | `StateStoreProtocol` | State persistence |
 | `llm.py` | `EngineAdapterProtocol` | LLM engine calls |
 | `cache.py` | `CacheBackendProtocol` | Cache services |
-| `governance.py` | `ArchGuardAdapterProtocol` | Architecture guard checks |
+| `governance.py` | `ArchGuardAdapterProtocol`, `GrimpAdapterProtocol`, `ImportLinterAdapterProtocol`, `RuffAdapterProtocol`, `TypeCheckAdapterProtocol` | Architecture guard checks |
 | `observability.py` | `ObservabilityFacadeProtocol` | Observability integration |
 | `registry.py` | `RuntimeRegistryProtocol` | Runtime registration |
 | `knowledge.py` | `KnowledgeRepositoryProtocol` | Knowledge management |
-| `evolution.py` | `EvolutionPort` | Version evolution |
-| `hitl.py` | `HitlPort` | Human-in-the-loop |
+| `evolution.py` | `EvolutionRegistryProtocol`, `VersionManifestProtocol` | Version evolution |
+| `hitl.py` | `HitlStoreProtocol` | Human-in-the-loop |
 | `audit.py` | `AuditPort` | Audit logging |
-| `config.py` | `RuntimeConfigPort` | Runtime configuration |
-| `deploy.py` | `DeployPort` | Deployment services |
+| `config.py` | `RuntimeConfigProtocol` | Runtime configuration |
+| `deploy.py` | `PlatformLaunchServiceProtocol` | Deployment services |
 | `rate_limit.py` | `RateLimitPort` | Rate limiting |
-| `diagnostics.py` | `DiagnosticsPort` | Diagnostics services |
-| `integrations.py` | Multiple integration ports | Third-party integrations |
-| `suggestion.py` | `SuggestionPort` | Suggestion system |
-| `orchestration.py` | Multiple orchestration ports | Execution orchestration |
+| `diagnostics.py` | `DiagnosticPort` | Diagnostics services |
+| `integrations.py` | `LangGraphRuntimeAdapterProtocol`, `PhoenixTraceRuntimeProtocol`, etc. | Third-party integrations |
+| `suggestion.py` | `SuggestionStoreProtocol` | Suggestion system |
+| `orchestration.py` | `RuntimeConfigPort`, `TraceRuntimePort` | Execution orchestration |
 
 ### Aggregate Root Design Principles
 
 1. **Immutable Design**: All state modifications return new instances for thread safety
-2. **Value Objects**: No identity, equality based on attribute values
-3. **Event-Driven**: Subdomains communicate via `DomainEvent` for decoupling
-4. **ID References**: Cross-aggregate references use IDs instead of direct object references to prevent circular dependencies
+2. **Phase-Substage Architecture**: `LifecycleRoot` adopts phase-substage layered architecture for better organization
+3. **Value Objects**: No identity, equality based on attribute values
+4. **Event-Driven**: Subdomains communicate via `DomainEvent` for decoupling
+5. **ID References**: Cross-aggregate references use IDs instead of direct object references to prevent circular dependencies
 
 ### Domain Services
 
 | Service | Responsibility | Location |
 |---------|---------------|----------|
-| `LifecycleStateMachineService` | State machine transition rules | `domain/core/lifecycle/services.py` |
+| `LifecycleStateMachineService` | State machine transition rules (Phase-Substage Architecture) | `domain/core/lifecycle/services.py` |
 | `EventBus` | Event publish/subscribe mechanism | `domain/core/events/handlers.py` |
 
 ### Port-Adapters Pattern
@@ -294,6 +312,23 @@ class SqliteStateStore(StateStoreProtocol):
         ...
 ```
 
+### Composition Root Pattern
+
+```python
+# application/composition/http_factory.py
+class InfrastructureFactory:
+    """Infrastructure factory registrar - responsible for registering all Domain layer Infrastructure factory functions"""
+    
+    def _register_infrastructure_factories(self) -> None:
+        # Register state store factory
+        register_state_store_factory(create_state_store)
+        # Register cache factory
+        register_cache_backend_factory(create_cache_backend)
+        # Register config factory
+        register_runtime_config_factory(create_runtime_config)
+        # ... more factory registrations
+```
+
 ---
 
 ## Key Capabilities
@@ -302,11 +337,11 @@ class SqliteStateStore(StateStoreProtocol):
 - Describe goals in natural language
 - Generate Release Plans (YAML / structured plans)
 - Support sprint orchestration, checkpoint resume, and recovery
-- Support normalized lifecycle stage transitions
-- **DDD Aggregate Root**: `LifecycleRoot` serves as the lifecycle domain aggregate root with immutable design
+- Support normalized lifecycle stage transitions (Phase-Substage Architecture)
+- **DDD Aggregate Root**: `LifecycleRoot` serves as the lifecycle domain aggregate root with immutable design and Phase-Substage Architecture
 
 ### 2. Standard lifecycle contract
-- `LifecycleStateMachine` owns the canonical stage transition rules
+- `LifecycleStateMachine` owns the canonical stage transition rules (Phase-Substage Architecture)
 - `LifecycleContract` carries cross-service state facts
 - A unified correlation model links `execution_id`, `task_id`, `suggestion_id`, `runtime_id`, `version_id`, and `trace_id`
 - `final_snapshot` aggregates execution, observation, governance, repair, delivery, runtime, and promotion evidence
@@ -497,7 +532,7 @@ from sprintcycle.domain.core.lifecycle import (
     CorrelationContext,
 )
 
-# Create lifecycle aggregate root
+# Create lifecycle aggregate root (Phase-Substage Architecture)
 lifecycle = create_lifecycle(
     execution_id="exec-123",
     task_id="task-456",
@@ -536,8 +571,9 @@ sprintcycle/
 │       └── orchestration_factory.py # Orchestrator dependency assembly
 ├── domain/                     # Domain models (DDD Domain Layer)
 │   ├── core/                   # Core subdomains
-│   │   ├── lifecycle/          # Lifecycle contracts and state machine
+│   │   ├── lifecycle/          # Lifecycle contracts and state machine (Phase-Substage Architecture)
 │   │   │   ├── lifecycle_root.py    # LifecycleRoot aggregate root (immutable design)
+│   │   │   ├── state_machine.py     # LifecycleStateMachine (Phase-Substage definitions)
 │   │   │   ├── services.py          # LifecycleStateMachineService (domain service)
 │   │   │   ├── values.py            # Value objects (StageEvidence, CorrelationContext, GovernanceRef, EvolutionRef, RuntimeRef, LifecycleEvidence, FailureInfo)
 │   │   │   └── models.py            # Business constants
@@ -576,6 +612,7 @@ sprintcycle/
 │   │   ├── platform/           # Platform views
 │   │   └── interfaces/         # Generic interface definitions
 │   └── ports/                  # Port definitions (17 ports)
+│       ├── __init__.py         # Port module entry
 │       ├── state_store.py      # StateStoreProtocol, ExecutionState
 │       ├── llm.py              # EngineAdapterProtocol, EngineResult, EngineAdapterConfig
 │       ├── cache.py            # CacheBackendProtocol
@@ -590,27 +627,41 @@ sprintcycle/
 │       ├── deploy.py           # PlatformLaunchServiceProtocol
 │       ├── rate_limit.py       # RateLimitPort, RateLimitState
 │       ├── diagnostics.py      # DiagnosticPort
-│       ├── integrations.py     # AutoGPTComposeSpecProtocol, AutoGPTRuntimeSpecProtocol, LangGraphRuntimeAdapterProtocol, PhoenixExporterSpecProtocol, PhoenixTraceRuntimeProtocol
+│       ├── integrations.py     # LangGraphRuntimeAdapterProtocol, PhoenixTraceRuntimeProtocol, etc.
 │       ├── suggestion.py       # SuggestionStoreProtocol
 │       └── orchestration.py    # RuntimeConfigPort, TraceRuntimePort
 ├── infrastructure/             # Adapter layer (DDD Infrastructure Layer)
+│   ├── shared/                 # Shared infrastructure
+│   │   └── persistence/        # Persistence (sqlite_store, sync_sqlite_store, session, models)
 │   └── adapters/               # Adapter implementations
 │       ├── core/               # Core subdomain adapters
-│       │   ├── execution/      # Execution engine adapters
-│       │   ├── evolution/      # Version evolution adapters
-│       │   ├── governance/     # Governance adapters
-│       │   └── orchestration/  # Orchestration adapters
+│       │   ├── execution/      # Execution engine adapters (state_store, checkpoint, cache, sqlite_event_backend)
+│       │   ├── evolution/      # Version evolution adapters (version_store, rollback_store, health_check, evolution_registry_access)
+│       │   ├── governance/     # Governance adapters (arch_guard, hitl_store, suggestion_store)
+│       │   └── orchestration/  # Orchestration adapters (adapters)
 │       └── generic/            # Generic adapters
-│           ├── config/         # Configuration implementations
-│           ├── cache/          # Cache implementations (RedisCache, DiskCache)
-│           ├── integrations/   # Third-party integrations (LangGraph, Phoenix)
-│           └── observability/  # Observability implementations
+│           ├── config/         # Configuration implementations (runtime_config, runtime_registry, manager, quality, llm_config, rate_limit)
+│           ├── cache/          # Cache implementations (RedisCache, DiskCache, NullCache)
+│           ├── integrations/   # Third-party integrations (LangGraph, Phoenix, LLM provider)
+│           ├── observability/  # Observability implementations (facade, diagnostics, event_models)
+│           ├── deploy/         # Deployment implementations (platform_launch_service, deployment_spec_service, auto_deployer, compose_manager)
+│           ├── knowledge/      # Knowledge management (knowledge_repository, knowledge_injector, knowledge_hook)
+│           ├── sandbox/        # Sandbox management (manager, worktree_backend)
+│           ├── mq/             # Message queue (sqlite_mq)
+│           └── llm/            # LLM adapters (cursor_cookbook, claude_code, aider, engine_adapters, registry)
 └── interfaces/                 # HTTP interface layer (Input Port Adapters)
     └── http/                   # HTTP adaptation layer
         ├── app.py              # FastAPI application factory
-        ├── middleware/         # Middleware (rate limiting, audit)
-        ├── dashboard/          # Dashboard routes (execution, governance, lifecycle, hitl, suggestions)
-        └── public/             # Public API endpoints
+        ├── request_context.py  # Request context management
+        ├── middleware/         # Middleware (rate_limit, audit)
+        ├── handlers/           # Request handlers (execution, governance, lifecycle, hitl, config, suggestions)
+        ├── dashboard/          # Dashboard routes (organized by domain)
+        │   ├── execution/      # Execution routes
+        │   ├── governance/     # Governance routes
+        │   ├── lifecycle/      # Lifecycle routes
+        │   ├── hitl/           # HITL routes
+        │   └── suggestions/    # Suggestion routes
+        └── public/             # Public API endpoints (health, execution)
 ```
 
 ### Layer Responsibilities
@@ -650,10 +701,9 @@ sprintcycle/
 
 ## Documentation
 
-- `docs/SYSTEM_OVERVIEW.md` — System overview and target mature architecture
-- `docs/RELEASE_CHECKLIST.md` — Release checklist
-- `docs/GOVERNANCE_HEAVY_CHECKS.md` — Heavy governance checks documentation
-- `docs/ARCHITECTURE_INVARIANTS.md` — Architecture invariants documentation (includes DDD aggregate root design)
+- `docs/ARCHITECTURE_INVARIANTS.md` — Architecture invariants documentation (includes DDD aggregate root design, Phase-Substage Architecture)
+- `docs/production/` — Production deployment guides
+- `AGENTS.md` — AI coding agent collaboration specification
 
 ---
 

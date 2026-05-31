@@ -48,14 +48,31 @@ Intent → Contract → Plan → Execute → Observe → Repair → Deliver → 
 
 #### LifecycleStage（生命周期阶段）
 
-18 个阶段，覆盖从"新需求"到"已晋升"的完整闭环：
+采用 **Phase-Substage 架构**，覆盖从"新需求"到"已晋升"的完整闭环：
 
+**初始化阶段（INITIALIZING）**：
 ```text
-NEW → NORMALIZED → PLANNED → PREPARED → DECOMPOSED → EXECUTING
-   ↕                                                    ↕
-OBSERVING ← VERIFYING ← REPAIRING ← DIAGNOSED         │
-   ↓                                                     │
-DELIVERING → RUNTIME_LINKED → GOVERNING → PROMOTION_READY → PROMOTED
+NEW → NORMALIZED → PLANNED → DECOMPOSED
+```
+
+**执行阶段（EXECUTING）**：
+```text
+RUNNING → OBSERVING → DIAGNOSED → REPAIRING → VERIFYING
+```
+
+**交付阶段（DELIVERING）**：
+```text
+DELIVERING → RUNTIME_LINKED
+```
+
+**治理阶段（GOVERNING）**：
+```text
+GOVERNING → PROMOTION_READY
+```
+
+**终止阶段（TERMINAL）**：
+```text
+PROMOTED, FAILED, ABORTED, CANCELLED
 ```
 
 **关键恢复路径**：任一阶段失败 → DIAGNOSED → REPAIRING → VERIFYING → OBSERVING → 继续
@@ -147,7 +164,7 @@ SprintCycle 是 AI 时代的敏捷交付引擎。
 
 | 版本 | 里程碑 | 状态 |
 |------|--------|------|
-| 0.9.x | 六边形架构改造完成，DDD 聚合根设计 | ✅ 当前 |
+| 0.9.x | 六边形架构改造完成，DDD 聚合根设计，Phase-Substage 架构 | ✅ 当前 |
 | 1.0.0 | OpenHands 集成 + 生产就绪 | ⏳ |
 | 1.1.0 | 多项目工作空间支持 | 🔮 |
 | 2.0.0 | 自进化闭环验证（measurement → evolution 自动循环） | 🔮 |
@@ -199,7 +216,7 @@ Intent → Normalize → Plan → Prepare → Decompose → Execute → Observe 
 
 - **意图驱动**：从自然语言意图出发，生成可执行计划
 - **统一契约**：`LifecycleContract` 作为全链路唯一事实载体
-- **统一状态机**：`LifecycleStateMachine` 定义生命周期阶段与迁移规则
+- **统一状态机**：`LifecycleStateMachine` 定义生命周期阶段与迁移规则（Phase-Substage 架构）
 - **统一恢复**：任一阶段失败都可进入 `repair → verify → observe` 恢复分支
 - **统一快照**：`final_snapshot` 作为一次迭代的最终可交付状态
 - **统一晋升**：promotion 只接受证据齐全、final snapshot 合法的 contract
@@ -219,7 +236,7 @@ SprintCycle 采用 DDD 六边形架构，领域层按子域划分：
 
 | 子域 | 职责定位 | 聚合根 | 值对象 |
 |------|---------|--------|--------|
-| **lifecycle** | 生命周期契约与状态机 | `LifecycleRoot` | `StageEvidence`, `CorrelationContext`, `LifecycleEvidence`, `FailureInfo`, `RuntimeRef`, `GovernanceRef`, `EvolutionRef` |
+| **lifecycle** | 生命周期契约与状态机（Phase-Substage 架构） | `LifecycleRoot` | `StageEvidence`, `CorrelationContext`, `LifecycleEvidence`, `FailureInfo`, `RuntimeRef`, `GovernanceRef`, `EvolutionRef` |
 | **execution** | 执行引擎与任务编排 | `SprintAggregate`, `ReleasePlanAggregate` | `TaskResult`, `SprintResult` |
 | **evolution** | 版本演化与晋升 | `EvolutionRequest`, `SandboxSession` | `VersionArtifact`, `EvolutionEvidence` |
 | **governance** | 治理与建议处理（含验证引擎） | `GovernanceSession`, `RuleSetAggregate` | `GovernanceRule`, `RuleEvaluation`, `Finding`, `VerificationFinding`, `VerificationRule`, `VerificationReport` |
@@ -250,33 +267,34 @@ SprintCycle 采用 DDD 六边形架构，领域层按子域划分：
 | `state_store.py` | `StateStoreProtocol` | 状态持久化 |
 | `llm.py` | `EngineAdapterProtocol` | LLM 引擎调用 |
 | `cache.py` | `CacheBackendProtocol` | 缓存服务 |
-| `governance.py` | `ArchGuardAdapterProtocol` | 架构守卫检查 |
+| `governance.py` | `ArchGuardAdapterProtocol`, `GrimpAdapterProtocol`, `ImportLinterAdapterProtocol`, `RuffAdapterProtocol`, `TypeCheckAdapterProtocol` | 架构守卫检查 |
 | `observability.py` | `ObservabilityFacadeProtocol` | 可观测性集成 |
 | `registry.py` | `RuntimeRegistryProtocol` | 运行时注册 |
 | `knowledge.py` | `KnowledgeRepositoryProtocol` | 知识管理 |
-| `evolution.py` | `EvolutionPort` | 版本演化 |
-| `hitl.py` | `HitlPort` | 人类在环 |
+| `evolution.py` | `EvolutionRegistryProtocol`, `VersionManifestProtocol` | 版本演化 |
+| `hitl.py` | `HitlStoreProtocol` | 人类在环 |
 | `audit.py` | `AuditPort` | 审计日志 |
-| `config.py` | `RuntimeConfigPort` | 运行时配置 |
-| `deploy.py` | `DeployPort` | 部署服务 |
+| `config.py` | `RuntimeConfigProtocol` | 运行时配置 |
+| `deploy.py` | `PlatformLaunchServiceProtocol` | 部署服务 |
 | `rate_limit.py` | `RateLimitPort` | 限流服务 |
-| `diagnostics.py` | `DiagnosticsPort` | 诊断服务 |
-| `integrations.py` | 多个集成端口 | 第三方集成 |
-| `suggestion.py` | `SuggestionPort` | 建议系统 |
-| `orchestration.py` | 多个编排端口 | 执行编排 |
+| `diagnostics.py` | `DiagnosticPort` | 诊断服务 |
+| `integrations.py` | `LangGraphRuntimeAdapterProtocol`, `PhoenixTraceRuntimeProtocol` 等 | 第三方集成 |
+| `suggestion.py` | `SuggestionStoreProtocol` | 建议系统 |
+| `orchestration.py` | `RuntimeConfigPort`, `TraceRuntimePort` | 执行编排 |
 
 ### 聚合根设计原则
 
 1. **不可变设计**：所有状态修改返回新实例，保证线程安全（使用 `@dataclass(frozen=True)`）
-2. **值对象**：无身份标识，通过属性值相等判断
-3. **事件驱动**：子域间通过 `DomainEvent` 通信，解耦依赖
-4. **ID 引用**：跨聚合引用使用 ID 而非直接对象引用，防止循环依赖
+2. **Phase-Substage 架构**：`LifecycleRoot` 采用阶段-子阶段分层架构，提供更好的组织结构
+3. **值对象**：无身份标识，通过属性值相等判断
+4. **事件驱动**：子域间通过 `DomainEvent` 通信，解耦依赖
+5. **ID 引用**：跨聚合引用使用 ID 而非直接对象引用，防止循环依赖
 
 ### 领域服务
 
 | 服务 | 职责 | 位置 |
 |------|------|------|
-| `LifecycleStateMachineService` | 状态机转换规则 | `domain/core/lifecycle/services.py` |
+| `LifecycleStateMachineService` | 状态机转换规则（Phase-Substage 架构） | `domain/core/lifecycle/services.py` |
 | `EventBus` | 事件发布/订阅机制 | `domain/core/events/handlers.py` |
 
 ### 端口-适配器模式
@@ -294,6 +312,23 @@ class SqliteStateStore(StateStoreProtocol):
         ...
 ```
 
+### 组合根模式
+
+```python
+# application/composition/http_factory.py
+class InfrastructureFactory:
+    """基础设施工厂注册器 - 负责注册所有 Domain 层依赖的 Infrastructure 工厂函数"""
+    
+    def _register_infrastructure_factories(self) -> None:
+        # 注册状态存储工厂
+        register_state_store_factory(create_state_store)
+        # 注册缓存工厂
+        register_cache_backend_factory(create_cache_backend)
+        # 注册配置工厂
+        register_runtime_config_factory(create_runtime_config)
+        # ... 更多工厂注册
+```
+
 ---
 
 ## 主要能力
@@ -302,15 +337,15 @@ class SqliteStateStore(StateStoreProtocol):
 - 通过自然语言描述目标
 - 生成 Release Plan（YAML / 结构化计划）
 - 支持 Sprint 编排、断点续跑与恢复
-- 支持标准化生命周期状态迁移
+- 支持标准化生命周期状态迁移（Phase-Substage 架构）
 - HTTP 入口由 `interfaces/http/` 负责适配 public / internal 路由
 
 ### 2. 标准生命周期契约
-- `LifecycleStateMachine` 负责阶段迁移规则
+- `LifecycleStateMachine` 负责阶段迁移规则（Phase-Substage 架构）
 - `LifecycleContract` 负责跨服务状态事实载体
 - 统一 correlation model 串联 `execution_id`、`task_id`、`suggestion_id`、`runtime_id`、`version_id`、`trace_id`
 - `final_snapshot` 聚合执行、观测、治理、修复、交付、运行时与 promotion 证据
-- **DDD 聚合根**：`LifecycleRoot` 作为生命周期领域的聚合根，采用不可变设计模式
+- **DDD 聚合根**：`LifecycleRoot` 作为生命周期领域的聚合根，采用不可变设计模式和 Phase-Substage 架构
 
 ### 3. 修复与交付闭环
 - 显式支持 `diagnosed → repairing → verifying → observing` 恢复闭环
@@ -557,7 +592,7 @@ from sprintcycle.domain.core.lifecycle import (
     CorrelationContext,
 )
 
-# 创建生命周期聚合根
+# 创建生命周期聚合根（Phase-Substage 架构）
 lifecycle = create_lifecycle(
     execution_id="exec-123",
     task_id="task-456",
@@ -596,8 +631,9 @@ sprintcycle/
 │       └── orchestration_factory.py # 编排器依赖组装
 ├── domain/                     # 领域模型（DDD 领域层）
 │   ├── core/                   # 核心子域
-│   │   ├── lifecycle/          # 生命周期契约与状态机
+│   │   ├── lifecycle/          # 生命周期契约与状态机（Phase-Substage 架构）
 │   │   │   ├── lifecycle_root.py    # LifecycleRoot 聚合根（不可变设计）
+│   │   │   ├── state_machine.py     # LifecycleStateMachine（Phase-Substage 定义）
 │   │   │   ├── services.py          # LifecycleStateMachineService（领域服务）
 │   │   │   ├── values.py            # 值对象（StageEvidence, CorrelationContext, GovernanceRef, EvolutionRef, RuntimeRef, LifecycleEvidence, FailureInfo）
 │   │   │   └── models.py            # 业务常量
@@ -636,6 +672,7 @@ sprintcycle/
 │   │   ├── platform/           # 平台视图
 │   │   └── interfaces/         # 通用接口定义
 │   └── ports/                  # 端口定义层（17个端口）
+│       ├── __init__.py         # 端口模块入口
 │       ├── state_store.py      # StateStoreProtocol, ExecutionState
 │       ├── llm.py              # EngineAdapterProtocol, EngineResult, EngineAdapterConfig
 │       ├── cache.py            # CacheBackendProtocol
@@ -650,101 +687,22 @@ sprintcycle/
 │       ├── deploy.py           # PlatformLaunchServiceProtocol
 │       ├── rate_limit.py       # RateLimitPort, RateLimitState
 │       ├── diagnostics.py      # DiagnosticPort
-│       ├── integrations.py     # AutoGPTComposeSpecProtocol, AutoGPTRuntimeSpecProtocol, LangGraphRuntimeAdapterProtocol, PhoenixExporterSpecProtocol, PhoenixTraceRuntimeProtocol
+│       ├── integrations.py     # LangGraphRuntimeAdapterProtocol, PhoenixTraceRuntimeProtocol 等
 │       ├── suggestion.py       # SuggestionStoreProtocol
 │       └── orchestration.py    # RuntimeConfigPort, TraceRuntimePort
 ├── infrastructure/             # 适配器层（DDD 基础设施层）
+│   ├── shared/                 # 共享基础设施
+│   │   └── persistence/        # 持久化（sqlite_store, sync_sqlite_store, session, models）
 │   └── adapters/               # 适配器实现
 │       ├── core/               # 核心子域适配器
-│       │   ├── execution/      # 执行引擎适配器
-│       │   ├── evolution/      # 版本演化适配器
-│       │   ├── governance/     # 治理适配器
-│       │   └── orchestration/  # 编排适配器
+│       │   ├── execution/      # 执行引擎适配器（state_store, checkpoint, cache, sqlite_event_backend）
+│       │   ├── evolution/      # 版本演化适配器（version_store, rollback_store, health_check, evolution_registry_access）
+│       │   ├── governance/     # 治理适配器（arch_guard, hitl_store, suggestion_store）
+│       │   └── orchestration/  # 编排适配器（adapters）
 │       └── generic/            # 通用子域适配器
-│           ├── config/         # 配置实现
-│           ├── cache/          # 缓存实现（RedisCache, DiskCache）
-│           ├── integrations/   # 第三方集成（LangGraph, Phoenix）
-│           └── observability/  # 可观测性实现
-└── interfaces/                 # HTTP 接口层（输入端口适配器）
-    └── http/                   # HTTP 适配层
-        ├── app.py              # FastAPI 应用工厂
-        ├── middleware/         # 中间件（限流、审计）
-        ├── dashboard/          # Dashboard 路由（execution, governance, lifecycle, hitl, suggestions）
-        └── public/             # 公共 API 端点
-```
-
-### 架构分层说明
-
-| 层级 | 职责 | 关键约束 |
-|------|------|----------|
-| **interfaces** | HTTP 接口、请求路由、上下文传递、中间件 | 仅转发，无业务逻辑 |
-| **application** | 用例编排、服务协调、事务边界、组合根 | 依赖 domain，无基础设施依赖 |
-| **domain** | 领域模型、业务规则、聚合根、值对象、领域服务、端口定义 | 无外部依赖，纯业务表达 |
-| **infrastructure** | 适配器实现、配置、持久化、外部集成、可观测性 | 实现 domain 端口，不暴露给业务层 |
-
----
-
-## 治理与验证
-
-### 治理级别
-
-| 级别 | 检查项 | 适用场景 |
-|------|--------|----------|
-| `minimal` | 仅基础语法检查 | 快速迭代 |
-| `standard` | 静态分析 + 架构检查 | 日常开发 |
-| `strict` | 全部检查 + 突变测试 | 发布前验证 |
-
-### 内置验证插件
-
-| 插件 | 功能 | 依赖 |
-|------|------|------|
-| Architecture | 导入分层契约检查 | import-linter |
-| StaticAnalysis | ruff + mypy 静态检查 | ruff, mypy |
-| YAMLValidation | YAML 文件语法校验 | pyyaml |
-| ComposeHint | Docker Compose 文件检查 | PyYAML |
-| ADRCheck | 架构决策记录一致性 | - |
-| MutmutPlugin | 突变测试（可选） | mutmut |
-| PipAuditPlugin | 依赖安全扫描（可选） | pip-audit |
-
----
-
-## 文档
-
-- `docs/SYSTEM_OVERVIEW.md` — 系统总览与目标成熟架构
-- `docs/RELEASE_CHECKLIST.md` — 发布检查清单
-- `docs/GOVERNANCE_HEAVY_CHECKS.md` — 重量级治理检查说明
-- `docs/ARCHITECTURE_INVARIANTS.md` — 架构不变性文档（包含 DDD 聚合根设计）
-
----
-
-## 开发与测试
-
-```bash
-# 安装开发依赖
-pip install -e "[dev]"
-
-# 运行测试
-python -m pytest tests/ -v
-
-# 运行 lint
-ruff check sprintcycle/
-
-# 类型检查
-mypy sprintcycle/
-```
-
----
-
-## License
-
-MIT License
-
----
-
-## 社区与反馈
-
-欢迎提交 Issue 和 Pull Request。
-
----
-
-**SprintCycle — 让 AI 成为你的敏捷开发伙伴**
+│           ├── config/         # 配置实现（runtime_config, runtime_registry, manager, quality, llm_config, rate_limit）
+│           ├── cache/          # 缓存实现（RedisCache, DiskCache, NullCache）
+│           ├── integrations/   # 第三方集成（LangGraph, Phoenix, LLM provider）
+│           ├── observability/  # 可观测性实现（facade, diagnostics, event_models）
+│           ├── deploy/         # 部署实现（platform_launch_service, deployment_spec_service, auto_deployer, compose_manager）
+│           ├── knowledge/      # 知识管理（knowledge_repository, knowledge_injector
