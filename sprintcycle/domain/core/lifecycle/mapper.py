@@ -134,25 +134,16 @@ class LifecycleMapper:
         metadata = dict(root.metadata or {})
         
         return LifecycleContract(
-            # Core identity fields
             execution_id=root.execution_id,
             task_id=root.task_id,
             project_path=root.project_path,
-            
-            # Core state fields
             stage=root.substage.value,
             status=root.status.value,
-            
-            # Metadata fields
             task_type=root.task_type,
             intent=root.intent,
-            
-            # Failure information
             failure_kind=root.failure_kind,
             failure_reason=root.failure_reason,
             failure_code=root.failure_code,
-            
-            # Cross-subdomain references (consolidated)
             governance_refs={
                 "governance_session_id": root.governance_ref.governance_session_id if root.governance_ref else "",
                 "gate": root.governance_ref.gate if root.governance_ref else "",
@@ -169,23 +160,15 @@ class LifecycleMapper:
             } if root.runtime_ref else {},
             delivery_refs=dict(metadata.get("delivery_refs", {})),
             recovery_refs=dict(metadata.get("recovery_refs", {})),
-            
-            # Consolidated context fields
             suggestion_refs=list(metadata.get("suggestion_refs", [])),
             skill_context=dict(metadata.get("skill_context", {})),
             io_context=dict(metadata.get("io_context", {})),
-            
-            # Evidence and trace
             evidence=root.evidence.to_dict() if root.evidence else {},
             trace=root.evidence.trace if root.evidence else {},
             diagnostics=root.evidence.diagnostics if root.evidence else {},
-            
-            # Metadata and metrics
             metrics=root.metrics,
             metadata=root.metadata,
             correlation=root.correlation.to_dict(),
-            
-            # Transition information
             stage_history=[
                 {"from": h.from_stage, "to": h.to_stage, "at": h.at, "reason": h.reason}
                 for h in root.stage_history

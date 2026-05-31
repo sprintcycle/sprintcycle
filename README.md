@@ -175,7 +175,7 @@ SprintCycle 是 AI 时代的敏捷交付引擎。
 
 ### 一句话概括
 
-六边形架构（Ports & Adapters）+ DDD（领域驱动设计），4 层分离（interfaces → application → domain → infrastructure），4 个核心子域（lifecycle / execution / evolution / governance），17 个端口抽象，469+ 个 Python 文件。
+六边形架构（Ports & Adapters）+ DDD（领域驱动设计），4 层分离（interfaces → application → domain → infrastructure），4 个核心子域（lifecycle / execution / evolution / governance），14 个端口抽象，469+ 个 Python 文件。
 
 ### 架构层次（六边形架构）
 
@@ -195,7 +195,7 @@ SprintCycle 是 AI 时代的敏捷交付引擎。
 │   (Core: lifecycle, execution, evolution, governance;     │
 │    Supporting: intent, fitness;                           │
 │    Generic: errors, prompts, models, platform, interfaces)│
-│   (ports/: 端口协议定义 - 17个端口)                       │
+│   (ports/: 端口协议定义 - 14个端口)                       │
 ├─────────────────────────────────────────────────────────────┤
 │                  infrastructure/                           │ ← 输出端口适配器
 │  (adapters/core/, adapters/generic/)                      │
@@ -260,14 +260,14 @@ SprintCycle 采用 DDD 六边形架构，领域层按子域划分：
 
 #### 端口层（Ports）- 外部依赖抽象
 
-所有外部依赖的协议接口定义位于 `domain/ports/`（17个端口）：
+所有外部依赖的协议接口定义位于 `domain/ports/`（14个端口）：
 
 | 端口文件 | 协议接口 | 职责 |
 |---------|---------|------|
 | `state_store.py` | `StateStoreProtocol` | 状态持久化 |
 | `llm.py` | `EngineAdapterProtocol` | LLM 引擎调用 |
 | `cache.py` | `CacheBackendProtocol` | 缓存服务 |
-| `governance.py` | `ArchGuardAdapterProtocol`, `GrimpAdapterProtocol`, `ImportLinterAdapterProtocol`, `RuffAdapterProtocol`, `TypeCheckAdapterProtocol` | 架构守卫检查 |
+| `governance.py` | `LinterAdapterProtocol` | 统一的代码检查/架构分析（合并了 ArchGuard, Grimp, ImportLinter, Ruff, TypeCheck） |
 | `observability.py` | `ObservabilityFacadeProtocol` | 可观测性集成 |
 | `registry.py` | `RuntimeRegistryProtocol` | 运行时注册 |
 | `knowledge.py` | `KnowledgeRepositoryProtocol` | 知识管理 |
@@ -278,7 +278,7 @@ SprintCycle 采用 DDD 六边形架构，领域层按子域划分：
 | `deploy.py` | `PlatformLaunchServiceProtocol` | 部署服务 |
 | `rate_limit.py` | `RateLimitPort` | 限流服务 |
 | `diagnostics.py` | `DiagnosticPort` | 诊断服务 |
-| `integrations.py` | `LangGraphRuntimeAdapterProtocol`, `PhoenixTraceRuntimeProtocol` 等 | 第三方集成 |
+| `integrations.py` | `LangGraphRuntimeAdapterProtocol` | 第三方集成（精简了 AutoGPT, Phoenix 等协议） |
 | `suggestion.py` | `SuggestionStoreProtocol` | 建议系统 |
 | `orchestration.py` | `RuntimeConfigPort`, `TraceRuntimePort` | 执行编排 |
 
@@ -399,13 +399,13 @@ class InfrastructureFactory:
 ### 基础安装
 
 ```bash
-pip install -e .
+uv sync
 ```
 
 ### 完整安装（推荐）
 
 ```bash
-pip install -e "[full,dev]"
+uv sync --extra full --extra dev
 ```
 
 ### 常用可选能力
@@ -617,7 +617,7 @@ sprintcycle/
 │   ├── services/               # 核心业务服务（按领域组织）
 │   │   ├── execution/          # 执行相关服务（phase_workflow, evaluator_agent）
 │   │   ├── governance/         # 治理相关服务（governance_facade, repair_orchestration, suggestion_facade）
-│   │   ├── lifecycle/          # 生命周期相关服务（execution_lifecycle, promotion_policy, web_lifecycle_orchestration）
+│   │   ├── lifecycle/          # 生命周期相关服务（delivery_service, execution_lifecycle, hook_service, lifecycle_evolution, lifecycle_root_services, promotion_policy, recovery_lifecycle, web_lifecycle_orchestration）
 │   │   ├── evolution/          # 版本演化服务（evolution_promotion, evolution_version）
 │   │   ├── dashboard/          # 仪表盘视图服务（dashboard_view, management_overview, platform_summary）
 │   │   ├── observability/      # 可观测性服务
@@ -671,12 +671,12 @@ sprintcycle/
 │   │   ├── models/             # 通用数据模型
 │   │   ├── platform/           # 平台视图
 │   │   └── interfaces/         # 通用接口定义
-│   └── ports/                  # 端口定义层（17个端口）
+│   └── ports/                  # 端口定义层（14个端口）
 │       ├── __init__.py         # 端口模块入口
 │       ├── state_store.py      # StateStoreProtocol, ExecutionState
 │       ├── llm.py              # EngineAdapterProtocol, EngineResult, EngineAdapterConfig
 │       ├── cache.py            # CacheBackendProtocol
-│       ├── governance.py       # ArchGuardAdapterProtocol, GrimpAdapterProtocol, ImportLinterAdapterProtocol, RuffAdapterProtocol, TypeCheckAdapterProtocol
+│       ├── governance.py       # LinterAdapterProtocol（统一了 ArchGuard, Grimp, ImportLinter, Ruff, TypeCheck）
 │       ├── observability.py    # ObservabilityFacadeProtocol
 │       ├── registry.py         # RuntimeRegistryProtocol
 │       ├── knowledge.py        # KnowledgeRepositoryProtocol, SprintOutcomeCardAdapter
@@ -687,7 +687,7 @@ sprintcycle/
 │       ├── deploy.py           # PlatformLaunchServiceProtocol
 │       ├── rate_limit.py       # RateLimitPort, RateLimitState
 │       ├── diagnostics.py      # DiagnosticPort
-│       ├── integrations.py     # LangGraphRuntimeAdapterProtocol, PhoenixTraceRuntimeProtocol 等
+│       ├── integrations.py     # LangGraphRuntimeAdapterProtocol（精简了 AutoGPT, Phoenix 等协议）
 │       ├── suggestion.py       # SuggestionStoreProtocol
 │       └── orchestration.py    # RuntimeConfigPort, TraceRuntimePort
 ├── infrastructure/             # 适配器层（DDD 基础设施层）

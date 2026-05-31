@@ -109,7 +109,7 @@ ports/ (端口协议定义)
 | `StateStoreProtocol` | `domain/ports/state_store.py` | `StateStore`, `SqliteStateStore` | `infrastructure/adapters/core/execution/state_store/` |
 | `EngineAdapterProtocol` | `domain/ports/llm.py` | `CursorCookbookAdapter`, `ClaudeCodeAdapter` | `infrastructure/adapters/generic/llm/` |
 | `CacheBackendProtocol` | `domain/ports/cache.py` | `RedisCache`, `DiskCache` | `infrastructure/adapters/generic/cache/` |
-| `ArchGuardAdapterProtocol` | `domain/ports/governance.py` | `ArchonAdapter`, `RuffAdapter` | `infrastructure/adapters/core/governance/arch_guard/` |
+| `LinterAdapterProtocol` | `domain/ports/governance.py` | `ArchonAdapter`, `RuffAdapter` (统一了多种 Linter) | `infrastructure/adapters/core/governance/arch_guard/` |
 | `ObservabilityFacadeProtocol` | `domain/ports/observability.py` | `ObservabilityFacade` | `infrastructure/adapters/generic/observability/` |
 | `RuntimeRegistryProtocol` | `domain/ports/registry.py` | `RuntimeRegistry` | `infrastructure/adapters/generic/config/runtime_registry.py` |
 | `KnowledgeRepositoryProtocol` | `domain/ports/knowledge.py` | `KnowledgeRepository` | `infrastructure/adapters/generic/knowledge/` |

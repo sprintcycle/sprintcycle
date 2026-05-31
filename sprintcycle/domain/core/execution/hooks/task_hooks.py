@@ -2,6 +2,8 @@
 任务级生命周期钩子（每个 Sprint Backlog 项执行完成后调用）。
 
 与 ``SprintLifecycleHooks``（Sprint 边界）正交；默认 **NoOp**，无性能开销。
+
+**精简版**：移除了重复的 NoOp/Chained 类，统一使用 HookFactory。
 """
 
 from __future__ import annotations
@@ -13,6 +15,7 @@ from loguru import logger
 
 from sprintcycle.domain.generic.models import SprintBacklogItem
 from sprintcycle.domain.generic.interfaces import TaskResult
+from sprintcycle.domain.generic.interfaces.hook_factory import HookFactory, ChainedHooks
 
 
 class TaskLifecycleHooks(ABC):
@@ -29,32 +32,13 @@ class TaskLifecycleHooks(ABC):
         """任务执行结束（成功或失败）后调用。"""
 
 
-class NoOpTaskLifecycleHooks(TaskLifecycleHooks):
-    async def on_after_task_complete(
-        self,
-        task: SprintBacklogItem,
-        sprint_name: str,
-        context: Dict[str, Any],
-        task_result: TaskResult,
-    ) -> None:
-        return None
+# === 使用 HookFactory 创建标准实现 ===
+
+def create_noop_task_hooks() -> TaskLifecycleHooks:
+    """创建空实现的 Task 钩子"""
+    return HookFactory.noop(TaskLifecycleHooks)
 
 
-class ChainedTaskHooks(TaskLifecycleHooks):
-    """逆序调用 on_after（与常见资源释放语义一致：后注册先执行）。"""
-
-    def __init__(self, hooks: Sequence[TaskLifecycleHooks]):
-        self._hooks = tuple(hooks)
-
-    async def on_after_task_complete(
-        self,
-        task: SprintBacklogItem,
-        sprint_name: str,
-        context: Dict[str, Any],
-        task_result: TaskResult,
-    ) -> None:
-        for h in reversed(self._hooks):
-            try:
-                await h.on_after_task_complete(task, sprint_name, context, task_result)
-            except Exception as e:
-                logger.warning("ChainedTaskHooks on_after [{}]: {}", type(h).__name__, e)
+def create_chained_task_hooks(hooks: Sequence[TaskLifecycleHooks]) -> ChainedHooks:
+    """创建链式调用的 Task 钩子"""
+    return HookFactory.chain(hooks)

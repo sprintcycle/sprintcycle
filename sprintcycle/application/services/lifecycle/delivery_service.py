@@ -1,14 +1,18 @@
-"""Promotion lifecycle management service.
+"""Delivery service - 合并后的交付生命周期服务
 
 **职责边界**：
+- 运行时生命周期管理
+- 治理生命周期管理
 - 发布评估与交付
-- 运行时、治理、发布的整合
 - 部署生命周期
 
-**DDD Architecture**：
-- 应用层服务，只做编排
-- 依赖通过构造函数注入
-- 保持接口与原 LifecycleDeliveryService 兼容
+**设计说明**：
+本服务合并了原有的三个服务：
+- RuntimeLifecycleService
+- GovernanceLifecycleService  
+- PromotionLifecycleService
+
+通过合并减少了服务数量，简化了依赖关系，同时保持向后兼容性。
 """
 
 from __future__ import annotations
@@ -16,23 +20,85 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Optional
 
+from sprintcycle.application.services.governance.governance_orchestration_service import GovernanceOrchestrationService
 from sprintcycle.application.services.lifecycle.lifecycle_evolution_service import LifecycleEvolutionService
-from sprintcycle.application.services.lifecycle.governance_lifecycle_service import GovernanceLifecycleService
-from sprintcycle.application.services.lifecycle.runtime_lifecycle_service import RuntimeLifecycleService
 from sprintcycle.domain.ports.deploy import PlatformLaunchServiceProtocol
+from sprintcycle.domain.ports.registry import RuntimeRegistryProtocol
 
 
 @dataclass
-class PromotionLifecycleService:
+class DeliveryService:
+    """合并后的交付生命周期服务"""
+    
     project_path: str
-    runtime_lifecycle_service: RuntimeLifecycleService
-    governance_lifecycle_service: GovernanceLifecycleService
+    runtime_registry: RuntimeRegistryProtocol
+    governance_orchestration: GovernanceOrchestrationService
     lifecycle_evolution: LifecycleEvolutionService
     platform_launch: PlatformLaunchServiceProtocol
     deploy_view: Callable[[], Dict[str, Any]]
     lifecycle_contract: Callable[[str], Dict[str, Any]]
     evaluate_promotion: Callable[..., Dict[str, Any]]
+    runtime_latest: Callable[[], Dict[str, Any]]
 
+    # === Runtime Lifecycle Methods ===
+    
+    def runtime_lifecycle(self, runtime_id: str = "") -> Dict[str, Any]:
+        """获取运行时生命周期状态"""
+        latest = self.runtime_latest()
+        data = latest.get("data", {}) if isinstance(latest, dict) else {}
+        if runtime_id:
+            payload = self.runtime_registry.get(runtime_id)
+            data = payload if isinstance(payload, dict) else {"runtime_id": runtime_id, "success": bool(payload)}
+        has_runtime = bool(data)
+        closure_score = 100.0 if has_runtime else 0.0
+        lifecycle = {
+            "stage": "runtime_linked" if data else "delivering",
+            "status": str(data.get("status") or "unknown") if isinstance(data, dict) else "unknown",
+            "runtime_id": runtime_id or data.get("runtime_id") or data.get("id") or "",
+            "has_runtime": has_runtime,
+            "closure_score": closure_score,
+        }
+        return {
+            "success": True,
+            "data": {
+                "runtime": data,
+                "lifecycle": lifecycle,
+                "health": {"closure_score": closure_score, "is_healthy": has_runtime},
+            },
+        }
+
+    # === Governance Lifecycle Methods ===
+    
+    async def governance_lifecycle(self, execution_id: str = "") -> Dict[str, Any]:
+        """获取治理生命周期状态"""
+        summary = await self.governance_orchestration.summary(execution_id=execution_id, limit=50)
+        pending = await self.governance_orchestration.pending(execution_id=execution_id)
+        history = await self.governance_orchestration.history(execution_id=execution_id, limit=50)
+        summary_data = summary.get("data", {}) if isinstance(summary, dict) else {}
+        pending_data = pending.get("data", []) if isinstance(pending, dict) else []
+        history_data = history.get("data", []) if isinstance(history, dict) else []
+        closure_score = 100.0 if summary.get("success", False) and not pending_data else 0.0
+        return {
+            "success": True,
+            "data": {
+                "summary": summary_data,
+                "pending": pending_data,
+                "history": history_data,
+                "lifecycle": {
+                    "stage": "governing",
+                    "status": "success" if summary.get("success", False) else "failed",
+                    "execution_id": execution_id,
+                    "pending_count": len(pending_data),
+                    "history_count": len(history_data),
+                    "summary_count": int(summary_data.get("history_count", 0) if isinstance(summary_data, dict) else 0),
+                    "closure_score": closure_score,
+                },
+                "health": {"closure_score": closure_score, "is_healthy": closure_score > 0},
+            },
+        }
+
+    # === Promotion Lifecycle Methods ===
+    
     async def deliver_runtime_governance_promotion(
         self,
         execution_id: str,
@@ -42,8 +108,9 @@ class PromotionLifecycleService:
         governance: Optional[Dict[str, Any]] = None,
         lifecycle_contract: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        runtime_bundle = self.runtime_lifecycle_service.runtime_lifecycle(execution_id)
-        governance_bundle = await self.governance_lifecycle_service.governance_lifecycle(execution_id)
+        """交付运行时、治理和发布"""
+        runtime_bundle = self.runtime_lifecycle(execution_id)
+        governance_bundle = await self.governance_lifecycle(execution_id)
         promotion_bundle = self.evaluate_promotion(
             execution_id,
             project_path=project_path,
@@ -81,11 +148,12 @@ class PromotionLifecycleService:
         }
 
     async def deploy_lifecycle(self) -> Dict[str, Any]:
+        """部署生命周期"""
         deployment = self.deploy_view()
-        runtime = self.runtime_lifecycle_service.runtime_lifecycle()
+        runtime = self.runtime_lifecycle()
         runtime_id = str((runtime.get("data", {}) or {}).get("runtime", {}).get("runtime_id", ""))
         contract = self.lifecycle_contract(runtime_id) if runtime_id else {"success": False, "data": {}}
-        governance_summary = await self.governance_lifecycle_service.governance_lifecycle()
+        governance_summary = await self.governance_lifecycle()
         promotion = self.evaluate_promotion(
             runtime_id or self.project_path,
             project_path=self.project_path,
@@ -126,4 +194,4 @@ class PromotionLifecycleService:
         }
 
 
-__all__ = ["PromotionLifecycleService"]
+__all__ = ["DeliveryService"]

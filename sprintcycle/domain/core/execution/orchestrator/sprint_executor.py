@@ -45,8 +45,8 @@ from ..hooks.governance_context import (
     CTX_GOVERNANCE_TASK_AFTER_DETAIL,
     CTX_GOVERNANCE_TASK_AFTER_FAILED,
 )
-from ..hooks.sprint_hooks import NoOpSprintLifecycleHooks, SprintLifecycleHooks
-from ..hooks.task_hooks import NoOpTaskLifecycleHooks, TaskLifecycleHooks
+from ..hooks.sprint_hooks import SprintLifecycleHooks, create_noop_sprint_hooks
+from ..hooks.task_hooks import TaskLifecycleHooks, create_noop_task_hooks
 from sprintcycle.domain.core.execution.core.policies import SprintFeedbackPolicy, SprintRetryPolicy
 from sprintcycle.domain.core.execution.project_write import ProjectWritePlan
 from sprintcycle.domain.core.execution.core.protocols import ExecutionContext
@@ -85,8 +85,8 @@ class SprintExecutor:
         self._sprint_retry_policy = SprintRetryPolicy(self._max_verify_fix_rounds)
         self._sprint_feedback_policy = SprintFeedbackPolicy()
         self._runtime_config = runtime_config
-        self._sprint_hooks: SprintLifecycleHooks = sprint_hooks or NoOpSprintLifecycleHooks()
-        self._task_hooks: TaskLifecycleHooks = task_hooks or NoOpTaskLifecycleHooks()
+        self._sprint_hooks: SprintLifecycleHooks = sprint_hooks or create_noop_sprint_hooks()
+        self._task_hooks: TaskLifecycleHooks = task_hooks or create_noop_task_hooks()
         self._event_bus: Optional[ExecutionEventBackend] = None
         self._feedback_loop = feedback_loop
         self._evolution_loop = evolution_loop
@@ -177,10 +177,10 @@ class SprintExecutor:
         self._error_handler = error_handler
 
     def set_sprint_hooks(self, sprint_hooks: Optional[SprintLifecycleHooks]) -> None:
-        self._sprint_hooks = sprint_hooks or NoOpSprintLifecycleHooks()
+        self._sprint_hooks = sprint_hooks or create_noop_sprint_hooks()
 
     def set_task_hooks(self, task_hooks: Optional[TaskLifecycleHooks]) -> None:
-        self._task_hooks = task_hooks or NoOpTaskLifecycleHooks()
+        self._task_hooks = task_hooks or create_noop_task_hooks()
 
     async def _invoke_task_hooks(
         self, task: SprintBacklogItem, sprint_name: str, context: Dict[str, Any], task_result: TaskResult

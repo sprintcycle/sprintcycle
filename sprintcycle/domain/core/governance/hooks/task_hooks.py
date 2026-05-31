@@ -1,8 +1,6 @@
 """治理相关的任务级钩子。
 
-使用 Domain 定义的协议接口，打破 Governance → Execution 循环依赖。
-
-**分层**：GovernanceHooks 通过构造函数接收依赖。
+**精简版**：使用统一的 TaskLifecycleHooks 基类。
 """
 
 from __future__ import annotations
@@ -13,8 +11,8 @@ from typing import Any, Dict, List, Optional
 from loguru import logger
 
 from sprintcycle.domain.generic.models import SprintBacklogItem
-from sprintcycle.domain.generic.interfaces import TaskLifecycleHookProtocol
 from sprintcycle.domain.generic.interfaces import ExecutionStatus, TaskResult
+from sprintcycle.domain.core.execution.hooks.task_hooks import TaskLifecycleHooks
 from sprintcycle.domain.ports.config import RuntimeConfigProtocol
 from ..hitl import HitlService
 from sprintcycle.domain.core.governance.common.model import Finding as GovernanceViolation
@@ -22,8 +20,8 @@ from ..arch_guard.yaml_checks import checks_for_gate, filter_argv_items_by_gover
 from sprintcycle.domain.core.governance.core import load_merged_governance_data
 
 
-class GovernanceTaskLifecycleHooks(TaskLifecycleHookProtocol):
-    """治理任务钩子 - 实现协议接口"""
+class GovernanceTaskLifecycleHooks(TaskLifecycleHooks):
+    """治理任务钩子 - 继承统一的 TaskLifecycleHooks"""
 
     def __init__(
         self,

@@ -175,7 +175,7 @@ It's not about making AI write code faster — it's about making every line of c
 
 ### One-sentence Summary
 
-Hexagonal Architecture (Ports & Adapters) + DDD (Domain-Driven Design), 4-layer separation (interfaces → application → domain → infrastructure), 4 core subdomains (lifecycle / execution / evolution / governance), 17 port abstractions, 469+ Python files.
+Hexagonal Architecture (Ports & Adapters) + DDD (Domain-Driven Design), 4-layer separation (interfaces → application → domain → infrastructure), 4 core subdomains (lifecycle / execution / evolution / governance), 14 port abstractions, 469+ Python files.
 
 ### Architecture Layers
 
@@ -195,7 +195,7 @@ Hexagonal Architecture (Ports & Adapters) + DDD (Domain-Driven Design), 4-layer 
 │   (Core: lifecycle, execution, evolution, governance;     │
 │    Supporting: intent, fitness;                           │
 │    Generic: errors, prompts, models, platform, interfaces)│
-│   (ports/: 17 port definitions)                          │
+│   (ports/: 14 port definitions)                          │
 ├─────────────────────────────────────────────────────────────┤
 │                  infrastructure/                           │ ← Output Port Adapters
 │  (adapters/core/, adapters/generic/)                      │
@@ -267,7 +267,7 @@ All external dependency interfaces are defined in `domain/ports/` (17 ports):
 | `state_store.py` | `StateStoreProtocol` | State persistence |
 | `llm.py` | `EngineAdapterProtocol` | LLM engine calls |
 | `cache.py` | `CacheBackendProtocol` | Cache services |
-| `governance.py` | `ArchGuardAdapterProtocol`, `GrimpAdapterProtocol`, `ImportLinterAdapterProtocol`, `RuffAdapterProtocol`, `TypeCheckAdapterProtocol` | Architecture guard checks |
+| `governance.py` | `LinterAdapterProtocol` | Unified code checking/architecture analysis (merged ArchGuard, Grimp, ImportLinter, Ruff, TypeCheck) |
 | `observability.py` | `ObservabilityFacadeProtocol` | Observability integration |
 | `registry.py` | `RuntimeRegistryProtocol` | Runtime registration |
 | `knowledge.py` | `KnowledgeRepositoryProtocol` | Knowledge management |
@@ -278,7 +278,7 @@ All external dependency interfaces are defined in `domain/ports/` (17 ports):
 | `deploy.py` | `PlatformLaunchServiceProtocol` | Deployment services |
 | `rate_limit.py` | `RateLimitPort` | Rate limiting |
 | `diagnostics.py` | `DiagnosticPort` | Diagnostics services |
-| `integrations.py` | `LangGraphRuntimeAdapterProtocol`, `PhoenixTraceRuntimeProtocol`, etc. | Third-party integrations |
+| `integrations.py` | `LangGraphRuntimeAdapterProtocol` | Third-party integrations (refactored: merged AutoGPT, Phoenix, etc.) |
 | `suggestion.py` | `SuggestionStoreProtocol` | Suggestion system |
 | `orchestration.py` | `RuntimeConfigPort`, `TraceRuntimePort` | Execution orchestration |
 
@@ -616,7 +616,7 @@ sprintcycle/
 │       ├── state_store.py      # StateStoreProtocol, ExecutionState
 │       ├── llm.py              # EngineAdapterProtocol, EngineResult, EngineAdapterConfig
 │       ├── cache.py            # CacheBackendProtocol
-│       ├── governance.py       # ArchGuardAdapterProtocol, GrimpAdapterProtocol, ImportLinterAdapterProtocol, RuffAdapterProtocol, TypeCheckAdapterProtocol
+│       ├── governance.py       # LinterAdapterProtocol (merged ArchGuard, Grimp, ImportLinter, Ruff, TypeCheck)
 │       ├── observability.py    # ObservabilityFacadeProtocol
 │       ├── registry.py         # RuntimeRegistryProtocol
 │       ├── knowledge.py        # KnowledgeRepositoryProtocol, SprintOutcomeCardAdapter
@@ -627,7 +627,7 @@ sprintcycle/
 │       ├── deploy.py           # PlatformLaunchServiceProtocol
 │       ├── rate_limit.py       # RateLimitPort, RateLimitState
 │       ├── diagnostics.py      # DiagnosticPort
-│       ├── integrations.py     # LangGraphRuntimeAdapterProtocol, PhoenixTraceRuntimeProtocol, etc.
+│       ├── integrations.py     # LangGraphRuntimeAdapterProtocol (refactored: merged AutoGPT, Phoenix, etc.)
 │       ├── suggestion.py       # SuggestionStoreProtocol
 │       └── orchestration.py    # RuntimeConfigPort, TraceRuntimePort
 ├── infrastructure/             # Adapter layer (DDD Infrastructure Layer)

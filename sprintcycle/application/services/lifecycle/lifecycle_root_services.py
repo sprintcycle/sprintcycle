@@ -175,25 +175,20 @@ class LifecycleRootService:
             failure_kind=lifecycle.failure_kind,
             failure_reason=lifecycle.failure_reason,
             failure_code=lifecycle.failure_code,
-            # Cross-subdomain references (consolidated)
             governance_refs=dict(metadata.get("governance_refs", {})),
             evolution_refs=dict(metadata.get("evolution_refs", {})),
             runtime_refs=dict(metadata.get("runtime_refs", {})),
             delivery_refs=dict(metadata.get("delivery_refs", {})),
             recovery_refs=dict(metadata.get("recovery_refs", {})),
-            # Consolidated context fields
             suggestion_refs=list(metadata.get("suggestion_refs", [])),
             skill_context=dict(metadata.get("skill_context", {})),
             io_context=dict(metadata.get("io_context", {})),
-            # Evidence and trace
             evidence=ensure_lifecycle_evidence(lifecycle.evidence.to_dict()),
             trace=dict(metadata.get("trace", {})),
             diagnostics=dict(metadata.get("diagnostics", {})),
-            # Metadata and metrics
             metrics=dict(lifecycle.metrics),
             metadata=metadata,
             correlation=lifecycle.correlation.to_dict() if lifecycle.correlation else {},
-            # Transition information
             stage_history=history,
             allowed_next_stages=list(lifecycle.allowed_next_stages),
             transition_reason=lifecycle.transition_reason,
@@ -335,25 +330,20 @@ class LifecycleRootService:
             failure_kind=failure_kind or lifecycle.failure_kind,
             failure_reason=failure_reason or lifecycle.failure_reason,
             failure_code=failure_code or lifecycle.failure_code,
-            # Cross-subdomain references (consolidated)
             governance_refs=dict(governance_refs or {}),
             evolution_refs=dict(evolution_refs or {}),
             runtime_refs=dict(runtime_refs or {}),
             delivery_refs=dict(delivery_refs or {}),
             recovery_refs=dict(recovery_refs or {}),
-            # Consolidated context fields
             suggestion_refs=list(suggestion_refs or []),
             skill_context=dict(skill_context or {}),
             io_context=dict(io_context or {}),
-            # Evidence and trace
             evidence=ensure_lifecycle_evidence(evidence),
             trace=dict(trace or {}),
             diagnostics=dict(diagnostics or {}),
-            # Metadata and metrics
             metrics=dict(metrics or {}),
             metadata=full_metadata,
             correlation=correlation or (lifecycle.correlation.to_dict() if lifecycle.correlation else {}),
-            # Transition information
             stage_history=full_history,
             allowed_next_stages=list(allowed_next_stages or lifecycle.allowed_next_stages),
             transition_reason=transition_reason or lifecycle.transition_reason,

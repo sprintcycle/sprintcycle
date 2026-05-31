@@ -1,4 +1,7 @@
-"""生命周期钩子协议 - Domain 层定义，Execution 层实现"""
+"""生命周期钩子协议 - Domain 层定义，Execution 层实现
+
+**精简版**：移除了与 execution/hooks 中重复的协议，统一使用 SprintLifecycleHooks 和 TaskLifecycleHooks。
+"""
 
 from abc import ABC, abstractmethod
 from datetime import datetime
@@ -6,58 +9,6 @@ from typing import Any, Dict, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from sprintcycle.domain.generic.models import SprintDefinition, SprintBacklogItem, SprintResult
-
-
-class SprintLifecycleHookProtocol(ABC):
-    """Sprint 生命周期钩子接口"""
-
-    def on_sprint_start(self, sprint: "SprintDefinition", **kwargs: Any) -> None:
-        """Sprint 开始钩子"""
-        ...
-
-    def on_sprint_complete(
-        self,
-        sprint: "SprintDefinition",
-        result: "SprintResult",
-        **kwargs: Any,
-    ) -> None:
-        """Sprint 完成钩子"""
-        ...
-
-    def on_sprint_error(
-        self,
-        sprint: "SprintDefinition",
-        error: Exception,
-        **kwargs: Any,
-    ) -> None:
-        """Sprint 错误钩子"""
-        ...
-
-
-class TaskLifecycleHookProtocol(ABC):
-    """任务生命周期钩子接口"""
-
-    def on_task_start(self, task: "SprintBacklogItem", **kwargs: Any) -> None:
-        """任务开始钩子"""
-        ...
-
-    def on_task_complete(
-        self,
-        task: "SprintBacklogItem",
-        result: "Dict[str, Any]",
-        **kwargs: Any,
-    ) -> None:
-        """任务完成钩子"""
-        ...
-
-    def on_task_error(
-        self,
-        task: "SprintBacklogItem",
-        error: Exception,
-        **kwargs: Any,
-    ) -> None:
-        """任务错误钩子"""
-        ...
 
 
 class ExecutionEventProtocol(ABC):
@@ -89,7 +40,5 @@ class ExecutionEventProtocol(ABC):
 
 
 __all__ = [
-    "SprintLifecycleHookProtocol",
-    "TaskLifecycleHookProtocol",
     "ExecutionEventProtocol",
 ]

@@ -26,12 +26,12 @@ from sprintcycle.domain.core.execution.core.events import (
 from sprintcycle.domain.core.execution.core.feedback import FeedbackLoop
 from sprintcycle.domain.core.execution.hooks.skill_hooks import SkillLifecycleHook
 from sprintcycle.domain.core.execution.hooks.sprint_hooks import (
-    ChainedSprintHooks,
     SprintLifecycleHooks,
+    create_chained_sprint_hooks,
     _measurement_run_metadata,
     _OrchestratorSprintHooks,
 )
-from sprintcycle.domain.core.execution.hooks.task_hooks import ChainedTaskHooks, TaskLifecycleHooks
+from sprintcycle.domain.core.execution.hooks.task_hooks import TaskLifecycleHooks, create_chained_task_hooks
 from sprintcycle.domain.core.execution.planners.expand import expand_release_plan_for_execution
 from sprintcycle.domain.generic.models import ReleasePlan, SprintBacklogItem, SprintDefinition
 from sprintcycle.domain.core.execution.core.protocols import ExecutionContext
@@ -144,7 +144,7 @@ class SprintOrchestrator:
 
             parts.append(HitlSprintHooks(self.config, self._hitl_coordinator))
         parts.append(_OrchestratorSprintHooks(self, release_plan))
-        return ChainedSprintHooks(tuple(parts))
+        return create_chained_sprint_hooks(tuple(parts))
 
     def _base_runner_context(self, release_plan: ReleasePlan) -> ExecutionContext:
         raw = (release_plan.project.path or self._project_root or ".").strip()

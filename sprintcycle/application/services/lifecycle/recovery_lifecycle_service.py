@@ -17,14 +17,14 @@ from dataclasses import dataclass
 from typing import Any, Callable, Dict, Optional
 
 from sprintcycle.application.services.governance.repair_orchestration_service import RepairOrchestrationService
-from sprintcycle.application.services.lifecycle.promotion_lifecycle_service import PromotionLifecycleService
+from sprintcycle.application.services.lifecycle.delivery_service import DeliveryService
 
 
 @dataclass
 class RecoveryLifecycleService:
     project_path: str
     repair_orchestration: RepairOrchestrationService
-    promotion_lifecycle_service: PromotionLifecycleService
+    delivery_service: DeliveryService
     observability_trace: Callable[[str], Dict[str, Any]]
     observe_execution: Callable[[str], Dict[str, Any]]
     evaluate_promotion: Callable[..., Dict[str, Any]]
@@ -98,7 +98,7 @@ class RecoveryLifecycleService:
         promotion = self.evaluate_promotion(
             execution_id, project_path=project_path, suggestion=suggestion, governance=governance
         )
-        delivery_bundle = await self.promotion_lifecycle_service.deliver_runtime_governance_promotion(
+        delivery_bundle = await self.delivery_service.deliver_runtime_governance_promotion(
             execution_id, project_path=project_path, suggestion=suggestion, governance=governance
         )
         return {

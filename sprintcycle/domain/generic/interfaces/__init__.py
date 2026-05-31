@@ -21,7 +21,8 @@
 
 from .types import ExecutionStatus, TaskResult, SprintResult
 from .execution import ExecutionPlannerProtocol, TaskExecutorProtocol
-from .lifecycle_hooks import SprintLifecycleHookProtocol, TaskLifecycleHookProtocol, ExecutionEventProtocol
+from .lifecycle_hooks import ExecutionEventProtocol
+from .hook_factory import HookFactory, ChainedHooks
 from .validators import ValidatorProtocol, create_validator, get_validator
 from .release_plan_generator import (
     ReleasePlanGeneratorProtocol,

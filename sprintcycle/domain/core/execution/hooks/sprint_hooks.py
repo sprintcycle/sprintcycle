@@ -2,6 +2,8 @@
 Sprint 生命周期钩子 — 编排内核（execute_sprints）与横切能力（事件、测量等）解耦。
 
 由 ``SprintOrchestrator`` 等注册实现；SprintExecutor 在「每个 Sprint 前后」调用。
+
+**精简版**：移除了重复的 NoOp/Chained 类，统一使用 HookFactory。
 """
 
 from __future__ import annotations
@@ -13,9 +15,12 @@ from loguru import logger
 
 from sprintcycle.domain.generic.models import ReleasePlan, SprintDefinition
 from sprintcycle.domain.generic.interfaces import SprintResult
+from sprintcycle.domain.generic.interfaces.hook_factory import HookFactory, ChainedHooks
 
 
 class SprintLifecycleHooks(ABC):
+    """Sprint 生命周期钩子基类"""
+    
     @abstractmethod
     async def on_before_sprint(
         self, sprint_index: int, sprint: SprintDefinition, context: Dict[str, Any], release_plan: Optional[ReleasePlan]
@@ -49,53 +54,23 @@ class SprintLifecycleHooks(ABC):
         return None
 
 
-class NoOpSprintLifecycleHooks(SprintLifecycleHooks):
-    async def on_before_sprint(
-        self, sprint_index: int, sprint: SprintDefinition, context: Dict[str, Any], release_plan: Optional[ReleasePlan]
-    ) -> None:
-        return None
+# === 使用 HookFactory 创建标准实现 ===
 
-    async def on_after_sprint(
-        self,
-        sprint_index: int,
-        sprint: SprintDefinition,
-        result: SprintResult,
-        context: Dict[str, Any],
-        release_plan: Optional[ReleasePlan],
-    ) -> None:
-        return None
+def create_noop_sprint_hooks() -> SprintLifecycleHooks:
+    """创建空实现的 Sprint 钩子"""
+    return HookFactory.noop(SprintLifecycleHooks)
 
 
-class ChainedSprintHooks(SprintLifecycleHooks):
-    def __init__(self, hooks: Sequence[SprintLifecycleHooks]):
-        self._hooks = tuple(hooks)
-
-    async def on_before_sprint(
-        self, sprint_index: int, sprint: SprintDefinition, context: Dict[str, Any], release_plan: Optional[ReleasePlan]
-    ) -> None:
-        for h in self._hooks:
-            try:
-                await h.on_before_sprint(sprint_index, sprint, context, release_plan)
-            except Exception as e:
-                logger.warning("ChainedSprintHooks on_before [{}]: {}", type(h).__name__, e)
-
-    async def on_after_sprint(
-        self,
-        sprint_index: int,
-        sprint: SprintDefinition,
-        result: SprintResult,
-        context: Dict[str, Any],
-        release_plan: Optional[ReleasePlan],
-    ) -> None:
-        for h in reversed(self._hooks):
-            try:
-                await h.on_after_sprint(sprint_index, sprint, result, context, release_plan)
-            except Exception as e:
-                logger.warning("ChainedSprintHooks on_after [{}]: {}", type(h).__name__, e)
+def create_chained_sprint_hooks(hooks: Sequence[SprintLifecycleHooks]) -> ChainedHooks:
+    """创建链式调用的 Sprint 钩子"""
+    return HookFactory.chain(hooks)
 
 
 class _OrchestratorSprintHooks(SprintLifecycleHooks):
-    """编排器级别的 Sprint 钩子：处理事件发射和测量元数据。"""
+    """编排器级别的 Sprint 钩子：处理事件发射和测量元数据。
+
+    **注意**：此类保留因为它有特定的事件发射逻辑，不适合工厂模式。
+    """
 
     def __init__(self, orchestrator: Any, release_plan: ReleasePlan):
         self._orchestrator = orchestrator
@@ -108,7 +83,6 @@ class _OrchestratorSprintHooks(SprintLifecycleHooks):
         context: Dict[str, Any],
         release_plan: Optional[ReleasePlan],
     ) -> None:
-        # 发射 sprint 开始事件
         from sprintcycle.domain.core.execution.core.events import Event, EventType
 
         event = Event(
@@ -132,7 +106,6 @@ class _OrchestratorSprintHooks(SprintLifecycleHooks):
         context: Dict[str, Any],
         release_plan: Optional[ReleasePlan],
     ) -> None:
-        # 发射 sprint 完成事件
         from sprintcycle.domain.core.execution.core.events import Event, EventType
 
         event = Event(

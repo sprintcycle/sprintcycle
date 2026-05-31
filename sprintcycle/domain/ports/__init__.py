@@ -31,21 +31,9 @@
 
 from .state_store import StateStoreProtocol, ExecutionState
 from .cache import CacheBackendProtocol
-from .governance import (
-    ArchGuardAdapterProtocol,
-    GrimpAdapterProtocol,
-    ImportLinterAdapterProtocol,
-    RuffAdapterProtocol,
-    TypeCheckAdapterProtocol,
-)
+from .governance import LinterAdapterProtocol
 from .config import RuntimeConfigProtocol
-from .integrations import (
-    AutoGPTComposeSpecProtocol,
-    AutoGPTRuntimeSpecProtocol,
-    LangGraphRuntimeAdapterProtocol,
-    PhoenixExporterSpecProtocol,
-    PhoenixTraceRuntimeProtocol,
-)
+from .integrations import LangGraphRuntimeAdapterProtocol
 from .rate_limit import RateLimitPort, RateLimitState
 from .audit import AuditPort, AuditRecord
 from .diagnostics import DiagnosticPort
@@ -70,19 +58,11 @@ __all__ = [
     # 缓存端口
     "CacheBackendProtocol",
     # 架构守卫端口
-    "ArchGuardAdapterProtocol",
-    "GrimpAdapterProtocol",
-    "ImportLinterAdapterProtocol",
-    "RuffAdapterProtocol",
-    "TypeCheckAdapterProtocol",
+    "LinterAdapterProtocol",
     # 配置端口
     "RuntimeConfigProtocol",
     # 集成适配器端口
-    "AutoGPTComposeSpecProtocol",
-    "AutoGPTRuntimeSpecProtocol",
     "LangGraphRuntimeAdapterProtocol",
-    "PhoenixExporterSpecProtocol",
-    "PhoenixTraceRuntimeProtocol",
     # 限流端口
     "RateLimitPort",
     "RateLimitState",

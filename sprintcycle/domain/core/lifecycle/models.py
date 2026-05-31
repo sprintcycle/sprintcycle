@@ -9,6 +9,14 @@ the domain layer and external interfaces (API, Dashboard, etc.).
 - Conversion: Handled by application layer services
 
 This DTO maintains backward compatibility with existing API contracts.
+
+**Field Grouping:**
+- CrossDomainRefs: Cross-subdomain references
+- ExecutionContext: Skill and IO context
+- EvidenceBundle: Evidence, trace, and diagnostics
+- MetadataBundle: Metrics, metadata, and correlation
+- TransitionInfo: Stage history and transition data
+- FailureInfo: Failure details
 """
 
 from __future__ import annotations
@@ -22,6 +30,150 @@ from .state_machine import (
     build_default_correlation,
     FAILURE_KIND_BY_STAGE,
 )
+
+
+@dataclass
+class CrossDomainRefs:
+    """Cross-subdomain references grouped into a single object."""
+    governance: Dict[str, Any] = field(default_factory=dict)
+    evolution: Dict[str, Any] = field(default_factory=dict)
+    runtime: Dict[str, Any] = field(default_factory=dict)
+    delivery: Dict[str, Any] = field(default_factory=dict)
+    recovery: Dict[str, Any] = field(default_factory=dict)
+    suggestion: List[Dict[str, Any]] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "governance_refs": self.governance,
+            "evolution_refs": self.evolution,
+            "runtime_refs": self.runtime,
+            "delivery_refs": self.delivery,
+            "recovery_refs": self.recovery,
+            "suggestion_refs": self.suggestion,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "CrossDomainRefs":
+        return cls(
+            governance=dict(data.get("governance_refs", {})),
+            evolution=dict(data.get("evolution_refs", {})),
+            runtime=dict(data.get("runtime_refs", {})),
+            delivery=dict(data.get("delivery_refs", {})),
+            recovery=dict(data.get("recovery_refs", {})),
+            suggestion=list(data.get("suggestion_refs", [])),
+        )
+
+
+@dataclass
+class ExecutionContext:
+    """Consolidated execution context."""
+    skill: Dict[str, Any] = field(default_factory=dict)
+    io: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "skill_context": self.skill,
+            "io_context": self.io,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "ExecutionContext":
+        return cls(
+            skill=dict(data.get("skill_context", {})),
+            io=dict(data.get("io_context", {})),
+        )
+
+
+@dataclass
+class EvidenceBundle:
+    """Evidence, trace, and diagnostics grouped together."""
+    evidence: Dict[str, Any] = field(default_factory=dict)
+    trace: Dict[str, Any] = field(default_factory=dict)
+    diagnostics: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "evidence": self.evidence,
+            "trace": self.trace,
+            "diagnostics": self.diagnostics,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "EvidenceBundle":
+        return cls(
+            evidence=dict(data.get("evidence", {})),
+            trace=dict(data.get("trace", {})),
+            diagnostics=dict(data.get("diagnostics", {})),
+        )
+
+
+@dataclass
+class MetadataBundle:
+    """Metrics, metadata, and correlation grouped together."""
+    metrics: Dict[str, Any] = field(default_factory=dict)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    correlation: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "metrics": self.metrics,
+            "metadata": self.metadata,
+            "correlation": self.correlation,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "MetadataBundle":
+        return cls(
+            metrics=dict(data.get("metrics", {})),
+            metadata=dict(data.get("metadata", {})),
+            correlation=dict(data.get("correlation", {})),
+        )
+
+
+@dataclass
+class TransitionInfo:
+    """Stage history and transition data."""
+    history: List[Dict[str, Any]] = field(default_factory=list)
+    allowed_next_stages: List[str] = field(default_factory=list)
+    reason: str = ""
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "stage_history": self.history,
+            "allowed_next_stages": self.allowed_next_stages,
+            "transition_reason": self.reason,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "TransitionInfo":
+        return cls(
+            history=list(data.get("stage_history", [])),
+            allowed_next_stages=list(data.get("allowed_next_stages", [])),
+            reason=data.get("transition_reason", ""),
+        )
+
+
+@dataclass
+class FailureInfo:
+    """Failure details grouped together."""
+    kind: str = ""
+    reason: str = ""
+    code: str = ""
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "failure_kind": self.kind,
+            "failure_reason": self.reason,
+            "failure_code": self.code,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "FailureInfo":
+        return cls(
+            kind=data.get("failure_kind", ""),
+            reason=data.get("failure_reason", ""),
+            code=data.get("failure_code", ""),
+        )
 
 STAGE_EVIDENCE_SCHEMA: Dict[str, tuple[str, ...]] = {
     "normalized": ("normalized",),
@@ -139,7 +291,6 @@ def ensure_lifecycle_evidence(evidence: Optional[Dict[str, Any]] = None) -> Dict
     return payload
 
 
-@dataclass
 class LifecycleContract:
     """
     Lifecycle Contract DTO - Pure data transfer object.
@@ -149,75 +300,102 @@ class LifecycleContract:
     business logic - validation and business rules belong in the domain.
     
     **Design Principles:**
-    - Flat structure for easy serialization
+    - Grouped structure with value objects for better organization
     - Contains only fields needed for external interfaces
     - Uses primitive types (strings) for cross-system compatibility
     - Separated from domain aggregate to avoid coupling
-    - Minimal field count to reduce complexity
+    - Reduced field count through grouping
     
     **DTO vs Aggregate Boundary:**
-    - DTO (this class): External interface data, flat structure, string-based
+    - DTO (this class): External interface data, grouped structure
     - LifecycleRoot: Domain aggregate, business logic, type-safe enums
     
     **Conversion:**
     - Use LifecycleMapper to convert between LifecycleContract and LifecycleRoot
     
-    **Field Organization:**
+    **Field Organization (Grouped):**
     - Core identity: execution_id, task_id, project_path
-    - Core state: stage, status
-    - Metadata: task_type, intent
-    - Failure: failure_kind, failure_reason, failure_code
-    - Cross-domain refs: governance_refs, evolution_refs, runtime_refs, delivery_refs, recovery_refs
-    - Context: skill_context (consolidated skill-related data), io_context (consolidated IO data)
-    - Evidence: evidence, trace, diagnostics
-    - Metadata: metrics, metadata, correlation
-    - Transition: stage_history, allowed_next_stages, transition_reason
+    - Core state: stage, status, task_type, intent
+    - CrossDomainRefs: governance, evolution, runtime, delivery, recovery, suggestion
+    - ExecutionContext: skill, io
+    - EvidenceBundle: evidence, trace, diagnostics
+    - MetadataBundle: metrics, metadata, correlation
+    - TransitionInfo: history, allowed_next_stages, reason
+    - FailureInfo: kind, reason, code
     """
     
-    # Core identity fields
-    execution_id: str
-    task_id: str
-    project_path: str
-    
-    # Core state fields (string-based for external compatibility)
-    stage: str = "new"
-    status: str = "pending"
-    
-    # Metadata fields
-    task_type: str = "project_optimization"
-    intent: str = ""
-    
-    # Failure information
-    failure_kind: str = ""
-    failure_reason: str = ""
-    failure_code: str = ""
-    
-    # Cross-subdomain references (consolidated dictionaries)
-    governance_refs: Dict[str, Any] = field(default_factory=dict)
-    evolution_refs: Dict[str, Any] = field(default_factory=dict)
-    runtime_refs: Dict[str, Any] = field(default_factory=dict)
-    delivery_refs: Dict[str, Any] = field(default_factory=dict)
-    recovery_refs: Dict[str, Any] = field(default_factory=dict)
-    
-    # Consolidated context fields (reduced field count)
-    suggestion_refs: List[Dict[str, Any]] = field(default_factory=list)
-    skill_context: Dict[str, Any] = field(default_factory=dict)
-    io_context: Dict[str, Any] = field(default_factory=dict)
-    
-    # Evidence and trace
-    evidence: Dict[str, Any] = field(default_factory=dict)
-    trace: Dict[str, Any] = field(default_factory=dict)
-    diagnostics: Dict[str, Any] = field(default_factory=dict)
-    
-    # Metadata and metrics
-    metrics: Dict[str, Any] = field(default_factory=dict)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    correlation: Dict[str, Any] = field(default_factory=dict)
-    
-    # Transition information
-    stage_history: List[Dict[str, Any]] = field(default_factory=list)
-    allowed_next_stages: List[str] = field(default_factory=list)
-    transition_reason: str = ""
+    def __init__(
+        self,
+        execution_id: str = "",
+        task_id: str = "",
+        project_path: str = "",
+        stage: str = "new",
+        status: str = "pending",
+        task_type: str = "project_optimization",
+        intent: str = "",
+        failure_kind: str = "",
+        failure_reason: str = "",
+        failure_code: str = "",
+        governance_refs: Optional[Dict[str, Any]] = None,
+        evolution_refs: Optional[Dict[str, Any]] = None,
+        runtime_refs: Optional[Dict[str, Any]] = None,
+        delivery_refs: Optional[Dict[str, Any]] = None,
+        recovery_refs: Optional[Dict[str, Any]] = None,
+        suggestion_refs: Optional[List[Dict[str, Any]]] = None,
+        skill_context: Optional[Dict[str, Any]] = None,
+        io_context: Optional[Dict[str, Any]] = None,
+        evidence: Optional[Dict[str, Any]] = None,
+        trace: Optional[Dict[str, Any]] = None,
+        diagnostics: Optional[Dict[str, Any]] = None,
+        metrics: Optional[Dict[str, Any]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        correlation: Optional[Dict[str, Any]] = None,
+        stage_history: Optional[List[Dict[str, Any]]] = None,
+        allowed_next_stages: Optional[List[str]] = None,
+        transition_reason: str = "",
+    ):
+        # Core identity
+        self.execution_id = execution_id
+        self.task_id = task_id
+        self.project_path = project_path
+        
+        # Core state
+        self.stage = stage
+        self.status = status
+        self.task_type = task_type
+        self.intent = intent
+        
+        # Failure info
+        self.failure_kind = failure_kind
+        self.failure_reason = failure_reason
+        self.failure_code = failure_code
+        
+        # Cross-domain refs
+        self.governance_refs = governance_refs or {}
+        self.evolution_refs = evolution_refs or {}
+        self.runtime_refs = runtime_refs or {}
+        self.delivery_refs = delivery_refs or {}
+        self.recovery_refs = recovery_refs or {}
+        self.suggestion_refs = suggestion_refs or []
+        
+        # Context
+        self.skill_context = skill_context or {}
+        self.io_context = io_context or {}
+        
+        # Evidence
+        self.evidence = evidence or {}
+        self.trace = trace or {}
+        self.diagnostics = diagnostics or {}
+        
+        # Metadata
+        self.metrics = metrics or {}
+        self.metadata = metadata or {}
+        self.correlation = correlation or {}
+        
+        # Transition
+        self.stage_history = stage_history or []
+        self.allowed_next_stages = allowed_next_stages or []
+        self.transition_reason = transition_reason
 
     def validate(self) -> List[str]:
         """Validate the contract structure (schema validation only).
@@ -257,8 +435,37 @@ class LifecycleContract:
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization."""
         machine = LifecycleStateMachine()
-        d = asdict(self)
         validation_errors = self.validate()
+        
+        d: Dict[str, Any] = {
+            "execution_id": self.execution_id,
+            "task_id": self.task_id,
+            "project_path": self.project_path,
+            "stage": self.stage,
+            "status": self.status,
+            "task_type": self.task_type,
+            "intent": self.intent,
+            "failure_kind": self.failure_kind,
+            "failure_reason": self.failure_reason,
+            "failure_code": self.failure_code,
+            "governance_refs": self.governance_refs,
+            "evolution_refs": self.evolution_refs,
+            "runtime_refs": self.runtime_refs,
+            "delivery_refs": self.delivery_refs,
+            "recovery_refs": self.recovery_refs,
+            "suggestion_refs": self.suggestion_refs,
+            "skill_context": self.skill_context,
+            "io_context": self.io_context,
+            "evidence": self.evidence,
+            "trace": self.trace,
+            "diagnostics": self.diagnostics,
+            "metrics": self.metrics,
+            "metadata": self.metadata,
+            "correlation": self.correlation,
+            "stage_history": self.stage_history,
+            "allowed_next_stages": self.allowed_next_stages,
+            "transition_reason": self.transition_reason,
+        }
         
         d["is_terminal"] = machine.is_terminal(self.stage) or self.status in TERMINAL_STATUSES
         d["stage_index"] = machine.stage_index(self.stage)
@@ -281,47 +488,30 @@ class LifecycleContract:
     def from_dict(cls, data: Dict[str, Any]) -> "LifecycleContract":
         """Create from dictionary."""
         return cls(
-            # Core identity fields
             execution_id=data.get("execution_id", ""),
             task_id=data.get("task_id", ""),
             project_path=data.get("project_path", ""),
-            
-            # Core state fields
             stage=data.get("stage", "new"),
             status=data.get("status", "pending"),
-            
-            # Metadata fields
             task_type=data.get("task_type", "project_optimization"),
             intent=data.get("intent", ""),
-            
-            # Failure information
             failure_kind=data.get("failure_kind", ""),
             failure_reason=data.get("failure_reason", ""),
             failure_code=data.get("failure_code", ""),
-            
-            # Cross-subdomain references (consolidated)
             governance_refs=dict(data.get("governance_refs", {})),
             evolution_refs=dict(data.get("evolution_refs", {})),
             runtime_refs=dict(data.get("runtime_refs", {})),
             delivery_refs=dict(data.get("delivery_refs", {})),
             recovery_refs=dict(data.get("recovery_refs", {})),
-            
-            # Consolidated context fields
             suggestion_refs=list(data.get("suggestion_refs", [])),
             skill_context=dict(data.get("skill_context", {})),
             io_context=dict(data.get("io_context", {})),
-            
-            # Evidence and trace
             evidence=dict(data.get("evidence", {})),
             trace=dict(data.get("trace", {})),
             diagnostics=dict(data.get("diagnostics", {})),
-            
-            # Metadata and metrics
             metrics=dict(data.get("metrics", {})),
             metadata=dict(data.get("metadata", {})),
             correlation=dict(data.get("correlation", {})),
-            
-            # Transition information
             stage_history=list(data.get("stage_history", [])),
             allowed_next_stages=list(data.get("allowed_next_stages", [])),
             transition_reason=data.get("transition_reason", ""),

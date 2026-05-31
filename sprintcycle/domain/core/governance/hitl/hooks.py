@@ -1,8 +1,6 @@
 """HITL 生命周期钩子（治理域版本）。
 
-使用 Domain 定义的接口协议，打破 Governance → Execution 循环依赖。
-
-**分层**：HitlHooks 通过构造函数接收依赖。
+**精简版**：使用统一的 SprintLifecycleHooks 和 TaskLifecycleHooks 基类。
 """
 
 from __future__ import annotations
@@ -12,8 +10,9 @@ from typing import TYPE_CHECKING, Any, Dict
 from loguru import logger
 
 from sprintcycle.domain.generic.models import SprintBacklogItem, SprintDefinition
-from sprintcycle.domain.generic.interfaces import SprintLifecycleHookProtocol, TaskLifecycleHookProtocol
 from sprintcycle.domain.generic.interfaces import ExecutionStatus, SprintResult
+from sprintcycle.domain.core.execution.hooks.sprint_hooks import SprintLifecycleHooks
+from sprintcycle.domain.core.execution.hooks.task_hooks import TaskLifecycleHooks
 from sprintcycle.domain.ports.config import RuntimeConfigProtocol
 from .types import (
     CTX_HITL_ABORT_EXECUTION,
@@ -28,8 +27,8 @@ if TYPE_CHECKING:
     from sprintcycle.domain.ports.observability import ObservabilityFacadeProtocol
 
 
-class HitlSprintHooks(SprintLifecycleHookProtocol):
-    """HITL Sprint 钩子 - 实现协议接口"""
+class HitlSprintHooks(SprintLifecycleHooks):
+    """HITL Sprint 钩子 - 继承统一的 SprintLifecycleHooks"""
 
     def __init__(self, config: RuntimeConfigProtocol, observability: "ObservabilityFacadeProtocol") -> None:
         self._config = config
@@ -113,8 +112,8 @@ class HitlSprintHooks(SprintLifecycleHookProtocol):
                 logger.warning("HITL after_sprint decision not applied: {}", decision.decision)
 
 
-class HitlTaskHooks(TaskLifecycleHookProtocol):
-    """HITL Task 钩子 - 实现协议接口"""
+class HitlTaskHooks(TaskLifecycleHooks):
+    """HITL Task 钩子 - 继承统一的 TaskLifecycleHooks"""
 
     def __init__(self, config: RuntimeConfigProtocol, observability: "ObservabilityFacadeProtocol") -> None:
         self._config = config
