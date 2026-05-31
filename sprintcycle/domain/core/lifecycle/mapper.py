@@ -77,6 +77,14 @@ class LifecycleMapper:
         substage = LifecycleSubstage.from_string(contract.stage)
         phase = get_phase_for_substage(substage)
         
+        metadata = dict(contract.metadata or {})
+        
+        metadata["delivery_refs"] = dict(contract.delivery_refs or {})
+        metadata["recovery_refs"] = dict(contract.recovery_refs or {})
+        metadata["suggestion_refs"] = list(contract.suggestion_refs or [])
+        metadata["skill_context"] = dict(contract.skill_context or {})
+        metadata["io_context"] = dict(contract.io_context or {})
+        
         return LifecycleRoot(
             contract_id=f"lifecycle-{contract.execution_id}",
             execution_id=contract.execution_id,
@@ -101,13 +109,13 @@ class LifecycleMapper:
                 evolution=evolution_ref or EvolutionRef(),
                 trace=contract.trace or {},
                 diagnostics=contract.diagnostics or {},
-                recovery={},
+                recovery=contract.recovery_refs or {},
                 suggestion={},
             ),
             stage_history=(),
             correlation=correlation,
             metrics=contract.metrics or {},
-            metadata=contract.metadata,
+            metadata=metadata,
             allowed_next_stages=tuple(contract.allowed_next_stages or []),
             transition_reason=contract.transition_reason,
             validation_errors=(),
@@ -123,6 +131,8 @@ class LifecycleMapper:
         Returns:
             A new LifecycleContract instance with values from the root
         """
+        metadata = dict(root.metadata or {})
+        
         return LifecycleContract(
             # Core identity fields
             execution_id=root.execution_id,
@@ -142,7 +152,7 @@ class LifecycleMapper:
             failure_reason=root.failure_reason,
             failure_code=root.failure_code,
             
-            # Cross-subdomain references
+            # Cross-subdomain references (consolidated)
             governance_refs={
                 "governance_session_id": root.governance_ref.governance_session_id if root.governance_ref else "",
                 "gate": root.governance_ref.gate if root.governance_ref else "",
@@ -157,6 +167,13 @@ class LifecycleMapper:
                 "linked": root.runtime_ref.linked if root.runtime_ref else False,
                 "healthy": root.runtime_ref.healthy if root.runtime_ref else False,
             } if root.runtime_ref else {},
+            delivery_refs=dict(metadata.get("delivery_refs", {})),
+            recovery_refs=dict(metadata.get("recovery_refs", {})),
+            
+            # Consolidated context fields
+            suggestion_refs=list(metadata.get("suggestion_refs", [])),
+            skill_context=dict(metadata.get("skill_context", {})),
+            io_context=dict(metadata.get("io_context", {})),
             
             # Evidence and trace
             evidence=root.evidence.to_dict() if root.evidence else {},

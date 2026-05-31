@@ -153,6 +153,7 @@ class LifecycleContract:
     - Contains only fields needed for external interfaces
     - Uses primitive types (strings) for cross-system compatibility
     - Separated from domain aggregate to avoid coupling
+    - Minimal field count to reduce complexity
     
     **DTO vs Aggregate Boundary:**
     - DTO (this class): External interface data, flat structure, string-based
@@ -160,6 +161,17 @@ class LifecycleContract:
     
     **Conversion:**
     - Use LifecycleMapper to convert between LifecycleContract and LifecycleRoot
+    
+    **Field Organization:**
+    - Core identity: execution_id, task_id, project_path
+    - Core state: stage, status
+    - Metadata: task_type, intent
+    - Failure: failure_kind, failure_reason, failure_code
+    - Cross-domain refs: governance_refs, evolution_refs, runtime_refs, delivery_refs, recovery_refs
+    - Context: skill_context (consolidated skill-related data), io_context (consolidated IO data)
+    - Evidence: evidence, trace, diagnostics
+    - Metadata: metrics, metadata, correlation
+    - Transition: stage_history, allowed_next_stages, transition_reason
     """
     
     # Core identity fields
@@ -180,23 +192,17 @@ class LifecycleContract:
     failure_reason: str = ""
     failure_code: str = ""
     
-    # Cross-subdomain references (flat dictionaries)
+    # Cross-subdomain references (consolidated dictionaries)
     governance_refs: Dict[str, Any] = field(default_factory=dict)
     evolution_refs: Dict[str, Any] = field(default_factory=dict)
     runtime_refs: Dict[str, Any] = field(default_factory=dict)
     delivery_refs: Dict[str, Any] = field(default_factory=dict)
     recovery_refs: Dict[str, Any] = field(default_factory=dict)
-    recovery_plan_refs: Dict[str, Any] = field(default_factory=dict)
-    validation_refs: Dict[str, Any] = field(default_factory=dict)
-    input_refs: Dict[str, Any] = field(default_factory=dict)
-    output_refs: Dict[str, Any] = field(default_factory=dict)
     
-    # Skill-related references (lists)
+    # Consolidated context fields (reduced field count)
     suggestion_refs: List[Dict[str, Any]] = field(default_factory=list)
-    skill_refs: List[Dict[str, Any]] = field(default_factory=list)
-    skill_matches: List[Dict[str, Any]] = field(default_factory=list)
-    skill_review_checklists: List[Dict[str, Any]] = field(default_factory=list)
-    skill_trace: Dict[str, Any] = field(default_factory=dict)
+    skill_context: Dict[str, Any] = field(default_factory=dict)
+    io_context: Dict[str, Any] = field(default_factory=dict)
     
     # Evidence and trace
     evidence: Dict[str, Any] = field(default_factory=dict)
@@ -293,23 +299,17 @@ class LifecycleContract:
             failure_reason=data.get("failure_reason", ""),
             failure_code=data.get("failure_code", ""),
             
-            # Cross-subdomain references
+            # Cross-subdomain references (consolidated)
             governance_refs=dict(data.get("governance_refs", {})),
             evolution_refs=dict(data.get("evolution_refs", {})),
             runtime_refs=dict(data.get("runtime_refs", {})),
             delivery_refs=dict(data.get("delivery_refs", {})),
             recovery_refs=dict(data.get("recovery_refs", {})),
-            recovery_plan_refs=dict(data.get("recovery_plan_refs", {})),
-            validation_refs=dict(data.get("validation_refs", {})),
-            input_refs=dict(data.get("input_refs", {})),
-            output_refs=dict(data.get("output_refs", {})),
             
-            # Skill-related references
+            # Consolidated context fields
             suggestion_refs=list(data.get("suggestion_refs", [])),
-            skill_refs=list(data.get("skill_refs", [])),
-            skill_matches=list(data.get("skill_matches", [])),
-            skill_review_checklists=list(data.get("skill_review_checklists", [])),
-            skill_trace=dict(data.get("skill_trace", {})),
+            skill_context=dict(data.get("skill_context", {})),
+            io_context=dict(data.get("io_context", {})),
             
             # Evidence and trace
             evidence=dict(data.get("evidence", {})),

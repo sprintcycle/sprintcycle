@@ -337,7 +337,15 @@ class SprintOrchestrator:
             if isinstance(intent_context.get("task_skill_trace", {}), dict)
             else {}
         )
-        # 使用新架构创建 lifecycle
+        # 使用新架构创建 lifecycle（使用 consolidated 字段结构）
+        skill_context = {
+            "refs": list(skill_matches),
+            "matches": list(skill_matches),
+            "checklists": list(intent_context.get("review_checklists", []))
+            if isinstance(intent_context.get("review_checklists", []), list)
+            else [],
+            "trace": skill_trace,
+        }
         lifecycle = create_lifecycle(
             execution_id=getattr(release_plan, "execution_id", ""),
             task_id=getattr(release_plan, "execution_id", "") or getattr(to_run.project, "name", ""),
@@ -347,20 +355,16 @@ class SprintOrchestrator:
                 "execution_id": getattr(release_plan, "execution_id", None),
                 "delivery_refs": {"delivery_summary": completion_summary},
                 "evolution_refs": {"finalization": completion_summary.get("finalization", {})},
-                "skill_refs": list(skill_matches),
-                "skill_matches": list(skill_matches),
-                "skill_review_checklists": list(intent_context.get("review_checklists", []))
-                if isinstance(intent_context.get("review_checklists", []), list)
-                else [],
-                "skill_trace": skill_trace,
+                "skill_context": skill_context,
             },
         )
         
         # 转换到 delivering 阶段
         lifecycle = lifecycle.transition_to_substage(LifecycleSubstage.DELIVERING)
         
-        # 获取字典格式
+        # 获取字典格式（使用 consolidated 字段结构）
         service = LifecycleStateMachine()
+        metadata = dict(lifecycle.metadata)
         contract_dict = {
             "contract_id": lifecycle.contract_id,
             "execution_id": lifecycle.execution_id,
@@ -368,13 +372,10 @@ class SprintOrchestrator:
             "project_path": lifecycle.project_path,
             "stage": lifecycle.stage.value,
             "status": "success" if success else "failed",
-            "metadata": dict(lifecycle.metadata),
-            "delivery_refs": dict(lifecycle.metadata).get("delivery_refs", {}),
-            "evolution_refs": dict(lifecycle.metadata).get("evolution_refs", {}),
-            "skill_refs": dict(lifecycle.metadata).get("skill_refs", []),
-            "skill_matches": dict(lifecycle.metadata).get("skill_matches", []),
-            "skill_review_checklists": dict(lifecycle.metadata).get("skill_review_checklists", []),
-            "skill_trace": dict(lifecycle.metadata).get("skill_trace", {}),
+            "metadata": metadata,
+            "delivery_refs": metadata.get("delivery_refs", {}),
+            "evolution_refs": metadata.get("evolution_refs", {}),
+            "skill_context": metadata.get("skill_context", {}),
             "stage_history": [
                 {"from": h.from_stage, "to": h.to_stage, "at": h.at, "reason": h.reason}
                 for h in lifecycle.stage_history

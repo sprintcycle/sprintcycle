@@ -72,14 +72,11 @@ class LifecycleRootService:
         delivery_refs: Optional[Dict[str, Any]] = None,
         runtime_refs: Optional[Dict[str, Any]] = None,
         suggestion_refs: Optional[List[Dict[str, Any]]] = None,
-        skill_refs: Optional[List[Dict[str, Any]]] = None,
-        skill_matches: Optional[List[Dict[str, Any]]] = None,
-        skill_review_checklists: Optional[List[Dict[str, Any]]] = None,
-        skill_trace: Optional[Dict[str, Any]] = None,
+        skill_context: Optional[Dict[str, Any]] = None,
+        io_context: Optional[Dict[str, Any]] = None,
         evolution_refs: Optional[Dict[str, Any]] = None,
         evidence: Optional[Dict[str, Any]] = None,
         recovery_refs: Optional[Dict[str, Any]] = None,
-        recovery_plan_refs: Optional[Dict[str, Any]] = None,
         governance_refs: Optional[Dict[str, Any]] = None,
         trace: Optional[Dict[str, Any]] = None,
         diagnostics: Optional[Dict[str, Any]] = None,
@@ -87,15 +84,12 @@ class LifecycleRootService:
         correlation: Optional[Dict[str, Any]] = None,
         stage_history: Optional[List[Dict[str, Any]]] = None,
         allowed_next_stages: Optional[List[str]] = None,
-        validation_refs: Optional[Dict[str, Any]] = None,
-        input_refs: Optional[Dict[str, Any]] = None,
-        output_refs: Optional[Dict[str, Any]] = None,
         transition_reason: str = "",
         failure_code: str = "",
     ) -> LifecycleRoot:
-        """构建生命周期（兼容旧 API 的 build_lifecycle_contract 参数）。
+        """构建生命周期。
         
-        这是完全兼容旧 API 的新版本实现，内部使用 LifecycleRoot 聚合根。
+        使用 LifecycleRoot 聚合根处理业务逻辑。
         """
         meta = normalize_lifecycle_metadata(metadata)
         
@@ -119,7 +113,7 @@ class LifecycleRootService:
             # 如果转换失败，保持原样
             pass
         
-        # 保存兼容引用到 metadata
+        # 保存 consolidated 字段到 metadata
         extra_metadata = dict(lifecycle.metadata)
         if delivery_refs:
             extra_metadata["delivery_refs"] = dict(delivery_refs)
@@ -127,20 +121,14 @@ class LifecycleRootService:
             extra_metadata["runtime_refs"] = dict(runtime_refs)
         if suggestion_refs:
             extra_metadata["suggestion_refs"] = list(suggestion_refs)
-        if skill_refs:
-            extra_metadata["skill_refs"] = list(skill_refs)
-        if skill_matches:
-            extra_metadata["skill_matches"] = list(skill_matches)
-        if skill_review_checklists:
-            extra_metadata["skill_review_checklists"] = list(skill_review_checklists)
-        if skill_trace:
-            extra_metadata["skill_trace"] = dict(skill_trace)
+        if skill_context:
+            extra_metadata["skill_context"] = dict(skill_context)
+        if io_context:
+            extra_metadata["io_context"] = dict(io_context)
         if evolution_refs:
             extra_metadata["evolution_refs"] = dict(evolution_refs)
         if recovery_refs:
             extra_metadata["recovery_refs"] = dict(recovery_refs)
-        if recovery_plan_refs:
-            extra_metadata["recovery_plan_refs"] = dict(recovery_plan_refs)
         if governance_refs:
             extra_metadata["governance_refs"] = dict(governance_refs)
         if trace:
@@ -149,12 +137,6 @@ class LifecycleRootService:
             extra_metadata["diagnostics"] = dict(diagnostics)
         if metrics:
             extra_metadata["metrics"] = dict(metrics)
-        if validation_refs:
-            extra_metadata["validation_refs"] = dict(validation_refs)
-        if input_refs:
-            extra_metadata["input_refs"] = dict(input_refs)
-        if output_refs:
-            extra_metadata["output_refs"] = dict(output_refs)
         
         # 处理证据
         if evidence and isinstance(evidence, dict):
@@ -192,30 +174,29 @@ class LifecycleRootService:
             status=lifecycle.status.value,
             failure_kind=lifecycle.failure_kind,
             failure_reason=lifecycle.failure_reason,
-            delivery_refs=dict(metadata.get("delivery_refs", {})),
-            runtime_refs=dict(metadata.get("runtime_refs", {})),
-            suggestion_refs=list(metadata.get("suggestion_refs", [])),
-            skill_refs=list(metadata.get("skill_refs", [])),
-            skill_matches=list(metadata.get("skill_matches", [])),
-            skill_review_checklists=list(metadata.get("skill_review_checklists", [])),
-            skill_trace=dict(metadata.get("skill_trace", {})),
-            evolution_refs=dict(metadata.get("evolution_refs", {})),
-            evidence=ensure_lifecycle_evidence(lifecycle.evidence.to_dict()),
-            recovery_refs=dict(metadata.get("recovery_refs", {})),
-            recovery_plan_refs=dict(metadata.get("recovery_plan_refs", {})),
+            failure_code=lifecycle.failure_code,
+            # Cross-subdomain references (consolidated)
             governance_refs=dict(metadata.get("governance_refs", {})),
+            evolution_refs=dict(metadata.get("evolution_refs", {})),
+            runtime_refs=dict(metadata.get("runtime_refs", {})),
+            delivery_refs=dict(metadata.get("delivery_refs", {})),
+            recovery_refs=dict(metadata.get("recovery_refs", {})),
+            # Consolidated context fields
+            suggestion_refs=list(metadata.get("suggestion_refs", [])),
+            skill_context=dict(metadata.get("skill_context", {})),
+            io_context=dict(metadata.get("io_context", {})),
+            # Evidence and trace
+            evidence=ensure_lifecycle_evidence(lifecycle.evidence.to_dict()),
             trace=dict(metadata.get("trace", {})),
             diagnostics=dict(metadata.get("diagnostics", {})),
+            # Metadata and metrics
             metrics=dict(lifecycle.metrics),
             metadata=metadata,
             correlation=lifecycle.correlation.to_dict() if lifecycle.correlation else {},
+            # Transition information
             stage_history=history,
             allowed_next_stages=list(lifecycle.allowed_next_stages),
-            validation_refs=dict(metadata.get("validation_refs", {})),
-            input_refs=dict(metadata.get("input_refs", {})),
-            output_refs=dict(metadata.get("output_refs", {})),
             transition_reason=lifecycle.transition_reason,
-            failure_code=lifecycle.failure_code,
         )
 
     def contract_to_lifecycle(self, contract: LifecycleContract) -> LifecycleRoot:
@@ -229,11 +210,9 @@ class LifecycleRootService:
         
         # 从 metadata 恢复引用数据
         refs_to_remove = [
-            "delivery_refs", "runtime_refs", "suggestion_refs", "skill_refs",
-            "skill_matches", "skill_review_checklists", "skill_trace",
-            "evolution_refs", "recovery_refs", "recovery_plan_refs",
-            "governance_refs", "trace", "diagnostics", "validation_refs",
-            "input_refs", "output_refs"
+            "delivery_refs", "runtime_refs", "suggestion_refs", "skill_context",
+            "io_context", "evolution_refs", "recovery_refs",
+            "governance_refs", "trace", "diagnostics",
         ]
         for ref_key in refs_to_remove:
             metadata.pop(ref_key, None)
@@ -271,14 +250,11 @@ class LifecycleRootService:
         delivery_refs: Optional[Dict[str, Any]] = None,
         runtime_refs: Optional[Dict[str, Any]] = None,
         suggestion_refs: Optional[List[Dict[str, Any]]] = None,
-        skill_refs: Optional[List[Dict[str, Any]]] = None,
-        skill_matches: Optional[List[Dict[str, Any]]] = None,
-        skill_review_checklists: Optional[List[Dict[str, Any]]] = None,
-        skill_trace: Optional[Dict[str, Any]] = None,
+        skill_context: Optional[Dict[str, Any]] = None,
+        io_context: Optional[Dict[str, Any]] = None,
         evolution_refs: Optional[Dict[str, Any]] = None,
         evidence: Optional[Dict[str, Any]] = None,
         recovery_refs: Optional[Dict[str, Any]] = None,
-        recovery_plan_refs: Optional[Dict[str, Any]] = None,
         governance_refs: Optional[Dict[str, Any]] = None,
         trace: Optional[Dict[str, Any]] = None,
         diagnostics: Optional[Dict[str, Any]] = None,
@@ -286,13 +262,10 @@ class LifecycleRootService:
         correlation: Optional[Dict[str, Any]] = None,
         stage_history: Optional[List[Dict[str, Any]]] = None,
         allowed_next_stages: Optional[List[str]] = None,
-        validation_refs: Optional[Dict[str, Any]] = None,
-        input_refs: Optional[Dict[str, Any]] = None,
-        output_refs: Optional[Dict[str, Any]] = None,
         transition_reason: str = "",
         failure_code: str = "",
     ) -> LifecycleContract:
-        """构建 LifecycleContract DTO（兼容旧 API）。
+        """构建 LifecycleContract DTO。
         
         内部使用 LifecycleRoot 聚合根处理业务逻辑，
         然后转换为 DTO 用于外部交互。
@@ -309,14 +282,11 @@ class LifecycleRootService:
             delivery_refs=delivery_refs,
             runtime_refs=runtime_refs,
             suggestion_refs=suggestion_refs,
-            skill_refs=skill_refs,
-            skill_matches=skill_matches,
-            skill_review_checklists=skill_review_checklists,
-            skill_trace=skill_trace,
+            skill_context=skill_context,
+            io_context=io_context,
             evolution_refs=evolution_refs,
             evidence=evidence,
             recovery_refs=recovery_refs,
-            recovery_plan_refs=recovery_plan_refs,
             governance_refs=governance_refs,
             trace=trace,
             diagnostics=diagnostics,
@@ -324,9 +294,6 @@ class LifecycleRootService:
             correlation=correlation,
             stage_history=stage_history,
             allowed_next_stages=allowed_next_stages,
-            validation_refs=validation_refs,
-            input_refs=input_refs,
-            output_refs=output_refs,
             transition_reason=transition_reason,
             failure_code=failure_code,
         )
@@ -346,32 +313,16 @@ class LifecycleRootService:
             full_metadata["runtime_refs"] = dict(runtime_refs)
         if suggestion_refs:
             full_metadata["suggestion_refs"] = list(suggestion_refs)
-        if skill_refs:
-            full_metadata["skill_refs"] = list(skill_refs)
-        if skill_matches:
-            full_metadata["skill_matches"] = list(skill_matches)
-        if skill_review_checklists:
-            full_metadata["skill_review_checklists"] = list(skill_review_checklists)
-        if skill_trace:
-            full_metadata["skill_trace"] = dict(skill_trace)
         if evolution_refs:
             full_metadata["evolution_refs"] = dict(evolution_refs)
         if recovery_refs:
             full_metadata["recovery_refs"] = dict(recovery_refs)
-        if recovery_plan_refs:
-            full_metadata["recovery_plan_refs"] = dict(recovery_plan_refs)
         if governance_refs:
             full_metadata["governance_refs"] = dict(governance_refs)
         if trace:
             full_metadata["trace"] = dict(trace)
         if diagnostics:
             full_metadata["diagnostics"] = dict(diagnostics)
-        if validation_refs:
-            full_metadata["validation_refs"] = dict(validation_refs)
-        if input_refs:
-            full_metadata["input_refs"] = dict(input_refs)
-        if output_refs:
-            full_metadata["output_refs"] = dict(output_refs)
         
         return LifecycleContract(
             execution_id=lifecycle.execution_id,
@@ -383,30 +334,29 @@ class LifecycleRootService:
             status=status or lifecycle.status.value,
             failure_kind=failure_kind or lifecycle.failure_kind,
             failure_reason=failure_reason or lifecycle.failure_reason,
-            delivery_refs=dict(delivery_refs or {}),
-            runtime_refs=dict(runtime_refs or {}),
-            suggestion_refs=list(suggestion_refs or []),
-            skill_refs=list(skill_refs or []),
-            skill_matches=list(skill_matches or []),
-            skill_review_checklists=list(skill_review_checklists or []),
-            skill_trace=dict(skill_trace or {}),
-            evolution_refs=dict(evolution_refs or {}),
-            evidence=ensure_lifecycle_evidence(evidence),
-            recovery_refs=dict(recovery_refs or {}),
-            recovery_plan_refs=dict(recovery_plan_refs or {}),
+            failure_code=failure_code or lifecycle.failure_code,
+            # Cross-subdomain references (consolidated)
             governance_refs=dict(governance_refs or {}),
+            evolution_refs=dict(evolution_refs or {}),
+            runtime_refs=dict(runtime_refs or {}),
+            delivery_refs=dict(delivery_refs or {}),
+            recovery_refs=dict(recovery_refs or {}),
+            # Consolidated context fields
+            suggestion_refs=list(suggestion_refs or []),
+            skill_context=dict(skill_context or {}),
+            io_context=dict(io_context or {}),
+            # Evidence and trace
+            evidence=ensure_lifecycle_evidence(evidence),
             trace=dict(trace or {}),
             diagnostics=dict(diagnostics or {}),
+            # Metadata and metrics
             metrics=dict(metrics or {}),
             metadata=full_metadata,
             correlation=correlation or (lifecycle.correlation.to_dict() if lifecycle.correlation else {}),
+            # Transition information
             stage_history=full_history,
             allowed_next_stages=list(allowed_next_stages or lifecycle.allowed_next_stages),
-            validation_refs=dict(validation_refs or {}),
-            input_refs=dict(input_refs or {}),
-            output_refs=dict(output_refs or {}),
             transition_reason=transition_reason or lifecycle.transition_reason,
-            failure_code=failure_code or lifecycle.failure_code,
         )
 
     def advance_to_normalized(

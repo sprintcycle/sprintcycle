@@ -96,6 +96,14 @@ class ObservabilityService:
         }
         
         # 使用新架构创建 lifecycle
+        io_context = {
+            "validation": {
+                "trace_present": bool(events),
+                "diagnostics_present": bool(diagnostics),
+                "audit_present": True,
+            },
+            "output": {"event_count": len(events), "root_cause_tags": root_cause_tags},
+        }
         lifecycle_root = create_lifecycle(
             execution_id=run_id,
             task_id=run_id,
@@ -112,12 +120,7 @@ class ObservabilityService:
                 },
                 "trace": data,
                 "diagnostics": diagnostics,
-                "validation_refs": {
-                    "trace_present": bool(events),
-                    "diagnostics_present": bool(diagnostics),
-                    "audit_present": True,
-                },
-                "output_refs": {"event_count": len(events), "root_cause_tags": root_cause_tags},
+                "io_context": io_context,
                 "transition_reason": "trace inspection",
             },
         )
@@ -129,6 +132,7 @@ class ObservabilityService:
         
         # 获取字典格式
         service = LifecycleStateMachine()
+        metadata = dict(lifecycle_root.metadata)
         contract_dict = {
             "contract_id": lifecycle_root.contract_id,
             "execution_id": lifecycle_root.execution_id,
@@ -137,15 +141,14 @@ class ObservabilityService:
             "stage": lifecycle_root.stage.value,
             "status": lifecycle_status,
             "failure_kind": failure_kind,
-            "metadata": dict(lifecycle_root.metadata),
-            "delivery_refs": dict(lifecycle_root.metadata).get("delivery_refs", {}),
-            "recovery_refs": dict(lifecycle_root.metadata).get("recovery_refs", {}),
-            "trace": dict(lifecycle_root.metadata).get("trace", {}),
-            "diagnostics": dict(lifecycle_root.metadata).get("diagnostics", {}),
+            "metadata": metadata,
+            "delivery_refs": metadata.get("delivery_refs", {}),
+            "recovery_refs": metadata.get("recovery_refs", {}),
+            "trace": metadata.get("trace", {}),
+            "diagnostics": metadata.get("diagnostics", {}),
             "correlation": correlation.to_dict(),
-            "validation_refs": dict(lifecycle_root.metadata).get("validation_refs", {}),
-            "output_refs": dict(lifecycle_root.metadata).get("output_refs", {}),
-            "transition_reason": dict(lifecycle_root.metadata).get("transition_reason", ""),
+            "io_context": metadata.get("io_context", {}),
+            "transition_reason": metadata.get("transition_reason", ""),
             "stage_history": [
                 {"from": h.from_stage, "to": h.to_stage, "at": h.at, "reason": h.reason}
                 for h in lifecycle_root.stage_history
@@ -156,7 +159,7 @@ class ObservabilityService:
         
         observed = build_observe_artifact(contract_dict, trace=data, diagnostics=diagnostics)
         observed_contract = observed.get("lifecycle_contract", contract_dict)
-        observed_contract.setdefault("validation_refs", {})["audit_present"] = True
+        observed_contract.setdefault("io_context", {}).setdefault("validation", {})["audit_present"] = True
         observed_contract.setdefault("evidence", {}).setdefault("stages", {}).setdefault("observe", {})["audit"] = audit
         observed_contract.setdefault("evidence", {}).setdefault("recovery", {})["audit"] = audit
         return {
