@@ -8,7 +8,7 @@ from loguru import logger
 
 from sprintcycle.domain.generic.models import ReleasePlan, SprintDefinition
 from sprintcycle.infrastructure.adapters.generic.config import RuntimeConfig
-from sprintcycle.domain.core.execution.hooks.sprint_hooks import SprintLifecycleHooks
+from sprintcycle.domain.core.execution.hooks.lifecycle_hooks import SprintLifecycleHooks
 from sprintcycle.domain.generic.interfaces import SprintResult
 from sprintcycle.infrastructure.adapters.generic.knowledge.knowledge_injector import KnowledgeInjector
 

@@ -10,12 +10,10 @@ from .governance_context import (
 from sprintcycle.domain.generic.interfaces.hooks import HookContext
 from .quality_hooks import QualitySprintLifecycleHooks, QualityTaskLifecycleHooks, build_quality_lifecycle_report
 from .skill_hooks import SkillLifecycleHook
-from .sprint_hooks import (
+from .lifecycle_hooks import (
     SprintLifecycleHooks,
     create_noop_sprint_hooks,
     create_chained_sprint_hooks,
-)
-from .task_hooks import (
     TaskLifecycleHooks,
     create_noop_task_hooks,
     create_chained_task_hooks,

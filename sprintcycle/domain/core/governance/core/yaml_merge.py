@@ -58,7 +58,7 @@ def merge_governance_documents(docs: List[Dict[str, Any]]) -> Dict[str, Any]:
 
 def _load_governance_yaml_cached():
     """延迟加载 load_governance_yaml"""
-    from sprintcycle.domain.core.governance.arch_guard.yaml_checks import load_governance_yaml
+    from sprintcycle.domain.core.governance.arch_guard.checks import load_governance_yaml
     return load_governance_yaml
 
 

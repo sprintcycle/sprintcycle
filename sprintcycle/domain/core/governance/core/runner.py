@@ -24,13 +24,15 @@ from ..arch_guard.adr_check import check_adr_readme_index, check_adr_readme_stri
 from ..arch_guard.argv_extensions import extend_argv_items_with_plugins
 from ..arch_guard.compose_hint import check_compose_hints, check_compose_supply_chain_hints
 from sprintcycle.domain.core.governance.common.model import Finding as GuardFinding, Report as GuardReport, Severity as GuardSeverity
-from ..arch_guard.sdd_checks import (
+from ..arch_guard.checks import (
     violations_acceptance_files,
     violations_for_task_spec_refs,
     violations_from_release_plan_validator,
     violations_spec_marker_in_files,
+    checks_for_gate,
+    filter_argv_items_by_governance_sources,
+    run_argv_checks,
 )
-from ..arch_guard.yaml_checks import checks_for_gate, filter_argv_items_by_governance_sources, run_argv_checks
 from ..hitl import HitlDecision, HitlGate, HitlPolicyResult, evaluate_hitl_policy
 from ..hitl.facade import HitlFacade, create_hitl_facade
 

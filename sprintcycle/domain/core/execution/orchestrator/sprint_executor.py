@@ -45,8 +45,12 @@ from ..hooks.governance_context import (
     CTX_GOVERNANCE_TASK_AFTER_DETAIL,
     CTX_GOVERNANCE_TASK_AFTER_FAILED,
 )
-from ..hooks.sprint_hooks import SprintLifecycleHooks, create_noop_sprint_hooks
-from ..hooks.task_hooks import TaskLifecycleHooks, create_noop_task_hooks
+from ..hooks.lifecycle_hooks import (
+    SprintLifecycleHooks,
+    create_noop_sprint_hooks,
+    TaskLifecycleHooks,
+    create_noop_task_hooks,
+)
 from sprintcycle.domain.core.execution.core.policies import SprintFeedbackPolicy, SprintRetryPolicy
 from sprintcycle.domain.core.execution.project_write import ProjectWritePlan
 from sprintcycle.domain.core.execution.core.protocols import ExecutionContext

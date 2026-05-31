@@ -10,7 +10,7 @@ from sprintcycle.domain.core.execution.skills.models import SkillArtifact, Skill
 from sprintcycle.domain.core.execution.skills.store import SkillStore
 from sprintcycle.domain.core.execution.skills.orchestrator import SkillOrchestrator
 from sprintcycle.domain.generic.interfaces import SprintResult
-from .sprint_hooks import SprintLifecycleHooks
+from .lifecycle_hooks import SprintLifecycleHooks
 
 
 class SkillLifecycleHook(SprintLifecycleHooks):

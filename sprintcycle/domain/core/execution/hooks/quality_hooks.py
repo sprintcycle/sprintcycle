@@ -10,8 +10,7 @@ from sprintcycle.domain.core.governance.quality_spec.hooks.lifecycle_report impo
 from sprintcycle.domain.core.governance.quality_spec.hooks.quality_hooks import QualityLifecycleHooks
 from sprintcycle.domain.core.governance.quality_spec.reports.report import Report
 from sprintcycle.domain.generic.interfaces import SprintResult, TaskResult
-from .sprint_hooks import SprintLifecycleHooks
-from .task_hooks import TaskLifecycleHooks
+from .lifecycle_hooks import SprintLifecycleHooks, TaskLifecycleHooks
 
 
 class QualitySprintLifecycleHooks(SprintLifecycleHooks):

@@ -25,13 +25,14 @@ from sprintcycle.domain.core.execution.core.events import (
 )
 from sprintcycle.domain.core.execution.core.feedback import FeedbackLoop
 from sprintcycle.domain.core.execution.hooks.skill_hooks import SkillLifecycleHook
-from sprintcycle.domain.core.execution.hooks.sprint_hooks import (
+from sprintcycle.domain.core.execution.hooks.lifecycle_hooks import (
     SprintLifecycleHooks,
     create_chained_sprint_hooks,
     _measurement_run_metadata,
     _OrchestratorSprintHooks,
+    TaskLifecycleHooks,
+    create_chained_task_hooks,
 )
-from sprintcycle.domain.core.execution.hooks.task_hooks import TaskLifecycleHooks, create_chained_task_hooks
 from sprintcycle.domain.core.execution.planners.expand import expand_release_plan_for_execution
 from sprintcycle.domain.generic.models import ReleasePlan, SprintBacklogItem, SprintDefinition
 from sprintcycle.domain.core.execution.core.protocols import ExecutionContext
