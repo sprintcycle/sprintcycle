@@ -14,20 +14,16 @@ from __future__ import annotations
 
 __all__ = [
     "initialize_http_infrastructure",
-    "InfrastructureFactory",
     "Container",
     "container",
     "create_container",
     "get_container",
 ]
 
-from sprintcycle.application.composition.http_factory import (
-    InfrastructureFactory,
-    initialize_http_infrastructure,
-)
 from sprintcycle.application.composition.di_container import (
     Container,
     container,
     create_container,
     get_container,
+    initialize_http_infrastructure,
 )

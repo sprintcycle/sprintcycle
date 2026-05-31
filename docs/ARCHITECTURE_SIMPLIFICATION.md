@@ -4,6 +4,124 @@
 
 ---
 
+## v1.2 (2026-06-01)
+
+### 精简背景
+
+继续精简架构，去除兼容层并分析 Agent 系统。
+
+### 精简内容
+
+#### 1. 进一步简化 DI 容器兼容层
+
+**变更位置**: `sprintcycle/application/composition/di_container.py
+
+**变更内容**:
+- 删除 `runtime_config_container` 属性（兼容层）
+
+#### 2. Agent 系统分析
+
+**分析结论**: 当前架构设计合理！
+
+各个 Agent 职责清晰：
+- **Analyzer Agent**：专门负责 Bug 分析和错误诊断
+- **Architect Agent**：专门负责架构设计和方案规划
+- **Coder Agent**：专门负责代码生成
+- **Tester Agent**：专门负责测试用例生成和运行
+- **Regression Tester**：专门负责回归测试
+
+**建议**：无需合并，保持当前架构，符合 DDD 单一职责原则！
+
+### 精简效果
+
+| 指标 | 状态 |
+|------|------|
+| di_container.py 行数 | 283 行 |
+
+### 总结：无需进一步优化方向
+
+1. **execution 子域**：当前架构合理，保持不变
+2. **lifecycle 服务**：待分析
+3. **Facade 层**：待分析
+
+---
+
+## v1.1 (2026-05-31)
+
+### 精简背景
+
+继续精简架构，去除废弃代码和过度设计：
+- 废弃的 di_bridge.py 和 http_factory.py
+- HITL 模块的兼容层
+- 过度设计的自定义 DI 容器
+
+### 精简目标
+
+1. 删除废弃代码
+2. 简化 DI 容器
+3. 保持 API 向后兼容
+4. 减少文件数量
+
+### 精简内容
+
+#### 1. 删除废弃模块
+
+**删除文件**:
+- `sprintcycle/application/composition/di_bridge.py`
+- `sprintcycle/application/composition/http_factory.py`
+- `sprintcycle/domain/core/governance/hitl/context.py`
+- `sprintcycle/domain/core/governance/hitl/config.py`
+- `sprintcycle/domain/core/governance/hitl/utils.py`
+
+**变更文件**:
+- `sprintcycle/domain/core/governance/hitl/__init__.py`
+- `sprintcycle/application/composition/__init__.py`
+
+#### 2. 简化 DI 容器
+
+**变更位置**: `sprintcycle/application/composition/di_container.py`
+
+**精简前 (431 行)**:
+- 5 个子容器类
+- 自定义 OverrideProvider 和 OverrideContext
+- 复杂的多层抽象
+
+**精简后 (290 行)**:
+- 单一 Container 类
+- 简单的懒加载缓存
+- 保持相同的公共 API
+
+**变更内容**:
+- 删除子容器类（InfrastructureContainer、GovernanceContainer、RuntimeConfigContainer、ObservabilityContainer）
+- 删除自定义 OverrideProvider 和 OverrideContext
+- 简化为单一 Container 类，使用属性访问
+- 添加 `initialize_http_infrastructure()` 函数
+- 保持 API 兼容性
+
+### 精简效果
+
+| 指标 | 精简前 | 精简后 | 改善 |
+|------|--------|--------|------|
+| di_container.py 行数 | 431 | 290 | ↓ 33% |
+| 废弃模块数 | 5 | 0 | ↓ 100% |
+| DI 抽象层数 | 4 | 1 | ↓ 75% |
+
+### 后续优化方向
+
+1. **execution 子域精简**
+   - 将 analyzer agent 整合到 coder agent
+   - 将 architect agent 作为可选插件
+   - 将 regression_tester 整合到 tester agent
+
+2. **lifecycle 服务精简**
+   - 合并 `delivery_service.py` 和 `execution_lifecycle_service.py`
+   - 重构 `lifecycle_service.py`
+
+3. **Facade 层简化**
+   - 扁平化 GovernanceFacade 调用链
+
+---
+
 ## v1.0 (2026-05-31)
 
 ### 精简背景
