@@ -20,26 +20,39 @@ from .registry import GuardRegistry
 
 
 class ArchGuardEngine:
-    def __init__(self, config: ArchGuardConfig):
+    def __init__(
+        self,
+        config: ArchGuardConfig,
+        import_linter_adapter=None,
+        grimp_adapter=None,
+        archguard_adapter=None,
+        ruff_adapter=None,
+        typecheck_adapter=None,
+    ):
         self.config = config
         self.registry = GuardRegistry()
-        self._import_linter = None
-        self._grimp = None
-        self._archon = None
-        self._ruff = None
-        self._typecheck = None
+        self._import_linter = import_linter_adapter
+        self._grimp = grimp_adapter
+        self._archon = archguard_adapter
+        self._ruff = ruff_adapter
+        self._typecheck = typecheck_adapter
         self._register_builtin_rules()
         self._register_pack_rules()
 
     def _load_adapters(self) -> None:
-        """延迟加载适配器以避免循环导入"""
-        from sprintcycle.application.composition.di_container import container
-        if self._import_linter is None:
-            self._import_linter = container.governance.import_linter_adapter()
-            self._grimp = container.governance.grimp_adapter()
-            self._archon = container.governance.archguard_adapter()
-            self._ruff = container.governance.ruff_adapter()
-            self._typecheck = container.governance.typecheck_adapter()
+        """检查适配器是否已注入，未注入则抛出错误"""
+        if any([
+            self._import_linter is None and self.config.use_import_linter,
+            self._grimp is None and self.config.use_grimp,
+            self._archon is None and self.config.use_archon,
+            self._ruff is None and self.config.use_ruff,
+            self._typecheck is None and self.config.use_typecheck,
+        ]):
+            raise RuntimeError(
+                "ArchGuardEngine 缺少必需的适配器。请通过依赖注入提供以下适配器："
+                "import_linter_adapter, grimp_adapter, archguard_adapter, "
+                "ruff_adapter, typecheck_adapter"
+            )
 
     def _register_builtin_rules(self) -> None:
         from sprintcycle.domain.core.governance.common.model import Rule as GuardRule

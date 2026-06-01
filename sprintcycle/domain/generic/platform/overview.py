@@ -1,9 +1,14 @@
-"""Platform overview composition for SprintCycle V2."""
+"""Platform overview composition for SprintCycle V2.
+
+**架构说明**：
+- 适配器通过依赖注入提供，不直接依赖 application 层
+- 使用全局注册机制获取集成适配器
+"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from .spec import build_platform_spec
 
@@ -26,9 +31,28 @@ class PlatformOverview:
         }
 
 
+# 全局集成适配器注册表
+_platform_adapters: Optional[Any] = None
+
+
+def register_platform_adapters(adapter_container: Any) -> None:
+    """注册平台适配器（由 application 层在初始化时调用）"""
+    global _platform_adapters
+    _platform_adapters = adapter_container
+
+
+def _get_adapter_container() -> Any:
+    """获取适配器容器"""
+    global _platform_adapters
+    if _platform_adapters is None:
+        raise RuntimeError(
+            "平台适配器未注册。请先调用 register_platform_adapters() 注册适配器。"
+        )
+    return _platform_adapters
+
+
 def build_platform_overview(project_name: str = "sprintcycle") -> PlatformOverview:
-    # 延迟导入以避免循环依赖
-    from sprintcycle.application.composition.di_container import container
+    container = _get_adapter_container()
     
     platform = build_platform_spec(project_name).to_dict()
     compose = container.integrations.autogpt_compose_spec(project_name).to_dict()

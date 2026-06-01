@@ -49,6 +49,6 @@ def load_project_config(project_path: str) -> ConfigProtocol:
     """从项目目录加载配置。"""
     if _config_loader is not None:
         return _config_loader(project_path)
-    # 使用新的 DI Container 获取配置
-    from sprintcycle.application.composition.di_container import container
-    return container.runtime_config_container.runtime_config(project_path=project_path)
+    raise RuntimeError(
+        "配置加载器未注册。请先调用 register_config_loader() 注册配置加载器。"
+    )

@@ -37,6 +37,25 @@ def create_container(project_path: str = ".") -> "Container":
     """Create and initialize a new container instance."""
     global _container_instance
     _container_instance = Container(project_path=project_path)
+    
+    # 注册治理适配器到领域层（解决架构层依赖问题）
+    from sprintcycle.domain.core.governance.hooks import governance_hooks
+    governance_hooks.register_governance_adapters({
+        "import_linter": _container_instance.governance.import_linter_adapter(),
+        "grimp": _container_instance.governance.grimp_adapter(),
+        "archguard": _container_instance.governance.archguard_adapter(),
+        "ruff": _container_instance.governance.ruff_adapter(),
+        "typecheck": _container_instance.governance.typecheck_adapter(),
+    })
+    
+    # 注册平台适配器到领域层
+    from sprintcycle.domain.generic.platform import overview
+    overview.register_platform_adapters(_container_instance)
+    
+    # 注册配置加载器到领域层
+    from sprintcycle.domain.generic.interfaces.config import register_config_loader
+    register_config_loader(_container_instance.runtime_config_container.runtime_config)
+    
     return _container_instance
 
 

@@ -2,6 +2,10 @@
 治理相关的钩子统一模块。
 
 **已精简**：将 sprint_hooks.py 和 task_hooks.py 合并到此文件。
+
+**架构说明**：
+- 适配器通过依赖注入提供，不直接依赖 application 层
+- 使用全局注册机制获取治理适配器
 """
 
 from __future__ import annotations
@@ -24,6 +28,26 @@ from sprintcycle.domain.core.governance.common.model import Finding as Governanc
 
 if TYPE_CHECKING:
     from sprintcycle.domain.ports.observability import ObservabilityFacadeProtocol
+    from sprintcycle.domain.ports.governance import LinterAdapterProtocol
+
+# 全局适配器注册表
+_governance_adapters: Optional[Dict[str, Any]] = None
+
+
+def register_governance_adapters(adapters: Dict[str, Any]) -> None:
+    """注册治理适配器（由 application 层在初始化时调用）"""
+    global _governance_adapters
+    _governance_adapters = adapters
+
+
+def _get_governance_engine_adapters() -> Dict[str, Any]:
+    """获取治理引擎所需的适配器"""
+    global _governance_adapters
+    if _governance_adapters is None:
+        raise RuntimeError(
+            "治理适配器未注册。请先调用 register_governance_adapters() 注册适配器。"
+        )
+    return _governance_adapters
 
 
 class GovernanceSprintHooks(SprintLifecycleHooks):
@@ -86,7 +110,15 @@ class GovernanceSprintHooks(SprintLifecycleHooks):
         try:
             raw = (context or {}).get("project_path") or self._project_path
             cfg = ArchGuardConfig.from_runtime_config(self._config, str(raw))
-            engine = ArchGuardEngine(cfg)
+            adapters = _get_governance_engine_adapters()
+            engine = ArchGuardEngine(
+                cfg,
+                import_linter_adapter=adapters.get("import_linter"),
+                grimp_adapter=adapters.get("grimp"),
+                archguard_adapter=adapters.get("archguard"),
+                ruff_adapter=adapters.get("ruff"),
+                typecheck_adapter=adapters.get("typecheck"),
+            )
             ctx = self._build_governance_context(
                 sprint_index=sprint_index,
                 sprint=sprint,
@@ -129,7 +161,15 @@ class GovernanceSprintHooks(SprintLifecycleHooks):
         try:
             raw = (context or {}).get("project_path") or self._project_path
             cfg = ArchGuardConfig.from_runtime_config(self._config, str(raw))
-            engine = ArchGuardEngine(cfg)
+            adapters = _get_governance_engine_adapters()
+            engine = ArchGuardEngine(
+                cfg,
+                import_linter_adapter=adapters.get("import_linter"),
+                grimp_adapter=adapters.get("grimp"),
+                archguard_adapter=adapters.get("archguard"),
+                ruff_adapter=adapters.get("ruff"),
+                typecheck_adapter=adapters.get("typecheck"),
+            )
             ctx = self._build_governance_context(
                 sprint_index=sprint_index,
                 sprint=sprint,

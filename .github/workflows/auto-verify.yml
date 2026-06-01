@@ -1,0 +1,238 @@
+name: SprintCycle Auto Verification
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  schedule:
+    - cron: '0 2 * * 0'  # 每周日凌晨 2 点运行
+  workflow_dispatch:  # 支持手动触发
+
+jobs:
+  # Phase 1: 架构验证
+  architecture-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install -e ".[dev]" --quiet
+
+      - name: Run architecture validation
+        run: |
+          .venv/bin/python scripts/validate_architecture.py
+
+      - name: Upload architecture report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: architecture-report
+          path: |
+            upgrade_verification_report.json
+          retention-days: 7
+
+  # Phase 2: 单元测试
+  unit-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: architecture-validation
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install -e ".[dev]" --quiet
+
+      - name: Run unit tests
+        run: |
+          .venv/bin/python -m pytest tests/ -v --tb=short -q --timeout=300
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: |
+            .coverage
+            pytest.out
+          retention-days: 7
+
+  # Phase 3: API 契约测试
+  api-contract-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: unit-tests
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install -e ".[dev]" --quiet
+
+      - name: Run API contract tests
+        if: matrix.python-version == '3.11'
+        run: |
+          .venv/bin/python -m pytest tests/test_integration_api.py -v --tb=short -q
+
+  # Phase 4: E2E 测试
+  e2e-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [unit-tests, api-contract-tests]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm install
+
+      - name: Install Playwright
+        run: |
+          cd frontend
+          npx playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        run: |
+          cd frontend
+          npx playwright test --reporter=line
+
+      - name: Upload E2E report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report
+          path: |
+            frontend/playwright-report/
+            frontend/test-results/
+          retention-days: 7
+
+  # Phase 5: 文档验证
+  documentation-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate documentation files
+        run: |
+          REQUIRED_DOCS=(
+            "README.md"
+            "README_EN.md"
+            "docs/ARCHITECTURE_INVARIANTS.md"
+            ".cursor/rules/sprintcycle-architecture-orchestration.mdc"
+          )
+          
+          MISSING=""
+          for doc in "${REQUIRED_DOCS[@]}"; do
+            if [ ! -f "$doc" ]; then
+              MISSING="$MISSING $doc"
+            fi
+          done
+          
+          if [ -n "$MISSING" ]; then
+            echo "❌ Missing required documentation files:$MISSING"
+            exit 1
+          fi
+          
+          echo "✅ All required documentation files exist"
+
+  # Phase 6: 完整验证报告
+  verification-summary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [architecture-validation, unit-tests, api-contract-tests, e2e-tests, documentation-validation]
+    if: always()
+    steps:
+      - name: Generate verification summary
+        run: |
+          echo "## 🎉 SprintCycle Verification Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Phase | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          
+          # Check each phase
+          if [ "${{ needs.architecture-validation.result }}" == "success" ]; then
+            echo "| Architecture Validation | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Architecture Validation | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.unit-tests.result }}" == "success" ]; then
+            echo "| Unit Tests | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Unit Tests | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.api-contract-tests.result }}" == "success" ]; then
+            echo "| API Contract Tests | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| API Contract Tests | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.e2e-tests.result }}" == "success" ]; then
+            echo "| E2E Tests | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| E2E Tests | ⚠️ Skipped/Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.documentation-validation.result }}" == "success" ]; then
+            echo "| Documentation | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Documentation | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "*Verification completed at $(date)*" >> $GITHUB_STEP_SUMMARY
+
+      - name: Set deployment status
+        run: |
+          ALL_PASSED=true
+          for phase in architecture-validation unit-tests api-contract-tests documentation-validation; do
+            if [ "${{ needs[phase].result }}" != "success" ]; then
+              ALL_PASSED=false
+              break
+            fi
+          done
+          
+          if [ "$ALL_PASSED" == "true" ]; then
+            echo "✅ All mandatory verifications passed!"
+            exit 0
+          else
+            echo "❌ Some verifications failed"
+            exit 1
+          fi
