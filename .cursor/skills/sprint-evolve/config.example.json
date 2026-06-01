@@ -1,0 +1,18 @@
+{
+  "llm": {
+    "provider": "openai",
+    "model": "gpt-4o",
+    "api_key": "your-api-key-here",
+    "base_url": ""
+  },
+  "story_generator": {
+    "enabled": true,
+    "max_stories": 50,
+    "top_stories_count": 5
+  },
+  "evolution": {
+    "dry_run": false,
+    "force": false,
+    "silent": false
+  }
+}

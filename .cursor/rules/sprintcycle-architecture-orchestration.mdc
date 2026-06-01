@@ -294,7 +294,7 @@ print(exec_machine.EXECUTION_TRANSITIONS)  # Execution transitions
 │   (Core: lifecycle, execution, evolution, governance;     │
 │    Supporting: intent, fitness;                           │
 │    Generic: errors, prompts, models, platform, interfaces)│
-│   (ports/: 17 port definitions)                          │
+│   (ports/: 17 ports definitions)                          │
 ├─────────────────────────────────────────────────────────────┤
 │                  infrastructure/                           │ ← Output Port Adapters
 │  (adapters/core/, adapters/generic/)                      │
@@ -325,7 +325,7 @@ print(exec_machine.EXECUTION_TRANSITIONS)  # Execution transitions
 - **核心子域**：lifecycle、execution、evolution、governance（包含验证引擎）
 - **支撑子域**：intent、fitness
 - **通用子域**：errors、prompts、models、platform、interfaces
-- **端口层**：`domain/ports/` - 所有外部依赖的端口定义（17个端口）：
+- **端口层**：`domain/ports/` - 所有外部依赖的端口定义（17 个端口）：
   - `state_store.py`: StateStoreProtocol, ExecutionState
   - `llm.py`: EngineAdapterProtocol, EngineResult, EngineAdapterConfig
   - `cache.py`: CacheBackendProtocol
@@ -411,7 +411,7 @@ print(exec_machine.EXECUTION_TRANSITIONS)  # 执行转换
   - `supporting/`：支撑子域（intent、fitness）
   - `generic/`：通用子域（errors、prompts、models、platform、interfaces）
   - `events/`：DomainEvent 基类和 EventBus
-  - `ports/`：端口定义 - 外部依赖的接口（14个端口）
+  - `ports/`：端口定义 - 外部依赖的接口（17 个端口）
 - **`infrastructure/`**：基础设施层（输出端口适配器）- 适配器、配置、持久化、集成。
   - `shared/`：共享基础设施（持久化）
   - `adapters/core/`：核心子域适配器（execution、evolution、governance、orchestration）
@@ -466,7 +466,7 @@ print(exec_machine.EXECUTION_TRANSITIONS)  # 执行转换
 - 外部系统通过公共 API 消费最小的稳定集成表面。
 - **DDD 模式已完全实现，包括聚合根、值对象、领域服务和事件驱动架构。**
 - **验证引擎已集成到 governance 核心子域中。**
-- **端口-适配器模式已完全实现，包含 `domain/ports/`（14个端口）和 `infrastructure/adapters/`。**
+- **端口-适配器模式已完全实现，包含 `domain/ports/`（17 个端口）和 `infrastructure/adapters/`。**
 
 ### 架构层次结构图
 ```
@@ -485,7 +485,7 @@ print(exec_machine.EXECUTION_TRANSITIONS)  # 执行转换
 │   (Core: lifecycle, execution, evolution, governance;     │
 │    Supporting: intent, fitness;                           │
 │    Generic: errors, prompts, models, platform, interfaces)│
-│   (ports/: 17个端口定义)                                  │
+│   (ports/: 17 个端口定义)                                  │
 ├─────────────────────────────────────────────────────────────┤
 │                  infrastructure/                           │ ← 输出端口适配器
 │  (adapters/core/, adapters/generic/)                      │

@@ -365,6 +365,8 @@ git config core.hooksPath .githooks
 │  4. E2E 测试                    │
 │     ↓                           │
 │  5. 文档验证                    │
+│     ↓                           │
+│  6. 汇总报告                    │
 └─────────────────────────────────┘
         ↓
    所有通过? ──→ 是 ──→ 合并/部署
@@ -372,6 +374,72 @@ git config core.hooksPath .githooks
        否
         ↓
    返回失败报告
+```
+
+---
+
+## 🔧 架构违规修复记录
+
+### 已修复的架构违规
+
+| 违规文件 | 问题描述 | 修复方案 |
+|---------|---------|---------|
+| `arch_guard/engine.py` | 领域层依赖应用层获取适配器 | 使用端口注入模式 + 全局注册机制 |
+| `platform/overview.py` | 领域层依赖应用层容器 | 使用全局注册机制获取适配器 |
+| `interfaces/config.py` | 配置加载器延迟导入容器 | 移除延迟导入，使用全局注册 |
+
+### 修复策略：依赖注入 + 全局注册
+
+#### 1. 端口注入模式（ArchGuardEngine）
+
+```python
+# Before: 延迟导入（违规）
+def _load_adapters(self):
+    from sprintcycle.application.composition.di_container import container
+    self._adapter = container.governance.adapter()
+
+# After: 构造函数注入
+def __init__(self, config, adapter=None):
+    self._adapter = adapter
+```
+
+#### 2. 全局注册机制
+
+```python
+# 在领域层定义注册函数
+_adapter_registry = None
+
+def register_adapter(adapter):
+    global _adapter_registry
+    _adapter_registry = adapter
+
+def get_adapter():
+    if _adapter_registry is None:
+        raise RuntimeError("适配器未注册")
+    return _adapter_registry
+```
+
+#### 3. 容器初始化时注册
+
+```python
+# 在 di_container.py 的 create_container()
+def create_container(project_path="."):
+    global _container_instance
+    _container_instance = Container(project_path)
+    
+    # 注册适配器到领域层
+    from domain.module import register_adapter
+    register_adapter(_container_instance.adapter())
+    
+    return _container_instance
+```
+
+### 验证修复结果
+
+```bash
+python scripts/validate_architecture.py
+# ✅ 错误: 0
+# ⚠️ 警告: 12 (兼容代码提示)
 ```
 
 ---

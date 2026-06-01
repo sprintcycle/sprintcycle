@@ -1,0 +1,116 @@
+---
+description: SprintCycle 自动化进化规则 - 自动检测优化机会并执行
+alwaysApply: true
+---
+
+# SprintCycle Evolution Rules / 自动化进化规则
+
+## English
+
+When the user triggers evolution, follow this workflow:
+
+### Evolution Triggers
+
+Activate evolution mode when encountering these phrases:
+- **「进化」** / "evolve" / "evolution"
+- **「自动优化」** / "auto optimize" / "automatic optimization"
+- **「自我改进」** / "self improvement"
+- **「架构进化」** / "architecture evolution"
+- **「SprintCycle 进化」** / "SprintCycle evolve"
+
+### Core Evolution Principles
+
+1. **Automated Detection** - Run architecture validation and tests automatically
+2. **Intelligent Prioritization** - Score and rank optimization opportunities
+3. **Automatic Execution** - Execute top optimizations without manual intervention
+4. **Validation First** - Verify before committing changes
+5. **Reversible Changes** - All changes must be rollbackable
+6. **Business Logic Preservation** - Never remove business logic
+7. **Architecture Compliance** - Maintain DDD + Hexagonal architecture
+8. **Documentation Sync** - Update docs after code changes
+
+### Optimization Scoring Criteria
+
+| Factor | Weight | Description |
+|--------|--------|-------------|
+| Architecture Impact | 30% | Improvement to architectural compliance |
+| Business Value | 25% | Direct business benefit |
+| Complexity | 20% | Implementation difficulty (lower = better) |
+| Risk | 15% | Risk of breaking changes |
+| Test Coverage | 10% | Existing test coverage |
+
+### Auto-correction Rules
+
+**Auto-correct if:**
+- Issue is a simple import problem
+- Issue is a deprecated pattern
+- Issue has clear fix pattern
+- Fix doesn't change business logic
+
+**Manual review required if:**
+- Issue affects core business logic
+- Issue has high risk rating
+- Fix requires architectural changes
+- Multiple files are affected
+
+### Evolution Workflow
+
+```
+Trigger → Detection → Prioritization → Execution → Validation → Report
+```
+
+---
+
+## 中文
+
+当用户触发进化时，遵循以下工作流：
+
+### 进化触发词
+
+遇到以下短语时激活进化模式：
+- **「进化」** / "evolve" / "evolution"
+- **「自动优化」** / "auto optimize" / "automatic optimization"
+- **「自我改进」** / "self improvement"
+- **「架构进化」** / "architecture evolution"
+- **「SprintCycle 进化」** / "SprintCycle evolve"
+
+### 核心进化原则
+
+1. **自动检测** - 自动运行架构验证和测试
+2. **智能优先级** - 评分并排序优化机会
+3. **自动执行** - 无需人工干预执行顶级优化
+4. **验证优先** - 提交变更前进行验证
+5. **可逆变更** - 所有变更必须可回滚
+6. **业务逻辑保留** - 绝不删除业务逻辑
+7. **架构合规** - 保持 DDD + 六边形架构
+8. **文档同步** - 代码变更后更新文档
+
+### 优化评分标准
+
+| 因素 | 权重 | 说明 |
+|------|------|------|
+| 架构影响 | 30% | 对架构合规性的改善 |
+| 业务价值 | 25% | 直接业务收益 |
+| 复杂度 | 20% | 实现难度（越低越好） |
+| 风险 | 15% | 破坏变更的风险 |
+| 测试覆盖 | 10% | 现有测试覆盖率 |
+
+### 自动修正规则
+
+**自动修正条件：**
+- 问题是简单的导入问题
+- 问题是废弃模式
+- 问题有明确的修复模式
+- 修复不改变业务逻辑
+
+**需要人工审查：**
+- 问题影响核心业务逻辑
+- 问题风险等级高
+- 修复需要架构变更
+- 多个文件受影响
+
+### 进化工作流
+
+```
+触发 → 检测 → 优先级排序 → 执行 → 验证 → 报告
+```
