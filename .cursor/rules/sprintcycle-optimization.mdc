@@ -110,20 +110,44 @@ skill_context: Dict[str, Any]
 3. Verify both compile/build successfully
 4. Run tests for both frontend and backend
 
-### Change Verification Checklist
+### Unified Change Verification Checklist (Single Source of Truth)
 
+**🔹 Phase 1: Requirements Analysis**
+- [ ] User requirements confirmed via AskUserQuestion
+- [ ] Impact scope assessment completed
+- [ ] Risk assessment documented
+
+**🔹 Phase 2: Design Phase**
+- [ ] PRD approved via HITL
+- [ ] Technical design approved via HITL
+- [ ] Architecture compliance checked
+- [ ] No compatibility layers in design
+
+**🔹 Phase 3: Implementation**
 - [ ] Code compiles without errors (Python + TypeScript)
-- [ ] Related tests pass (pytest + frontend tests)
-- [ ] **Business logic 100% preserved**
+- [ ] Business logic 100% preserved
 - [ ] Architecture boundaries maintained
 - [ ] Frontend-backend contracts aligned
-- [ ] **No compatibility code or transition layers added**
-- [ ] **Legacy code completely removed**
-- [ ] **HITL requirements confirmation completed**
-- [ ] **HITL PRD confirmation completed**
-- [ ] **HITL design confirmation completed**
-- [ ] **Documentation synchronized (see below)**
-- [ ] Clear commit message
+- [ ] No compatibility code or transition layers added
+- [ ] Legacy code completely removed
+
+**🔹 Phase 4: Testing & Validation**
+- [ ] Related tests pass (pytest + frontend tests)
+- [ ] Test coverage verified (≥80% for changed code)
+- [ ] Integration tests pass
+- [ ] Performance regression checks (if applicable)
+
+**🔹 Phase 5: Documentation**
+- [ ] README.md updated
+- [ ] README_EN.md synchronized
+- [ ] ARCHITECTURE_INVARIANTS.md updated
+- [ ] sprintcycle-architecture-orchestration.mdc aligned
+
+**🔹 Phase 6: Approval & Submission**
+- [ ] PR created with clear description
+- [ ] At least 2 reviewers assigned
+- [ ] CI/CD pipeline passes
+- [ ] Commit message follows convention
 
 ### Documentation Synchronization (MANDATORY)
 
@@ -310,20 +334,44 @@ skill_context: Dict[str, Any]
 3. 验证双方编译/构建成功
 4. 运行前端和后端测试
 
-### 变更验证清单
+### 统一变更验证清单（单一来源）
 
+**🔹 Phase 1: 需求分析**
+- [ ] 用户需求已通过 AskUserQuestion 确认
+- [ ] 影响范围评估完成
+- [ ] 风险评估已记录
+
+**🔹 Phase 2: 设计阶段**
+- [ ] PRD 已通过 HITL 批准
+- [ ] 技术方案已通过 HITL 批准
+- [ ] 架构合规性已检查
+- [ ] 设计中无兼容层
+
+**🔹 Phase 3: 执行实施**
 - [ ] 代码编译无误（Python + TypeScript）
-- [ ] 相关测试通过（pytest + 前端测试）
-- [ ] **业务逻辑 100% 保留**
+- [ ] 业务逻辑 100% 保留
 - [ ] 架构边界保持
 - [ ] 前后端契约对齐
-- [ ] **未添加任何兼容代码或过渡层**
-- [ ] **旧代码已彻底移除**
-- [ ] **HITL 需求确认已完成**
-- [ ] **HITL PRD 确认已完成**
-- [ ] **HITL 设计确认已完成**
-- [ ] **文档已同步更新（见下方）**
-- [ ] 提交信息清晰
+- [ ] 未添加任何兼容代码或过渡层
+- [ ] 旧代码已彻底移除
+
+**🔹 Phase 4: 测试验证**
+- [ ] 相关测试通过（pytest + 前端测试）
+- [ ] 测试覆盖率已验证（变更代码 ≥80%）
+- [ ] 集成测试通过
+- [ ] 性能回归检查（如适用）
+
+**🔹 Phase 5: 文档同步**
+- [ ] README.md 已更新
+- [ ] README_EN.md 已同步
+- [ ] ARCHITECTURE_INVARIANTS.md 已更新
+- [ ] sprintcycle-architecture-orchestration.mdc 已对齐
+
+**🔹 Phase 6: 审批提交**
+- [ ] PR 已创建，描述清晰
+- [ ] 已指定至少 2 位审核人
+- [ ] CI/CD 流水线通过
+- [ ] 提交信息符合规范
 
 ### 文档同步更新（强制）
 

@@ -27,7 +27,7 @@ You are working on SprintCycle, an intent-driven closed-loop production platform
 - **Core Domains**: lifecycle, execution, evolution, governance (includes verification engine)
 - **Supporting Domains**: intent, fitness
 - **Generic Domains**: errors, prompts, models, platform, interfaces
-- **Ports**: `domain/ports/` - port definitions for all external dependencies (14 ports):
+- **Ports**: `domain/ports/` - port definitions for all external dependencies (17 ports):
   - `state_store.py`: StateStoreProtocol, ExecutionState
   - `llm.py`: EngineAdapterProtocol, EngineResult, EngineAdapterConfig
   - `cache.py`: CacheBackendProtocol
@@ -325,7 +325,7 @@ print(exec_machine.EXECUTION_TRANSITIONS)  # Execution transitions
 - **核心子域**：lifecycle、execution、evolution、governance（包含验证引擎）
 - **支撑子域**：intent、fitness
 - **通用子域**：errors、prompts、models、platform、interfaces
-- **端口层**：`domain/ports/` - 所有外部依赖的端口定义（14个端口）：
+- **端口层**：`domain/ports/` - 所有外部依赖的端口定义（17个端口）：
   - `state_store.py`: StateStoreProtocol, ExecutionState
   - `llm.py`: EngineAdapterProtocol, EngineResult, EngineAdapterConfig
   - `cache.py`: CacheBackendProtocol
@@ -485,7 +485,7 @@ print(exec_machine.EXECUTION_TRANSITIONS)  # 执行转换
 │   (Core: lifecycle, execution, evolution, governance;     │
 │    Supporting: intent, fitness;                           │
 │    Generic: errors, prompts, models, platform, interfaces)│
-│   (ports/: 14个端口定义)                                  │
+│   (ports/: 17个端口定义)                                  │
 ├─────────────────────────────────────────────────────────────┤
 │                  infrastructure/                           │ ← 输出端口适配器
 │  (adapters/core/, adapters/generic/)                      │

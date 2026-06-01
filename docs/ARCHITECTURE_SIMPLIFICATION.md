@@ -234,9 +234,7 @@ hooks/
 ├── hook_context.py          # 上下文数据类 (不变)
 ├── lifecycle_hooks.py       # 合并 sprint_hooks 和 task_hooks
 ├── quality_hooks.py         # 质量钩子 (不变)
-├── skill_hooks.py          # 技能钩子 (不变)
-├── sprint_hooks.py          # 向后兼容：重新导出
-└── task_hooks.py            # 向后兼容：重新导出
+└── skill_hooks.py          # 技能钩子 (不变)
 ```
 
 **合并详情**:
@@ -259,10 +257,15 @@ hooks/
 
 ### 向后兼容策略
 
-所有被合并的模块都保留了以下内容：
-1. 原始的 `__all__` 列表
-2. 从新位置导入并重新导出函数/类
-3. 更新文档字符串，标注"已精简"
+**2026-06-01 更新**: 以下向后兼容层已删除：
+- `sprintcycle/domain/core/execution/hooks/sprint_hooks.py`
+- `sprintcycle/domain/core/execution/hooks/task_hooks.py`
+- `sprintcycle/domain/core/governance/arch_guard/sdd_checks.py`
+- `sprintcycle/domain/core/governance/arch_guard/yaml_checks.py`
+
+所有调用方已更新为直接使用新位置：
+- 执行 hooks → `lifecycle_hooks.py`
+- arch_guard checks → `checks.py`
 
 ### 测试验证
 
@@ -270,19 +273,12 @@ hooks/
 ```bash
 # HITL 模块
 python -c "from sprintcycle.domain.core.governance.hitl.coordinator import *"
-python -c "from sprintcycle.domain.core.governance.hitl.context import *"
-python -c "from sprintcycle.domain.core.governance.hitl.config import *"
-python -c "from sprintcycle.domain.core.governance.hitl.utils import *"
 
 # arch_guard 模块
 python -c "from sprintcycle.domain.core.governance.arch_guard.checks import *"
-python -c "from sprintcycle.domain.core.governance.arch_guard.sdd_checks import *"
-python -c "from sprintcycle.domain.core.governance.arch_guard.yaml_checks import *"
 
 # execution hooks 模块
 python -c "from sprintcycle.domain.core.execution.hooks.lifecycle_hooks import *"
-python -c "from sprintcycle.domain.core.execution.hooks.sprint_hooks import *"
-python -c "from sprintcycle.domain.core.execution.hooks.task_hooks import *"
 
 # governance hooks 模块
 python -c "from sprintcycle.domain.core.governance.hooks.governance_hooks import *"

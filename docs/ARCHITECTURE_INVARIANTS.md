@@ -317,8 +317,8 @@ SprintCycle 不可替代的核心功能：
 |--------|-----------|------|
 | 质量规则插件 | `QualityPlugin` | `domain/core/governance/quality_spec/plugin_protocols.py` |
 | 治理 argv 插件 | `pluggy` | `domain/core/governance/pluggy_host.py` |
-| 执行 hooks | `HookDefinition` | `domain/core/execution/hooks/` |
-| 治理 hooks | `GovernanceHook` | `domain/core/governance/task_hooks.py`, `sprint_hooks.py` |
+| 执行 hooks | `HookDefinition` | `domain/core/execution/hooks/`（已合并到 lifecycle_hooks.py） |
+| 治理 hooks | `GovernanceHook` | `domain/core/governance/hooks/`（已合并到 lifecycle_hooks.py） |
 
 ### 5.2 适配器扩展
 

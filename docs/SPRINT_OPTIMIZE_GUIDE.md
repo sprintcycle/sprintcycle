@@ -168,17 +168,38 @@ Agent 执行优化（前后端同步）
 
 ## 验证清单
 
-每次优化后自动验证：
+> **统一来源**: 完整验证清单定义在 `.cursor/rules/sprintcycle-optimization.mdc` 中，以下为摘要：
 
-- [ ] 代码编译通过（后端 Python + 前端 TypeScript）
-- [ ] 相关测试全部通过（pytest + 前端测试）
-- [ ] 业务逻辑完整保留
-- [ ] 架构边界合规
-- [ ] 无破坏性变更
-- [ ] **前后端接口对齐**
-- [ ] **前端类型定义与后端 DTO 一致**
-- [ ] **文档同步更新（强制）**
-- [ ] 提交信息清晰
+**🔹 Phase 1: 需求分析**
+- [ ] 用户需求已通过 AskUserQuestion 确认
+- [ ] 影响范围评估完成
+- [ ] 风险评估已记录
+
+**🔹 Phase 2: 设计阶段**
+- [ ] PRD 已通过 HITL 批准
+- [ ] 技术方案已通过 HITL 批准
+- [ ] 架构合规性已检查
+
+**🔹 Phase 3: 执行实施**
+- [ ] 代码编译无误（Python + TypeScript）
+- [ ] 业务逻辑 100% 保留
+- [ ] 前后端契约对齐
+- [ ] 未添加任何兼容代码或过渡层
+
+**🔹 Phase 4: 测试验证**
+- [ ] 相关测试通过（pytest + 前端测试）
+- [ ] 测试覆盖率 ≥80%
+- [ ] 集成测试通过
+
+**🔹 Phase 5: 文档同步**
+- [ ] README.md / README_EN.md 更新完成
+- [ ] ARCHITECTURE_INVARIANTS.md 更新完成
+- [ ] sprintcycle-architecture-orchestration.mdc 对齐完成
+
+**🔹 Phase 6: 审批提交**
+- [ ] PR 创建完成，描述清晰
+- [ ] 至少 2 位审核人已指定
+- [ ] CI/CD 流水线通过
 
 ## 前后端对齐检查清单
 

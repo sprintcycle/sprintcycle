@@ -175,7 +175,7 @@ It's not about making AI write code faster — it's about making every line of c
 
 ### One-sentence Summary
 
-Hexagonal Architecture (Ports & Adapters) + DDD (Domain-Driven Design), 4-layer separation (interfaces → application → domain → infrastructure), 4 core subdomains (lifecycle / execution / evolution / governance), 14 port abstractions, 469+ Python files.
+Hexagonal Architecture (Ports & Adapters) + DDD (Domain-Driven Design), 4-layer separation (interfaces → application → domain → infrastructure), 4 core subdomains (lifecycle / execution / evolution / governance), 17 port abstractions, 469+ Python files.
 
 ### Architecture Layers
 
@@ -195,7 +195,7 @@ Hexagonal Architecture (Ports & Adapters) + DDD (Domain-Driven Design), 4-layer 
 │   (Core: lifecycle, execution, evolution, governance;     │
 │    Supporting: intent, fitness;                           │
 │    Generic: errors, prompts, models, platform, interfaces)│
-│   (ports/: 14 port definitions)                          │
+│   (ports/: 17 port definitions)                          │
 ├─────────────────────────────────────────────────────────────┤
 │                  infrastructure/                           │ ← Output Port Adapters
 │  (adapters/core/, adapters/generic/)                      │
@@ -586,7 +586,7 @@ sprintcycle/
 │   │   ├── execution/          # Execution engine and task orchestration
 │   │   │   ├── aggregates/          # SprintAggregate, ReleasePlanAggregate (immutable design)
 │   │   │   ├── agents/              # 5 Agent types (coder/tester/architect/analyzer/regression_tester)
-│   │   │   ├── hooks/               # Execution hooks (governance_context, hook_context, quality_hooks, skill_hooks, sprint_hooks, task_hooks)
+│   │   │   ├── hooks/               # Execution hooks (governance_context, hook_context, lifecycle_hooks, quality_hooks, skill_hooks)
 │   │   │   ├── orchestrator/        # SprintOrchestrator (strategy pattern)
 │   │   │   ├── planners/            # Plan generators (builders, execution_planners, expand, generator, parser, validator, work_item_splitter)
 │   │   │   ├── core/                # Core execution (policies, context, error_handler, events, feedback, hooks, lifecycle_transitions, protocols, run_workspace, sprint_types, state_machine, static_analyzer)

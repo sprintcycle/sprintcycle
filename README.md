@@ -175,7 +175,7 @@ SprintCycle 是 AI 时代的敏捷交付引擎。
 
 ### 一句话概括
 
-六边形架构（Ports & Adapters）+ DDD（领域驱动设计），4 层分离（interfaces → application → domain → infrastructure），4 个核心子域（lifecycle / execution / evolution / governance），14 个端口抽象，469+ 个 Python 文件。
+六边形架构（Ports & Adapters）+ DDD（领域驱动设计），4 层分离（interfaces → application → domain → infrastructure），4 个核心子域（lifecycle / execution / evolution / governance），17 个端口抽象，469+ 个 Python 文件。
 
 ### 架构层次（六边形架构）
 
@@ -260,7 +260,7 @@ SprintCycle 采用 DDD 六边形架构，领域层按子域划分：
 
 #### 端口层（Ports）- 外部依赖抽象
 
-所有外部依赖的协议接口定义位于 `domain/ports/`（14个端口）：
+所有外部依赖的协议接口定义位于 `domain/ports/`（17个端口）：
 
 | 端口文件 | 协议接口 | 职责 |
 |---------|---------|------|
@@ -646,7 +646,7 @@ sprintcycle/
 │   │   ├── execution/          # 执行引擎与任务编排
 │   │   │   ├── aggregates/          # SprintAggregate, ReleasePlanAggregate（不可变设计）
 │   │   │   ├── agents/              # 5类 Agent（coder/tester/architect/analyzer/regression_tester）
-│   │   │   ├── hooks/               # 执行钩子（governance_context, hook_context, quality_hooks, skill_hooks, sprint_hooks, task_hooks）
+│   │   │   ├── hooks/               # 执行钩子（governance_context, hook_context, lifecycle_hooks, quality_hooks, skill_hooks）
 │   │   │   ├── orchestrator/        # SprintOrchestrator（策略模式：architect_strategy, coder_strategy, regression_tester_strategy, tester_strategy）
 │   │   │   ├── planners/            # 计划生成器（builders, execution_planners, expand, generator, parser, validator, work_item_splitter）
 │   │   │   ├── core/                # 核心执行（policies, context, error_handler, events, feedback, hooks, lifecycle_transitions, protocols, run_workspace, sprint_types, state_machine, static_analyzer）
