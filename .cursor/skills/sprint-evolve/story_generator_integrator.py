@@ -58,9 +58,13 @@ class MetaGPTGenerator:
         """加载配置"""
         if self._config is None:
             try:
-                from .config import ConfigManager
+                import sys
+                from pathlib import Path
+                sys.path.insert(0, str(Path(__file__).parent))
+                from config import ConfigManager
                 manager = ConfigManager()
                 self._config = manager.get_llm_config()
+                sys.path.pop(0)
             except ImportError as e:
                 logger.error(f"加载配置管理器失败: {e}")
                 self._config = {}
