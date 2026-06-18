@@ -1,493 +1,65 @@
 ---
-description: SprintCycle architecture and orchestration boundaries with DDD Hexagonal implementation
+description: SprintCycle architecture boundaries (slim always-on summary)
 alwaysApply: true
 ---
 
-# SprintCycle Architecture and Orchestration Rule / 架构与编排规则
+# SprintCycle Architecture (slim) / 架构边界（精简）
 
-## English
+Full reference: `docs/CURSOR_ARCHITECTURE_ORCHESTRATION.md` and `docs/ARCHITECTURE_INVARIANTS.md`.  
+完整参考见上述文档。
 
-You are working on SprintCycle, an intent-driven closed-loop production platform with a stable layered architecture following DDD Hexagonal (Ports & Adapters) principles. This implementation includes Domain-Driven Design patterns with Aggregate Roots, Value Objects, Domain Services, and Event-Driven Architecture.
+## Core principles / 核心原则
 
-### Core principles
-- Preserve the current architecture and core skeleton.
-- Keep the public facade thin: it may normalize, route, delegate, and aggregate, but it must not own workflow logic.
-- Keep execution, governance, observability, suggestion handling, deployment/runtime, and evolution strictly separated.
-- Prefer existing services, facades, hooks, registries, adapters, and event backends over introducing parallel paths.
-- During refactoring or folder adjustments, do not lose existing code or break required call chains and dependencies.
-- Any new feature must land in the correct layer and use the smallest possible change.
-- The platform is contract-driven, with a clear split between entry, orchestration, and governance.
-- Finalized architecture must favor a thin facade, explicit internal/public API separation, and a single lifecycle contract across surfaces.
-- Follow the Composition Root pattern: `application/composition/http_factory.py` is the designated composition root for HTTP services.
-- **Factories should only contain wiring logic; adapter implementations belong in `infrastructure/adapters/`.**
-- **Follow DDD principles: Aggregate Roots are immutable, Value Objects have no identity, and Domain Services are stateless.**
-- **Adapters in `infrastructure/adapters/` implement ports defined in `domain/ports/`.**
+- Thin public facade (`api.py`): normalize, route, delegate, aggregate — **no workflow logic**. (薄门面，不含工作流逻辑。)
+- Strict separation: execution, governance, observability, suggestions, deploy/runtime, evolution. (严格分层。)
+- Reuse existing services, facades, hooks, registries, adapters — no parallel pipelines. (复用现有扩展点。)
+- Composition root: `application/composition/http_factory.py` wires only; adapters live in `infrastructure/adapters/`. (组合根只组装。)
+- DDD: immutable Aggregate Roots, stateless Domain Services, ports in `domain/ports/` (17 ports). (DDD 不变性。)
 
-### DDD Subdomain Architecture
-- **Core Domains**: lifecycle, execution, evolution, governance (includes verification engine)
-- **Supporting Domains**: intent, fitness
-- **Generic Domains**: errors, prompts, models, platform, interfaces
-- **Ports**: `domain/ports/` - port definitions for all external dependencies (17 ports):
-  - `state_store.py`: StateStoreProtocol, ExecutionState
-  - `llm.py`: EngineAdapterProtocol, EngineResult, EngineAdapterConfig
-  - `cache.py`: CacheBackendProtocol
-  - `governance.py`: LinterAdapterProtocol (统一了 ArchGuard, Grimp, ImportLinter, Ruff, TypeCheck)
-  - `observability.py`: ObservabilityFacadeProtocol
-  - `registry.py`: RuntimeRegistryProtocol
-  - `knowledge.py`: KnowledgeRepositoryProtocol, SprintOutcomeCardAdapter
-  - `evolution.py`: EvolutionRegistryProtocol, VersionManifestProtocol
-  - `hitl.py`: HitlStoreProtocol
-  - `audit.py`: AuditPort, AuditRecord
-  - `config.py`: RuntimeConfigProtocol
-  - `deploy.py`: PlatformLaunchServiceProtocol
-  - `rate_limit.py`: RateLimitPort, RateLimitState
-  - `diagnostics.py`: DiagnosticPort
-  - `integrations.py`: LangGraphRuntimeAdapterProtocol (精简了 AutoGPT, Phoenix 等协议)
-  - `suggestion.py`: SuggestionStoreProtocol
-  - `orchestration.py`: RuntimeConfigPort, TraceRuntimePort
+## Non-negotiable boundaries / 不可协商边界
 
-### DDD Aggregate Roots
-- **lifecycle**: `LifecycleRoot` - immutable aggregate root for lifecycle management (Unified State Machine with context switching)
-- **execution**: `SprintAggregate`, `ReleasePlanAggregate` - immutable execution aggregates
-- **evolution**: `EvolutionRequest`, `SandboxSession` - immutable evolution aggregates
-- **governance**: `GovernanceSession`, `RuleSetAggregate` - immutable governance aggregates
+- No domain rules in API, HTTP handlers, or Console Web orchestration. (领域规则不进 API/UI。)
+- No bypassing hooks (lifecycle/policy) or facades (domain coordination). (不绕过 hook/facade。)
+- No duplicate governance/observability/suggestion logic in execution code. (执行层不重复治理逻辑。)
+- No compatibility shims as primary architecture (except documented command shims like `speckit.md`). (不以兼容层为主架构。)
+- No mutable aggregates; cross-aggregate refs by ID only. (聚合根不可变，跨聚合用 ID。)
+- Application layer uses ports only — no direct infrastructure imports outside composition root. (应用层只依赖端口。)
+- Use `LifecycleStateMachine` with `context="lifecycle"|"execution"` — no separate ExecutionStateMachine. (统一状态机。)
+- LangGraph is orchestration adapter under `infrastructure/adapters/generic/integrations/langgraph/` — not domain owner. (LangGraph 为编排适配器。)
 
-### Unified State Machine Architecture
-`LifecycleStateMachine` is a single unified state machine that handles both execution and lifecycle contexts:
+## Layer stack / 层级
 
-```python
-# Lifecycle context (Phase-Substage)
-machine = LifecycleStateMachine(context="lifecycle")
-print(machine.STAGES)  # 14 lifecycle stages
-print(machine.TRANSITIONS)  # SUBSTAGE_TRANSITIONS
-
-# Execution context (Runtime states)
-exec_machine = LifecycleStateMachine(context="execution")
-print(exec_machine.EXECUTION_STATES)  # 9 execution states
-print(exec_machine.EXECUTION_TRANSITIONS)  # Execution transitions
+```
+interfaces/http → application → domain → infrastructure
 ```
 
-### Phase-Substage Architecture
-`LifecycleRoot` adopts a Phase-Substage architecture for better organization:
-- **INITIALIZING Phase**: NEW → NORMALIZED → PLANNED → DECOMPOSED
-- **EXECUTING Phase**: RUNNING → OBSERVING → DIAGNOSED → REPAIRING → VERIFYING
-- **DELIVERING Phase**: DELIVERING → RUNTIME_LINKED
-- **GOVERNING Phase**: GOVERNING → PROMOTION_READY
-- **TERMINAL Phase**: PROMOTED, FAILED, ABORTED, CANCELLED
+| Layer | Owns |
+|-------|------|
+| `interfaces/http/` | HTTP adaptation, middleware |
+| `application/services/` | Use cases, workflow coordination |
+| `domain/core/` | Aggregates, value objects, domain services |
+| `infrastructure/adapters/` | Port implementations |
 
-### DDD Value Objects
-- **lifecycle**: `StageEvidence`, `CorrelationContext`, `LifecycleEvidence`, `FailureInfo`, `RuntimeRef`, `GovernanceRef`, `EvolutionRef`
-- **execution**: `TaskResult`, `SprintResult`
-- **governance**: `GovernanceRule`, `RuleEvaluation`, `Finding`, `VerificationFinding`, `VerificationRule`, `VerificationReport`
-- **evolution**: `VersionArtifact`, `EvolutionEvidence`
+## Lifecycle chain / 生命周期链
 
-### Domain Services
-- `StateTransition` - state transition record in `services.py`
-- `LifecycleStateMachine` - unified state machine with context switching (Phase-Substage + Execution)
-- `EventBus` - event publish/subscribe mechanism for inter-subdomain communication
+`intent entry → plan/prepare → sprint orchestration → SprintOrchestrator → observe/repair → deliver → governance/suggestions → evolution`
 
-### Non-negotiable boundaries
-- Do not move domain rules into the public facade or any UI-oriented layer.
-- Do not bypass hooks when lifecycle interception, compensation, or policy control is needed.
-- Do not bypass facades when domain coordination already exists.
-- Do not duplicate observability, governance, or suggestion logic inside execution code.
-- Do not mutate suggestion or governance state outside their designated workflows.
-- Do not introduce competing pipelines that weaken the current skeleton.
-- Do not treat legacy compatibility surfaces as primary architecture.
-- Do not bypass the composition root pattern; infrastructure dependencies must be injected through factory registration.
-- **Do not mix adapter implementations with factory wiring logic.**
-- **Do not make Aggregate Roots mutable; all state changes must return new instances.**
-- **Do not use direct object references between aggregates; use ID references instead.**
-- **Do not access infrastructure implementations directly from application layer; use port protocols.**
-- **Do not bypass Phase-Substage architecture in LifecycleRoot; follow the defined phase transitions.**
-- **Do not introduce ExecutionStateMachine; use LifecycleStateMachine with context="execution" instead.**
+Backbone: `ReleasePlan → SprintOrchestrator.execute_release_plan → SprintExecutor`.  
+Web-initiated tasks must complete this chain stably. (Web 触发须稳定走完闭环。)
 
-### Layer ownership (DDD Hexagonal Architecture)
-- **`api.py`**: thin public facade for normalization, routing, delegation, and aggregation.
-- **`interfaces/http/`**: HTTP interface adapter layer (input port adapters) - routes, request context, middleware, audit logging.
-  - `dashboard/`: domain-based HTTP routes - execution/, governance/, lifecycle/, hitl/, suggestions/
-  - `public/`: minimal stable public API for external integrations
-  - `middleware/`: rate limiting, audit, and other cross-cutting concerns
-- **`application/`**: application services layer - use cases, orchestration, workflow coordination, organized by domain.
-  - `services/`: domain-organized services (execution, governance, lifecycle, evolution, dashboard, observability, release)
-  - `orchestration/`: sprint orchestrator
-  - `dto/`: data transfer objects
-  - `composition/`: composition root - dependency injection, service initialization, factory registration.
-    - `http_factory.py`: HTTP service dependency injection
-    - `evolution_factory.py`: Evolution Facade factory
-    - `orchestration_factory.py`: Orchestrator dependency assembly
-- **`domain/`**: domain layer (core business logic) - no external dependencies.
-  - `core/`: core subdomains with Aggregate Roots (lifecycle, execution, evolution, governance including verification)
-  - `supporting/`: supporting subdomains (intent, fitness)
-  - `generic/`: generic subdomains (errors, prompts, models, platform, interfaces)
-  - `events/`: DomainEvent base class and EventBus
-  - `ports/`: port definitions - interfaces for external dependencies (17 ports)
-- **`infrastructure/`**: infrastructure layer (output port adapters) - adapters, config, persistence, integrations.
-  - `shared/`: shared infrastructure (persistence)
-  - `adapters/core/`: core subdomain adapters (execution, evolution, governance, orchestration)
-  - `adapters/generic/`: generic adapters (config, cache, deploy, integrations, observability)
+## Console Web / 控制台边界
 
-### Layer dependency rules (Hexagonal Architecture)
-- `interfaces` → `application` → `domain` → `infrastructure` (outer to inner)
-- Domain layer has no external dependencies
-- Infrastructure is depended on by all other layers but depends on nothing
-- The composition root (`application/composition/http_factory.py`) is the only place where infrastructure implementations should be directly imported and registered
-- **Adapters in `infrastructure/adapters/` implement ports defined in `domain/ports/`**
-- **Aggregate Roots in `domain/core/` depend only on Value Objects and other domain types**
-- **`domain/generic/interfaces/` contains generic interface definitions shared across layers**
-- **`domain/ports/` contains port definitions for all external dependencies**
+Dashboard translates user intent into contract operations; it must **not** own stage transitions, governance, promotion, or repair logic. (控制台不拥有编排逻辑。)
 
-### Adapter Implementation Rules (Hexagonal Architecture)
-- **Adapter classes must implement domain ports** (defined in `domain/ports/`)
-- **Adapters must be placed in `infrastructure/adapters/`**, not in factories
-- **Composition root (`application/composition/`) should only wire dependencies**, not contain implementation logic
-- **Adapters follow the dependency inversion principle**: they depend on domain abstractions (ports), not the other way around
+## LangGraph / 编排
 
-### Aggregate Root Rules
-- **Aggregate Roots must be immutable** (use `@dataclass(frozen=True)`)
-- **All state transitions must return new instances**
-- **Cross-aggregate references must use ID references**, not direct object references
-- **Aggregate Roots must have a unique identity** (e.g., `contract_id`, `execution_id`)
-- **LifecycleRoot must follow Phase-Substage Architecture** with proper phase and substage transitions
+Scope: `plan / run / observe / repair`. Graph nodes call services/facades — no domain rules inside nodes. (图节点只编排，不调领域规则。)
 
-### Value Object Rules
-- **Value Objects have no identity** - equality is based on attribute values
-- **Value Objects are immutable** - no setter methods
-- **Value Objects are self-validating** - validation logic is embedded
+## Change strategy / 变更策略
 
-### Event-Driven Architecture Rules
-- **Use `DomainEvent` base class for all domain events**
-- **Publish events through `EventBus`**
-- **Subdomains communicate via events**, not direct method calls
-- **Event handlers must be idempotent**
+1. Identify owning subsystem and layer. (识别所属子系统。)
+2. Prefer nearest extension point (service, facade, hook, registry, adapter). (优先最近扩展点。)
+3. Smallest change in the correct layer; verify E2E lifecycle + governance flows. (最小变更并验证闭环。)
+4. Register new infrastructure only in composition root via port factories. (基础设施仅在组合根注册。)
 
-### Lifecycle and entrypoint rules
-- For any task initiated from the Web platform, the system must be able to complete the full lifecycle stably.
-- The core chain is: request normalization / intent entry → plan and execution preparation → sprint orchestration and decomposition → SprintOrchestrator execution → execution observation and repair → result delivery and summary generation → deployment / runtime coordination → suggestion capture and governance → self-evolution and version evolution.
-- `SprintCycle` is the public coordination layer and must remain thin.
-- The execution backbone centers on `ReleasePlan → SprintOrchestrator.execute_release_plan → SprintExecutor`.
-- Suggestions, governance, observability, and evolution are coordinated capabilities around the execution backbone and must be integrated through existing services, facades, hooks, registries, and orchestrators.
-- Finalized architecture centers on a contract-driven lifecycle, with Dashboard / REST API as the primary human and external entry surfaces.
-- Internal API serves Dashboard with richer control-plane data, while Public API exposes a minimal stable integration surface.
-- `interfaces/http/` owns HTTP route adaptation for public and internal routes.
-- CLI and MCP are not the primary product paths in the finalized architecture.
-
-### Console Web boundary rule
-- The Console Web is the human-machine entry, contract visualization surface, and operation panel.
-- The backend is the contract-driven closed-loop orchestration system.
-- The Console Web may create, submit, display, inspect, and operate on a lifecycle contract, but it must not become the orchestrator itself.
-- The Console Web must not own stage transitions, recovery branching, governance decisions, promotion decisions, or version evolution logic.
-- The Console Web must not duplicate runtime, suggestion, governance, promotion, or repair workflows that already belong to the backend contract flow.
-- The Console Web should stay thin and stateless with respect to orchestration, and should only translate user intent into contract operations.
-- All stable lifecycle completion guarantees must be implemented by the backend contract, stage machine, services, facades, hooks, registries, and orchestrators.
-- If the Console Web needs additional capability, prefer adding contract fields, backend lifecycle states, or operation APIs rather than embedding business logic in the UI layer.
-- Dashboard is the approved human-facing control surface, while the internal control plane remains hidden behind service and API boundaries.
-- External systems should consume the minimal stable public API rather than internal control-plane details.
-
-### LangGraph orchestration boundaries
-- LangGraph is the orchestration skeleton for SprintCycle planning and sprint-level execution coordination.
-- The current LangGraph integration lives under `infrastructure/adapters/generic/integrations/langgraph/`.
-- `IntentGraphRuntime` is the top-level runtime for `Intent → Plan → Sprint Split → Dispatch → Finalize`.
-- `SprintGraphRuntime` is the per-sprint runtime for `Prepare → Execute → Observe → Repair → Finalize`.
-- These runtimes are orchestration adapters, not domain owners.
-- Keep LangGraph focused on orchestration flow, state transitions, and routing between stages.
-- Do not put domain business rules directly inside graph nodes when the logic belongs to application services, facades, hooks, or orchestrators.
-- Do not use LangGraph as a shortcut to bypass existing architecture boundaries.
-- Plan generation, sprint splitting, sprint creation, sprint sequencing, retry/fix routing, and intra-sprint dispatch must remain aligned with the layered architecture.
-- Prefer reusing existing extension points, hook phases, registries, and service methods rather than introducing parallel graph-specific business logic.
-- Preserve the clean separation between orchestration and domain responsibility.
-- Any LangGraph change must keep the end-to-end lifecycle intact and must not weaken governance, observability, suggestion handling, or evolution flows.
-- LangGraph is an orchestration adapter that must stay subordinate to the contract-driven lifecycle and thin public facade model.
-- Its scope is to coordinate flow, routing, and state transitions, not to introduce a parallel business pipeline.
-- Any graph change must preserve the stable chain from request intake through plan creation, sprint execution, observability, repair, governance, and evolution.
-- Graph nodes are orchestration units, not domain service replacements.
-- Keep graph transitions explicit and minimal.
-- If a node needs business behavior, move that behavior into the owning service/facade/hook and let the graph call it.
-- Avoid hardcoding workflow policy inside graph construction when the policy already exists in the domain layer.
-
-### Dependency Injection and Composition Root rules
-- All infrastructure implementations must be registered via port factories in the composition root.
-- Use `register_*_factory` patterns from `domain/ports/` for dependency injection.
-- The composition root (`application/composition/http_factory.py`) should use lazy imports for infrastructure dependencies.
-- Application services should depend on domain protocols/ports, not concrete infrastructure implementations.
-- ConfigService must obtain RuntimeConfig through the port factory (`get_runtime_config`) rather than direct imports.
-- **Factories (`application/composition/`) must not contain adapter implementations.**
-
-### Interaction rules
-- For every request, first identify the owning subsystem.
-- Determine whether the change is additive, behavioral, or structural.
-- Reuse the nearest existing extension point before introducing new abstractions.
-- Keep changes localized to the smallest responsible layer.
-- If a request touches multiple subsystems, keep boundaries explicit and coordinate through services rather than direct coupling.
-- Prefer explicit lifecycle steps over implicit side effects.
-- **When adding new domain behavior, implement it as a Domain Service or extend an existing Aggregate Root.**
-
-### Change strategy
-1. Identify the owning subsystem.
-2. Check whether an existing service, facade, hook, registry, or adapter can express the change.
-3. Implement the smallest possible change in the correct layer.
-4. Keep the public API thin.
-5. Keep orchestration clean and domain logic localized.
-6. Verify that the web-triggered end-to-end lifecycle still remains intact.
-7. Verify that governance, observability, suggestion, and evolution flows remain consistent.
-8. If introducing infrastructure dependencies, register them in the composition root via port factories.
-9. **Place adapter implementations in `infrastructure/adapters/`, not in factories.**
-10. **When adding new domain concepts, follow DDD patterns: Aggregate Root, Value Object, or Domain Service.**
-
-### Default decision policy
-- When in doubt, preserve the current architecture.
-- Prefer extension over replacement.
-- Prefer composition over coupling.
-- Prefer service-level changes over API-level complexity.
-- Prefer explicit flow over hidden behavior.
-- Avoid speculative abstractions and avoid duplicating logic across layers.
-- Keep the layered directory policy and import-rewrite discipline enforced for structural changes.
-- Always use the composition root pattern for infrastructure dependency resolution.
-- **Factories should only wire, adapters should implement.**
-- **Follow DDD patterns for domain modeling.**
-
-### Current implementation boundaries
-- `sprintcycle/api.py` is the unified entry, but it only coordinates and aggregates; it does not own workflow business logic.
-- `sprintcycle/application/services/` contains domain-organized services: execution, governance, lifecycle, evolution, dashboard, observability, release.
-- `sprintcycle/application/composition/http_factory.py` is the composition root responsible for registering infrastructure factories and creating service instances.
-- `sprintcycle/application/composition/orchestration_factory.py` is the orchestration dependency factory (wiring only).
-- `sprintcycle/application/composition/evolution_factory.py` is the Evolution Facade factory (wiring only).
-- `sprintcycle/interfaces/http/dashboard/` contains domain-based HTTP routes: execution/, governance/, lifecycle/, hitl/, suggestions/.
-- `sprintcycle/interfaces/http/public/` handles the minimal stable contract for external systems.
-- `sprintcycle/interfaces/http/middleware/` handles cross-cutting concerns like rate limiting and audit.
-- Infrastructure adapters are organized under `sprintcycle/infrastructure/adapters/core/` and `sprintcycle/infrastructure/adapters/generic/`.
-- **Orchestration adapters (`GraphCompilerAdapter`, `RuntimeConfigAdapter`, etc.) are located in `infrastructure/adapters/core/orchestration/`.**
-- **Verification engine is located in `domain/core/governance/verification/`**
-- **DDD Aggregate Roots are located in `domain/core/<subdomain>/aggregates/`**
-- **DDD Value Objects are located in `domain/core/<subdomain>/values.py` or alongside aggregates**
-- **Domain Services are located in `domain/core/<subdomain>/services.py`**
-- **Domain Events are located in `domain/core/events/`**
-- **Port definitions are located in `domain/ports/`**
-- **Generic interface definitions are located in `domain/generic/interfaces/`**
-
-### Architecture and entrypoint end state
-- The final architecture converges on a contract-driven lifecycle, with Dashboard and REST API as the primary entry surfaces.
-- Dashboard gets richer control-plane data through Internal API.
-- External systems consume the minimal stable integration surface through Public API.
-- `interfaces/http/` is the current HTTP entry-adaptation layer.
-- `application/composition/http_factory.py` is the composition root for dependency injection and service initialization.
-- **Adapter implementations are cleanly separated from factory wiring logic.**
-- **DDD patterns are fully implemented with Aggregate Roots, Value Objects, Domain Services, and Event-Driven Architecture.**
-- **Verification engine is integrated into the governance core subdomain.**
-- **Port-Adapters pattern is fully implemented with `domain/ports/` (17 ports) and `infrastructure/adapters/`.**
-- CLI and MCP are not the primary product paths.
-
-### Architecture Hierarchy Diagram
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    interfaces/http/                        │ ← Input Port Adapters
-│   (HTTP API: dashboard/[execution, governance, lifecycle, │
-│    hitl, suggestions] / public/ / middleware/)            │
-├─────────────────────────────────────────────────────────────┤
-│                     application/                           │ ← Application Services
-│   (services/: execution, governance, lifecycle, evolution, │
-│    dashboard, observability, release)                     │
-│   (composition/: http_factory, evolution_factory,         │
-│                  orchestration_factory)                   │
-├─────────────────────────────────────────────────────────────┤
-│                       domain/                              │ ← Core Business Logic
-│   (Core: lifecycle, execution, evolution, governance;     │
-│    Supporting: intent, fitness;                           │
-│    Generic: errors, prompts, models, platform, interfaces)│
-│   (ports/: 17 ports definitions)                          │
-├─────────────────────────────────────────────────────────────┤
-│                  infrastructure/                           │ ← Output Port Adapters
-│  (adapters/core/, adapters/generic/)                      │
-└─────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 中文
-
-您正在处理 SprintCycle，这是一个遵循 DDD 六边形架构（Ports & Adapters）原则的意图驱动闭环生产平台。该实现包含领域驱动设计模式，包括聚合根、值对象、领域服务和事件驱动架构。
-
-### 核心原则
-- 保持当前架构和核心框架不变。
-- 保持公共门面层简洁：可以进行归一化、路由、委托和聚合，但不能包含工作流逻辑。
-- 严格分离执行、治理、可观测性、建议处理、部署/运行时和演化。
-- 优先使用现有的服务、门面、钩子、注册中心、适配器和事件后端，而非引入并行路径。
-- 在重构或调整文件夹时，不要丢失现有代码或破坏必需的调用链和依赖关系。
-- 任何新功能必须放在正确的层中，并使用最小的可能变更。
-- 平台是契约驱动的，入口、编排和治理之间有明确的分离。
-- 最终架构必须支持简洁门面、显式的内部/公共 API 分离，以及跨表面的单一生命周期契约。
-- 遵循组合根模式：`application/composition/http_factory.py` 是 HTTP 服务的指定组合根。
-- **工厂应仅包含组装逻辑；适配器实现应放在 `infrastructure/adapters/` 中。**
-- **遵循 DDD 原则：聚合根是不可变的，值对象没有身份标识，领域服务是无状态的。**
-- **`infrastructure/adapters/` 中的适配器实现 `domain/ports/` 中定义的端口。**
-
-### DDD 子域架构
-- **核心子域**：lifecycle、execution、evolution、governance（包含验证引擎）
-- **支撑子域**：intent、fitness
-- **通用子域**：errors、prompts、models、platform、interfaces
-- **端口层**：`domain/ports/` - 所有外部依赖的端口定义（17 个端口）：
-  - `state_store.py`: StateStoreProtocol, ExecutionState
-  - `llm.py`: EngineAdapterProtocol, EngineResult, EngineAdapterConfig
-  - `cache.py`: CacheBackendProtocol
-  - `governance.py`: LinterAdapterProtocol (统一了 ArchGuard, Grimp, ImportLinter, Ruff, TypeCheck)
-  - `observability.py`: ObservabilityFacadeProtocol
-  - `registry.py`: RuntimeRegistryProtocol
-  - `knowledge.py`: KnowledgeRepositoryProtocol, SprintOutcomeCardAdapter
-  - `evolution.py`: EvolutionRegistryProtocol, VersionManifestProtocol
-  - `hitl.py`: HitlStoreProtocol
-  - `audit.py`: AuditPort, AuditRecord
-  - `config.py`: RuntimeConfigProtocol
-  - `deploy.py`: PlatformLaunchServiceProtocol
-  - `rate_limit.py`: RateLimitPort, RateLimitState
-  - `diagnostics.py`: DiagnosticPort
-  - `integrations.py`: LangGraphRuntimeAdapterProtocol (精简了 AutoGPT, Phoenix 等协议)
-  - `suggestion.py`: SuggestionStoreProtocol
-  - `orchestration.py`: RuntimeConfigPort, TraceRuntimePort
-
-### DDD 聚合根
-- **lifecycle**：`LifecycleRoot` - 生命周期管理的不可变聚合根（统一状态机，context 切换）
-- **execution**：`SprintAggregate`、`ReleasePlanAggregate` - 不可变执行聚合
-- **evolution**：`EvolutionRequest`、`SandboxSession` - 不可变演化聚合
-- **governance**：`GovernanceSession`、`RuleSetAggregate` - 不可变治理聚合
-
-### 统一状态机架构
-`LifecycleStateMachine` 是统一的单一状态机，通过 `context` 参数处理执行和生命周期两种上下文：
-
-```python
-# 生命周期上下文 (Phase-Substage)
-machine = LifecycleStateMachine(context="lifecycle")
-print(machine.STAGES)  # 14 个生命周期阶段
-print(machine.TRANSITIONS)  # SUBSTAGE_TRANSITIONS
-
-# 执行上下文 (运行时状态)
-exec_machine = LifecycleStateMachine(context="execution")
-print(exec_machine.EXECUTION_STATES)  # 9 个执行状态
-print(exec_machine.EXECUTION_TRANSITIONS)  # 执行转换
-```
-
-### DDD 值对象
-- **lifecycle**：`StageEvidence`、`CorrelationContext`、`LifecycleEvidence`、`FailureInfo`、`RuntimeRef`、`GovernanceRef`、`EvolutionRef`
-- **execution**：`TaskResult`、`SprintResult`
-- **governance**：`GovernanceRule`、`RuleEvaluation`、`Finding`、`VerificationFinding`、`VerificationRule`、`VerificationReport`
-- **evolution**：`VersionArtifact`、`EvolutionEvidence`
-
-### 领域服务
-- `StateTransition` - 状态转换记录，位于 `services.py`
-- `LifecycleStateMachine` - 统一状态机，支持 context 切换（Phase-Substage + Execution）
-- `EventBus` - 子域间通信的事件发布/订阅机制
-
-### 不可协商的边界
-- 不要将领域规则移到公共门面或任何面向 UI 的层中。
-- 当需要生命周期拦截、补偿或策略控制时，不要绕过钩子。
-- 当领域协调已经存在时，不要绕过门面。
-- 不要在执行代码中重复可观测性、治理或建议逻辑。
-- 不要在其指定工作流之外修改建议或治理状态。
-- 不要引入削弱当前框架的竞争管道。
-- 不要将遗留兼容表面视为主要架构。
-- 不要绕过组合根模式；基础设施依赖必须通过工厂注册注入。
-- **不要将适配器实现与工厂组装逻辑混合。**
-- **不要使聚合根可变；所有状态更改必须返回新实例。**
-- **不要在聚合之间使用直接对象引用；而是使用 ID 引用。**
-- **不要从应用层直接访问基础设施实现；使用端口协议。**
-- **不要绕过 LifecycleRoot 的 Phase-Substage 架构；遵循定义的阶段转换。**
-- **不要引入 ExecutionStateMachine；改用 context="execution" 的 LifecycleStateMachine。**
-
-### 层所有权（DDD 六边形架构）
-- **`api.py`**：用于归一化、路由、委托和聚合的简洁公共门面。
-- **`interfaces/http/`**：HTTP 接口适配层（输入端口适配器）- 路由、请求上下文、中间件、审计日志。
-  - `dashboard/`：基于领域的 HTTP 路由 - execution/、governance/、lifecycle/、hitl/、suggestions/
-  - `public/`：用于外部集成的最小稳定公共 API
-  - `middleware/`：速率限制、审计和其他横切关注点
-- **`application/`**：应用服务层 - 用例、编排、工作流协调，按领域组织。
-  - `services/`：按领域组织的服务（execution、governance、lifecycle、evolution、dashboard、observability、release）
-  - `orchestration/`：sprint 编排器
-  - `dto/`：数据传输对象
-  - `composition/`：组合根 - 依赖注入、服务初始化、工厂注册。
-    - `http_factory.py`：HTTP 服务依赖注入
-    - `evolution_factory.py`：演化门面工厂
-    - `orchestration_factory.py`：编排器依赖组装
-- **`domain/`**：领域层（核心业务逻辑）- 无外部依赖。
-  - `core/`：带聚合根的核心子域（lifecycle、execution、evolution、governance 包含 verification）
-  - `supporting/`：支撑子域（intent、fitness）
-  - `generic/`：通用子域（errors、prompts、models、platform、interfaces）
-  - `events/`：DomainEvent 基类和 EventBus
-  - `ports/`：端口定义 - 外部依赖的接口（17 个端口）
-- **`infrastructure/`**：基础设施层（输出端口适配器）- 适配器、配置、持久化、集成。
-  - `shared/`：共享基础设施（持久化）
-  - `adapters/core/`：核心子域适配器（execution、evolution、governance、orchestration）
-  - `adapters/generic/`：通用适配器（config、cache、deploy、integrations、observability）
-
-### 聚合根规则
-- **聚合根必须是不可变的**（使用 `@dataclass(frozen=True)`）
-- **所有状态转换必须返回新实例**
-- **跨聚合引用必须使用 ID 引用**，而不是直接对象引用
-- **聚合根必须有唯一标识**（例如 `contract_id`、`execution_id`）
-
-### 值对象规则
-- **值对象没有身份标识** - 相等性基于属性值
-- **值对象是不可变的** - 没有 setter 方法
-- **值对象是自验证的** - 验证逻辑嵌入其中
-
-### 事件驱动架构规则
-- **所有领域事件使用 `DomainEvent` 基类**
-- **通过 `EventBus` 发布事件**
-- **子域通过事件通信**，而不是直接方法调用
-- **事件处理程序必须是幂等的**
-
-### 变更策略
-1. 识别所属子系统。
-2. 检查现有服务、门面、钩子、注册中心或适配器是否可以表达变更。
-3. 在正确的层中实现最小可能的变更。
-4. 保持公共 API 简洁。
-5. 保持编排清晰，领域逻辑本地化。
-6. 验证 Web 触发的端到端生命周期仍然完整。
-7. 验证治理、可观测性、建议和演化流程保持一致。
-8. 如果引入基础设施依赖，通过组合根中的端口工厂注册它们。
-9. **将适配器实现放在 `infrastructure/adapters/` 中，而不是工厂中。**
-10. **添加新领域概念时，遵循 DDD 模式：聚合根、值对象或领域服务。**
-
-### 当前实现边界
-- `sprintcycle/api.py` 是统一入口，但它只协调和聚合；不拥有工作流业务逻辑。
-- `sprintcycle/application/services/` 包含按领域组织的服务：execution、governance、lifecycle、evolution、dashboard、observability、release。
-- `sprintcycle/application/composition/http_factory.py` 是负责注册基础设施工厂和创建服务实例的组合根。
-- `sprintcycle/application/composition/orchestration_factory.py` 是编排器依赖工厂（仅组装）。
-- `sprintcycle/application/composition/evolution_factory.py` 是演化门面工厂（仅组装）。
-- **验证引擎位于 `domain/core/governance/verification/`**
-- **DDD 聚合根位于 `domain/core/<subdomain>/aggregates/`**
-- **DDD 值对象位于 `domain/core/<subdomain>/values.py` 或聚合根旁边**
-- **领域服务位于 `domain/core/<subdomain>/services.py`**
-- **领域事件位于 `domain/core/events/`**
-- **端口定义位于 `domain/ports/`**
-- **通用接口定义位于 `domain/generic/interfaces/`**
-
-### 架构和入口端点状态
-- 最终架构收敛于契约驱动的生命周期，Dashboard 和 REST API 作为主要入口表面。
-- Dashboard 通过内部 API 获取更丰富的控制平面数据。
-- 外部系统通过公共 API 消费最小的稳定集成表面。
-- **DDD 模式已完全实现，包括聚合根、值对象、领域服务和事件驱动架构。**
-- **验证引擎已集成到 governance 核心子域中。**
-- **端口-适配器模式已完全实现，包含 `domain/ports/`（17 个端口）和 `infrastructure/adapters/`。**
-
-### 架构层次结构图
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    interfaces/http/                        │ ← 输入端口适配器
-│   (HTTP API: dashboard/[execution, governance, lifecycle, │
-│    hitl, suggestions] / public/ / middleware/)            │
-├─────────────────────────────────────────────────────────────┤
-│                     application/                           │ ← 应用服务层
-│   (services/: execution, governance, lifecycle, evolution, │
-│    dashboard, observability, release)                     │
-│   (composition/: http_factory, evolution_factory,         │
-│                  orchestration_factory)                   │
-├─────────────────────────────────────────────────────────────┤
-│                       domain/                              │ ← 核心业务逻辑
-│   (Core: lifecycle, execution, evolution, governance;     │
-│    Supporting: intent, fitness;                           │
-│    Generic: errors, prompts, models, platform, interfaces)│
-│   (ports/: 17 个端口定义)                                  │
-├─────────────────────────────────────────────────────────────┤
-│                  infrastructure/                           │ ← 输出端口适配器
-│  (adapters/core/, adapters/generic/)                      │
-└─────────────────────────────────────────────────────────────┘
-```
+When in doubt: preserve architecture, extend don't replace. (存疑时保架构、扩展而非替换。)

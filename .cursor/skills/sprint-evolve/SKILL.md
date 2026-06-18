@@ -1,259 +1,115 @@
 ---
 name: sprint-evolve
-description: SprintCycle 自动化进化 - 自动检测、评估、执行和验证完整闭环
+description: SprintCycle semi-automated evolution — detect, rank, HITL, sprint-optimize, validate
 author: SprintCycle Team
-version: 1.0.0
+version: 1.1.0
 ---
 
-# SprintCycle 自动化进化 Skill
+# SprintCycle Semi-automated Evolution / 半自动进化 Skill
 
-## Overview
+## Overview / 概述
 
-本 Skill 实现 SprintCycle 的自动化进化闭环，无需人工干预即可完成：
-1. 架构不变性检测
-2. 优化方向识别与排序
-3. 自动执行优化工作流
-4. 验证与自动修正
+Semi-automated closed loop (半自动闭环):
 
-## Triggers
+1. **Detect (检测)** — architecture validation + opportunity scoring (`evolve.py`)
+2. **Prioritize (排序)** — Top 3 scored directions
+3. **HITL (人工确认)** — scope + technical plan before any code edit
+4. **Execute (实施)** — Cursor Agent + `.cursor/commands/sprint-optimize.md`
+5. **Validate (验证)** — `make ci-local-quick` or `/ci-fix-loop`
+6. **Report (报告)** — markdown summary
 
-### Command Trigger
-```
-/sprint-evolve
-```
+`evolve.py` **does not** apply product code changes. ( `evolve.py` **不**直接修改产品代码。)
 
-### Keywords
-- "进化"
-- "自动优化"
-- "自我改进"
-- "架构进化"
+## Triggers / 触发
 
-## Workflow Phases
+| Type | Value |
+|------|-------|
+| Command | `/sprint-evolve` |
+| Keywords | 进化 · 自动优化 · 自我改进 · 架构进化 · SprintCycle 进化 |
 
-### Phase 1: Automated Detection
+## Non-negotiable rules / 硬性规则
 
-**Actions:**
-1. Run architecture validator: `python scripts/validate_architecture.py --json`
-2. Run unit tests: `pytest tests/ --json-report`
-3. Analyze codebase for optimization opportunities
-4. Collect metrics and generate baseline
+1. **Skill + shim routing** — command `.cursor/commands/sprint-evolve.md` is entry only; this file is source of truth.
+2. **HITL before edits** — same gates as `sprintcycle-optimization.mdc` (scope, then technical plan).
+3. **No fake execution** — never claim optimizations were applied unless Agent followed `sprint-optimize`.
+4. **uv only** — `uv run python ...` for all Python invocations.
+5. **Stories opt-in** — MetaGPT analysis only with `--enable-user-stories`.
 
-**Output:**
-- JSON report with violations, warnings, and opportunities
+## Agent pipeline / Agent 流水线
 
-### Phase 2: Intelligent Prioritization
+### Step 1 — Detect
 
-**Actions:**
-1. Analyze detected issues using scoring algorithm
-2. Apply business value weighting
-3. Consider implementation complexity
-4. Rank opportunities by priority score
-
-**Scoring Criteria:**
-| Factor | Weight | Description |
-|--------|--------|-------------|
-| Architecture Impact | 30% | How much it improves architectural compliance |
-| Business Value | 25% | Direct business benefit |
-| Complexity | 20% | Implementation difficulty (lower = better) |
-| Risk | 15% | Risk of breaking changes |
-| Test Coverage | 10% | Existing test coverage |
-
-**Output:**
-- Top 3 optimization directions with scores
-
-### Phase 3: Automated Execution
-
-**Actions:**
-1. For each top optimization:
-   - Execute corresponding optimization workflow
-   - Handle field consolidation
-   - Handle DDD governance
-   - Handle compatibility cleanup
-   - Handle frontend-backend alignment
-2. Update all affected files
-3. Synchronize documentation
-
-**Workflow Integration:**
-- Uses `sprint-optimize` command logic
-- Follows `sprintcycle-optimization.mdc` rules
-- Maintains business logic integrity
-
-### Phase 4: Validation & Correction
-
-**Actions:**
-1. Run full verification suite
-2. Analyze results
-3. Auto-correct simple issues
-4. Generate comprehensive report
-
-**Auto-correction Rules:**
-- Fix import issues
-- Update deprecated patterns
-- Resolve minor violations
-- Flag complex issues for manual review
-
-## Configuration
-
-### Settings
-```yaml
-auto_evolve:
-  enabled: true
-  max_optimizations_per_run: 3
-  min_score_threshold: 70
-  auto_correction_enabled: true
-  dry_run_mode: false
+```bash
+uv run python .cursor/skills/sprint-evolve/evolve.py --report-only
 ```
 
-### Flags
-- `--dry-run`: Simulate without actual changes
-- `--force`: Force execution even with warnings
-- `--silent`: Suppress detailed output
-- `--report-only`: Generate report without execution
+Read `evolution_report.md` at repo root.
 
-## Output Formats
+### Step 2 — HITL scope
 
-### Summary Report
-```markdown
-## SprintCycle Evolution Report
+Use `AskUserQuestion`: approve Top 3, narrow scope, or cancel.
 
-### Detection Results
-- Architecture Violations: X
-- Warnings: Y
-- Opportunities Found: Z
+### Step 3 — HITL technical plan
 
-### Top 3 Optimization Directions
+Draft plan per optimization type (field consolidation, DDD governance, compatibility cleanup, frontend-backend alignment). User must approve before implementation.
 
-1. [Score: XX] Optimization Type - Description
-   - Impact: High/Medium/Low
-   - Complexity: Low/Medium/High
-   - Risk: Low/Medium/High
+### Step 4 — Implement
 
-2. [Score: YY] Optimization Type - Description
-   - ...
+Read and follow `.cursor/commands/sprint-optimize.md` → `docs/SPRINT_OPTIMIZE_WORKFLOW.md` and `.cursor/rules/sprintcycle-optimization.mdc`.
 
-3. [Score: ZZ] Optimization Type - Description
-   - ...
+### Step 5 — Validate
 
-### Execution Results
-- Executed: X optimizations
-- Successful: Y
-- Partially completed: Z
-- Failed: W
-
-### Validation Results
-- Architecture: ✅/❌
-- Unit Tests: ✅/❌
-- Integration: ✅/❌
-
-### Recommendations
-- Manual review required for: ...
-- Next steps: ...
+```bash
+make ci-local-quick
 ```
 
-## Error Handling
+If failures persist, route to `.cursor/commands/ci-fix-loop.md`.
 
-### Retry Logic
-- Transient errors: Retry up to 3 times
-- Persistent errors: Skip and continue
-- Critical errors: Stop execution and report
+### Step 6 — Report
 
-### Fallback Mechanisms
-- If validation fails: Rollback changes
-- If execution fails: Generate detailed error report
-- If correction fails: Flag for manual intervention
+Summarize: detection results, approved scope, files changed, validation status, doc updates.
 
-## Integration Points
+## Scoring criteria / 评分标准
 
-### Inputs
-1. `scripts/validate_architecture.py` - Architecture validation
-2. `pytest` - Unit testing
-3. `scripts/auto_upgrade_verify.py` - Full verification
+| Factor | Weight |
+|--------|--------|
+| Architecture impact | 30% |
+| Business value | 25% |
+| Complexity (lower better) | 20% |
+| Risk (lower better) | 15% |
+| Test coverage | 10% |
 
-### Outputs
-1. Evolution report (Markdown)
-2. Execution log
-3. Rollback scripts
-4. GitHub PR draft
+## CLI flags / 命令行参数
 
-## Security Considerations
+| Flag | Purpose |
+|------|---------|
+| `--report-only` | Detect + baseline validate; no HITL CLI prompts |
+| `--dry-run` | Simulate full flow without writes |
+| `--force` | Skip stdin HITL in CLI (Agent should still confirm) |
+| `--enable-user-stories` | Opt in to MetaGPT (skipped by default) |
+| `--silent` | Reduce log noise |
 
-- All changes are reversible
-- No destructive operations without confirmation
-- Audit logging enabled
-- Permission checks for sensitive operations
+## Implementation layout / 实现结构
 
-## Performance Optimization
+```
+.cursor/skills/sprint-evolve/
+├── SKILL.md                 # This file
+├── evolve.py                # Detect, score, validate, report
+├── document_updater.py      # Optional doc sync helpers
+├── config.example.json      # LLM / story generator template
+└── story_*.py               # Optional MetaGPT integration
+```
 
-- Parallel execution where possible
-- Caching validation results
-- Incremental analysis for large codebases
-- Timeout controls for long-running operations
+## Optional: user stories / 可选用户故事
+
+MetaGPT story generation is **optional**. Enable only when user requests it and `metagpt` is installed. Default: `--skip-user-stories`.
+
+## Related / 关联文档
+
+- `docs/SPRINT_EVOLVE_SYSTEM.md` — full system guide
+- `.cursor/commands/sprint-optimize.md` — implementation workflow
+- `.cursor/rules/sprintcycle-optimization.mdc` — optimization invariants
 
 ---
 
-## Implementation Notes
-
-### Skill Structure
-```
-.cursors/skills/sprint-evolve/
-├── SKILL.md          # This file
-├── evolve.py         # Main evolution logic
-├── analyzer.py       # Optimization analyzer
-├── executor.py       # Workflow executor
-└── reporter.py       # Report generator
-```
-
-### Dependencies
-- Python 3.11+
-- loguru for logging
-- pytest for testing
-- jsonschema for validation
-
-### API
-
-#### evolve()
-```python
-def evolve(
-    dry_run: bool = False,
-    force: bool = False,
-    silent: bool = False,
-    report_only: bool = False
-) -> EvolutionResult:
-    """
-    Execute the full evolution cycle.
-    
-    Args:
-        dry_run: Simulate without changes
-        force: Ignore warnings
-        silent: Minimal output
-        report_only: Generate report only
-    
-    Returns:
-        EvolutionResult with results
-    """
-```
-
-#### analyze()
-```python
-def analyze() -> AnalysisResult:
-    """Analyze codebase for optimization opportunities."""
-```
-
-#### execute_optimization()
-```python
-def execute_optimization(
-    optimization: Optimization,
-    dry_run: bool = False
-) -> ExecutionResult:
-    """Execute a single optimization."""
-```
-
-#### validate()
-```python
-def validate() -> ValidationResult:
-    """Run full validation suite."""
-```
-
----
-
-*Last updated: 2026-06-01*
+*Last updated: 2026-06-18*

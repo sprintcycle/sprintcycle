@@ -115,20 +115,17 @@
 
 ### 1. `.cursor/rules/sprintcycle-optimization.mdc`
 
-**作用：** 全局优化约束
-- **alwaysApply: true** - 所有对话自动生效
+**作用：** Glob-scoped optimization constraints (`sprintcycle/**`, `frontend/**`, `tests/**`)
+- Slim always-on summary; full text in `docs/CURSOR_OPTIMIZATION_RULES.md`
 - 定义优化触发词（含「前后端对齐」）
-- 制定核心原则（含前后端同步）
-- 提供决策树
-- 验证清单（含前后端检查）
+- HITL 与无兼容层原则
+- 验证清单摘要
 
 ### 2. `.cursor/commands/sprint-optimize.md`
 
-**作用：** 优化工作流命令
-- 详细的执行流程（前后端分离）
-- 分步骤指导（后端 + 前端）
-- 输出模板（含前后端变更清单）
-- 核心原则
+**作用：** Thin command shim → `docs/SPRINT_OPTIMIZE_WORKFLOW.md`
+- 分阶段详细流程见工作流文档
+- 输出模板与回滚机制见 `docs/SPRINT_OPTIMIZE_WORKFLOW.md`
 
 ## 规则架构
 
@@ -138,20 +135,15 @@
 触发词检测 / 命令调用
     ↓
 ┌─────────────────────────────────┐
-│  Rule (alwaysApply)            │
-│  sprintcycle-optimization.mdc  │
-│  - 全局约束                     │
-│  - 核心原则（含前后端对齐）      │
-│  - 文档同步要求                 │
-│  - 验证清单                     │
+│  Rule (glob-scoped)             │
+│  sprintcycle-optimization.mdc   │
+│  - 精简约束 + 完整文档归档       │
 └─────────────────────────────────┘
     ↓
 ┌─────────────────────────────────┐
-│  Command (sprint-optimize)     │
-│  - 工作流步骤（4步）            │
-│  - 后端变更指导                 │
-│  - 前端变更指导                 │
-│  - 输出模板                     │
+│  Command shim (sprint-optimize) │
+│  → SPRINT_OPTIMIZE_WORKFLOW.md  │
+│  - 分阶段工作流（详细）          │
 └─────────────────────────────────┘
     ↓
 Agent 执行优化（前后端同步）
@@ -168,7 +160,7 @@ Agent 执行优化（前后端同步）
 
 ## 验证清单
 
-> **统一来源**: 完整验证清单定义在 `.cursor/rules/sprintcycle-optimization.mdc` 中，以下为摘要：
+> **统一来源**: 完整验证清单见 `docs/SPRINT_OPTIMIZE_WORKFLOW.md` 与 `docs/CURSOR_OPTIMIZATION_RULES.md`；以下为摘要：
 
 **🔹 Phase 1: 需求分析**
 - [ ] 用户需求已通过 AskUserQuestion 确认
@@ -240,11 +232,7 @@ Agent 执行优化（前后端同步）
    - 反映 Port/Adapter 映射
    - 更新层职责
 
-4. **.cursor/rules/sprintcycle-architecture-orchestration.mdc**
-   - 与实际代码实现对齐
-   - 更新 DDD 子域结构
-   - 同步聚合根定义
-   - 反映新模式和约定
+4. **`.cursor/rules/sprintcycle-architecture-orchestration.mdc`** (slim) + `docs/CURSOR_ARCHITECTURE_ORCHESTRATION.md` (full)
 
 ### 同步原则
 
@@ -324,7 +312,7 @@ Agent 执行优化（前后端同步）
 
 ### 添加新的触发词
 
-编辑 `.cursor/rules/sprintcycle-optimization.mdc`:
+编辑 `docs/CURSOR_OPTIMIZATION_RULES.md`（完整参考）或精简规则 `.cursor/rules/sprintcycle-optimization.mdc`：
 
 ```markdown
 ### Optimization Triggers / 优化触发词
@@ -335,7 +323,7 @@ Agent 执行优化（前后端同步）
 
 ### 添加新的工作流步骤
 
-编辑 `.cursor/commands/sprint-optimize.md`:
+编辑 `docs/SPRINT_OPTIMIZE_WORKFLOW.md`：
 
 ```markdown
 ### Step N - 新步骤
@@ -386,8 +374,10 @@ Agent 执行优化（前后端同步）
 
 ## 相关资源
 
-- 架构规范：`.cursor/rules/sprintcycle-architecture-orchestration.mdc`
-- 优化命令：`.cursor/commands/sprint-optimize.md`
-- 优化规则：`.cursor/rules/sprintcycle-optimization.mdc`
+- Architecture (slim): `.cursor/rules/sprintcycle-architecture-orchestration.mdc`
+- Architecture (full): `docs/CURSOR_ARCHITECTURE_ORCHESTRATION.md`
+- Optimize shim: `.cursor/commands/sprint-optimize.md`
+- Optimize workflow: `docs/SPRINT_OPTIMIZE_WORKFLOW.md`
+- Optimize rules (full): `docs/CURSOR_OPTIMIZATION_RULES.md`
 - 前端代码：`frontend/src/`
 - 后端代码：`sprintcycle/`

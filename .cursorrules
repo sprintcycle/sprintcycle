@@ -1,79 +1,8 @@
-SprintCycle Architecture and Orchestration Rule
+# SprintCycle — legacy pointer / 遗留指针
 
-You are working on SprintCycle, a layered orchestration system with a stable core architecture.
+Canonical architecture rules: `.cursor/rules/sprintcycle-architecture-orchestration.mdc`
+Repository agent baseline: `AGENTS.md`
 
-1. System constitution
-- Preserve the current architecture and core skeleton.
-- Keep the public API thin: it may normalize, route, delegate, and aggregate, but it must not own workflow logic.
-- Keep execution, governance, observability, suggestion handling, deployment/runtime, and evolution strictly separated.
-- Prefer existing services, facades, hooks, registries, adapters, and event backends over introducing parallel paths.
-- Any new feature must land in the correct layer and use the smallest possible change.
+Do not duplicate workflow logic here. Use layer-specific rules and commands under `.cursor/rules/` and `.cursor/commands/`.
 
-2. Non-negotiable boundaries
-- Do not move domain rules into the public API or presentation layer.
-- Do not bypass hooks when lifecycle interception, compensation, or policy control is needed.
-- Do not bypass facades when domain coordination already exists.
-- Do not duplicate observability, governance, or suggestion logic inside execution code.
-- Do not mutate suggestion or governance state outside their designated workflows.
-- Do not introduce competing pipelines that weaken the current skeleton.
-
-3. Layer ownership
-- API layer: request normalization, thin routing, compatibility, and result aggregation.
-- Service layer: workflow logic and orchestration of domain behavior.
-- Facade layer: stable domain-facing coordination and compatibility.
-- Hook layer: lifecycle interception, before/after/failed behavior, policy gating, and annotations.
-- Orchestration/execution layer: runtime execution mechanics, scheduling, and execution lifecycle.
-- Governance layer: checks, review, approval, and policy decisions.
-- Observability layer: trace, replay, event capture, inspection, and read models.
-- Suggestion layer: review, approval, rejection, archival, promotion, and replay linkage.
-- Evolution layer: version growth, memory, knowledge capture, and iterative self-improvement.
-- Registry/adapter layer: plugin lookup and environment-specific integration.
-
-4. Web end-to-end stability guarantee
-- For any task initiated from the Web platform, the system must be able to complete the full lifecycle stably.
-- This applies equally to self-evolution tasks and user project optimization tasks.
-- Based on the current implementation, the core chain should be understood as:
-  request normalization / intent entry → plan and execution preparation → sprint orchestration and decomposition → SprintOrchestrator execution → execution observation and repair → result delivery and summary generation → deployment / runtime coordination → suggestion capture and governance → self-evolution and version evolution
-- `SprintCycle` is the public coordination layer and must remain thin.
-- The execution backbone centers on `ReleasePlan → SprintOrchestrator.execute_release_plan → SprintExecutor`.
-- LangGraph currently serves as the orchestration skeleton for `plan / run / observe / repair`.
-- Suggestions, governance, observability, and evolution are coordinated capabilities around the execution backbone and must be integrated through existing services, facades, hooks, registries, and orchestrators.
-- Any implementation change must preserve the continuity of this chain and must not weaken the ability to progress stably from one stage to the next.
-
-5. LangGraph orchestration rule
-- LangGraph is the core orchestration skeleton for planning and sprint-level scheduling.
-- Current LangGraph scope is `plan / run / observe / repair`.
-- Use LangGraph to structure plan decomposition into sprints and to manage internal scheduling within each sprint.
-- Keep LangGraph focused on orchestration flow, state transitions, and routing between stages.
-- Do not put domain business rules directly inside graph nodes when the logic belongs to application services, facades, hooks, or orchestrators.
-- Do not use LangGraph as a shortcut to bypass existing architecture boundaries.
-- Plan splitting, sprint creation, sprint sequencing, retry/fix routing, and intra-sprint dispatch must remain aligned with the layered architecture.
-- Prefer reusing existing extension points, hook phases, registries, and service methods rather than introducing parallel graph-specific business logic.
-- Preserve the clean separation between orchestration and domain responsibility.
-- Any LangGraph change must keep the end-to-end lifecycle intact and must not weaken governance, observability, suggestion handling, or evolution flows.
-
-6. Interaction rules
-- For every request, first identify the owning subsystem.
-- Determine whether the change is additive, behavioral, or structural.
-- Reuse the nearest existing extension point before introducing new abstractions.
-- Keep changes localized to the smallest responsible layer.
-- If a request touches multiple subsystems, keep boundaries explicit and coordinate through services rather than direct coupling.
-- Prefer explicit lifecycle steps over implicit side effects.
-
-7. Change strategy
-1. Identify the owning subsystem.
-2. Check whether an existing service, facade, hook, registry, or adapter can express the change.
-3. Implement the smallest possible change in the correct layer.
-4. Keep the public API thin.
-5. Keep orchestration clean and domain logic localized.
-6. Verify that the web-triggered end-to-end lifecycle still remains intact.
-7. Verify that governance, observability, suggestion, and evolution flows remain consistent.
-
-8. Default decision policy
-- When in doubt, preserve the current architecture.
-- Prefer extension over replacement.
-- Prefer composition over coupling.
-- Prefer service-level changes over API-level complexity.
-- Prefer explicit flow over hidden behavior.
-- Avoid speculative abstractions and avoid duplicating logic across layers.
-- If behavior belongs to a hook, facade, service, registry, or LangGraph orchestration stage, implement it there rather than inline.
+不要在本文重复工作流逻辑。请使用 `.cursor/rules/` 与 `.cursor/commands/` 中的分层规则与命令。

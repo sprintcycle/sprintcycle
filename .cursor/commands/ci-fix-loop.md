@@ -107,7 +107,7 @@ If two clusters touch **disjoint file sets**, spawn parallel subagents; **you** 
 
 ## Hard constraints (always) / 强制约束（始终适用）
 
-- `.cursor/rules/python-venv-only.mdc` — use `.venv/bin/python`, `.venv/bin/pytest` only (.cursor/rules/python-venv-only.mdc — 仅使用 `.venv/bin/python`、`.venv/bin/pytest`)
+- `.cursor/rules/python-venv-only.mdc` — use `uv run` for Python/pytest (使用 `uv run`)
 - `.cursor/rules/sprintcycle-architecture-orchestration.mdc` — no domain logic in API/UI; no bypassing hooks/facades (`.cursor/rules/sprintcycle-architecture-orchestration.mdc` — API/UI 中不要放领域逻辑；不要绕过 hooks/facades)
 - No unrelated refactors (不要做无关重构)
 - No weakening import-linter contracts to “make CI green” (不要为了“让 CI 变绿”而削弱 import-linter contracts)

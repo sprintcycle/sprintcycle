@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from dataclasses import dataclass
 from enum import Enum
@@ -11,6 +12,19 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional, Callable
 
 from loguru import logger
+
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+
+
+def _uv_run(*args: str, cwd: Path, timeout: int = 300) -> subprocess.CompletedProcess[str]:
+    """Run a command via uv (project policy: python-venv-only)."""
+    return subprocess.run(
+        ["uv", "run", *args],
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+    )
 
 
 class OptimizationType(Enum):
@@ -92,11 +106,12 @@ class EvolutionEngine:
     """自动化进化引擎"""
     
     def __init__(self, project_root: Path = None):
-        self.project_root = project_root or Path(__file__).parent.parent.parent
+        self.project_root = project_root or _PROJECT_ROOT
         self.dry_run = False
         self.force = False
         self.silent = False
-        self.skip_user_stories = False
+        self.report_only = False
+        self.skip_user_stories = True
         
     def analyze(self) -> AnalysisResult:
         """分析代码库，识别优化机会"""
@@ -128,14 +143,12 @@ class EvolutionEngine:
     def _run_architecture_validation(self) -> Dict[str, Any]:
         """运行架构验证器"""
         try:
-            result = subprocess.run(
-                ["python", "scripts/validate_architecture.py", "--json"],
+            result = _uv_run(
+                "python", "scripts/validate_architecture.py", "--json",
                 cwd=self.project_root,
-                capture_output=True,
-                text=True,
-                timeout=120
+                timeout=120,
             )
-            if result.returncode == 0:
+            if result.stdout.strip():
                 return json.loads(result.stdout)
             return {"errors": [], "warnings": []}
         except Exception as e:
@@ -200,47 +213,8 @@ class EvolutionEngine:
         return None
     
     def _detect_additional_opportunities(self) -> List[Optimization]:
-        """检测其他优化机会"""
-        opportunities = []
-        
-        # 检测冗余字段
-        field_opportunity = self._detect_field_consolidation()
-        if field_opportunity:
-            opportunities.append(field_opportunity)
-        
-        # 检测前后端契约不一致
-        alignment_opportunity = self._detect_frontend_backend_alignment()
-        if alignment_opportunity:
-            opportunities.append(alignment_opportunity)
-        
-        return opportunities
-    
-    def _detect_field_consolidation(self) -> Optional[Optimization]:
-        """检测字段整合机会"""
-        # 这里可以添加更复杂的字段分析逻辑
-        return Optimization(
-            id="field_consolidation_001",
-            type=OptimizationType.FIELD_CONSOLIDATION,
-            description="识别语义相关的字段组，建议整合为统一上下文结构",
-            affected_files=["sprintcycle/domain/core/models/*.py"],
-            impact="Medium",
-            complexity="Medium",
-            risk="Low",
-            score=75.0
-        )
-    
-    def _detect_frontend_backend_alignment(self) -> Optional[Optimization]:
-        """检测前后端对齐机会"""
-        return Optimization(
-            id="alignment_001",
-            type=OptimizationType.FRONTEND_BACKEND_ALIGNMENT,
-            description="检查并同步前后端 API 契约和类型定义",
-            affected_files=["sprintcycle/application/dto/*.py", "frontend/src/types/*.ts"],
-            impact="Medium",
-            complexity="Medium",
-            risk="Medium",
-            score=70.0
-        )
+        """检测其他优化机会（仅基于真实信号，不注入占位项）。"""
+        return []
     
     def _calculate_score(self, impact: str, complexity: str, risk: str) -> float:
         """计算优化优先级分数"""
@@ -273,91 +247,68 @@ class EvolutionEngine:
                 rollback_script="# Dry run - no changes"
             )
         
-        try:
-            changes = []
-            
-            if optimization.type == OptimizationType.DDD_GOVERNANCE:
-                changes.extend(self._execute_ddd_governance(optimization))
-            elif optimization.type == OptimizationType.COMPATIBILITY_CLEANUP:
-                changes.extend(self._execute_compatibility_cleanup(optimization))
-            elif optimization.type == OptimizationType.FIELD_CONSOLIDATION:
-                changes.extend(self._execute_field_consolidation(optimization))
-            elif optimization.type == OptimizationType.FRONTEND_BACKEND_ALIGNMENT:
-                changes.extend(self._execute_frontend_backend_alignment(optimization))
-            
-            return ExecutionResult(
-                success=True,
-                optimization_id=optimization.id,
-                changes_made=changes
-            )
-        except Exception as e:
-            logger.error(f"优化执行失败: {e}")
-            return ExecutionResult(
-                success=False,
-                optimization_id=optimization.id,
-                changes_made=[],
-                errors=[str(e)]
-            )
-    
-    def _execute_ddd_governance(self, optimization: Optimization) -> List[str]:
-        """执行 DDD 治理优化"""
-        # 这里添加实际的治理逻辑
-        return [
-            f"修复架构层依赖违规: {optimization.id}",
-            "更新领域层代码以符合六边形架构原则"
-        ]
-    
-    def _execute_compatibility_cleanup(self, optimization: Optimization) -> List[str]:
-        """执行兼容代码清理"""
-        return [
-            f"移除兼容代码: {optimization.id}",
-            "更新所有调用点"
-        ]
-    
-    def _execute_field_consolidation(self, optimization: Optimization) -> List[str]:
-        """执行字段整合"""
-        return [
-            "识别语义相关字段组",
-            "创建统一上下文结构",
-            "更新所有调用点"
-        ]
-    
-    def _execute_frontend_backend_alignment(self, optimization: Optimization) -> List[str]:
-        """执行前后端对齐"""
-        return [
-            "同步后端 DTO 定义",
-            "更新前端 API 和类型定义",
-            "验证契约一致性"
-        ]
+        # Code changes are applied by Cursor Agent via sprint-optimize, not this script.
+        return ExecutionResult(
+            success=False,
+            optimization_id=optimization.id,
+            changes_made=[],
+            errors=[
+                "evolve.py only detects and scores; implement via Cursor Agent "
+                "using .cursor/commands/sprint-optimize.md after HITL approval."
+            ],
+        )
     
     def validate(self) -> ValidationResult:
         """运行完整验证套件"""
         logger.info("🔬 运行验证套件...")
-        
+        violations: List[str] = []
+
         try:
-            # 架构验证
-            arch_result = subprocess.run(
-                ["python", "scripts/validate_architecture.py"],
+            arch_result = _uv_run(
+                "python", "scripts/validate_architecture.py",
+                cwd=self.project_root,
+                timeout=120,
+            )
+            if arch_result.returncode != 0:
+                violations.append(arch_result.stderr.strip() or "architecture validation failed")
+
+            test_result = _uv_run(
+                "pytest", "tests/", "-q", "--tb=short",
+                cwd=self.project_root,
+                timeout=300,
+            )
+            if test_result.returncode != 0:
+                violations.append(test_result.stderr.strip() or "pytest failed")
+
+            smoke_result = subprocess.run(
+                ["bash", "scripts/import-smoke.sh"],
                 cwd=self.project_root,
                 capture_output=True,
                 text=True,
-                timeout=120
+                timeout=300,
             )
-            
-            # 单元测试
-            test_result = subprocess.run(
-                ["python", "-m", "pytest", "tests/", "-q", "--tb=short"],
+            integration_pass = smoke_result.returncode == 0
+            if not integration_pass:
+                violations.append(smoke_result.stderr.strip() or "import smoke failed")
+
+            frontend_result = subprocess.run(
+                ["bash", "scripts/ci-local.sh"],
                 cwd=self.project_root,
                 capture_output=True,
                 text=True,
-                timeout=300
+                timeout=600,
+                env={**os.environ, "CI_LOCAL_PHASE": "frontend"},
             )
-            
+            frontend_pass = frontend_result.returncode == 0
+            if not frontend_pass:
+                violations.append(frontend_result.stderr.strip() or "frontend validation failed")
+
             return ValidationResult(
                 architecture_pass=arch_result.returncode == 0,
                 unit_tests_pass=test_result.returncode == 0,
-                integration_pass=True,
-                frontend_pass=True
+                integration_pass=integration_pass,
+                frontend_pass=frontend_pass,
+                violations=violations or None,
             )
         except Exception as e:
             logger.error(f"验证失败: {e}")
@@ -366,7 +317,7 @@ class EvolutionEngine:
                 unit_tests_pass=False,
                 integration_pass=False,
                 frontend_pass=False,
-                violations=[str(e)]
+                violations=[str(e)],
             )
     
     def _update_documents(self) -> List[str]:
@@ -387,25 +338,50 @@ class EvolutionEngine:
             logger.error(f"文档更新失败: {e}")
             return []
     
-    def run(self, dry_run: bool = False, force: bool = False, silent: bool = False, skip_user_stories: bool = False) -> EvolutionResult:
+    def run(
+        self,
+        dry_run: bool = False,
+        force: bool = False,
+        silent: bool = False,
+        skip_user_stories: bool = True,
+        report_only: bool = False,
+    ) -> EvolutionResult:
         """运行完整进化周期"""
         self.dry_run = dry_run
         self.force = force
         self.silent = silent
         self.skip_user_stories = skip_user_stories
-        
-        logger.info("===== SprintCycle 自动化进化开始 =====")
-        
+        self.report_only = report_only
+
+        logger.info("===== SprintCycle 半自动进化开始 =====")
+
         # Phase 1: 分析
         analysis = self.analyze()
-        
+
         # Phase 2: 获取 Top 3
         top_optimizations = analysis.opportunities[:3]
-        logger.info(f"🎯 选出 Top 3 优化方向")
+        logger.info("🎯 选出 Top 3 优化方向")
         for i, opt in enumerate(top_optimizations, 1):
             logger.info(f"  {i}. [{opt.score:.1f}] {opt.type.value}: {opt.description}")
-        
-        # Phase 2.5: 用户故事分析（从 README 和架构规则生成）
+
+        validation = self.validate()
+        user_story_result: Optional[UserStoryResult] = None
+
+        if report_only:
+            report = self._generate_report(
+                analysis, top_optimizations, [], validation, [], user_story_result
+            )
+            logger.info("===== 报告模式完成（未执行优化）=====")
+            return EvolutionResult(
+                analysis=analysis,
+                top_optimizations=top_optimizations,
+                execution_results=[],
+                validation=validation,
+                report=report,
+                user_story_result=user_story_result,
+            )
+
+        # Phase 2.5: 用户故事分析（可选，需 MetaGPT）
         user_story_result = self._analyze_user_stories()
         
         # HITL 卡点 1: 变更范围确认
@@ -442,7 +418,7 @@ class EvolutionEngine:
                 changes_made=story_exec['changes']
             ))
         
-        # Phase 4: 验证
+        # Phase 4: 验证（执行后复验）
         validation = self.validate()
         
         # Phase 5: 自动更新文档
@@ -453,7 +429,7 @@ class EvolutionEngine:
         # 生成报告
         report = self._generate_report(analysis, top_optimizations, execution_results, validation, document_updates, user_story_result)
         
-        logger.info("===== SprintCycle 自动化进化完成 =====")
+        logger.info("===== SprintCycle 半自动进化完成 =====")
         
         return EvolutionResult(
             analysis=analysis,
@@ -1133,23 +1109,28 @@ def main():
     parser.add_argument("--force", action="store_true", help="强制执行")
     parser.add_argument("--silent", action="store_true", help="静默模式")
     parser.add_argument("--report-only", action="store_true", help="仅生成报告")
-    parser.add_argument("--skip-user-stories", action="store_true", help="跳过用户故事分析（无需 MetaGPT）")
-    
+    parser.add_argument(
+        "--enable-user-stories",
+        action="store_true",
+        help="启用 MetaGPT 用户故事分析（默认跳过）",
+    )
+
     args = parser.parse_args()
-    
+
     engine = EvolutionEngine()
     result = engine.run(
         dry_run=args.dry_run,
         force=args.force,
         silent=args.silent,
-        skip_user_stories=args.skip_user_stories
+        skip_user_stories=not args.enable_user_stories,
+        report_only=args.report_only,
     )
-    
+
     print(result.report)
-    
+
     if args.report_only:
-        output_path = Path("evolution_report.md")
-        output_path.write_text(result.report)
+        output_path = engine.project_root / "evolution_report.md"
+        output_path.write_text(result.report, encoding="utf-8")
         print(f"\n📄 报告已保存到: {output_path}")
 
 

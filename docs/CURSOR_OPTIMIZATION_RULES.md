@@ -1,0 +1,453 @@
+# SprintCycle Optimization Rules (full reference / 完整参考)
+
+> Archived from `.cursor/rules/sprintcycle-optimization.mdc`.  
+> The Cursor rule is a slim, glob-scoped summary; this file is the full bilingual reference.  
+> 归档自精简版 Cursor 规则；本文为完整双语参考。
+
+---
+
+## English
+
+When optimizing SprintCycle code, follow these non-negotiable principles:
+
+### Optimization Triggers / 优化触发词
+
+When you encounter these phrases, activate optimization mode:
+- **「删减字段」** / "consolidate fields" / "reduce fields"
+- **「遵循 DDD 治理」** / "DDD governance" / "follow DDD"
+- **「删除兼容逻辑」** / "remove compatibility" / "cleanup legacy"
+- **「优化架构」** / "optimize architecture" / "refactor"
+- **「精简代码」** / "simplify code" / "streamline"
+- **「前后端对齐」** / "frontend-backend alignment"
+
+### Core Optimization Principles
+
+1. **Logic Preservation** - Never remove business logic without verification (100% preservation required)
+2. **DDD + Hexagonal Compliance** - All changes must align with `.cursor/rules/sprintcycle-architecture-orchestration.mdc`
+3. **No Compatibility Layers** - **Do NOT add compatibility code or transition layers** - implement final state directly
+4. **Direct Final State** - Implement the end-state solution in one go, no incremental transitions
+5. **Test-Driven Validation** - Always run tests to verify changes
+6. **Field Consolidation** - Merge redundant fields with semantic meaning
+7. **Frontend-Backend Alignment** - Keep frontend and backend synchronized
+8. **HITL Requirements Confirmation** - Must confirm requirements with user (via AskUserQuestion) before proceeding
+9. **HITL PRD Confirmation** - Must get human approval on PRD before entering design phase
+10. **HITL Design Confirmation** - Must get human approval on technical design before implementation
+
+### Field Consolidation Patterns
+
+**Consolidation Examples:**
+```python
+# ❌ Before: Multiple related fields
+skill_refs: List[str]
+skill_matches: List[Dict]
+skill_review_checklists: List[Dict]
+skill_trace: List[Dict]
+
+# ✅ After: Unified context
+skill_context: Dict[str, Any]
+```
+
+**Consolidation Rules:**
+1. Group semantically related fields
+2. Create unified context structure (final state)
+3. Update ALL call sites (frontend + backend) **in one go**
+4. **Do NOT add compatibility code or transition layers**
+5. Remove legacy field parameters completely
+6. Validate with tests
+7. Ensure 100% business logic preservation
+
+### Compatibility Cleanup Rules
+
+**When to remove compatibility:**
+- Legacy fields are fully replaced
+- All call sites updated (frontend + backend)
+- Tests cover the new structure
+- No external dependencies on old format
+
+**Cleanup Process:**
+1. Identify ALL compatibility helpers (e.g., `_consolidate_*`, `_merge_*`, `_legacy_*`)
+2. Find ALL usages (frontend + backend)
+3. Replace with final state structure **in one go**
+4. **Remove helper methods completely** - NO transitional code
+5. Ensure 100% business logic preservation
+6. Run comprehensive tests
+
+### Architecture Compliance
+
+**Must Follow:**
+- Domain layer purity (no external deps)
+- Aggregate Root immutability
+- Port/Adapter separation
+- Composition Root pattern
+- Single responsibility per layer
+- Frontend-backend contract alignment
+
+**Must Avoid:**
+- Duplicate logic across layers
+- Mutable state in domain
+- Direct infra access from app layer
+- Mixing adapter impl with factory wiring
+- Frontend-backend contract mismatch
+- **Adding compatibility code or transition layers**
+- **Preserving legacy API versions for optimization changes**
+- **Incremental transitions without HITL approval**
+
+### Frontend-Backend Alignment Rules
+
+**Backend Contract Consistency:**
+- DTOs in `application/dto/` must be the source of truth
+- HTTP routes must use consistent naming conventions
+- Versioning strategy must be applied consistently
+
+**Frontend Alignment:**
+- API definitions in `frontend/src/api/` must match backend DTOs
+- TypeScript types in `frontend/src/types/` must mirror backend models
+- Store state structures must align with backend aggregates
+- View components must handle API responses correctly
+
+**Synchronization Process:**
+1. Update backend domain model → DTO → HTTP route
+2. Update frontend API definition → TypeScript type → Store → Component
+3. Verify both compile/build successfully
+4. Run tests for both frontend and backend
+
+### Unified Change Verification Checklist (Single Source of Truth)
+
+**🔹 Phase 1: Requirements Analysis**
+- [ ] User requirements confirmed via AskUserQuestion
+- [ ] Impact scope assessment completed
+- [ ] Risk assessment documented
+
+**🔹 Phase 2: Design Phase**
+- [ ] PRD approved via HITL
+- [ ] Technical design approved via HITL
+- [ ] Architecture compliance checked
+- [ ] No compatibility layers in design
+
+**🔹 Phase 3: Implementation**
+- [ ] Code compiles without errors (Python + TypeScript)
+- [ ] Business logic 100% preserved
+- [ ] Architecture boundaries maintained
+- [ ] Frontend-backend contracts aligned
+- [ ] No compatibility code or transition layers added
+- [ ] Legacy code completely removed
+
+**🔹 Phase 4: Testing & Validation**
+- [ ] Related tests pass (pytest + frontend tests)
+- [ ] Test coverage verified (≥80% for changed code)
+- [ ] Integration tests pass
+- [ ] Performance regression checks (if applicable)
+
+**🔹 Phase 5: Documentation**
+- [ ] README.md updated
+- [ ] README_EN.md synchronized
+- [ ] ARCHITECTURE_INVARIANTS.md updated
+- [ ] sprintcycle-architecture-orchestration.mdc aligned
+
+**🔹 Phase 6: Approval & Submission**
+- [ ] PR created with clear description
+- [ ] At least 2 reviewers assigned
+- [ ] CI/CD pipeline passes
+- [ ] Commit message follows convention
+
+### Documentation Synchronization (MANDATORY)
+
+**⚠️ MUST UPDATE after every optimization:**
+
+After code changes, update these documentation files **immediately**:
+
+1. **README.md** (Chinese)
+   - Update product definitions and capability matrix
+   - Sync field structures and architecture descriptions
+   - Reflect new DDD patterns and lifecycle stages
+
+2. **README_EN.md** (English)
+   - Mirror all changes from README.md
+   - Keep bilingual alignment
+
+3. **docs/ARCHITECTURE_INVARIANTS.md**
+   - Update architecture boundaries and invariants
+   - Sync DDD patterns (Aggregate Roots, Value Objects)
+   - Reflect Port/Adapter mappings
+   - Update layer responsibilities
+
+4. **.cursor/rules/sprintcycle-architecture-orchestration.mdc**
+   - Align with actual code implementation
+   - Update DDD subdomain structure
+   - Sync Aggregate Root definitions
+   - Reflect new patterns and conventions
+
+**Documentation Update Process:**
+1. Read the current code implementation
+2. Compare with existing documentation
+3. Update all 4 files to match code reality
+4. Ensure bilingual consistency (zh/en)
+5. Verify no contradictions between documents
+
+**Example: Field Consolidation Update:**
+```markdown
+# README.md - Update field structure
+## LifecycleContract
+- `skill_context`: 整合了 skill_refs, skill_matches, skill_review_checklists, skill_trace
+
+# README_EN.md - Mirror
+## LifecycleContract
+- `skill_context`: Consolidates skill_refs, skill_matches, skill_review_checklists, skill_trace
+
+# ARCHITECTURE_INVARIANTS.md - Update patterns
+### LifecycleContract Fields
+| Field | Type | Description |
+|-------|------|-------------|
+| skill_context | Dict | Consolidated skill references |
+
+# sprintcycle-architecture-orchestration.mdc - Sync DDD
+### DDD Value Objects
+- **lifecycle**: ..., `SkillContext`
+```
+
+### Refactoring Decision Tree
+
+```
+Is this a field consolidation?
+├─ Yes → Group related fields, create context structure, update frontend+backend
+└─ No ↓
+
+Is this a compatibility cleanup?
+├─ Yes → Remove helpers, update call sites (frontend+backend)
+└─ No ↓
+
+Is this a DDD governance?
+├─ Yes → Check hexagonal boundaries, ensure purity
+└─ No ↓
+
+Is this a frontend-backend alignment?
+├─ Yes → Sync API/Types/Stores between frontend and backend
+└─ No ↓
+
+Is this a general optimization?
+└─ → Small, incremental, test-validated changes
+```
+
+---
+
+## 中文
+
+优化 SprintCycle 代码时，遵循以下不可妥协的原则：
+
+### 优化触发词
+
+遇到以下短语时，激活优化模式：
+- **「删减字段」** / "consolidate fields" / "reduce fields"
+- **「遵循 DDD 治理」** / "DDD governance" / "follow DDD"
+- **「删除兼容逻辑」** / "remove compatibility" / "cleanup legacy"
+- **「优化架构」** / "optimize architecture" / "refactor"
+- **「精简代码」** / "simplify code" / "streamline"
+- **「前后端对齐」** / "frontend-backend alignment"
+
+### 核心优化原则
+
+1. **逻辑保留** - 未经验证不得删除业务逻辑（要求 100% 保留）
+2. **DDD + 六边形合规** - 所有变更必须符合 `.cursor/rules/sprintcycle-architecture-orchestration.mdc`
+3. **无兼容层** - **禁止添加兼容代码或过渡层**，直接实现终态方案
+4. **直接终态** - 一次性实现最终方案，不进行增量过渡
+5. **测试验证** - 始终运行测试验证变更
+6. **字段整合** - 用语义化方式合并冗余字段
+7. **前后端对齐** - 保持前端与后端同步
+8. **HITL 需求确认** - 必须通过 AskUserQuestion 与用户确认需求后才能继续
+9. **HITL PRD 确认** - 必须在进入设计阶段前获得人工对 PRD 的批准
+10. **HITL 设计确认** - 必须在实施前获得人工对技术设计的批准
+
+### 字段整合模式
+
+**整合示例：**
+```python
+# ❌ 之前：多个相关字段
+skill_refs: List[str]
+skill_matches: List[Dict]
+skill_review_checklists: List[Dict]
+skill_trace: List[Dict]
+
+# ✅ 之后：统一上下文
+skill_context: Dict[str, Any]
+```
+
+**整合规则：**
+1. 分组语义相关的字段
+2. 创建统一的上下文结构（终态）
+3. **一次性更新所有调用点（前端 + 后端）**
+4. **禁止添加兼容代码或过渡层**
+5. 彻底移除旧字段参数
+6. 用测试验证
+7. 确保业务逻辑 100% 保留
+
+### 兼容清理规则
+
+**何时移除兼容性：**
+- 旧字段完全被替换
+- 所有调用点已更新（前端 + 后端）
+- 测试覆盖新结构
+- 无外部依赖旧格式
+
+**清理流程：**
+1. 识别所有兼容辅助方法（如 `_consolidate_*`, `_merge_*`, `_legacy_*`）
+2. 找到所有使用处（前端 + 后端）
+3. **一次性替换为终态结构**
+4. **彻底移除辅助方法** - 禁止保留过渡代码
+5. 确保业务逻辑 100% 保留
+6. 运行全面测试
+
+### 架构合规检查
+
+**必须遵守：**
+- 领域层纯粹性（无外部依赖）
+- 聚合根不可变性
+- Port/Adapter 分离
+- Composition Root 模式
+- 每层单一职责
+- 前后端契约对齐
+
+**必须避免：**
+- 跨层重复逻辑
+- 领域层可变状态
+- 应用层直接访问基础设施
+- 适配器实现与工厂组装混合
+- 前后端契约不匹配
+- **添加兼容代码或过渡层**
+- **为优化变更保留旧的 API 版本**
+- **未经 HITL 批准的增量过渡**
+
+### 前后端对齐规则
+
+**后端契约一致性：**
+- `application/dto/` 中的 DTO 必须是事实来源
+- HTTP 路由必须使用一致的命名约定
+- 版本控制策略必须一致应用
+
+**前端对齐：**
+- `frontend/src/api/` 中的 API 定义必须匹配后端 DTO
+- `frontend/src/types/` 中的 TypeScript 类型必须镜像后端模型
+- Store 状态结构必须与后端聚合根对齐
+- 视图组件必须正确处理 API 响应
+
+**同步流程：**
+1. 更新后端领域模型 → DTO → HTTP 路由
+2. 更新前端 API 定义 → TypeScript 类型 → Store → 组件
+3. 验证双方编译/构建成功
+4. 运行前端和后端测试
+
+### 统一变更验证清单（单一来源）
+
+**🔹 Phase 1: 需求分析**
+- [ ] 用户需求已通过 AskUserQuestion 确认
+- [ ] 影响范围评估完成
+- [ ] 风险评估已记录
+
+**🔹 Phase 2: 设计阶段**
+- [ ] PRD 已通过 HITL 批准
+- [ ] 技术方案已通过 HITL 批准
+- [ ] 架构合规性已检查
+- [ ] 设计中无兼容层
+
+**🔹 Phase 3: 执行实施**
+- [ ] 代码编译无误（Python + TypeScript）
+- [ ] 业务逻辑 100% 保留
+- [ ] 架构边界保持
+- [ ] 前后端契约对齐
+- [ ] 未添加任何兼容代码或过渡层
+- [ ] 旧代码已彻底移除
+
+**🔹 Phase 4: 测试验证**
+- [ ] 相关测试通过（pytest + 前端测试）
+- [ ] 测试覆盖率已验证（变更代码 ≥80%）
+- [ ] 集成测试通过
+- [ ] 性能回归检查（如适用）
+
+**🔹 Phase 5: 文档同步**
+- [ ] README.md 已更新
+- [ ] README_EN.md 已同步
+- [ ] ARCHITECTURE_INVARIANTS.md 已更新
+- [ ] sprintcycle-architecture-orchestration.mdc 已对齐
+
+**🔹 Phase 6: 审批提交**
+- [ ] PR 已创建，描述清晰
+- [ ] 已指定至少 2 位审核人
+- [ ] CI/CD 流水线通过
+- [ ] 提交信息符合规范
+
+### 文档同步更新（强制）
+
+**⚠️ 每次优化后必须更新：**
+
+代码变更后，**立即**更新以下文档：
+
+1. **README.md**（中文）
+   - 更新产品定义和能力矩阵
+   - 同步字段结构和架构描述
+   - 反映新的 DDD 模式和生命周期阶段
+
+2. **README_EN.md**（英文）
+   - 镜像 README.md 的所有变更
+   - 保持双语一致性
+
+3. **docs/ARCHITECTURE_INVARIANTS.md**
+   - 更新架构边界和不变性
+   - 同步 DDD 模式（聚合根、值对象）
+   - 反映 Port/Adapter 映射
+   - 更新层职责
+
+4. **.cursor/rules/sprintcycle-architecture-orchestration.mdc**
+   - 与实际代码实现对齐
+   - 更新 DDD 子域结构
+   - 同步聚合根定义
+   - 反映新模式和约定
+
+**文档更新流程：**
+1. 阅读当前代码实现
+2. 与现有文档对比
+3. 更新所有 4 个文件匹配代码现实
+4. 确保双语一致性
+5. 验证文档间无矛盾
+
+**示例：字段整合更新**
+```markdown
+# README.md - 更新字段结构
+## LifecycleContract
+- `skill_context`: 整合了 skill_refs, skill_matches, skill_review_checklists, skill_trace
+
+# README_EN.md - 镜像
+## LifecycleContract
+- `skill_context`: Consolidates skill_refs, skill_matches, skill_review_checklists, skill_trace
+
+# ARCHITECTURE_INVARIANTS.md - 更新模式
+### LifecycleContract 字段
+| 字段 | 类型 | 描述 |
+|------|------|------|
+| skill_context | Dict | 整合的技能引用 |
+
+# sprintcycle-architecture-orchestration.mdc - 同步 DDD
+### DDD 值对象
+- **lifecycle**: ..., `SkillContext`
+```
+
+### 重构决策树
+
+```
+是否是字段整合？
+├─ 是 → 分组相关字段，创建上下文结构，更新前端+后端
+└─ 否 ↓
+
+是否是兼容清理？
+├─ 是 → 移除辅助方法，更新调用点（前端+后端）
+└─ 否 ↓
+
+是否是 DDD 治理？
+├─ 是 → 检查六边形边界，确保纯粹性
+└─ 否 ↓
+
+是否是前后端对齐？
+├─ 是 → 同步前端和后端的 API/类型/Store
+└─ 否 ↓
+
+是否是一般优化？
+└─ → 小步增量、测试验证的变更
+```

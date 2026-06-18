@@ -35,7 +35,7 @@ class ConfigManager:
                     "base_url": ""
                 },
                 "story_generator": {
-                    "enabled": True,
+                    "enabled": False,
                     "max_stories": 50,
                     "top_stories_count": 5
                 },

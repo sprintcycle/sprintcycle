@@ -1,0 +1,560 @@
+{
+  "status": "completed",
+  "total_files_scanned": 465,
+  "abc_classes_found": 62,
+  "protocol_classes_found": 20,
+  "concrete_classes_found": 542,
+  "issues": [
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/infrastructure/adapters/generic/sandbox/manager.py",
+      "line": 56,
+      "type": "no_implementation",
+      "message": "DockerSandboxBackend: 0 implementations found",
+      "severity": "error"
+    },
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/domain/core/governance/interfaces/governance.py",
+      "line": 27,
+      "type": "no_implementation",
+      "message": "GovernanceCheckProtocol: 0 implementations found",
+      "severity": "error"
+    },
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/domain/core/governance/interfaces/governance.py",
+      "line": 41,
+      "type": "no_implementation",
+      "message": "ArchitectureCheckProtocol: 0 implementations found",
+      "severity": "error"
+    },
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/domain/core/governance/interfaces/governance.py",
+      "line": 50,
+      "type": "no_implementation",
+      "message": "QualityGateProtocol: 0 implementations found",
+      "severity": "error"
+    },
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/domain/generic/interfaces/execution.py",
+      "line": 9,
+      "type": "no_implementation",
+      "message": "ExecutionPlannerProtocol: 0 implementations found",
+      "severity": "error"
+    },
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/domain/generic/interfaces/execution.py",
+      "line": 23,
+      "type": "no_implementation",
+      "message": "TaskExecutorProtocol: 0 implementations found",
+      "severity": "error"
+    },
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/domain/generic/interfaces/config.py",
+      "line": 13,
+      "type": "no_implementation",
+      "message": "ConfigProtocol: 0 implementations found",
+      "severity": "error"
+    },
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/domain/generic/interfaces/protocols.py",
+      "line": 19,
+      "type": "no_implementation",
+      "message": "OrchestrationProtocol: 0 implementations found",
+      "severity": "error"
+    },
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/domain/generic/interfaces/protocols.py",
+      "line": 38,
+      "type": "no_implementation",
+      "message": "LifecycleProtocol: 0 implementations found",
+      "severity": "error"
+    },
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/domain/generic/interfaces/protocols.py",
+      "line": 52,
+      "type": "no_implementation",
+      "message": "EvolutionProtocol: 0 implementations found",
+      "severity": "error"
+    },
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/domain/generic/interfaces/protocols.py",
+      "line": 70,
+      "type": "no_implementation",
+      "message": "FeedbackProtocol: 0 implementations found",
+      "severity": "error"
+    },
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/domain/generic/interfaces/protocols.py",
+      "line": 89,
+      "type": "no_implementation",
+      "message": "ExecutionStateProtocol: 0 implementations found",
+      "severity": "error"
+    },
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/domain/generic/interfaces/protocols.py",
+      "line": 113,
+      "type": "no_implementation",
+      "message": "GraphCompilerProtocol: 0 implementations found",
+      "severity": "error"
+    },
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/domain/generic/interfaces/validators.py",
+      "line": 16,
+      "type": "no_implementation",
+      "message": "ValidatorProtocol: 0 implementations found",
+      "severity": "error"
+    },
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/domain/generic/interfaces/evaluation.py",
+      "line": 13,
+      "type": "no_implementation",
+      "message": "EvaluatorAgentProtocol: 0 implementations found",
+      "severity": "error"
+    },
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/domain/generic/interfaces/release_plan_generator.py",
+      "line": 10,
+      "type": "no_implementation",
+      "message": "ReleasePlanGeneratorProtocol: 0 implementations found",
+      "severity": "error"
+    },
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/domain/generic/interfaces/release_plan_generator.py",
+      "line": 24,
+      "type": "no_implementation",
+      "message": "ReleasePlanParserProtocol: 0 implementations found",
+      "severity": "error"
+    },
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/domain/generic/interfaces/release_plan_generator.py",
+      "line": 43,
+      "type": "no_implementation",
+      "message": "ReleasePlanValidatorProtocol: 0 implementations found",
+      "severity": "error"
+    },
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/domain/generic/interfaces/lifecycle_hooks.py",
+      "line": 14,
+      "type": "no_implementation",
+      "message": "ExecutionEventProtocol: 0 implementations found",
+      "severity": "error"
+    },
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/domain/generic/interfaces/event_bus.py",
+      "line": 30,
+      "type": "no_implementation",
+      "message": "EventSubscriber: 0 implementations found",
+      "severity": "error"
+    },
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/domain/generic/interfaces/event_bus.py",
+      "line": 39,
+      "type": "no_implementation",
+      "message": "EventBusProtocol: 0 implementations found",
+      "severity": "error"
+    },
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/domain/generic/interfaces/event_bus.py",
+      "line": 59,
+      "type": "no_implementation",
+      "message": "ExecutionEventBackendProtocol: 0 implementations found",
+      "severity": "error"
+    },
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/domain/generic/interfaces/sandbox.py",
+      "line": 7,
+      "type": "no_implementation",
+      "message": "SandboxManagerProtocol: 0 implementations found",
+      "severity": "error"
+    },
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/domain/generic/interfaces/sandbox.py",
+      "line": 26,
+      "type": "no_implementation",
+      "message": "HealthCheckAdapterProtocol: 0 implementations found",
+      "severity": "error"
+    },
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/domain/generic/interfaces/sandbox.py",
+      "line": 35,
+      "type": "no_implementation",
+      "message": "RetryPolicyAdapterProtocol: 0 implementations found",
+      "severity": "error"
+    },
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/domain/generic/interfaces/version_registry.py",
+      "line": 7,
+      "type": "no_implementation",
+      "message": "VersionRegistryProtocol: 0 implementations found",
+      "severity": "error"
+    },
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/domain/generic/interfaces/version_registry.py",
+      "line": 31,
+      "type": "no_implementation",
+      "message": "RollbackManagerProtocol: 0 implementations found",
+      "severity": "error"
+    },
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/domain/supporting/intent/base.py",
+      "line": 87,
+      "type": "no_implementation",
+      "message": "IntentHandler: 0 implementations found",
+      "severity": "error"
+    },
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/domain/ports/config.py",
+      "line": 12,
+      "type": "no_implementation",
+      "message": "RuntimeConfigProtocol: 0 implementations found",
+      "severity": "error"
+    },
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/domain/ports/deploy.py",
+      "line": 12,
+      "type": "no_implementation",
+      "message": "PlatformLaunchServiceProtocol: 0 implementations found",
+      "severity": "error"
+    },
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/domain/ports/suggestion.py",
+      "line": 34,
+      "type": "no_implementation",
+      "message": "SuggestionStoreProtocol: 0 implementations found",
+      "severity": "error"
+    },
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/domain/ports/hitl.py",
+      "line": 27,
+      "type": "no_implementation",
+      "message": "HitlStoreProtocol: 0 implementations found",
+      "severity": "error"
+    },
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/domain/ports/registry.py",
+      "line": 12,
+      "type": "no_implementation",
+      "message": "RuntimeRegistryProtocol: 0 implementations found",
+      "severity": "error"
+    },
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/domain/ports/evolution.py",
+      "line": 12,
+      "type": "no_implementation",
+      "message": "EvolutionRegistryProtocol: 0 implementations found",
+      "severity": "error"
+    },
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/domain/ports/evolution.py",
+      "line": 31,
+      "type": "no_implementation",
+      "message": "VersionManifestProtocol: 0 implementations found",
+      "severity": "error"
+    },
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/domain/ports/cache.py",
+      "line": 12,
+      "type": "no_implementation",
+      "message": "CacheBackendProtocol: 0 implementations found",
+      "severity": "error"
+    },
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/domain/ports/llm.py",
+      "line": 33,
+      "type": "no_implementation",
+      "message": "EngineAdapterProtocol: 0 implementations found",
+      "severity": "error"
+    },
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/domain/ports/observability.py",
+      "line": 20,
+      "type": "no_implementation",
+      "message": "ObservabilityFacadeProtocol: 0 implementations found",
+      "severity": "error"
+    },
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/domain/ports/knowledge.py",
+      "line": 25,
+      "type": "no_implementation",
+      "message": "KnowledgeRepositoryProtocol: 0 implementations found",
+      "severity": "error"
+    },
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/domain/ports/integrations.py",
+      "line": 12,
+      "type": "no_implementation",
+      "message": "LangGraphRuntimeAdapterProtocol: 0 implementations found",
+      "severity": "error"
+    },
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/domain/ports/governance.py",
+      "line": 20,
+      "type": "no_implementation",
+      "message": "LinterAdapterProtocol: 0 implementations found",
+      "severity": "error"
+    },
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/domain/ports/state_store.py",
+      "line": 68,
+      "type": "no_implementation",
+      "message": "StateStoreProtocol: 0 implementations found",
+      "severity": "error"
+    }
+  ],
+  "implementations": {
+    "BaseSqliteStore": [
+      "SQLiteVersionRegistry",
+      "SQLiteVersionRegistry",
+      "SyncSqliteStore",
+      "SyncSqliteStore",
+      "SqliteExecutionStore",
+      "SqliteExecutionStore",
+      "HitlSqliteStore",
+      "HitlSqliteStore",
+      "SQLiteMQ",
+      "SQLiteMQ"
+    ],
+    "VersionRegistry": [
+      "SQLiteVersionRegistry",
+      "SQLiteVersionRegistry"
+    ],
+    "VersionRollbackManager": [
+      "DefaultVersionRollbackManager",
+      "DefaultVersionRollbackManager"
+    ],
+    "HitlStore": [
+      "HitlMemoryStore",
+      "HitlMemoryStore",
+      "HitlSqliteStore",
+      "HitlSqliteStore"
+    ],
+    "CacheBackend": [
+      "DiskCacheBackend",
+      "DiskCacheBackend",
+      "NullCacheBackend",
+      "NullCacheBackend",
+      "RedisCacheBackend",
+      "RedisCacheBackend"
+    ],
+    "SandboxManager": [
+      "DefaultSandboxManager",
+      "DefaultSandboxManager"
+    ],
+    "WorktreeSandboxBackend": [
+      "GitWorktreeSandboxBackend",
+      "GitWorktreeSandboxBackend"
+    ],
+    "DockerSandboxBackend": [],
+    "MessageQueue": [
+      "SQLiteMQ",
+      "SQLiteMQ"
+    ],
+    "AgentExecutor": [
+      "ArchitectureAgent",
+      "ArchitectureAgent",
+      "RegressionTestAgent",
+      "RegressionTestAgent",
+      "TesterAgent",
+      "TesterAgent",
+      "CoderAgent",
+      "CoderAgent",
+      "BugAnalyzerAgent",
+      "BugAnalyzerAgent"
+    ],
+    "SprintLifecycleHooks": [
+      "KnowledgeInjectionHook",
+      "KnowledgeInjectionHook",
+      "QualitySprintLifecycleHooks",
+      "QualitySprintLifecycleHooks",
+      "_OrchestratorSprintHooks",
+      "_OrchestratorSprintHooks",
+      "SkillLifecycleHook",
+      "SkillLifecycleHook",
+      "HitlSprintHooks",
+      "HitlSprintHooks",
+      "GovernanceSprintHooks",
+      "GovernanceSprintHooks"
+    ],
+    "TaskLifecycleHooks": [
+      "QualityTaskLifecycleHooks",
+      "QualityTaskLifecycleHooks",
+      "HitlTaskHooks",
+      "HitlTaskHooks",
+      "GovernanceTaskLifecycleHooks",
+      "GovernanceTaskLifecycleHooks"
+    ],
+    "ExecutionStrategy": [
+      "NormalStrategy",
+      "NormalStrategy"
+    ],
+    "ReleaseFinalizationHooks": [
+      "NoOpReleaseFinalizationHooks",
+      "NoOpReleaseFinalizationHooks",
+      "ChainedReleaseFinalizationHooks",
+      "ChainedReleaseFinalizationHooks"
+    ],
+    "AgentStrategy": [
+      "CoderStrategy",
+      "CoderStrategy",
+      "ArchitectStrategy",
+      "ArchitectStrategy",
+      "RegressionTesterStrategy",
+      "RegressionTesterStrategy",
+      "TesterStrategy",
+      "TesterStrategy"
+    ],
+    "CodeEvolutionAdapter": [
+      "DefaultCodeEvolutionAdapter",
+      "DefaultCodeEvolutionAdapter"
+    ],
+    "RequirementEvolutionAdapter": [
+      "DefaultRequirementEvolutionAdapter",
+      "DefaultRequirementEvolutionAdapter"
+    ],
+    "EvolutionController": [
+      "DefaultEvolutionController",
+      "DefaultEvolutionController"
+    ],
+    "EvolutionPlanSource": [
+      "ReleasePlanFileSource",
+      "ReleasePlanFileSource"
+    ],
+    "GovernanceCheckProtocol": [],
+    "ArchitectureCheckProtocol": [],
+    "QualityGateProtocol": [],
+    "EventHandler": [
+      "SprintCompleteToGovernanceHandler",
+      "SprintCompleteToGovernanceHandler",
+      "GovernanceCompleteToEvolutionHandler",
+      "GovernanceCompleteToEvolutionHandler",
+      "LifecycleStageTransitionHandler",
+      "LifecycleStageTransitionHandler",
+      "ExecutionMetricsHandler",
+      "ExecutionMetricsHandler"
+    ],
+    "DomainEvent": [
+      "ExecutionStarted",
+      "ExecutionStarted",
+      "SprintStarted",
+      "SprintStarted",
+      "TaskStarted",
+      "TaskStarted",
+      "TaskCompleted",
+      "TaskCompleted",
+      "SprintCompleted",
+      "SprintCompleted",
+      "ReleasePlanCompleted",
+      "ReleasePlanCompleted",
+      "StageTransitioned",
+      "StageTransitioned",
+      "RecoveryTriggered",
+      "RecoveryTriggered",
+      "GovernanceStarted",
+      "GovernanceStarted",
+      "RuleEvaluated",
+      "RuleEvaluated",
+      "GovernanceCompleted",
+      "GovernanceCompleted",
+      "HitlDecisionRequested",
+      "HitlDecisionRequested",
+      "HitlDecisionMade",
+      "HitlDecisionMade",
+      "EvolutionRequested",
+      "EvolutionRequested",
+      "SandboxCreated",
+      "SandboxCreated",
+      "VersionCreated",
+      "VersionCreated",
+      "ValidationCompleted",
+      "ValidationCompleted",
+      "EvolutionPromoted",
+      "EvolutionPromoted",
+      "RollbackPerformed",
+      "RollbackPerformed"
+    ],
+    "ExecutionPlannerProtocol": [],
+    "TaskExecutorProtocol": [],
+    "ConfigProtocol": [],
+    "OrchestrationProtocol": [],
+    "LifecycleProtocol": [],
+    "EvolutionProtocol": [],
+    "FeedbackProtocol": [],
+    "ExecutionStateProtocol": [],
+    "GraphCompilerProtocol": [],
+    "ValidatorProtocol": [],
+    "EvaluatorAgentProtocol": [],
+    "ReleasePlanGeneratorProtocol": [],
+    "ReleasePlanParserProtocol": [],
+    "ReleasePlanValidatorProtocol": [],
+    "ExecutionEventProtocol": [],
+    "EventSubscriber": [],
+    "EventBusProtocol": [],
+    "ExecutionEventBackendProtocol": [],
+    "SandboxManagerProtocol": [],
+    "HealthCheckAdapterProtocol": [],
+    "RetryPolicyAdapterProtocol": [],
+    "VersionRegistryProtocol": [],
+    "RollbackManagerProtocol": [],
+    "IntentHandler": [],
+    "RuntimeConfigProtocol": [],
+    "PlatformLaunchServiceProtocol": [],
+    "SuggestionStoreProtocol": [],
+    "HitlStoreProtocol": [],
+    "RuntimeRegistryProtocol": [],
+    "EvolutionRegistryProtocol": [],
+    "VersionManifestProtocol": [],
+    "CacheBackendProtocol": [],
+    "EngineAdapterProtocol": [],
+    "ObservabilityFacadeProtocol": [],
+    "KnowledgeRepositoryProtocol": [],
+    "SprintOutcomeCardProtocol": [
+      "SprintOutcomeCardAdapter",
+      "SprintOutcomeCardAdapter"
+    ],
+    "LangGraphRuntimeAdapterProtocol": [],
+    "LinterAdapterProtocol": [],
+    "RetryPolicyAdapter": [],
+    "HealthCheckAdapter": [],
+    "CheckpointStore": [],
+    "ExecutionEventBackend": [],
+    "Provider": [],
+    "QualityPlugin": [],
+    "DimensionAdapter": [],
+    "AsyncDimensionAdapter": [],
+    "StateStoreProtocol": [],
+    "AuditPort": [],
+    "DiagnosticPort": [],
+    "RuntimeConfigPort": [
+      "RuntimeConfigAdapter",
+      "RuntimeConfigAdapter"
+    ],
+    "TraceRuntimePort": [
+      "TraceRuntimeAdapter",
+      "TraceRuntimeAdapter"
+    ],
+    "KnowledgeRepositoryPort": [
+      "KnowledgeRepositoryAdapter",
+      "KnowledgeRepositoryAdapter"
+    ],
+    "KnowledgeInjectionHookPort": [
+      "KnowledgeInjectionHookAdapter",
+      "KnowledgeInjectionHookAdapter"
+    ],
+    "GraphCompilerPort": [
+      "GraphCompilerAdapter",
+      "GraphCompilerAdapter"
+    ],
+    "StateStorePort": [
+      "StateStoreAdapter",
+      "StateStoreAdapter"
+    ],
+    "QualityConfigPort": [
+      "QualityConfigAdapter",
+      "QualityConfigAdapter"
+    ],
+    "RateLimitPort": []
+  },
+  "summary": {
+    "errors": 42,
+    "warnings": 0
+  }
+}

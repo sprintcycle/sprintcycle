@@ -1,164 +1,47 @@
 ---
-description: SprintCycle 自动化进化命令 - 自动检测、评估、执行和验证完整闭环
+description: SprintCycle semi-automated evolution shim (检测 → HITL → 实施 → 验证)
 ---
 
-# SprintCycle 自动化进化命令
+# Sprint-evolve compatibility shim / Sprint-evolve 兼容入口
 
-## 触发方式
+Canonical workflow lives in `.cursor/skills/sprint-evolve/SKILL.md`. (规范工作流位于 `.cursor/skills/sprint-evolve/SKILL.md`。)
 
-### 命令触发（推荐）
-```
-/sprint-evolve
-```
+User guide: `docs/SPRINT_EVOLVE_SYSTEM.md`. (使用文档见 `docs/SPRINT_EVOLVE_SYSTEM.md`。)
 
-### 触发词识别
-- 「进化」
-- 「自动优化」
-- 「自我改进」
-- 「架构进化」
-- 「SprintCycle 进化」
+## Behavior / 行为
 
-## 执行流程
+- **Semi-automated evolution (半自动进化)** — detect and rank automatically; **HITL required** before code changes. (自动检测与排序；**代码变更前必须 HITL 确认**。)
+- **Skill is source of truth** — do not duplicate detection/scoring logic in this command. (以 skill 为唯一事实来源。)
+- **Implementation via sprint-optimize** — `evolve.py` detects and reports; Cursor Agent implements via `.cursor/commands/sprint-optimize.md` → `docs/SPRINT_OPTIMIZE_WORKFLOW.md`. (`evolve.py` 负责检测与报告；由 Agent 按工作流文档实施。)
+- **Validation** — after implementation, run `make ci-local-quick` or `/ci-fix-loop`. (实施后运行 `make ci-local-quick` 或 `/ci-fix-loop`。)
 
-```
-用户触发 /sprint-evolve
-        ↓
-┌─────────────────────────────────────┐
-│  Phase 1: 自动检测与分析            │
-│  - 运行架构验证器                    │
-│  - 运行单元测试                      │
-│  - 识别优化机会                      │
-└─────────────────────────────────────┘
-        ↓
-┌─────────────────────────────────────┐
-│  Phase 2: 智能评估与排序            │
-│  - 分析优化方向                      │
-│  - 评估优先级（分数算法）            │
-│  - 选出 Top 3 优化方向              │
-└─────────────────────────────────────┘
-        ↓
-┌─────────────────────────────────────┐
-│  Phase 3: 自动执行优化              │
-│  - 执行优化工作流                    │
-│  - 前后端同步变更                    │
-└─────────────────────────────────────┘
-        ↓
-┌─────────────────────────────────────┐
-│  Phase 4: 验证与修正                │
-│  - 运行自动化验证工具                │
-│  - 根据结果自动修正                  │
-└─────────────────────────────────────┘
-        ↓
-┌─────────────────────────────────────┐
-│  Phase 5: 自动文档更新              │
-│  - 更新 README.md                   │
-│  - 更新 README_EN.md                │
-│  - 更新 ARCHITECTURE_INVARIANTS.md  │
-│  - 更新架构编排规则                  │
-└─────────────────────────────────────┘
-        ↓
-   进化完成!
-```
+## Agent pipeline / Agent 流水线
 
-## 优先级评分算法
+1. **Detect (检测)**  
+   ```bash
+   uv run python .cursor/skills/sprint-evolve/evolve.py --report-only
+   ```
+2. **HITL gate 1 (范围确认)** — `AskUserQuestion`: approve Top 3 scope or adjust. (确认 Top 3 范围。)
+3. **HITL gate 2 (方案确认)** — present technical plan; user approves before edits. (技术方案批准后方可改代码。)
+4. **Execute (实施)** — follow `.cursor/commands/sprint-optimize.md` and `.cursor/rules/sprintcycle-optimization.mdc`. (按优化工作流实施。)
+5. **Validate (验证)** — `make ci-local-quick`; use `/ci-fix-loop` if red. (验证；失败则走 CI 修复循环。)
 
-| 因素 | 权重 | 说明 |
-|------|------|------|
-| 架构影响 | 30% | 对架构合规性的改善程度 |
-| 业务价值 | 25% | 直接业务收益 |
-| 复杂度 | 20% | 实现难度（越低越好） |
-| 风险 | 15% | 破坏变更的风险 |
-| 测试覆盖 | 10% | 现有测试覆盖率 |
+## Flags / 参数
 
-## 优化类型
+| Flag | Effect |
+|------|--------|
+| `--report-only` | Detection + baseline validation only (recommended default) |
+| `--dry-run` | Full flow without file writes |
+| `--force` | Skip CLI HITL prompts (Agent must still confirm unless user explicitly forces) |
+| `--enable-user-stories` | Opt in to MetaGPT story analysis (skipped by default) |
 
-| 类型 | 说明 |
-|------|------|
-| **字段整合** | 将语义相关字段整合为统一上下文 |
-| **DDD 治理** | 修复架构层依赖违规 |
-| **兼容清理** | 移除兼容代码和过渡层 |
-| **前后端对齐** | 同步 API 契约和类型定义 |
-| **性能优化** | 提升系统性能 |
-| **安全加固** | 增强安全防护 |
+## Triggers / 触发词
 
-## 使用示例
+`/sprint-evolve` · 「进化」· 「自动优化」· 「自我改进」· 「架构进化」· 「SprintCycle 进化」
 
-```bash
-# 完整进化（推荐）
-/sprint-evolve
+## Related / 关联
 
-# 模拟模式（不执行实际变更）
-/sprint-evolve --dry-run
-
-# 强制执行（忽略警告）
-/sprint-evolve --force
-
-# 仅生成报告
-/sprint-evolve --report-only
-```
-
-## 输出报告
-
-执行完成后生成完整报告：
-
-```markdown
-## SprintCycle 自动化进化报告
-
-### 分析结果
-- 架构违规: 0
-- 警告: 12
-- 优化机会: 5
-
-### Top 3 优化方向
-
-1. [85.0] ddd_governance: 修复架构层依赖违规
-   - 影响: High
-   - 复杂度: Medium
-   - 风险: Medium
-
-2. [75.0] field_consolidation: 识别语义相关字段组
-   - 影响: Medium
-   - 复杂度: Medium
-   - 风险: Low
-
-3. [70.0] frontend_backend_alignment: 同步前后端契约
-   - 影响: Medium
-   - 复杂度: Medium
-   - 风险: Medium
-
-### 执行结果
-- 执行优化数: 3
-- 成功: 3
-- 失败: 0
-
-### 验证结果
-- 架构验证: ✅ 通过
-- 单元测试: ✅ 通过
-- 集成测试: ✅ 通过
-- 前端验证: ✅ 通过
-
-### 总结
-🎉 进化成功！
-```
-
-## 集成工作流
-
-本命令自动集成以下工作流：
-- [sprintcycle-optimization.mdc](file:///Users/liangzai/CursorProjects/sprintcycle/.cursor/rules/sprintcycle-optimization.mdc) - 优化规则
-- [sprint-optimize.md](file:///Users/liangzai/CursorProjects/sprintcycle/.cursor/commands/sprint-optimize.md) - 优化工作流
-- [SPRINT_OPTIMIZE_GUIDE.md](file:///Users/liangzai/CursorProjects/sprintcycle/docs/SPRINT_OPTIMIZE_GUIDE.md) - 使用指南
-
-## 核心原则
-
-- ✅ 保持业务逻辑完整（100% 保留）
-- ✅ 遵循 DDD + 六边形架构
-- ✅ 不添加兼容逻辑，直接实现终态方案
-- ✅ 所有变更可逆
-- ✅ 测试全部通过后才完成
-
-## 退出机制
-
-支持在任何阶段退出：
-- 模拟模式不执行实际变更
-- 失败时自动回滚
-- 生成详细的错误报告
+- `.cursor/skills/sprint-evolve/SKILL.md`
+- `.cursor/commands/sprint-optimize.md`
+- `.cursor/rules/sprintcycle-evolution.mdc`
+- `.cursor/rules/sprintcycle-optimization.mdc`

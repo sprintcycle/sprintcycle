@@ -1,0 +1,25 @@
+{
+  "status": "completed",
+  "total_files_scanned": 465,
+  "total_classes_found": 622,
+  "issues": [
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/application/orchestration/sprint_orchestrator.py",
+      "line": 56,
+      "type": "method_not_found",
+      "message": "SprintOrchestrator.run() not found",
+      "severity": "error"
+    },
+    {
+      "file": "/Users/liangzai/CursorProjects/sprintcycle/sprintcycle/application/orchestration/sprint_orchestrator.py",
+      "line": 56,
+      "type": "method_not_found",
+      "message": "SprintOrchestrator.plan() not found",
+      "severity": "error"
+    }
+  ],
+  "summary": {
+    "errors": 2,
+    "warnings": 0
+  }
+}
