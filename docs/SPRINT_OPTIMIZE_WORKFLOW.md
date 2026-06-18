@@ -1,8 +1,52 @@
 # SprintCycle Optimize Workflow (full reference / 完整参考)
 
-> Archived from `.cursor/commands/sprint-optimize.md`.  
-> The command is a thin shim; this file is the detailed phase-by-phase workflow.  
-> 归档自精简版 command；本文为分阶段详细工作流。
+> Canonical workflow for `/sprint optimize`.  
+> 规范工作流，对应 `/sprint optimize`。  
+> SDD methodology: `docs/SPRINT_SDD_GATES.md` · `docs/SPRINTCYCLE_CONSTITUTION.md` · `sprintcycle-workflow.mdc`
+
+---
+
+## §0 SDD gates (methodology layer / 方法论层)
+
+Unified SDD path for all substantive work (speckit retired 2026-06-18).  
+统一 SDD 路径（speckit 已于 2026-06-18 退役）。
+
+### §0.1 Workflow entries
+
+| Entry | Use for |
+|-------|---------|
+| **`/sprint sdd`** | Scope, L/F grade, principle review |
+| **`/sprint optimize`** | This workflow — medium+ refactors |
+| **`/sprint evolve`** | Detection → gates → optimize |
+| `docs/sdd-designs/YYYY-MM-DD/` | PRD + plan (+ optional tasks) |
+
+Historical speckit output: `docs/archive/specs/` (read-only).
+
+### §0.2 Pre-Phase 1 (mandatory for this workflow)
+
+1. **Grade** — confirm L2 or L3 (this workflow is not for L1 polish)
+2. **Impact surface** — Dashboard, API, SDK, `LifecycleContract`, domain layers, tests, docs
+3. **Change list `C1…`** — each item tagged with one principle (Rational / Experience / Long-term / Thorough)
+4. **Initial vs suggested scope** — if suggested > initial, HITL before PRD
+5. **Document sink** — `docs/sdd-designs/YYYY-MM-DD/` (template: `docs/templates/sdd-feature-template.md`)
+
+### §0.3 Post-plan review (before Phase 3)
+
+After PRD + technical plan (Phase 1–2), run **three-layer review** per `docs/SPRINT_SDD_GATES.md` §6:
+
+- ① Complete (non-goals, rollback, T-xxx)
+- ② Four-principle review + fix docs in place
+- ③ Implementable (file map, tests, revert)
+
+Output the **principle review table** in the agent reply; block Phase 3 until ②③ pass or only HITL items remain.
+
+### §0.4 Closure (after Phase 6)
+
+One-line principle conclusion required:
+
+```text
+Closure: Rational ✅ · Experience ✅ · Long-term ✅ · Thorough ✅ — <one sentence>
+```
 
 ---
 
@@ -27,9 +71,9 @@
 
 ### 触发方式
 
-1. **命令触发**（推荐）
+1. **Command trigger**（推荐）
    ```
-   /sprint-optimize
+   /sprint optimize
    ```
 
 2. **触发词识别**
@@ -85,6 +129,8 @@
 **使用工具：** 使用 `AskUserQuestion` 工具向用户提出结构化的问题确认清单。
 
 ### 1.2 影响范围评估
+
+> **SDD gate**: Complete §0.2 impact surface + `C1…` change list before finishing Phase 1. (须完成 §0.2 影响面与变更点清单。)
 
 | 评估维度 | 检查项 | 风险等级 |
 |---------|--------|----------|
@@ -247,6 +293,10 @@ AI 生成技术方案
 1. 批准并进入执行实施阶段
 2. 需要修改，请说明修改意见
 3. 拒绝此方案，中止工作流
+
+#### 2.5.3 SDD principle review (must / 必须)
+
+Before Phase 3, run `docs/SPRINT_SDD_GATES.md` §6 three-layer review on PRD + technical plan. Output the principle review table in the agent reply. (进入 Phase 3 前须完成原则审查表。)
 
 ---
 
@@ -474,13 +524,15 @@ git reset --hard HEAD
 
 ## 验证清单汇总
 
-> **统一来源**: 请参考 `.cursor/rules/sprintcycle-optimization.mdc` 中的完整验证清单
+> **Unified source**: `sprintcycle-workflow.mdc` and `docs/CURSOR_OPTIMIZATION_RULES.md`
 
 | 阶段 | 检查项 | 状态 |
 |------|--------|------|
+| **Phase 1: 需求分析** | SDD §0.2 影响面 + C1… + 初述 vs 建议范围 | [ ] |
 | **Phase 1: 需求分析** | 用户需求已通过 AskUserQuestion 确认 | [ ] |
 | **Phase 1: 需求分析** | 影响范围评估完成 | [ ] |
 | **Phase 1: 需求分析** | 风险评估已记录 | [ ] |
+| **Phase 2: 方案设计** | SDD §6 原则审查表已输出且 ②③ 通过 | [ ] |
 | **Phase 2: 方案设计** | PRD 已通过 HITL 批准 | [ ] |
 | **Phase 2: 方案设计** | 技术方案已通过 HITL 批准 | [ ] |
 | **Phase 2: 方案设计** | 架构合规性检查通过 | [ ] |
@@ -492,6 +544,7 @@ git reset --hard HEAD
 | **Phase 5: 文档同步** | 4 个文档已更新并对齐 | [ ] |
 | **Phase 6: 审批提交** | PR 创建完成，审核人已指定 | [ ] |
 | **Phase 6: 审批提交** | CI/CD 流水线通过 | [ ] |
+| **Closure** | §0.4 一行原则结论已输出 | [ ] |
 
 ---
 

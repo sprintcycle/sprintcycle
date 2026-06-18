@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"name": "sprintcycle",
+			"path": "../.."
+		},
+		{
+			"name": "parents-bio",
+			"path": "../../../../CopyProjects/parents-bio"
+		}
+	],
+	"settings": {}
+}

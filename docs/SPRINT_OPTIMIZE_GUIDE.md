@@ -8,7 +8,7 @@
 
 1. **使用命令**（推荐）
    ```
-   /sprint-optimize
+   /sprint optimize
    ```
 
 2. **使用触发词**
@@ -111,40 +111,26 @@
 
 ## 内置规则
 
-已创建的规则文件：
-
-### 1. `.cursor/rules/sprintcycle-optimization.mdc`
-
-**作用：** Glob-scoped optimization constraints (`sprintcycle/**`, `frontend/**`, `tests/**`)
-- Slim always-on summary; full text in `docs/CURSOR_OPTIMIZATION_RULES.md`
-- 定义优化触发词（含「前后端对齐」）
-- HITL 与无兼容层原则
-- 验证清单摘要
-
-### 2. `.cursor/commands/sprint-optimize.md`
-
-**作用：** Thin command shim → `docs/SPRINT_OPTIMIZE_WORKFLOW.md`
-- 分阶段详细流程见工作流文档
-- 输出模板与回滚机制见 `docs/SPRINT_OPTIMIZE_WORKFLOW.md`
+| 组件 | 路径 | 作用 |
+|------|------|------|
+| Command | `.cursor/commands/sprint.md` | `/sprint optimize` 统一入口 |
+| Rule (glob) | `.cursor/rules/sprintcycle-workflow.mdc` | SDD + optimize + evolve 约束 |
+| 完整参考 | `docs/CURSOR_OPTIMIZATION_RULES.md` | 优化触发词、HITL、无兼容层 |
+| 分阶段流程 | `docs/SPRINT_OPTIMIZE_WORKFLOW.md` | 详细工作流与输出模板 |
 
 ## 规则架构
 
 ```
 用户输入
     ↓
-触发词检测 / 命令调用
+触发词检测 / `/sprint optimize`
     ↓
 ┌─────────────────────────────────┐
-│  Rule (glob-scoped)             │
-│  sprintcycle-optimization.mdc   │
-│  - 精简约束 + 完整文档归档       │
+│  sprintcycle-workflow.mdc       │
+│  (optimize mode)                │
 └─────────────────────────────────┘
     ↓
-┌─────────────────────────────────┐
-│  Command shim (sprint-optimize) │
-│  → SPRINT_OPTIMIZE_WORKFLOW.md  │
-│  - 分阶段工作流（详细）          │
-└─────────────────────────────────┘
+docs/SPRINT_OPTIMIZE_WORKFLOW.md
     ↓
 Agent 执行优化（前后端同步）
     ↓
@@ -312,7 +298,7 @@ Agent 执行优化（前后端同步）
 
 ### 添加新的触发词
 
-编辑 `docs/CURSOR_OPTIMIZATION_RULES.md`（完整参考）或精简规则 `.cursor/rules/sprintcycle-optimization.mdc`：
+编辑 `docs/CURSOR_OPTIMIZATION_RULES.md`（完整参考）或 glob 规则 `.cursor/rules/sprintcycle-workflow.mdc`（optimize 节）：
 
 ```markdown
 ### Optimization Triggers / 优化触发词
@@ -332,15 +318,9 @@ Agent 执行优化（前后端同步）
 2. ...
 ```
 
-### 创建专属 Skill
+### 扩展 optimize 工作流
 
-如果需要更复杂的工作流，可创建：
-
-```
-.cursor/skills/sprint-optimize/SKILL.md
-```
-
-参考 `.cursor/skills/speckit/SKILL.md` 格式。
+编辑 `docs/SPRINT_OPTIMIZE_WORKFLOW.md` 或 `.cursor/rules/sprintcycle-workflow.mdc`（optimize 节）。Evolve 类复杂闭环可参考 `.cursor/skills/sprint-evolve/SKILL.md` 与 `docs/SPRINT_SDD_GATES.md` 格式。
 
 ## 故障排查
 
@@ -376,7 +356,7 @@ Agent 执行优化（前后端同步）
 
 - Architecture (slim): `.cursor/rules/sprintcycle-architecture-orchestration.mdc`
 - Architecture (full): `docs/CURSOR_ARCHITECTURE_ORCHESTRATION.md`
-- Optimize shim: `.cursor/commands/sprint-optimize.md`
+- Command: `.cursor/commands/sprint.md` (`/sprint optimize`)
 - Optimize workflow: `docs/SPRINT_OPTIMIZE_WORKFLOW.md`
 - Optimize rules (full): `docs/CURSOR_OPTIMIZATION_RULES.md`
 - 前端代码：`frontend/src/`

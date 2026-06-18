@@ -1,8 +1,7 @@
 # SprintCycle Optimization Rules (full reference / 完整参考)
 
-> Archived from `.cursor/rules/sprintcycle-optimization.mdc`.  
-> The Cursor rule is a slim, glob-scoped summary; this file is the full bilingual reference.  
-> 归档自精简版 Cursor 规则；本文为完整双语参考。
+> Full reference for `/sprint optimize`. Glob-scoped summary: `.cursor/rules/sprintcycle-workflow.mdc` (optimize section).  
+> `/sprint optimize` 完整参考；glob 摘要见 `sprintcycle-workflow.mdc` optimize 节。
 
 ---
 

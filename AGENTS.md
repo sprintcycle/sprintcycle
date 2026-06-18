@@ -17,6 +17,24 @@ SprintCycle 是一个面向 Web Dashboard / REST API / SDK 的契约驱动生命
 - `.cursor/rules/` — routing and priority rules / 路由和优先级
 - `.cursor/commands/` — command entry points / 命令入口
 
+### Workflow (工作流 — unified entry / 统一入口)
+
+**Primary**: `/sprint` · Index: `.cursor/README.md`
+
+| Mode / 模式 | Use for |
+|-------------|---------|
+| **`/sprint sdd`** (default for substantive work) | Scope, L/F grade, PRD/plan, principle review |
+| **`/sprint optimize`** | Medium+ refactors and alignment |
+| **`/sprint evolve`** | Semi-automated detection → optimize |
+| **`/sprint commit`** | Commit message draft |
+| **`/ci-fix-loop`** | CI repair (separate from `/sprint`) |
+
+**Governance**: `docs/SPRINTCYCLE_CONSTITUTION.md` · **SDD**: `docs/SPRINT_SDD_GATES.md`  
+**Rules**: `sprintcycle-baseline.mdc` (always) · `sprintcycle-workflow.mdc` (glob)
+
+Design artifacts: `docs/sdd-designs/YYYY-MM-DD/` · Template: `docs/templates/sdd-feature-template.md`  
+Historical speckit specs (read-only): `docs/archive/specs/` — **speckit retired 2026-06-18**
+
 ## What to optimize for / 需要优先优化的目标
 
 - Prefer small, safe, incremental changes.

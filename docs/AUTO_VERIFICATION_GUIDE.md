@@ -569,7 +569,7 @@ pytest tests/ -m "not slow"
 ## 📚 相关文档
 
 - [ARCHITECTURE_INVARIANTS.md](../ARCHITECTURE_INVARIANTS.md) - 架构不变性规范
-- [sprint-optimize.md](../.cursor/commands/sprint-optimize.md) - 优化工作流
+- [sprint.md](../.cursor/commands/sprint.md) - `/sprint optimize` 工作流
 - [CI/CD 配置](../.github/workflows/) - 持续集成配置
 - [生产部署指南](./production/PRODUCTION_DEPLOYMENT_GUIDE.md) - 生产环境部署
 

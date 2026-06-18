@@ -1,0 +1,67 @@
+---
+description: SprintCycle unified workflow — SDD gates, optimize, evolve; load on /sprint or workflow triggers
+alwaysApply: false
+globs:
+  - sprintcycle/**
+  - frontend/**
+  - tests/**
+  - docs/sdd-designs/**
+---
+
+# SprintCycle workflow (unified / 统一工作流)
+
+Full references: `docs/SPRINT_SDD_GATES.md` · `docs/SPRINT_OPTIMIZE_WORKFLOW.md` · `docs/CURSOR_OPTIMIZATION_RULES.md`  
+Entry: `/sprint` (modes below) · Skill (evolve only): `.cursor/skills/sprint-evolve/SKILL.md`
+
+## Mode routing (模式路由)
+
+| Mode | Triggers | Pipeline |
+|------|----------|----------|
+| **sdd** | 影响面 · 范围判定 · 假小需求 · 排查修复 · `/sprint sdd` | L/F grade → scope `C1…` → `docs/sdd-designs/` → principle review → implement |
+| **optimize** | 重构 · DDD治理 · 删兼容 · 前后端对齐 · `/sprint optimize` | §0 SDD gates → Phase 1–6 → closure line |
+| **evolve** | 进化 · 自动优化 · `/sprint evolve` | `evolve.py --report-only` → HITL ×2 → **optimize mode** → validate |
+
+---
+
+## SDD gates (all modes / 所有模式共用)
+
+**Four principles**: Rational · Experience · Long-term · Thorough — see `docs/SPRINT_SDD_GATES.md` §2.
+
+| Grade | Doc required? |
+|-------|---------------|
+| L1 / F0 | No (reply checklist) |
+| L2 / F1 / L3 / F2 | Yes — `docs/sdd-designs/` |
+
+**Post-doc review** (before implement): ① complete ② four principles ③ implementable → output review table.
+
+---
+
+## Optimize invariants (optimize + evolve modes)
+
+1. **100% logic preservation** — no unverified deletions
+2. **DDD + hexagonal** — `sprintcycle-architecture-orchestration.mdc`
+3. **No compatibility layers** — final state in one pass; all call sites updated
+4. **HITL** — requirements → PRD → technical plan → then code
+5. **Test** — `uv run pytest`; `make ci-local-quick` for medium+
+6. **Docs sync** — README / `ARCHITECTURE_INVARIANTS.md` when behavior changes
+
+**Execution order**: `domain` → `application` → `interfaces/http` → tests; frontend `api/` → `types/` → `stores/` → `views/`
+
+---
+
+## Evolve extras (evolve mode only)
+
+- `uv run python .cursor/skills/sprint-evolve/evolve.py --report-only`
+- Top 3 HITL scope → plan HITL → optimize pipeline
+- `evolve.py` does **not** edit product code
+- On CI red after implement: `/ci-fix-loop`
+
+**Auto-fix without HITL**: trivial import/style only. **Manual HITL**: business logic, architecture, multi-module.
+
+---
+
+## Closure (收尾)
+
+```text
+Closure: Rational ✅ · Experience ✅ · Long-term ✅ · Thorough ✅ — <one sentence>
+```

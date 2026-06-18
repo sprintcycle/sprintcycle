@@ -21,7 +21,7 @@ Full reference: `docs/CURSOR_ARCHITECTURE_ORCHESTRATION.md` and `docs/ARCHITECTU
 - No domain rules in API, HTTP handlers, or Console Web orchestration. (领域规则不进 API/UI。)
 - No bypassing hooks (lifecycle/policy) or facades (domain coordination). (不绕过 hook/facade。)
 - No duplicate governance/observability/suggestion logic in execution code. (执行层不重复治理逻辑。)
-- No compatibility shims as primary architecture (except documented command shims like `speckit.md`). (不以兼容层为主架构。)
+- No compatibility shims as primary architecture. (不以兼容层为主架构。)
 - No mutable aggregates; cross-aggregate refs by ID only. (聚合根不可变，跨聚合用 ID。)
 - Application layer uses ports only — no direct infrastructure imports outside composition root. (应用层只依赖端口。)
 - Use `LifecycleStateMachine` with `context="lifecycle"|"execution"` — no separate ExecutionStateMachine. (统一状态机。)

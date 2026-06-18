@@ -1,0 +1,36 @@
+---
+description: SprintCycle agent baseline — routing, constitution, when to use /sprint
+alwaysApply: true
+---
+
+# SprintCycle baseline (代理基线)
+
+## One workflow entry (唯一工作流入口)
+
+**`/sprint`** — modes: `sdd` · `optimize` · `evolve` · `commit`  
+Canonical index: `.cursor/README.md`
+
+| Mode | When |
+|------|------|
+| **sdd** (default for substantive work) | Scope, L/F grade, PRD/plan, principle review |
+| **optimize** | Medium+ refactors, DDD cleanup, field alignment |
+| **evolve** | Semi-automated detection → optimize |
+| **commit** | Draft commit message (`it-commit-message-agent`) |
+
+**CI repair (separate)**: `/ci-fix-loop` — not `/sprint`.
+
+## Governance docs (治理文档)
+
+- Constitution: `docs/SPRINTCYCLE_CONSTITUTION.md`
+- SDD gates: `docs/SPRINT_SDD_GATES.md`
+- Optimize phases: `docs/SPRINT_OPTIMIZE_WORKFLOW.md`
+- Architecture (slim): `sprintcycle-architecture-orchestration.mdc` · (full) `docs/CURSOR_ARCHITECTURE_ORCHESTRATION.md`
+
+## Artifacts (落档)
+
+`docs/sdd-designs/YYYY-MM-DD/` · template: `docs/templates/sdd-feature-template.md`  
+Archive: `docs/archive/specs/` (read-only)
+
+## Before substantive coding (编码前)
+
+Grade L/F (`sprintcycle-workflow.mdc`); L2+/F1+ need dated docs; HITL before implement.
